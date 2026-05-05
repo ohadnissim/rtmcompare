@@ -8,24 +8,14 @@ interface Props {
  labelB: string
 }
 
-// 5.2.0 design fix (audit P1-17 / frontend-design): drop the per-category
-// rainbow palette and emoji icons — the Console-Didone trinity ("gold
-// appears once per composition") is broken when each card invents its own
-// hue. Instead: encode category through typography + a single geometric
-// glyph; the only chromatic accent on the card is the gold reference fill.
-// Bar fills run on a single warm grayscale.
-const categoryConfig: Record<string, { icon: string; color: string; accent: string }> = {
- Kick: { icon: '⬤', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Snare: { icon: '◎', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Sub: { icon: '〰', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Bass: { icon: '♪', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Vocals: { icon: '◐', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Instruments: { icon: '◇', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Brightness: { icon: '☼', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Air: { icon: '✦', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Wideness: { icon: '↔', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
- Punch: { icon: '◆', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
-}
+// 5.2.4 (audit P1-17 final pass): removed the per-category glyph map —
+// it was the last decorative-typography hold-out. The audit explicitly
+// said "encode category through typography + position (small-caps section
+// label)". The card now does exactly that: the category name in tracked
+// small-caps IS the visual identity, with the same neutral warm-grey
+// stroke for every card. Gold is reserved for the reference channel
+// (B bar) — single gold gesture per card, per the Console-Didone rule.
+const categoryStrokeColor = '#a8a29e'
 
 // Element → centre frequency for solo-in-place audition. Mirrors the
 // CATEGORY_EQ_MAP in MatchReferenceEQPanel; kept inline so the card is
@@ -45,7 +35,6 @@ const CATEGORY_SOLO_FREQ: Record<string, { freq: number; q: number }> = {
 }
 
 export default function CategoryCard({ category, labelA, labelB }: Props) {
- const config = categoryConfig[category.name] || { icon: '●', color: '#84858c', accent: 'rgba(132,133,140,0.15)' }
  const diff = category.level_diff
  const absDiff = Math.abs(diff)
  const { soloBand, setSolo, clearSolo } = useSolo()
@@ -65,14 +54,16 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  return (
  <div
  className="p-4 transition-all bg-dark-900/40 border border-dark-700/30"
- style={{ borderLeft: `2px solid ${config.color}40` }}
+ style={{ borderLeft: `2px solid ${categoryStrokeColor}40` }}
  >
- {/* Header row */}
+ {/* Header row — typography-only category identity (5.2.4). */}
  <div className="flex items-center justify-between mb-3">
- <div className="flex items-center gap-2.5">
- <span className="text-lg" role="img">{config.icon}</span>
- <span className="font-semibold text-sm">{category.name}</span>
- </div>
+ <span
+ className="text-[11px] font-medium uppercase"
+ style={{ letterSpacing: '0.18em', color: '#ebe7e0' }}
+ >
+ {category.name}
+ </span>
  <div className="flex items-center gap-2">
  {soloMap && (
  <button

@@ -112,44 +112,27 @@ export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid }:
  </div>
  )}
 
- {/* "Ready?" one-button shipping check — condenses the verdict
- into a single icon + label: GO / REVISE / HOLD. The full
- reasons + action line sit above for people who want the
- detail; this button is for the indie / artist-producer
- who just wants to know "can I ship?" */}
- <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
- <div className="flex items-center gap-2">
- <span
- className="text-[10px] uppercase tracking-[0.18em] px-3 py-1 rounded-full"
- style={{
- backgroundColor: verdict.level === 'ready' ? 'rgba(110,197,119,0.14)'
- : verdict.level === 'warn' ? 'rgba(197,165,90,0.14)'
- : 'rgba(224,90,90,0.14)',
- color: palette.accent,
- border: `1px solid ${palette.accent}55`,
- }}
- title={verdict.level === 'ready'
- ? 'All checks passed. Ship it.'
- : verdict.level === 'warn'
- ? 'One or two advisory items above — review, then ship if they\'re intentional.'
- : 'At least one blocking issue — fix before delivery.'}
- >
- {verdict.level === 'ready' ? '✓ Ship it' : verdict.level === 'warn' ? '⚠ Revise' : '✕ Hold'}
- </span>
- <span className="text-[10px]" style={{ color: '#7a7164' }}>
- {verdict.dsp.length} platform{verdict.dsp.length === 1 ? '' : 's'} checked
- </span>
- </div>
- </div>
+ {/* 5.2.4: removed the duplicate Stripe-style "Ship it / Revise / Hold"
+ pill that lived here. The editorial hairline + tracked-caps tag
+ at the top of this card already carries the verdict; the pill was
+ a regression of audit P2-22 ("Verdict tag is a generic SaaS chip,
+ not a colophon mark") that crept back in after the original fix.
+ The platforms-checked count moves down into the per-platform
+ grid header where it belongs. */}
 
  {/* Per-DSP pass/fail grid — hidden by default, surfaced under
- the "Compliance view" toggle. "
+ the "Compliance view" toggle.
  Each row shows the target DSP, measured playback level, and
  the level delta the DSP will apply. */}
  {showDspGrid && verdict.dsp.length > 0 && (
  <div className="mt-3 pt-3 rounded-md overflow-hidden" style={{ borderTop: `1px solid ${palette.accent}22` }}>
- <div className="text-[9px] uppercase tracking-[0.15em] mb-2" style={{ color: palette.accent }}>
+ <div className="flex items-baseline justify-between mb-2">
+ <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: palette.accent }}>
  Per-platform compliance
+ </span>
+ <span className="text-[9px]" style={{ color: '#7a7164' }}>
+ {verdict.dsp.length} platform{verdict.dsp.length === 1 ? '' : 's'} checked
+ </span>
  </div>
  <div style={{ border: '1px solid rgba(168,161,150,0.1)', borderRadius: 6, overflow: 'hidden' }}>
  {verdict.dsp.map((d, i) => (

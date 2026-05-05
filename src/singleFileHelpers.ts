@@ -146,10 +146,12 @@ export function buildVerdict(m: SingleFileMetrics, full?: Partial<AnalysisResult
  let level: VerdictLevel = 'ready'
 
  // HOLD cases — blocking issues.
- if (m.true_peak != null && m.true_peak > streamingTpFloorDbtp()) {
- level = 'hold'
- reasons.push(`True peak ${m.true_peak.toFixed(1)} dBTP — over the −1 dBTP streaming ceiling`)
- }
+ // 5.2.4: TP HOLD removed by user direction (5.1: "no warnings at all,
+ // just display numbers"). The 5.1 sweep cleaned helpers/panels but the
+ // verdict + attention paths inside this file were missed. Streaming
+ // platforms apply their own true-peak limiting; flagging it as HOLD on
+ // the engineer side caused false delivery-blocks on otherwise-clean
+ // masters. Numbers still display via the normal stat readouts.
  if ((m.clipped_samples || 0) > 0) {
  level = 'hold'
  reasons.push(`${m.clipped_samples} clipped sample${m.clipped_samples === 1 ? '' : 's'} at 0 dBFS`)
@@ -290,9 +292,9 @@ export interface AttentionItem {
 
 export function buildAttentionItems(m: SingleFileMetrics, full?: Partial<AnalysisResult> | null): AttentionItem[] {
  const items: AttentionItem[] = []
- if (m.true_peak != null && m.true_peak > streamingTpFloorDbtp()) {
- items.push({ severity: 'hold', message: `True peak ${m.true_peak.toFixed(1)} dBTP — over −1 dBTP. Streaming limiters will engage on ingest.` })
- }
+ // 5.2.4: TP attention item removed by user direction — see buildVerdict
+ // comment above. Number still renders in the stat strip; we don't
+ // editorialize it here.
  if ((m.clipped_samples || 0) > 0) {
  items.push({ severity: 'hold', message: `${m.clipped_samples} clipped sample${m.clipped_samples === 1 ? '' : 's'} at 0 dBFS.` })
  }

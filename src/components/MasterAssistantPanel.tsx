@@ -102,7 +102,10 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  // ISRC + title / artist pulled from the analysis so BEXT / iXML
  // auto-embed at render time (
  const rc = (result as any).reference_check?.stats || {}
- const isrc = (result as any).genre_a?.isrc || rc.isrc || null
+ // 5.2.4: removed dead `(result as any).genre_a?.isrc` fallback —
+ // genre_a was deleted from the schema in 5.2.3; the field never
+ // populated even before that.
+ const isrc = rc.isrc || null
  const title = (result as any).reference_check?.song_info?.title || label || null
  const artist = (result as any).reference_check?.song_info?.artist || null
  const now = new Date().toISOString()

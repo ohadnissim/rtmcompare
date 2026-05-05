@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 
 /**
  * User surface — controls which groups of panels + DSP profiles the UI
@@ -174,12 +174,21 @@ export function ModesProvider({ children }: { children: React.ReactNode }) {
  })
  }, [])
 
- return (
- <ModesContext.Provider value={{
+ // 5.2.4: memoise the provider value. Without this, every render of
+ // ModesProvider invalidates every useModes() consumer (the inline
+ // object literal is a fresh reference each render). The 5.2.0 audit
+ // (P0 #8 companion fix) called this out; the fix never landed —
+ // 5.2.4 QA caught it. Cheap one-line fix; major perf win on the
+ // ABPlayer + AnalysisView re-render path because TpMeter + every
+ // surface toggle consumer now stays stable.
+ const value = useMemo(() => ({
  educator, blind, surface, advancedQc,
  setEducator, setBlind, setSurface, setAdvancedQc,
  toggleEducator, toggleBlind, toggleAdvancedQc,
- }}>
+ }), [educator, blind, surface, advancedQc, setSurface, toggleEducator, toggleBlind, toggleAdvancedQc])
+
+ return (
+ <ModesContext.Provider value={value}>
  {children}
  </ModesContext.Provider>
  )

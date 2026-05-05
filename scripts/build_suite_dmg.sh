@@ -19,7 +19,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="5.2.3"
+VERSION="5.2.4"
 NAME="RTMcompare-bundle-${VERSION}"
 VOL="RTMcompare bundle ${VERSION}"
 OUT_DIR="${PROJECT}/release"
@@ -33,9 +33,9 @@ RTMCOMPARE_APP="${PROJECT}/release-build/mac-arm64/RTMcompare.app"
 RTMPROFILE_APP="${PROJECT}/rtm-profile-app/release-build/mac-arm64/RTMprofile.app"
 PLUGIN_PKG="${PROJECT}/rtm-send-plugin/release/RTM-Send-1.0.0.pkg"
 PLUGIN_DMG="${PROJECT}/rtm-send-plugin/release/RTM-Send-1.0.0.dmg"
-DOC_MANUAL="${PROJECT}/release/v5.2.3/MANUAL.pdf"
-DOC_FEATURES="${PROJECT}/release/v5.2.3/FEATURES.pdf"
-DOC_PITCH="${PROJECT}/release/v5.2.3/PITCH-DECK.pdf"
+DOC_MANUAL="${PROJECT}/release/v5.2.4/MANUAL.pdf"
+DOC_FEATURES="${PROJECT}/release/v5.2.4/FEATURES.pdf"
+DOC_PITCH="${PROJECT}/release/v5.2.4/PITCH-DECK.pdf"
 
 # Sanity-check sources exist.
 for path in "$RTMCOMPARE_APP" "$RTMPROFILE_APP" "$PLUGIN_PKG" \
@@ -77,6 +77,17 @@ Notes:
 - Open both .app files from /Applications, not from this DMG window.
   macOS App Translocation will refuse to launch them otherwise.
 - Everything is signed (Developer ID Application) and notarized.
+
+Beta-known issues (tracked for the next release):
+- RTM Send "Loop" and "Last-N seconds" captures may land ±1 audio
+  buffer (~10 ms at 48 kHz / 512-sample buffers) off the host loop
+  boundary. For sample-accurate, phase-cancellable captures, use the
+  ARA region-selection path instead.
+- RTM Send 5.2.4 supports stereo and mono only. Surround / Atmos
+  channel layouts are tracked for a future release.
+- RTM Send capture identity is not yet cryptographically bound between
+  the .wav, .json, and .ready files (safe on a single-user box;
+  hardening tracked).
 
 RTMcompare ${VERSION} — © 2026 Ohad Nissim — all features run locally
 EOF

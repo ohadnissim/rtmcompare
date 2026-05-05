@@ -1,8 +1,7 @@
 {
   "name": "Ohad Nissim",
   "role": "Mastering Engineer",
-  "genres": ["Modern Pop", "Hip-Hop", "R&B", "Electronic"],
-  "description": "Mastering Engineer — Modern Pop, Hip-Hop, R&B, Electronic",
+  "description": "Mastering Engineer",
   "sample_count": 75,
   "curve": [-29.2, -13.1, -2.3, 4.9, 7.7, 7.4, 5.6, 4.9, 4.3, 3.3, 3.5, 3.5, 3.1, 2.9, 3.1, 2.7, 1.6, 0.0, -1.0, -0.9, -2.5, -3.6, -4.6, -5.8, -7.0, -6.2, -6.2, -6.7, -9.2, -15.3, -24.5],
   "lufs_avg": -8.7,
