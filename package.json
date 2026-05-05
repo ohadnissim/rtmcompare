@@ -7,7 +7,7 @@
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
     "build": "python3 scripts/generate_specs.py && tsc -p tsconfig.electron.json && vite build",
     "pack": "npm run build && electron-builder --mac",
-    "pack:win": "npm run build && electron-builder --win",
+    "pack:win": "npm run build && electron-builder --win --publish=never",
     "dev:vite": "vite",
     "dev:electron": "tsc -p tsconfig.electron.json && electron ."
   },

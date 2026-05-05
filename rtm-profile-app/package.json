@@ -7,7 +7,7 @@
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
     "build": "tsc -p tsconfig.electron.json && vite build",
     "pack": "npm run build && electron-builder --mac",
-    "pack:win": "npm run build && electron-builder --win"
+    "pack:win": "npm run build && electron-builder --win --publish=never"
   },
   "build": {
     "appId": "com.rtm.rtmprofile",
