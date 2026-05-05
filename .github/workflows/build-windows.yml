@@ -157,15 +157,20 @@ jobs:
 
           RTMcompare $version - (c) 2026 Ohad Nissim
           "@
-          $readme | Set-Content -Path "$stage/README.txt" -Encoding UTF8
+          # Write README with explicit LF endings (Set-Content forces CRLF
+          # on Windows; LF reads cleanly in any tool, including macOS.)
+          [System.IO.File]::WriteAllText("$stage/README.txt", $readme.Replace("`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
 
           # ZIP the staging dir.
           $zipName = "$stage.zip"
           if (Test-Path $zipName) { Remove-Item $zipName }
           Compress-Archive -Path "$stage/*" -DestinationPath $zipName -CompressionLevel Optimal
 
-          # SHA-256 alongside.
-          (Get-FileHash $zipName -Algorithm SHA256).Hash + "  $zipName" | Set-Content "$zipName.sha256"
+          # SHA-256 alongside, written with LF so `shasum -c` works on
+          # macOS / Linux without `dos2unix`. Set-Content adds CRLF which
+          # tripped verification in 5.1.2's first download.
+          $line = (Get-FileHash $zipName -Algorithm SHA256).Hash + "  $zipName`n"
+          [System.IO.File]::WriteAllText("$zipName.sha256", $line, [System.Text.ASCIIEncoding]::new())
 
           echo "zip=$zipName" >> $env:GITHUB_OUTPUT
           Get-Item $zipName | Format-List Name, Length
