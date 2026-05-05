@@ -69,33 +69,45 @@ export function pythonSpawnEnv(): NodeJS.ProcessEnv {
   }
 }
 
+// 5.2.2 (audit P1-W4): on Windows, Node's `proc.kill('SIGTERM')`
+// unconditionally TerminateProcess'es the parent only — it has no notion
+// of process groups, so any Python children (numba JIT, demucs torch
+// worker, ffmpeg) keep running and pin file handles. Use `taskkill /T`
+// for tree-kill on Windows; SIGTERM/SIGKILL on POSIX.
+function killTree(p: ChildProcess) {
+  if (p.killed) return
+  if (process.platform === 'win32') {
+    try {
+      const { execFileSync } = require('child_process') as typeof import('child_process')
+      execFileSync('taskkill', ['/pid', String(p.pid), '/T', '/F'], { stdio: 'ignore' })
+    } catch {
+      try { p.kill() } catch {}
+    }
+  } else {
+    try {
+      p.kill('SIGTERM')
+      const t = setTimeout(() => { try { if (!p.killed) p.kill('SIGKILL') } catch {} }, 1000)
+      p.once('exit', () => clearTimeout(t))
+    } catch {}
+  }
+}
+
 export function cancelActiveAnalysis(): boolean {
   // 5.2.0: walk the entire active-jobs map (was: only killed the single
-  // most-recent comparator). SIGTERM each, SIGKILL stragglers after 1s.
+  // most-recent comparator). 5.2.2: tree-kill on Windows so child Python
+  // workers don't orphan.
   let killed = false
   for (const [id, p] of activeJobs) {
     if (!p.killed) {
-      try {
-        p.kill('SIGTERM')
-        killed = true
-        // Per-process SIGKILL fallback. Clear the timer if exit lands first
-        // so we don't accidentally SIGKILL a recycled PID.
-        const proc = p
-        const t = setTimeout(() => { try { if (!proc.killed) proc.kill('SIGKILL') } catch {} }, 1000)
-        proc.once('exit', () => clearTimeout(t))
-      } catch {}
+      killTree(p)
+      killed = true
     }
     activeJobs.delete(id)
   }
   // Legacy single-slot pointer kept in sync.
   if (activeProc && !activeProc.killed) {
-    try {
-      activeProc.kill('SIGTERM')
-      const p = activeProc
-      const t = setTimeout(() => { try { if (!p.killed) p.kill('SIGKILL') } catch {} }, 1000)
-      p.once('exit', () => clearTimeout(t))
-      killed = true
-    } catch {}
+    killTree(activeProc)
+    killed = true
   }
   return killed
 }
@@ -266,12 +278,26 @@ export async function analyzePython(
         stderr = `RTMcompare aborted the analysis: ${stdoutBytes + stderrBytes >= STDOUT_CAP_BYTES ? 'output exceeded 256 MB' : 'timed out (set RTM_PY_TIMEOUT_MS to override)'}.`
       }
 
-      // Debug log
-      try {
-        const debugFs = require('fs')
-        debugFs.writeFileSync('/tmp/rtm-debug.log',
-          `Exit: ${code} Signal: ${signal}\nPython: ${pythonCmd}\nScript: ${scriptPath}\nArgs: ${args.join(' ')}\nStdout len: ${stdout.length}\nStderr: ${stderr.slice(-1000)}\n`)
-      } catch {}
+      // 5.2.2 (audit P0-W3 + P0-F5 from Mac): debug log was hardcoded to
+      // /tmp/rtm-debug.log — broken on Windows AND a low-grade info-disclosure
+      // (world-readable temp file with absolute paths every analysis).
+      // Now: gated behind RTM_DEBUG=1, written under app userData with
+      // 0600 perms, cross-platform.
+      if (process.env.RTM_DEBUG) {
+        try {
+          let userData: string
+          try {
+            userData = require('electron').app.getPath('userData')
+          } catch {
+            userData = require('os').tmpdir()
+          }
+          const debugPath = path.join(userData, 'rtm-debug.log')
+          fs.writeFileSync(debugPath,
+            `Exit: ${code} Signal: ${signal}\nPython: ${pythonCmd}\nScript: ${scriptPath}\nArgs: ${args.join(' ')}\nStdout len: ${stdout.length}\nStderr: ${stderr.slice(-1000)}\n`,
+            { mode: 0o600 }
+          )
+        } catch {}
+      }
 
       // Distinguish cancelled from crashed.
       if (signal === 'SIGTERM' || signal === 'SIGKILL') {

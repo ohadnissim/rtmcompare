@@ -1,6 +1,6 @@
 {
   "name": "rtmprofile",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Build a custom engineer profile from a corpus of audio. Loads into RTMcompare's Match tab.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -23,40 +23,57 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": false
+      "notarize": false,
+      "extraResources": [
+        {
+          "from": "../python-bundle",
+          "to": "python-bundle",
+          "filter": [
+            "**/*",
+            "!**/__pycache__/**",
+            "!**/*.pyc",
+            "!**/test/**",
+            "!**/tests/**",
+            "!**/include/**",
+            "!**/*.a",
+            "!**/*.dylib.dSYM/**"
+          ]
+        }
+      ]
     },
     "win": {
       "icon": "build/icon.ico",
       "target": [
         { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
+      ],
+      "extraResources": [
+        {
+          "from": "../python-bundle-win",
+          "to": "python-bundle-win",
+          "filter": [
+            "**/*",
+            "!**/__pycache__/**",
+            "!**/*.pyc",
+            "!**/test/**",
+            "!**/tests/**",
+            "!**/include/**"
+          ]
+        }
       ]
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "RTMprofile"
     },
     "files": ["dist/**/*", "dist-electron/**/*"],
     "extraResources": [
-      { "from": "python", "to": "python", "filter": ["**/*.py"] },
-      {
-        "from": "../python-bundle",
-        "to": "python-bundle",
-        "filter": [
-          "**/*",
-          "!**/__pycache__/**",
-          "!**/*.pyc",
-          "!**/test/**",
-          "!**/tests/**",
-          "!**/include/**",
-          "!**/*.a",
-          "!**/*.dylib.dSYM/**"
-        ]
-      }
+      { "from": "python", "to": "python", "filter": ["**/*.py"] }
     ],
     "asar": true
   },

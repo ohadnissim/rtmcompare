@@ -79,7 +79,14 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
-  mainWindow.webContents.on('will-navigate', (e) => e.preventDefault())
+  // 5.2.2 hardening (audit P1): mirror RTMcompare's renderer lockdown.
+  // CSP lives in index.html; window-level handlers complete the picture.
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('http://localhost:5174') && !url.startsWith('file://')) {
+      e.preventDefault()
+    }
+  })
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
@@ -127,6 +134,12 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
   if (!args.name?.trim()) {
     return { ok: false, error: 'engineer name required' }
   }
+  // 5.2.2 hardening (audit P1): cap engineer name length so a runaway
+  // string can't blow up filename-handling downstream (slugify can
+  // collide silently). 80 chars is plenty for any real engineer name.
+  if (args.name.length > 80) {
+    return { ok: false, error: 'engineer name must be 80 characters or less' }
+  }
   // Validate every file path exists before spawning Python — better
   // error than "file not found" buried in stderr.
   for (const f of args.files) {
@@ -136,10 +149,25 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
   }
 
   const { python, reason } = resolvePython()
-  const basePath = app.isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
+  const basePath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..')
   const scriptPath = path.join(basePath, 'python', 'build_profile.py')
   if (!fs.existsSync(scriptPath)) {
     return { ok: false, error: `build_profile.py missing at ${scriptPath}` }
+  }
+
+  // 5.2.2 hardening (audit P1): if the renderer sends an outPath, pin
+  // it to ~/.rtm/profiles/ so a future renderer compromise can't write
+  // to ~/Library/LaunchAgents/foo.plist or other sensitive locations.
+  // Without an outPath the Python derives one from --name (legitimate
+  // path, also under ~/.rtm/profiles/).
+  let safeOutPath: string | undefined
+  if (args.outPath) {
+    const profilesDir = path.resolve(require('os').homedir(), '.rtm', 'profiles')
+    const resolved = path.resolve(args.outPath)
+    if (!resolved.startsWith(profilesDir + path.sep) && resolved !== profilesDir) {
+      return { ok: false, error: 'outPath must live under ~/.rtm/profiles/' }
+    }
+    safeOutPath = resolved
   }
 
   const cliArgs = [
@@ -150,7 +178,7 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
     '--progress',
   ]
   if (args.deep) cliArgs.push('--deep')
-  if (args.outPath) cliArgs.push('--out', args.outPath)
+  if (safeOutPath) cliArgs.push('--out', safeOutPath)
   cliArgs.push(...args.files)
 
   return await new Promise<any>((resolve) => {
@@ -207,7 +235,20 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
         return
       }
       try {
-        const result = JSON.parse(stdout.trim().split('\n').pop() || '{}')
+        // 5.2.2 (audit P1): scan stdout from the END for the first
+        // line that starts with `{` and parse THAT as JSON. The old
+        // `.split('\n').pop()` picked any trailing line — a stray
+        // deprecation warning from a transitive Python dep would
+        // turn a successful build into a phantom failure.
+        const lines = stdout.split('\n')
+        let result: any = null
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const t = lines[i].trim()
+          if (t.startsWith('{')) {
+            try { result = JSON.parse(t); break } catch { /* try previous */ }
+          }
+        }
+        if (result == null) throw new Error('no JSON output found in stdout')
         resolve({ ...result, python_resolution: reason })
       } catch (e: any) {
         resolve({ ok: false, error: `parse failed: ${e?.message}; raw=${stdout.slice(-400)}` })

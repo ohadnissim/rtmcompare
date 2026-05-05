@@ -45,7 +45,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: python-bundle-win
-          key: pybundle-win-py3.11.9-numpy-scipy-soundfile-pyloudnorm-v1
+          # Cache key bumped to v2 in 5.2.2: previous Windows bundles were
+          # missing librosa/numba/demucs/julius/openunmix — half the
+          # analyser modules failed at import time on Windows. The
+          # canonical Mac bundle has all of them; matching here.
+          key: pybundle-win-py3.11.9-full-dsp-stack-v2
 
       - name: Build python-bundle-win (embeddable Python + DSP deps)
         if: steps.cache-pybundle.outputs.cache-hit != 'true'
@@ -74,12 +78,21 @@ jobs:
           # the Mac bundle's pinned set so behaviour is identical across
           # platforms. Anything we add here gets a new cache key (bump
           # the suffix in the cache step above).
+          # 5.2.2 fix: the previous bundle shipped only numpy/scipy/
+          # soundfile/pyloudnorm, but ~half the analyser modules
+          # (analyze.py, ai_detector.py, separator.py, click_detector.py,
+          # tonal_issues.py, masking.py, transient_density.py,
+          # engineer_profile.py deep-scan, atmos_comparator.py,
+          # reference_quickscan.py, hum_detector.py) `import librosa`
+          # at the top — every Windows analysis crashed with
+          # ModuleNotFoundError. Adding the full Mac-equivalent stack.
           ./python-bundle-win/python/python.exe -m pip install `
             --no-warn-script-location `
-            numpy scipy soundfile pyloudnorm
+            numpy scipy soundfile pyloudnorm `
+            librosa numba demucs julius openunmix
 
           # Sanity check the imports work in this exact interpreter.
-          ./python-bundle-win/python/python.exe -c "import numpy, scipy, soundfile, pyloudnorm; print('OK', numpy.__version__, scipy.__version__)"
+          ./python-bundle-win/python/python.exe -c "import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius; print('OK', numpy.__version__, scipy.__version__, librosa.__version__)"
 
           Remove-Item python-embed.zip, get-pip.py
 

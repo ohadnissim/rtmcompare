@@ -9,10 +9,12 @@
     <true/>
     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
     <true/>
+    <!-- 5.2.2 (audit P1): library-validation stays disabled because the
+         bundled Python's C-extensions (numpy / scipy / soundfile / pyloudnorm)
+         carry their own signing chain that mac wouldn't otherwise accept.
+         disable-executable-page-protection was an over-broad inclusion —
+         Electron + bundled Python don't need it. Removed in 5.2.2. -->
     <key>com.apple.security.cs.disable-library-validation</key>
-    <true/>
-    <!-- Python subprocess needs to exec -->
-    <key>com.apple.security.cs.disable-executable-page-protection</key>
     <true/>
 
     <!-- File access (drag-and-drop audio files) -->

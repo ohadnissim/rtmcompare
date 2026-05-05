@@ -2,18 +2,51 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <!--
+    5.2.2 hardening (audit P1): mirror the parent app's CSP + font system
+    so a future renderer XSS doesn't escalate via our four IPC handlers,
+    and so the Console-Didone display face actually appears.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: file:; media-src 'self' blob: data: file:; connect-src 'self' http://localhost:5174 ws://localhost:5174; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <title>RTMprofile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    /*
+      5.2.2 baseline (audit P0): body type bumped from 11–12 px (sub-WCAG)
+      to 14 px / 1.55 line-height. Focus indicators added globally
+      because every input had `outline: none` with no replacement —
+      keyboard users were stranded.
+    */
     html, body, #root {
       margin: 0;
       padding: 0;
       height: 100%;
       overflow: hidden;
       background: #1c1a17;
-      color: #ebe7e0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      color: #c9c3b7;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
       -webkit-user-select: none;
       user-select: none;
+    }
+    *:focus-visible {
+      outline: 2px solid #d0b066;
+      outline-offset: 2px;
+      border-radius: 2px;
+    }
+    /* Console-Didone display face — used for the wordmark + the
+       "Build profile" CTA label only. Keep gold for ONE gesture per
+       view; everything else stays in the warm-grey palette. */
+    .display-serif {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-style: italic;
+      letter-spacing: -0.005em;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
     }
   </style>
 </head>

@@ -365,7 +365,26 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
 def aggregate(per_file: list[dict[str, Any]],
               name: str, role: str, genres: list[str],
               deep: bool = False) -> dict[str, Any]:
-    valid = [m for m in per_file if m is not None and np.isfinite(m["lufs"])]
+    # 5.2.2 (audit P2): finite-LUFS alone isn't enough. A digital-silence
+    # file passes pyloudnorm's gate at ~-70 LUFS and finite — but its
+    # spectrum is noise floor and pulls `curve_mad` toward garbage,
+    # widening the cohort spread fed into the Austin Seltzer fix and
+    # making downstream EQ recommendations under-fire. Require a real
+    # peak above -60 dBFS.
+    silent_skipped = sum(
+        1 for m in per_file
+        if m is not None and np.isfinite(m["lufs"]) and m.get("peak_db", -100) <= -60
+    )
+    valid = [
+        m for m in per_file
+        if m is not None and np.isfinite(m["lufs"]) and m.get("peak_db", -100) > -60
+    ]
+    if silent_skipped:
+        print(
+            f"[build_profile] skipped {silent_skipped} silent file(s) "
+            f"(peak <= -60 dBFS — would inflate curve_mad)",
+            file=sys.stderr,
+        )
     if not valid:
         raise SystemExit("no valid measurements — every input file failed to read or was silent")
 

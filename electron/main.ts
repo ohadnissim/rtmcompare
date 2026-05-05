@@ -1120,6 +1120,13 @@ function startIncomingWatcher() {
     // arbitrary files into ~/.rtm/inbox/. The DAW plugin only ever
     // writes plain ASCII names anyway.
     const SAFE_INCOMING = /^[A-Za-z0-9_.-]+\.ready$/
+    // 5.2.2 (audit P1-W5): Windows fs.watch fires multiple events per
+    // write (rename + change pair on .ready drops), so the same .wav
+    // gets re-broadcast 2-3× per Send. In-memory dedup with 1 s TTL
+    // suppresses repeats on every platform — also defends against any
+    // other multi-event watcher quirks.
+    const recentBroadcasts = new Map<string, number>()
+    const DEDUP_WINDOW_MS = 1000
     incomingWatcher = fs.watch(INCOMING_DIR, (event, filename) => {
       if (!filename) return
       if (!filename.endsWith('.ready')) return
@@ -1129,6 +1136,18 @@ function startIncomingWatcher() {
       if (safeName !== String(filename) || !SAFE_INCOMING.test(safeName)) {
         try { fs.unlinkSync(path.join(INCOMING_DIR, safeName)) } catch {}
         return
+      }
+      const now = Date.now()
+      const last = recentBroadcasts.get(safeName)
+      if (last != null && now - last < DEDUP_WINDOW_MS) {
+        return
+      }
+      recentBroadcasts.set(safeName, now)
+      // Sweep stale entries periodically to keep the map bounded.
+      if (recentBroadcasts.size > 100) {
+        for (const [k, v] of recentBroadcasts) {
+          if (now - v > DEDUP_WINDOW_MS * 5) recentBroadcasts.delete(k)
+        }
       }
       // Debounce tiny write latency — a 50 ms pause lets the plugin
       // finish rename + fsync on slow drives.
