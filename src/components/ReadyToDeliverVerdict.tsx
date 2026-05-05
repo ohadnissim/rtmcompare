@@ -1,0 +1,162 @@
+import React from 'react'
+import { Verdict } from '../singleFileHelpers'
+
+/**
+ * Top-of-view pass/fail block — the "is this track going to cause a problem
+ * at delivery?" answer the GM / Delivery Ops asked for, mapped to each DSP's
+ * spec. Colour-coded left rail matches the Client Report PDF verdict so the
+ * on-screen and export surfaces read as one voice.
+ */
+export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid }: { verdict: Verdict; compact?: boolean; showDspGrid?: boolean }) {
+ const palette = {
+ ready: { accent: '#6ec577', bg: 'rgba(110,197,119,0.08)', tag: 'READY' },
+ warn: { accent: '#c5a55a', bg: 'rgba(197,165,90,0.08)', tag: 'WARN' },
+ hold: { accent: '#e05a5a', bg: 'rgba(224,90,90,0.08)', tag: 'HOLD' },
+ }[verdict.level]
+
+ return (
+ <div
+ className="rounded-xl"
+ style={{
+ backgroundColor: palette.bg,
+ borderLeft: `3px solid ${palette.accent}`,
+ padding: compact ? '10pt 14pt' : '14pt 18pt',
+ }}
+ >
+ <div className="flex items-center gap-3 flex-wrap">
+ <span
+ className="text-[9px] font-semibold tracking-[0.18em] uppercase px-2 py-0.5 rounded-full"
+ style={{ color: palette.accent, backgroundColor: `${palette.accent}20` }}
+ >
+ {palette.tag}
+ </span>
+ <span
+ className="font-medium"
+ style={{
+ color: '#ebe7e0',
+ fontSize: compact ? 15 : 18,
+ letterSpacing: 0.005,
+ lineHeight: 1.3,
+ }}
+ >
+ {verdict.title}
+ </span>
+ {/* Mono-compat badge — single number in the verdict row replaces
+ the dedicated Mono Compat heatmap panel. Green < 10% loss,
+ gold 10-30%, red > 30% (bluetooth / phone-speaker damage). */}
+ {verdict.monoLossPct != null && (
+ <span
+ className="text-[9px] tracking-[0.12em] uppercase px-2 py-0.5 rounded-full"
+ style={{
+ color: verdict.monoLossPct > 30 ? '#e05a5a' : verdict.monoLossPct > 10 ? '#c5a55a' : '#6ec577',
+ backgroundColor: verdict.monoLossPct > 30 ? 'rgba(224,90,90,0.12)' : verdict.monoLossPct > 10 ? 'rgba(197,165,90,0.12)' : 'rgba(110,197,119,0.12)',
+ }}
+ title={`Mono compatibility — ${verdict.monoLossPct.toFixed(0)}% energy loss when collapsed to mono. Press M in the player to hear it.`}
+ >
+ Mono −{verdict.monoLossPct.toFixed(0)}%
+ </span>
+ )}
+ </div>
+
+ {verdict.reasons.length > 0 && (
+ <ul className="mt-2 space-y-0.5 text-[11px]" style={{ color: '#b5afa4' }}>
+ {verdict.reasons.slice(0, compact ? 3 : 6).map((r, i) => (
+ <li key={i}><span style={{ color: palette.accent }}>·</span> {r}</li>
+ ))}
+ </ul>
+ )}
+
+ {/* Action line — the "what do I DO" the 
+ Renders below the reasons so the user reads the diagnosis
+ first, then the concrete next step. Only skipped when there
+ isn't one (older cached verdicts from before this field). */}
+ {verdict.action && (
+ <div
+ className="mt-3 pt-2.5 flex items-baseline gap-2"
+ style={{ borderTop: `1px solid ${palette.accent}33` }}
+ >
+ <span
+ className="text-[9px] uppercase tracking-[0.18em] flex-shrink-0"
+ style={{ color: palette.accent, opacity: 0.85 }}
+ >
+ Next
+ </span>
+ <span
+ className="text-[12px] leading-snug"
+ style={{ color: '#ebe7e0', fontWeight: 500 }}
+ >
+ {verdict.action}
+ </span>
+ </div>
+ )}
+
+ {/* "Ready?" one-button shipping check — condenses the verdict
+ into a single icon + label: GO / REVISE / HOLD. The full
+ reasons + action line sit above for people who want the
+ detail; this button is for the indie / artist-producer
+ who just wants to know "can I ship?" */}
+ <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+ <div className="flex items-center gap-2">
+ <span
+ className="text-[10px] uppercase tracking-[0.18em] px-3 py-1 rounded-full"
+ style={{
+ backgroundColor: verdict.level === 'ready' ? 'rgba(110,197,119,0.14)'
+ : verdict.level === 'warn' ? 'rgba(197,165,90,0.14)'
+ : 'rgba(224,90,90,0.14)',
+ color: palette.accent,
+ border: `1px solid ${palette.accent}55`,
+ }}
+ title={verdict.level === 'ready'
+ ? 'All checks passed. Ship it.'
+ : verdict.level === 'warn'
+ ? 'One or two advisory items above — review, then ship if they\'re intentional.'
+ : 'At least one blocking issue — fix before delivery.'}
+ >
+ {verdict.level === 'ready' ? '✓ Ship it' : verdict.level === 'warn' ? '⚠ Revise' : '✕ Hold'}
+ </span>
+ <span className="text-[10px]" style={{ color: '#7a7164' }}>
+ {verdict.dsp.length} platform{verdict.dsp.length === 1 ? '' : 's'} checked
+ </span>
+ </div>
+ </div>
+
+ {/* Per-DSP pass/fail grid — hidden by default, surfaced under
+ the "Compliance view" toggle. "
+ Each row shows the target DSP, measured playback level, and
+ the level delta the DSP will apply. */}
+ {showDspGrid && verdict.dsp.length > 0 && (
+ <div className="mt-3 pt-3 rounded-md overflow-hidden" style={{ borderTop: `1px solid ${palette.accent}22` }}>
+ <div className="text-[9px] uppercase tracking-[0.15em] mb-2" style={{ color: palette.accent }}>
+ Per-platform compliance
+ </div>
+ <div style={{ border: '1px solid rgba(168,161,150,0.1)', borderRadius: 6, overflow: 'hidden' }}>
+ {verdict.dsp.map((d, i) => (
+ <div
+ key={d.name}
+ className="flex items-center px-3 py-1.5 text-[11px]"
+ style={{
+ borderTop: i === 0 ? 'none' : '1px solid rgba(168,161,150,0.08)',
+ backgroundColor: d.pass ? 'rgba(110,197,119,0.04)' : 'rgba(224,90,90,0.04)',
+ }}
+ >
+ <span
+ className="w-16 text-[9px] uppercase tracking-[0.12em]"
+ style={{ color: d.pass ? '#6ec577' : '#e05a5a' }}
+ >
+ {d.pass ? '✓ Pass' : '✕ Fail'}
+ </span>
+ <span className="w-32 font-medium" style={{ color: '#ebe7e0' }}>{d.name}</span>
+ <span className="flex-1 font-mono text-[10px]" style={{ color: '#a8a29e' }}>{d.detail}</span>
+ </div>
+ ))}
+ </div>
+ </div>
+ )}
+
+ {/* Per-DSP pass/fail grid was here; removed at user's request —
+ "not a fan of that alert system." The Streaming Normalization
+ Preview panel below (with a ▶ play button per platform, same
+ pattern as Compare mode) is the proper detail surface. */}
+ </div>
+ )
+}

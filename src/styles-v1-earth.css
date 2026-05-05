@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+@theme {
+  /* These are the dark theme defaults — light overrides below */
+  --color-sand-50: #f5f5f4;
+  --color-sand-100: #e7e5e4;
+  --color-sand-200: #d6d3d1;
+  --color-sand-300: #a8a29e;
+  --color-sand-400: #78716c;
+  --color-sand-500: #57534e;
+  --color-sand-600: #44403c;
+  --color-sand-700: #33302c;
+  --color-sand-800: #272524;
+  --color-sand-900: #1e1d1c;
+  --color-sand-950: #141313;
+
+  --color-terra: #e07a4f;
+  --color-terra-light: #f0936a;
+  --color-terra-dark: #c4623a;
+  --color-sage: #6ec577;
+  --color-sage-light: #8fd696;
+  --color-warm-red: #e05a5a;
+  --color-slate-blue: #6b8cbb;
+
+  --color-dark-50: #f5f5f4;
+  --color-dark-100: #e7e5e4;
+  --color-dark-200: #d6d3d1;
+  --color-dark-300: #a8a29e;
+  --color-dark-400: #78716c;
+  --color-dark-500: #57534e;
+  --color-dark-600: #44403c;
+  --color-dark-700: #33302c;
+  --color-dark-800: #1e1d1c;
+  --color-dark-900: #181717;
+  --color-dark-950: #141313;
+}
+
+/* ─── Dark theme (default) ─── */
+@layer base {
+  body {
+    background-color: var(--color-sand-950);
+    color: var(--color-sand-100);
+    -webkit-font-smoothing: antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.005em;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  h1, h2, h3 {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--color-sand-50);
+  }
+
+  /* ─── Light theme overrides — warm cream, not white ─── */
+  [data-theme="light"] body,
+  [data-theme="light"] {
+    --color-sand-50: #2c2926;
+    --color-sand-100: #3d3835;
+    --color-sand-200: #524c47;
+    --color-sand-300: #6b645d;
+    --color-sand-400: #8a8279;
+    --color-sand-500: #a59d94;
+    --color-sand-600: #c8c1b8;
+    --color-sand-700: #ddd7cf;
+    --color-sand-800: #ece8e2;
+    --color-sand-900: #f4f1ec;
+    --color-sand-950: #f9f7f3;
+
+    --color-dark-50: #2c2926;
+    --color-dark-100: #3d3835;
+    --color-dark-200: #524c47;
+    --color-dark-300: #6b645d;
+    --color-dark-400: #8a8279;
+    --color-dark-500: #a59d94;
+    --color-dark-600: #c8c1b8;
+    --color-dark-700: #ddd7cf;
+    --color-dark-800: #ece8e2;
+    --color-dark-900: #f4f1ec;
+    --color-dark-950: #f9f7f3;
+
+    --color-terra: #b85a32;
+    --color-terra-light: #c96d44;
+
+    --color-sage: #3d8a45;
+    --color-warm-red: #c04040;
+    --color-slate-blue: #4a6f96;
+  }
+
+  [data-theme="light"] body {
+    background-color: #f9f7f3;
+    color: #3d3835;
+  }
+
+  [data-theme="light"] h1,
+  [data-theme="light"] h2,
+  [data-theme="light"] h3 {
+    color: #2c2926;
+  }
+}
+
+@layer components {
+  .drop-zone {
+    border: 1px dashed var(--color-sand-600);
+    border-radius: 1rem;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: var(--color-sand-900);
+  }
+  .drop-zone:hover {
+    border-color: var(--color-sand-400);
+    background-color: var(--color-sand-800);
+  }
+  .drop-zone.active {
+    border-color: var(--color-terra);
+    background-color: rgba(224, 122, 79, 0.08);
+  }
+  .drop-zone.loaded {
+    border-color: var(--color-sage);
+    border-style: solid;
+    background-color: rgba(110, 197, 119, 0.06);
+  }
+  .stem-card {
+    background-color: var(--color-sand-900);
+    border-radius: 0.875rem;
+    padding: 1.5rem;
+    border: 1px solid var(--color-sand-700);
+  }
+  .btn-primary {
+    padding: 0.875rem 2.5rem;
+    background-color: var(--color-terra);
+    color: #fff;
+    font-weight: 500;
+    font-size: 0.875rem;
+    border-radius: 0.625rem;
+    transition: all 0.2s ease;
+    letter-spacing: 0.01em;
+  }
+  .btn-primary:hover {
+    background-color: var(--color-terra-light);
+  }
+  .btn-primary:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+  }
+
+}
+
+/* Window drag region for frameless titlebar — outside layers for Electron */
+.app-drag-region {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}

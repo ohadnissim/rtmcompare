@@ -1,0 +1,156 @@
+name: Build RTM Send (Windows)
+
+# Builds the Windows VST3 + Standalone for RTM Send on a hosted
+# Windows runner, optionally signs them, wraps in an NSIS installer,
+# and uploads the result as a workflow artifact (or a Release asset
+# on tag push).
+#
+# Manual trigger: Actions → "Build RTM Send (Windows)" → Run workflow
+# Tag trigger:    git tag rtm-send-v1.0.1 && git push --tags
+# Push trigger:   any push to main
+#
+# Optional code signing — set these secrets to enable:
+#   WIN_PFX_BASE64    base64-encoded Authenticode .pfx (Sectigo/DigiCert)
+#   WIN_PFX_PASSWORD  password protecting the .pfx
+# Without them the build still produces a working unsigned installer;
+# Windows SmartScreen will warn users on first run.
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'rtm-send-v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache JUCE
+        id: cache-juce
+        uses: actions/cache@v4
+        with:
+          path: C:\JUCE
+          key: juce-8.0.10
+
+      - name: Clone JUCE 8.0.10
+        if: steps.cache-juce.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch 8.0.10 https://github.com/juce-framework/JUCE.git C:\JUCE
+
+      - name: Configure
+        # windows-latest comes with VS 2022 + Windows SDK + cmake
+        # pre-installed; no toolchain steps needed.
+        run: |
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DJUCE_DIR=C:\JUCE `
+            -DJUCE_COPY_PLUGIN_AFTER_BUILD=OFF
+        shell: pwsh
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+        shell: pwsh
+
+      - name: Resolve VST3 + Standalone paths
+        id: paths
+        run: |
+          $artefacts = "build\RtmSend_artefacts\Release"
+          $vst3 = Get-ChildItem -Path "$artefacts\VST3" -Filter "RTM Send.vst3" -Directory | Select-Object -First 1
+          if (-not $vst3) { Write-Error "VST3 bundle not found in $artefacts\VST3"; exit 1 }
+          # JUCE writes the actual binary into Contents\x86_64-win\RTM Send.vst3
+          $vst3Bin = Get-ChildItem -Recurse -Path $vst3.FullName -Filter "RTM Send.vst3" -File | Select-Object -First 1
+          if (-not $vst3Bin) { Write-Error "VST3 binary not found inside $vst3"; exit 1 }
+          "vst3_dir=$($vst3.FullName)"           >> $env:GITHUB_OUTPUT
+          "vst3_bin=$($vst3Bin.FullName)"        >> $env:GITHUB_OUTPUT
+          "release_dir=$((Resolve-Path $artefacts).Path)" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Decode signing cert
+        id: cert
+        if: env.WIN_PFX_BASE64 != ''
+        env:
+          WIN_PFX_BASE64: ${{ secrets.WIN_PFX_BASE64 }}
+        run: |
+          $bytes = [System.Convert]::FromBase64String($env:WIN_PFX_BASE64)
+          $path = Join-Path $env:RUNNER_TEMP "rtm-send.pfx"
+          [System.IO.File]::WriteAllBytes($path, $bytes)
+          "cert_path=$path" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Sign VST3 binary
+        if: steps.cert.outputs.cert_path != ''
+        env:
+          PFX_PATH: ${{ steps.cert.outputs.cert_path }}
+          PFX_PASSWORD: ${{ secrets.WIN_PFX_PASSWORD }}
+          VST3_BIN: ${{ steps.paths.outputs.vst3_bin }}
+        run: |
+          $signtool = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+                       Where-Object { $_.Directory.Name -eq 'x64' } |
+                       Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          & $signtool sign /f $env:PFX_PATH /p $env:PFX_PASSWORD `
+            /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
+            $env:VST3_BIN
+        shell: pwsh
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+        shell: pwsh
+
+      - name: Build NSIS installer
+        env:
+          PLUGIN_DIR: ${{ steps.paths.outputs.release_dir }}
+        run: |
+          # PowerShell sessions don't pick up new PATH entries from
+          # choco install — call makensis by its install path instead.
+          $makensis = "C:\Program Files (x86)\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) { Write-Error "makensis.exe not found at $makensis"; exit 1 }
+          & $makensis /DPLUGIN_DIR="$env:PLUGIN_DIR" scripts\build_win_installer.nsi
+        shell: pwsh
+
+      - name: Sign installer
+        if: steps.cert.outputs.cert_path != ''
+        env:
+          PFX_PATH: ${{ steps.cert.outputs.cert_path }}
+          PFX_PASSWORD: ${{ secrets.WIN_PFX_PASSWORD }}
+        run: |
+          $signtool = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+                       Where-Object { $_.Directory.Name -eq 'x64' } |
+                       Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          $installer = "scripts\RTM-Send-1.0.0-Setup.exe"
+          & $signtool sign /f $env:PFX_PATH /p $env:PFX_PASSWORD `
+            /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
+            $installer
+        shell: pwsh
+
+      - name: SHA-256
+        run: |
+          $installer = "scripts\RTM-Send-1.0.0-Setup.exe"
+          (Get-FileHash $installer -Algorithm SHA256).Hash | Tee-Object -FilePath "$installer.sha256"
+        shell: pwsh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RTM-Send-Windows
+          path: |
+            scripts/RTM-Send-1.0.0-Setup.exe
+            scripts/RTM-Send-1.0.0-Setup.exe.sha256
+
+      - name: Upload VST3 artifact (raw)
+        uses: actions/upload-artifact@v4
+        with:
+          name: RTM-Send-VST3-raw
+          path: ${{ steps.paths.outputs.vst3_dir }}
+
+      - name: Attach to Release on tag push
+        if: startsWith(github.ref, 'refs/tags/rtm-send-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            scripts/RTM-Send-1.0.0-Setup.exe
+            scripts/RTM-Send-1.0.0-Setup.exe.sha256

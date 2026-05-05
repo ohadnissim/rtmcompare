@@ -1,0 +1,306 @@
+"""Pinned loudness and delivery-spec registry for RTM analysis.
+
+The registry is intentionally data-only so both Python entrypoints and the
+renderer can consume the same targets.  Platform help pages are often living
+documents without visible publication dates; for those entries the date pins
+the RTM verification date used for this registry snapshot.
+"""
+
+# `str | None` syntax needs Python 3.10+ at evaluation time. The build
+# script invokes whatever `python3` resolves to (often macOS system 3.9),
+# so defer annotation evaluation to keep generate_specs.py portable.
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from typing import Any
+
+
+SPECS_VERSION = 1
+
+
+@dataclass
+class Spec:
+    id: str
+    name: str
+    version: str
+    published: str
+    revised: str | None
+    targets: dict[str, Any]
+    references: list[str]
+    provisional: bool = False
+
+
+SPECS: dict[str, Spec] = {
+    "itu_bs_1770_4": Spec(
+        id="itu_bs_1770_4",
+        name="ITU-R BS.1770-4",
+        version="ITU-R BS.1770-4",
+        published="2015-10-01",
+        revised=None,
+        targets={
+            "delivery_spec": False,
+            "measurement": "K-weighted integrated loudness and true-peak measurement algorithm",
+        },
+        references=[
+            "https://www.itu.int/dms_pubrec/itu-r/rec/bs/R-REC-BS.1770-4-201510-S!!PDF-E.pdf",
+        ],
+    ),
+    "ebu_r128": Spec(
+        id="ebu_r128",
+        name="EBU R128",
+        version="R128 v5.0",
+        published="2023-11-01",
+        revised=None,
+        targets={
+            "lufs_i": -23.0,
+            "tp_dbtp": -1.0,
+            "lra_max": 18.0,
+            "lra_note": "EBU R128 defines LRA as a descriptor; 18 LU is a common broadcaster delivery guardrail, not a universal R128 hard limit.",
+        },
+        references=[
+            "https://tech.ebu.ch/files/live/sites/tech/files/shared/r/r128.pdf",
+            "https://tech.ebu.ch/docs/tech/tech3342.pdf",
+        ],
+    ),
+    "atsc_a85": Spec(
+        id="atsc_a85",
+        name="ATSC A/85 (CALM Act)",
+        version="ATSC A/85:2013 + Corrigendum No. 1",
+        published="2013-03-12",
+        revised=None,
+        targets={
+            "lufs_i": -24.0,
+            "tp_dbtp": -2.0,
+            "unit": "LKFS",
+            "tolerance_lu": 2.0,
+        },
+        references=[
+            "https://www.atsc.org/wp-content/uploads/2025/06/A85-2013-with-Corrigendum-No-1.pdf",
+        ],
+    ),
+    "apple_music": Spec(
+        id="apple_music",
+        name="Apple Music",
+        version="Sound Check / AES TD1008 v3.13",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -16.0,
+            "tp_dbtp": -1.0,
+            "normalization": "Sound Check",
+            "source_note": "Apple documents Sound Check but does not publish a numeric LUFS target; RTM pins the common -16 LUFS target aligned with AES TD1008 track-normalization guidance.",
+        },
+        references=[
+            "https://www.apple.com/apple-music/apple-digital-masters/docs/apple-digital-masters.pdf",
+            "https://aes.org/wp-content/uploads/2024/01/20210924_TD1008_v3.13.pdf",
+        ],
+    ),
+    "apple_digital_masters": Spec(
+        id="apple_digital_masters",
+        name="Apple Digital Masters",
+        version="Apple Digital Masters Source Profile",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -16.0,
+            "tp_dbtp": -1.0,
+            "sr_min": 44100,
+            "bd_min": 24,
+            "source_note": "ADM source profile pins 24-bit and >=44.1 kHz; loudness follows Apple Music Sound Check target.",
+        },
+        references=[
+            "https://help.apple.com/itc/videoaudioassetguide/en.lproj/static.html",
+            "https://itunespartner.apple.com/music/support/5217-delivering-apple-digital-masters",
+            "https://www.apple.com/apple-music/apple-digital-masters/docs/apple-digital-masters.pdf",
+        ],
+    ),
+    "spotify": Spec(
+        id="spotify",
+        name="Spotify",
+        version="Spotify Loudness Normalization",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -1.0,
+            "loud_master_tp_dbtp": -2.0,
+            # Spotify boosts quiet tracks toward target, capped at +6 dB
+            # to avoid noise-floor amplification. All other platforms in
+            # this registry default to 0 (attenuate-only) — see
+            # `streaming_preview` and `encoded_preview` consumers.
+            "max_boost_db": 6.0,
+        },
+        references=[
+            "https://support.spotify.com/artists/article/loudness-normalization",
+        ],
+    ),
+    "spotify_loud": Spec(
+        id="spotify_loud",
+        name="Spotify Loud",
+        version="Spotify Loudness Normalization - Loud setting",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -11.0,
+            "tp_dbtp": -2.0,
+            "source_note": "Spotify documents Loud playback at -11 LUFS and a -1 dB sample-peak limiter; RTM uses Spotify's -2 dBTP recommendation for masters louder than -14 LUFS as the Loud-mode safety ceiling.",
+            "max_boost_db": 6.0,
+        },
+        references=[
+            "https://support.spotify.com/artists/article/loudness-normalization",
+        ],
+    ),
+    "amazon_music": Spec(
+        id="amazon_music",
+        name="Amazon Music",
+        version="Amazon Music playback target",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -2.0,
+            "source_note": "Amazon publishes -14 LUFS / -2 dBFS for Alexa content; Amazon Music's -14 LUFS / -2 dBTP value is pinned from public mastering-target references.",
+        },
+        references=[
+            "https://developer.amazon.com/en-GB/docs/alexa/flashbriefing/normalizing-the-loudness-of-audio-content.html",
+            "https://apu.software/amazon-music-loudness/",
+        ],
+    ),
+    "tidal": Spec(
+        id="tidal",
+        name="Tidal",
+        version="Tidal normalization target",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -1.0,
+            "normalization": "Album normalization where available",
+        },
+        references=[
+            "https://aes.org/resources/audio-topics/loudness-project/loudness-normalization/",
+            "https://apu.software/tidal-normalization-target/",
+        ],
+    ),
+    "deezer": Spec(
+        id="deezer",
+        name="Deezer",
+        version="Deezer Normalize Volume target",
+        published="2019-12-18",
+        revised=None,
+        targets={
+            "lufs_i": -15.0,
+            "tp_dbtp": -1.0,
+            "normalization": "Normalize Volume",
+        },
+        references=[
+            "https://en.deezercommunity.com/features-feedback-44/how-does-the-normalise-volume-option-work-57025",
+            "https://apu.software/deezer-loudness-target/",
+        ],
+    ),
+    "soundcloud": Spec(
+        id="soundcloud",
+        name="SoundCloud",
+        version="SoundCloud Loudness Normalization",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -1.0,
+            "loud_master_tp_dbtp": -2.0,
+        },
+        references=[
+            "https://help.soundcloud.com/hc/en-us/articles/360053660014-Will-SoundCloud-play-my-track-at-the-level-it-s-mastered",
+        ],
+    ),
+    "netflix": Spec(
+        id="netflix",
+        name="Netflix",
+        version="Netflix Sound Mix Specifications v1.6",
+        published="2024-11-01",
+        revised=None,
+        targets={
+            "lufs_i": -27.0,
+            "tp_dbtp": -2.0,
+            "anchor": "dialog",
+            "tolerance_lu": 2.0,
+            "sr_min": 48000,
+            "bd_min": 24,
+            "lra_max": 15.0,
+        },
+        references=[
+            "https://partnerhelp.netflixstudios.com/hc/en-us/articles/360001794307-Netflix-Sound-Mix-Specifications-Best-Practices-v1-6",
+        ],
+    ),
+    "youtube": Spec(
+        id="youtube",
+        name="YouTube",
+        version="YouTube loudness normalization target",
+        published="2019-09-18",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -1.0,
+            "source_note": "YouTube does not publish a formal music delivery spec; target is pinned from public Stats-for-Nerds validation and industry measurement.",
+        },
+        references=[
+            "https://www.meterplugs.com/blog/2019/09/18/youtube-changes-loudness-reference-to-14-lufs.html",
+            "https://aes.org/resources/audio-topics/loudness-project/loudness-normalization/",
+        ],
+    ),
+    "tiktok": Spec(
+        id="tiktok",
+        name="TikTok",
+        version="Reverse-engineered short-form target",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -1.0,
+        },
+        references=[
+            "(reverse-engineered; verify)",
+        ],
+        provisional=True,
+    ),
+    "youtube_shorts": Spec(
+        id="youtube_shorts",
+        name="YouTube Shorts",
+        version="Reverse-engineered short-form target",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -1.0,
+        },
+        references=[
+            "(reverse-engineered; verify)",
+            "https://www.meterplugs.com/blog/2019/09/18/youtube-changes-loudness-reference-to-14-lufs.html",
+        ],
+        provisional=True,
+    ),
+    "instagram_reels": Spec(
+        id="instagram_reels",
+        name="Instagram + Reels",
+        version="Reverse-engineered short-form target",
+        published="2026-04-26",
+        revised=None,
+        targets={
+            "lufs_i": -14.0,
+            "tp_dbtp": -1.0,
+        },
+        references=[
+            "(reverse-engineered; verify)",
+        ],
+        provisional=True,
+    ),
+}
+
+
+def to_json() -> dict[str, dict[str, Any]]:
+    """Return a JSON-serialisable registry keyed by stable spec id."""
+    return {spec_id: asdict(spec) for spec_id, spec in SPECS.items()}
+
+
+def get(id: str) -> Spec | None:
+    return SPECS.get(id)

@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>RTMcompare</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1e1e1e;
+    color: #ebe7e0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-app-region: drag;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 32px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+  .wordmark {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #d0b066;
+    margin-bottom: 6px;
+  }
+  .underline {
+    width: 96px;
+    height: 1.5px;
+    background: #d0b066;
+    margin-bottom: 28px;
+    opacity: 0.85;
+  }
+  .status {
+    font-size: 11px;
+    color: #8d867b;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+  .bar {
+    width: 220px;
+    height: 2px;
+    background: rgba(208, 176, 102, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -40%;
+    width: 40%;
+    height: 100%;
+    background: #d0b066;
+    border-radius: 2px;
+    animation: slide 1.4s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { left: -40%; }
+    50%  { left: 100%; }
+    100% { left: 100%; }
+  }
+  .footer {
+    position: absolute;
+    bottom: 18px;
+    width: 100%;
+    text-align: center;
+    font-size: 9px;
+    color: #57534e;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+  <div class="root">
+    <div class="wordmark">RTMcompare</div>
+    <div class="underline"></div>
+    <div class="status" id="status">Loading analyzer…</div>
+    <div class="bar"></div>
+  </div>
+  <div class="footer">RTM audio · we here for you</div>
+  <script>
+    // Cycle through honest status messages so the user knows what's
+    // taking the time on first launch. The Electron main process
+    // can also override these via window.postMessage if it wants
+    // more granular progress.
+    const messages = [
+      "Loading analyzer…",
+      "Warming up Python bundle…",
+      "Almost ready…"
+    ]
+    let i = 0
+    setInterval(() => {
+      i = (i + 1) % messages.length
+      const el = document.getElementById("status")
+      if (el) el.textContent = messages[i]
+    }, 1800)
+  </script>
+</body>
+</html>

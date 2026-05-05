@@ -1,0 +1,186 @@
+{
+  "name": "rtm",
+  "version": "5.1.2",
+  "description": "RTMcompare — Industry-standard A/B compare · Single-file QC · Album batch · Atmos",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
+    "build": "python3 scripts/generate_specs.py && tsc -p tsconfig.electron.json && vite build",
+    "pack": "npm run build && electron-builder --mac",
+    "pack:win": "npm run build && electron-builder --win",
+    "dev:vite": "vite",
+    "dev:electron": "tsc -p tsconfig.electron.json && electron ."
+  },
+  "build": {
+    "appId": "com.rtm.audiocompare",
+    "productName": "RTMcompare",
+    "directories": {
+      "output": "release-build"
+    },
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "build/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": false,
+      "extraResources": [
+        {
+          "from": "python-bundle",
+          "to": "python-bundle",
+          "filter": [
+            "**/*",
+            "!**/__pycache__/**",
+            "!**/*.pyc",
+            "!**/test/**",
+            "!**/tests/**",
+            "!**/include/**",
+            "!**/*.a",
+            "!**/*.dylib.dSYM/**"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "extraResources": [
+        {
+          "from": "python-bundle-win",
+          "to": "python-bundle-win",
+          "filter": [
+            "**/*",
+            "!**/__pycache__/**",
+            "!**/*.pyc",
+            "!**/test/**",
+            "!**/tests/**",
+            "!**/include/**",
+            "!**/*.a"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RTMcompare",
+      "uninstallDisplayName": "RTMcompare ${version}"
+    },
+    "portable": {
+      "unpackDirName": "RTMcompare"
+    },
+    "dmg": {
+      "title": "RTMcompare",
+      "icon": "build/icon.icns",
+      "window": {
+        "width": 620,
+        "height": 460
+      },
+      "contents": [
+        {
+          "x": 170,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 450,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 170,
+          "y": 340,
+          "type": "file",
+          "path": "release/RTM-Suite-README.pdf"
+        },
+        {
+          "x": 450,
+          "y": 340,
+          "type": "file",
+          "path": "release/RTM-Suite-Pitch-Deck.pdf"
+        }
+      ]
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "build/splash.html"
+    ],
+    "extraResources": [
+      {
+        "from": "python",
+        "to": "python",
+        "filter": [
+          "**/*.py",
+          "**/*.sh",
+          "profiles/**/*"
+        ]
+      },
+      {
+        "from": "model-cache",
+        "to": "model-cache",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "fast-xml-parser": "^5.6.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@electron/packager": "^19.1.0",
+    "@tailwindcss/cli": "^4.2.2",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
+    "electron": "^33.4.11",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
+    "postcss": "^8.5.9",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8"
+  }
+}

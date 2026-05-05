@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p ~/.claude/skills/higgsfield)",
+      "Read(//Users/ohadnissim/.claude/**)"
+    ]
+  }
+}

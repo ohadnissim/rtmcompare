@@ -1,0 +1,48 @@
+{
+  "version": "ai-detector-v4.1-provisional-2026-04-25",
+  "generated_at": "2026-04-25T13:49:41.419603+00:00",
+  "method": "isotonic_regression_pava",
+  "deployment_ready": false,
+  "sample_count": 13,
+  "training_counts": {
+    "golden_synthetic": 10,
+    "real_human": 3
+  },
+  "training_note": "Provisional calibration only: fitted on 10 synthetic golden signals and 3 real human files. This is NOT deployment-grade. Retrain on a properly labelled real-world corpus (Suno/Udio/human across genres, codecs, and transformations) before using calibrated probabilities in production.",
+  "label_legend": {
+    "golden_synthetic": 1,
+    "real_human": 0
+  },
+  "x": [
+    0.0,
+    0.062,
+    0.085,
+    0.161,
+    0.28,
+    0.293,
+    0.307,
+    0.406,
+    0.512,
+    0.523,
+    0.716,
+    0.718,
+    0.867,
+    1.0
+  ],
+  "y": [
+    0.25,
+    0.25,
+    0.25,
+    0.25,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ]
+}

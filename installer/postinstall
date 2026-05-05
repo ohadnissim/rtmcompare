@@ -1,0 +1,35 @@
+#!/bin/bash
+# Post-install — set up Python venv with dependencies
+# This runs after the app is copied to /Applications
+
+APP_PATH="/Applications/RTM.app"
+PYTHON_DIR="$APP_PATH/Contents/Resources/python"
+VENV_DIR="$PYTHON_DIR/.rtm-venv"
+MARKER="$PYTHON_DIR/.deps_installed"
+
+# Skip if already done
+if [ -f "$MARKER" ]; then
+    exit 0
+fi
+
+# Find python3
+PYTHON=""
+for p in /usr/bin/python3 /usr/local/bin/python3 /opt/homebrew/bin/python3; do
+    if [ -x "$p" ]; then
+        PYTHON="$p"
+        break
+    fi
+done
+
+# If no python3, skip — the app will handle it on first launch
+if [ -z "$PYTHON" ]; then
+    exit 0
+fi
+
+# Create venv and install deps
+"$PYTHON" -m venv "$VENV_DIR" 2>/dev/null || exit 0
+"$VENV_DIR/bin/pip" install --quiet demucs librosa numpy scipy soundfile 2>/dev/null || exit 0
+
+# Mark done
+touch "$MARKER"
+exit 0

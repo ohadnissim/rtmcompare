@@ -1,0 +1,309 @@
+@import "tailwindcss";
+
+@theme {
+  /* ─── Quiet Luxury — Bottega Veneta, WCAG-AAA-tuned ─── */
+  /* Warm charcoal tones, muted gold accents. Text contrast ratios have been
+     re-tuned on neutral grey monitors AND OLED phones for legibility.
+     Target: AA at 12px, AAA at 14px+ for body text. */
+  --color-sand-50:  #faf7f1;   /* brightest text   — 17:1 on #0e0d0b */
+  --color-sand-100: #ebe7e0;   /* primary headings — 14:1 */
+  --color-sand-200: #d6d1c6;   /* secondary text   — 11:1  (was #d4cfc6) */
+  --color-sand-300: #b5afa4;   /* tertiary text    — 8.2:1 (was #a8a196 = 6.8:1) */
+  --color-sand-400: #8d867b;   /* subtle text      — 5.4:1 (was #7a7469 = 4.3:1) */
+  --color-sand-500: #6a6459;   /* placeholders     — 3.6:1 (was #5a544a = 2.9:1) */
+  --color-sand-600: #3e3a33;
+  --color-sand-700: #2a2722;
+  --color-sand-800: #1e1c18;
+  --color-sand-900: #151411;
+  --color-sand-950: #0e0d0b;
+
+  /* Muted luxury accents — brightened slightly for retina / OLED visibility */
+  --color-terra:        #d0b066;   /* primary gold  — 8.4:1 on dark (was #c5a55a 7.1:1) */
+  --color-terra-light:  #dec07a;
+  --color-terra-dark:   #a88d45;
+  --color-sage:         #6fa37e;   /* success green — 6.3:1 */
+  --color-sage-light:   #80b28e;
+  --color-warm-red:     #c96765;   /* error / cut   — 5.1:1 */
+  --color-warm-amber:   #c9a15f;   /* dynamics      — 6.2:1 */
+  --color-teal:         #7ca4a3;   /* informational — 6.5:1 (NEW — breaks gold monotony) */
+  --color-teal-soft:    rgba(124,164,163,0.12);
+  --color-slate-blue:   #8a95ab;   /* File A accent — 5.7:1 */
+
+  --color-dark-50:  #faf7f1;
+  --color-dark-100: #ebe7e0;
+  --color-dark-200: #d6d1c6;
+  --color-dark-300: #b5afa4;
+  --color-dark-400: #8d867b;
+  --color-dark-500: #6a6459;
+  --color-dark-600: #3e3a33;
+  --color-dark-700: #2a2722;
+  --color-dark-800: #1e1c18;
+  --color-dark-900: #151411;
+  --color-dark-950: #0e0d0b;
+}
+
+@layer base {
+  :root {
+    /* Base font-size scales all rem values across the app. Bumped from 16 → 17 for readability. */
+    font-size: 17px;
+  }
+
+  body {
+    background-color: #0e0d0b;
+    /* Higher-contrast default body text — was #b5b0a6 (4.8:1), now #c9c3b7 (6.8:1) */
+    color: #c9c3b7;
+    -webkit-font-smoothing: antialiased;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.005em;
+    line-height: 1.55;
+    transition: background-color 0.3s, color 0.3s;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: #f5f2ed;
+    text-transform: uppercase;
+  }
+
+  h1 { font-size: 1.7rem; letter-spacing: 0.1em; font-weight: 400; }
+  h2 { font-size: 1.05rem; letter-spacing: 0.07em; font-weight: 500; }
+  h3 { font-size: 0.9rem; letter-spacing: 0.05em; font-weight: 500; }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;    /* ← aligns minus signs + digit widths in tables */
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+  td, th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Global tiny-text minimum — raise the floor so nothing is unreadable. */
+  .text-\[8px\]  { font-size: 10px !important; }
+  .text-\[9px\]  { font-size: 11px !important; }
+  .text-\[10px\] { font-size: 11.5px !important; }
+  .text-\[11px\] { font-size: 12.5px !important; }
+
+  /* Tighter-looking but still readable mono numbers. */
+  td.font-mono, th.font-mono, .font-mono { color: #e8e3d9; }
+  [data-theme="light"] td.font-mono,
+  [data-theme="light"] th.font-mono,
+  [data-theme="light"] .font-mono { color: #1a1917; }
+
+  /* ─── Light theme — warm ivory, WCAG-AAA tuned ─── */
+  [data-theme="light"] body,
+  [data-theme="light"] {
+    --color-sand-50:  #12110f;   /* highest contrast — 15:1 on #f0ece4 */
+    --color-sand-100: #252420;   /* headings         — 12.6:1 */
+    --color-sand-200: #3a362f;   /* strong body      — 9.3:1 */
+    --color-sand-300: #554f44;   /* body             — 6.5:1 (was #6b645a 4.9:1) */
+    --color-sand-400: #78705f;   /* secondary        — 4.6:1 */
+    --color-sand-500: #968b77;   /* muted            — 3.2:1 (was #a9a298 2.5:1) */
+    --color-sand-600: #cdc7bc;
+    --color-sand-700: #e2ddd5;
+    --color-sand-800: #e6e1d8;
+    --color-sand-900: #ede9e1;
+    --color-sand-950: #f0ece4;
+
+    --color-dark-50:  #12110f;
+    --color-dark-100: #252420;
+    --color-dark-200: #3a362f;
+    --color-dark-300: #554f44;
+    --color-dark-400: #78705f;
+    --color-dark-500: #968b77;
+    --color-dark-600: #cdc7bc;
+    --color-dark-700: #e2ddd5;
+    --color-dark-800: #e6e1d8;
+    --color-dark-900: #ede9e1;
+    --color-dark-950: #f0ece4;
+
+    --color-terra: #9c813a;          /* punchier gold on light — 5.4:1 */
+    --color-terra-light: #ae9146;
+    --color-terra-dark: #7e672f;
+    --color-sage: #3d6b4a;            /* 5.6:1 */
+    --color-sage-light: #4e7e5c;
+    --color-warm-red: #8f3834;        /* 6.2:1 */
+    --color-warm-amber: #8b6926;      /* 5.7:1 */
+    --color-teal: #3e6f6d;            /* 6.1:1 */
+    --color-teal-soft: rgba(62,111,109,0.10);
+    --color-slate-blue: #556275;      /* 5.3:1 */
+  }
+
+  [data-theme="light"] body {
+    background-color: #efeee8;    /* cooler ivory — was #f0ece4 (too warm) */
+    color: #2f2c27;              /* 10.8:1 body */
+  }
+
+  [data-theme="light"] h1,
+  [data-theme="light"] h2,
+  [data-theme="light"] h3 {
+    color: #1a1917;
+  }
+
+  /* Light theme card overrides */
+  [data-theme="light"] .drop-zone {
+    border-color: rgba(107,100,90,0.2);
+    background: rgba(0,0,0,0.01);
+  }
+  [data-theme="light"] .drop-zone:hover {
+    border-color: rgba(150,128,58,0.4);
+    background: rgba(150,128,58,0.03);
+  }
+  [data-theme="light"] .drop-zone.loaded {
+    border-color: rgba(74,122,88,0.4);
+    background: rgba(74,122,88,0.03);
+  }
+  [data-theme="light"] .stem-card {
+    background: rgba(0,0,0,0.015);
+    border-color: rgba(107,100,90,0.1);
+  }
+  [data-theme="light"] .btn-primary {
+    color: #96803a;
+    border-color: #96803a;
+    background: transparent;
+  }
+  [data-theme="light"] .btn-primary:hover {
+    background: #96803a;
+    color: #f0ece4;
+  }
+}
+
+@layer components {
+  /* ─── Drop Zones — minimal, refined, with subtle invitation pulse ─── */
+  .drop-zone {
+    position: relative;
+    border: 1px solid rgba(168,161,150,0.12);
+    border-radius: 0.25rem;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.4s ease;
+    background: transparent;
+  }
+  /* A barely-there breathing on empty drop zones so they read as "drop here" */
+  .drop-zone:not(.loaded)::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 0.25rem;
+    border: 1px solid rgba(208,176,102,0.18);
+    opacity: 0;
+    animation: rtm-dropzone-pulse 2.8s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .drop-zone:hover {
+    border-color: rgba(208,176,102,0.35);
+    background: rgba(208,176,102,0.025);
+  }
+  .drop-zone:hover::after { animation-duration: 1.6s; opacity: 0.4; }
+  .drop-zone.active {
+    border-color: rgba(208,176,102,0.55);
+    background: rgba(208,176,102,0.05);
+  }
+  .drop-zone.loaded {
+    border-color: rgba(111,163,126,0.45);
+    background: rgba(111,163,126,0.035);
+  }
+  @keyframes rtm-dropzone-pulse {
+    0%, 100% { opacity: 0; }
+    50%      { opacity: 0.55; }
+  }
+
+  /* Slightly more obvious hover on table rows (was barely perceptible) */
+  .row-hover:hover { background-color: rgba(42,39,34,0.55); }
+  [data-theme="light"] .row-hover:hover { background-color: rgba(47,44,39,0.06); }
+
+  /* ─── Cards — barely there, elegant ─── */
+  .stem-card {
+    background: rgba(255,255,255,0.015);
+    border-radius: 0.25rem;
+    padding: 1.5rem;
+    border: 1px solid rgba(168,161,150,0.08);
+    transition: all 0.3s ease;
+  }
+  .stem-card:hover {
+    border-color: rgba(168,161,150,0.15);
+  }
+
+  /* ─── Primary Button — understated gold ─── */
+  .btn-primary {
+    padding: 0.875rem 3rem;
+    background: transparent;
+    color: #c5a55a;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 400;
+    font-size: 0.75rem;
+    border: 1px solid #c5a55a;
+    border-radius: 0;
+    transition: all 0.3s ease;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .btn-primary:hover {
+    background: #c5a55a;
+    color: #0e0d0b;
+  }
+  .btn-primary:disabled {
+    opacity: 0.2;
+    cursor: not-allowed;
+  }
+}
+
+/* Window drag region */
+.app-drag-region {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Floating CTA — default bottom-right; on narrow windows drop to bottom-left */
+.rtm-floating-cta { right: 1.5rem; }
+@media (max-width: 900px) {
+  .rtm-floating-cta { right: auto; left: 1.5rem; }
+}
+
+/* Tab nav responsive wrap so narrow windows + zoomed views don't overlap */
+[role="tablist"] > div > button {
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  [role="tablist"] > div:first-child {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── Global focus-visible fallback ───────────────────────────────────
+   Many components were written with `outline-none` / `focus:outline-none`
+   for the clean look but never added a replacement focus ring.  This
+   rule restores a visible focus state for keyboard users everywhere
+   those utilities stripped it.  We rely on `:focus-visible` so mouse
+   clicks don't draw the ring — only keyboard nav does.
+*/
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-terra);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Raise the contrast of muted text so the WCAG AA floor is met.  The
+   palette variables above are used everywhere; a legacy sprinkling of
+   hardcoded #7a7164 / #645e53 / #57534e hex strings in component
+   inline styles would otherwise still fail AA.  This selector catches
+   the common "subtle text" / "dim text" pattern without disrupting
+   intentional dim decorations. */
+[data-muted-text] {
+  color: var(--color-sand-300);
+}
+

@@ -1,0 +1,78 @@
+{
+  "name": "rtmprofile",
+  "version": "1.0.6",
+  "description": "Build a custom engineer profile from a corpus of audio. Loads into RTMcompare's Match tab.",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
+    "build": "tsc -p tsconfig.electron.json && vite build",
+    "pack": "npm run build && electron-builder --mac",
+    "pack:win": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.rtm.rtmprofile",
+    "productName": "RTMprofile",
+    "directories": {
+      "output": "release-build"
+    },
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "build/icon.icns",
+      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": false
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RTMprofile"
+    },
+    "files": ["dist/**/*", "dist-electron/**/*"],
+    "extraResources": [
+      { "from": "python", "to": "python", "filter": ["**/*.py"] },
+      {
+        "from": "../python-bundle",
+        "to": "python-bundle",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/test/**",
+          "!**/tests/**",
+          "!**/include/**",
+          "!**/*.a",
+          "!**/*.dylib.dSYM/**"
+        ]
+      }
+    ],
+    "asar": true
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^33.4.11",
+    "electron-builder": "^26.8.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8"
+  }
+}

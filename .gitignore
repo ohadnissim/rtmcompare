@@ -1,0 +1,84 @@
+# ── Build outputs ────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-electron/
+release-build/
+**/release-build/
+
+# ── Python bundles (built fresh in CI; macOS bundle is 680 MB) ──────
+python-bundle/
+python-bundle-win/
+
+# ── Big shipped artifacts (kept on disk locally; not in git) ────────
+release/*.dmg
+release/*.dmg.blockmap
+release/*.dmg.sha256
+release/*-windows.zip
+release/*-windows.zip.sha256
+release/.RTM-Suite-*-stage/
+release/.RTMcompare-bundle-*-stage/
+release/v*/posters/
+
+# ── macOS / IDE noise ────────────────────────────────────────────────
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.log
+npm-debug.log*
+
+# ── Temporary / cache ────────────────────────────────────────────────
+.cache/
+.parcel-cache/
+*.tsbuildinfo
+.eslintcache
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Local-only ───────────────────────────────────────────────────────
+model-cache/
+.env
+.env.local
+.env.*.local
+
+# ── Heavy media (kept on local disk, not on GitHub) ──────────────────
+# Commercial-clip masters + intermediates routinely run 500 MB+; the
+# Windows-build CI doesn't need them. Source MDs / build scripts in
+# commercial-clips/ stay tracked; only the rendered MP4 / WAV / MOV
+# artefacts are excluded.
+commercial-clips/**/*.mp4
+commercial-clips/**/*.mov
+commercial-clips/**/*.wav
+commercial-clips/**/*.aif
+commercial-clips/**/*.aiff
+commercial-clips/**/*.flac
+
+# ── Older release-doc dirs (only the active version stays in git) ────
+# Each v*.* dir holds rendered PDFs + Higgsfield hero PNGs (~5 MB each).
+# The current dir (5.1.2) is what CI builds against; older versions
+# are historical and live on disk only.
+release/v5.0.*
+release/v5.1.0/
+release/v5.1.1/
+
+# ── RTM Send plugin source (only the signed Win installer is needed) ─
+# The plugin is its own JUCE/CMake project — kept locally, not in this
+# repo. CI only consumes the pre-built RTM-Send-1.0.0-Setup.exe.
+rtm-send-plugin/Source/
+rtm-send-plugin/scripts/
+rtm-send-plugin/build/
+rtm-send-plugin/CMakeLists.txt
+rtm-send-plugin/README.md
+rtm-send-plugin/.git/
+rtm-send-plugin/release/*.dmg
+rtm-send-plugin/release/*.pkg
+rtm-send-plugin/release/*.sha256
+
+# ── Other historical asset dirs not used by CI ───────────────────────
+RTM\ Engineers/
+RTM\ Labels/
+RTM\ Platform/
+release/posters/
+release/.RTM-Suite-*-stage/

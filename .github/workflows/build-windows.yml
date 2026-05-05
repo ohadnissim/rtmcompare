@@ -1,0 +1,194 @@
+name: Build Windows bundle
+
+# Two ways to trigger:
+#   1. Push a tag like v5.1.2 — produces a versioned artifact + Release asset.
+#   2. Click "Run workflow" in the Actions tab — uses the version from
+#      package.json. Useful for testing the pipeline before tagging.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to upload to a Release when triggered by tag
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Read versions
+        id: versions
+        shell: pwsh
+        run: |
+          $rtm = (Get-Content package.json | ConvertFrom-Json).version
+          $profile = (Get-Content rtm-profile-app/package.json | ConvertFrom-Json).version
+          echo "rtm=$rtm" >> $env:GITHUB_OUTPUT
+          echo "profile=$profile" >> $env:GITHUB_OUTPUT
+          Write-Host "RTMcompare $rtm  /  RTMprofile $profile"
+
+      # ── python-bundle-win ─────────────────────────────────────────────
+      # Cache by hash of this workflow file so the bundle gets rebuilt
+      # whenever we change the package list. Saves ~3 min per run on hits.
+      - name: Cache python-bundle-win
+        id: cache-pybundle
+        uses: actions/cache@v4
+        with:
+          path: python-bundle-win
+          key: pybundle-win-py3.11.9-numpy-scipy-soundfile-pyloudnorm-v1
+
+      - name: Build python-bundle-win (embeddable Python + DSP deps)
+        if: steps.cache-pybundle.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pyVersion = '3.11.9'
+          $url = "https://www.python.org/ftp/python/$pyVersion/python-$pyVersion-embed-amd64.zip"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile python-embed.zip
+
+          New-Item -ItemType Directory -Force -Path python-bundle-win/python | Out-Null
+          Expand-Archive -Path python-embed.zip -DestinationPath python-bundle-win/python -Force
+
+          # Enable site-packages so pip-installed packages are importable.
+          # The embeddable distribution ships with `import site` commented
+          # out in python311._pth — we uncomment it.
+          $pthFile = Get-ChildItem python-bundle-win/python -Filter 'python*._pth' | Select-Object -First 1
+          (Get-Content $pthFile.FullName) -replace '^#import site', 'import site' | Set-Content $pthFile.FullName
+
+          # Bootstrap pip into the embeddable interpreter.
+          Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile get-pip.py
+          ./python-bundle-win/python/python.exe get-pip.py --no-warn-script-location
+
+          # Install the DSP stack the analysis Python needs. These match
+          # the Mac bundle's pinned set so behaviour is identical across
+          # platforms. Anything we add here gets a new cache key (bump
+          # the suffix in the cache step above).
+          ./python-bundle-win/python/python.exe -m pip install `
+            --no-warn-script-location `
+            numpy scipy soundfile pyloudnorm
+
+          # Sanity check the imports work in this exact interpreter.
+          ./python-bundle-win/python/python.exe -c "import numpy, scipy, soundfile, pyloudnorm; print('OK', numpy.__version__, scipy.__version__)"
+
+          Remove-Item python-embed.zip, get-pip.py
+
+      # ── RTMcompare build ──────────────────────────────────────────────
+      - name: npm install (RTMcompare)
+        run: npm install --no-audit --no-fund
+
+      - name: Build RTMcompare for Windows
+        run: npm run pack:win
+
+      # ── RTMprofile build ──────────────────────────────────────────────
+      - name: npm install (RTMprofile)
+        working-directory: rtm-profile-app
+        run: npm install --no-audit --no-fund
+
+      - name: Build RTMprofile for Windows
+        working-directory: rtm-profile-app
+        run: npm run pack:win
+
+      # ── Assemble bundle ZIP ───────────────────────────────────────────
+      - name: Assemble Windows bundle
+        id: bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ steps.versions.outputs.rtm }}'
+          $profileVer = '${{ steps.versions.outputs.profile }}'
+          $stage = "RTMcompare-bundle-$version-windows"
+
+          New-Item -ItemType Directory -Force -Path "$stage/Documentation" | Out-Null
+
+          # RTMcompare installer + portable
+          Copy-Item "release-build/RTMcompare Setup $version.exe" "$stage/"
+          Copy-Item "release-build/RTMcompare $version.exe" "$stage/" -ErrorAction SilentlyContinue
+
+          # RTMprofile installer + portable
+          Get-ChildItem "rtm-profile-app/release-build/" -Filter "RTMprofile Setup *.exe" | Copy-Item -Destination "$stage/"
+          Get-ChildItem "rtm-profile-app/release-build/" -Filter "RTMprofile *.exe" | Where-Object { $_.Name -notlike '* Setup *' } | Copy-Item -Destination "$stage/"
+
+          # RTM Send VST3 + Standalone installer (pre-built + signed,
+          # committed to the repo).
+          if (Test-Path "rtm-send-plugin/release/RTM-Send-1.0.0-Setup.exe") {
+            Copy-Item "rtm-send-plugin/release/RTM-Send-1.0.0-Setup.exe" "$stage/"
+          }
+
+          # Documentation — copy from release/v$version/ if it exists,
+          # otherwise fall back to whatever's the latest doc dir.
+          $docDir = "release/v$version"
+          if (-not (Test-Path $docDir)) {
+            $docDir = (Get-ChildItem release -Directory | Where-Object Name -like 'v*' | Sort-Object Name -Descending | Select-Object -First 1).FullName
+          }
+          if (Test-Path "$docDir/MANUAL.pdf")     { Copy-Item "$docDir/MANUAL.pdf"     "$stage/Documentation/Manual.pdf" }
+          if (Test-Path "$docDir/FEATURES.pdf")   { Copy-Item "$docDir/FEATURES.pdf"   "$stage/Documentation/Features.pdf" }
+          if (Test-Path "$docDir/PITCH-DECK.pdf") { Copy-Item "$docDir/PITCH-DECK.pdf" "$stage/Documentation/Pitch Deck.pdf" }
+
+          # README — kept short, mirrors the Mac DMG's README.txt.
+          $readme = @"
+          RTMcompare bundle $version (Windows)
+
+          Three apps. One toolkit.
+
+            RTMcompare Setup $version.exe   - the analyser. Run to install.
+            RTMcompare $version.exe         - portable build, no install.
+            RTMprofile Setup $profileVer.exe          - profile builder. Run to install.
+            RTMprofile $profileVer.exe                - portable build, no install.
+            RTM-Send-1.0.0-Setup.exe        - VST3 + Standalone plugin installer.
+
+          Documentation\                    - Manual, Features, Pitch Deck (PDFs)
+
+          Notes:
+          - Everything runs locally. No telemetry, no cloud, no upload.
+          - Windows Defender SmartScreen may show a warning the first time
+            you run any unsigned EXE. Click "More info" then "Run anyway".
+            EV code-signing is on the roadmap.
+
+          RTMcompare $version - (c) 2026 Ohad Nissim
+          "@
+          $readme | Set-Content -Path "$stage/README.txt" -Encoding UTF8
+
+          # ZIP the staging dir.
+          $zipName = "$stage.zip"
+          if (Test-Path $zipName) { Remove-Item $zipName }
+          Compress-Archive -Path "$stage/*" -DestinationPath $zipName -CompressionLevel Optimal
+
+          # SHA-256 alongside.
+          (Get-FileHash $zipName -Algorithm SHA256).Hash + "  $zipName" | Set-Content "$zipName.sha256"
+
+          echo "zip=$zipName" >> $env:GITHUB_OUTPUT
+          Get-Item $zipName | Format-List Name, Length
+
+      # Upload as a workflow artifact (always — easy download from Actions UI).
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bundle.outputs.zip }}
+          path: |
+            ${{ steps.bundle.outputs.zip }}
+            ${{ steps.bundle.outputs.zip }}.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      # When triggered by a tag, also publish to the GitHub Release.
+      - name: Attach to Release (tag triggers only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.bundle.outputs.zip }}
+            ${{ steps.bundle.outputs.zip }}.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true
