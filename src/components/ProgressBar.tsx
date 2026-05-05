@@ -206,7 +206,7 @@ export default function ProgressBar({ message, onCancel }: Props) {
  <div className="flex justify-between items-center">
  <p className="text-xs tracking-wide" style={{ color: '#6b7490' }}>{message}</p>
  {displayPct > 0 && (
- <span className="text-xs font-mono" style={{ color: '#57534e' }}>{displayPct}%</span>
+ <span className="text-xs font-mono" style={{ color: '#8d867b' }}>{displayPct}%</span>
  )}
  </div>
  </div>

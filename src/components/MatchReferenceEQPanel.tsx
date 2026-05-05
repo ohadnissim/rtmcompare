@@ -434,6 +434,7 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  {fileB && (
  <ApplyBounceButton
  bands={scaledBands as any}
+ bandEnabled={bandEnabled}
  srcFilePath={fileB.path}
  fileName={fileB.name}
  amountPct={eqAmount}
@@ -461,7 +462,7 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  ) : (
  <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 text-center space-y-2">
  <p className="text-sm" style={{ color: '#a8a29e' }}>No EQ moves needed</p>
- <p className="text-[11px]" style={{ color: '#57534e' }}>
+ <p className="text-[11px]" style={{ color: '#8d867b' }}>
  {labelA} and {labelB} are within {MIN_DIFF_DB} dB across every region — tonal balance already matches.
  </p>
  </div>

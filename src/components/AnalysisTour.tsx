@@ -307,7 +307,7 @@ export default function AnalysisTour({
  <button
  onClick={stopTour}
  className="text-[10px]"
- style={{ color: '#6a6459' }}
+ style={{ color: '#a8a29e' }}
  >End tour</button>
  </div>
  <h3 className="text-base" style={{ color: '#f5f2ed', fontWeight: 500 }}>{step.title}</h3>

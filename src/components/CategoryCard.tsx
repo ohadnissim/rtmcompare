@@ -8,17 +8,23 @@ interface Props {
  labelB: string
 }
 
+// 5.2.0 design fix (audit P1-17 / frontend-design): drop the per-category
+// rainbow palette and emoji icons — the Console-Didone trinity ("gold
+// appears once per composition") is broken when each card invents its own
+// hue. Instead: encode category through typography + a single geometric
+// glyph; the only chromatic accent on the card is the gold reference fill.
+// Bar fills run on a single warm grayscale.
 const categoryConfig: Record<string, { icon: string; color: string; accent: string }> = {
- Kick: { icon: '⬤', color: '#f43f5e', accent: 'rgba(244,63,94,0.15)' },
- Snare: { icon: '◎', color: '#fb923c', accent: 'rgba(251,146,60,0.15)' },
- Sub: { icon: '〰', color: '#8b5cf6', accent: 'rgba(139,92,246,0.15)' },
- Bass: { icon: '♪', color: '#3b82f6', accent: 'rgba(59,130,246,0.15)' },
- Vocals: { icon: '🎤', color: '#f59e0b', accent: 'rgba(245,158,11,0.15)' },
- Instruments: { icon: '🎹', color: '#10b981', accent: 'rgba(16,185,129,0.15)' },
- Brightness: { icon: '☀', color: '#eab308', accent: 'rgba(234,179,8,0.15)' },
- Air: { icon: '✦', color: '#06b6d4', accent: 'rgba(6,182,212,0.15)' },
- Wideness: { icon: '↔', color: '#a855f7', accent: 'rgba(168,85,247,0.15)' },
- Punch: { icon: '⚡', color: '#ef4444', accent: 'rgba(239,68,68,0.15)' },
+ Kick: { icon: '⬤', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Snare: { icon: '◎', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Sub: { icon: '〰', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Bass: { icon: '♪', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Vocals: { icon: '◐', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Instruments: { icon: '◇', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Brightness: { icon: '☼', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Air: { icon: '✦', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Wideness: { icon: '↔', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
+ Punch: { icon: '◆', color: '#a8a29e', accent: 'rgba(168,161,150,0.10)' },
 }
 
 // Element → centre frequency for solo-in-place audition. Mirrors the
@@ -51,8 +57,10 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  const barA = Math.min(100, Math.max(8, ((category.level_a + maxDb) / maxDb) * 100))
  const barB = Math.min(100, Math.max(8, ((category.level_b + maxDb) / maxDb) * 100))
 
- // Diff badge color
- const diffColor = absDiff < 0.3 ? '#84858c' : diff > 0 ? '#34d399' : '#fbbf24'
+ // Diff badge: monochrome warm grayscale + single gold accent for B (the
+ // reference / candidate). No green/amber chips — that was the rainbow
+ // the audit flagged. Sign is conveyed by ± in the value, not by hue.
+ const diffColor = absDiff < 0.3 ? '#8d867b' : '#a8a29e'
 
  return (
  <div
@@ -116,11 +124,11 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  </div>
  </div>
  <div className="flex items-center gap-2">
- <span className="text-[9px] w-10 truncate" style={{ color: config.color }}>{labelB}</span>
+ <span className="text-[9px] w-10 truncate" style={{ color: '#d0b066' }}>{labelB}</span>
  <div className="flex-1 bg-dark-800/60 rounded-full h-2">
  <div
  className="h-2 rounded-full transition-all duration-700"
- style={{ width: `${barB}%`, backgroundColor: config.color }}
+ style={{ width: `${barB}%`, backgroundColor: '#d0b066' }}
  />
  </div>
  </div>

@@ -104,7 +104,7 @@ export default function LoudnessOverTime({ result, side = 'b', durationSec }: Pr
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>
  Loudness over time · short-term LUFS
  </span>
- <span className="text-[9px] font-mono" style={{ color: '#57534e' }}>
+ <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
  section overlays from transient-density detector
  </span>
  </div>

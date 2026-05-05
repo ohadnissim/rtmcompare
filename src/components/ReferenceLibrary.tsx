@@ -331,7 +331,7 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  </span>
  ))}
  {(!record.tags || record.tags.length === 0) && (
- <span className="text-[9px] italic" style={{ color: '#57534e' }}>no tags</span>
+ <span className="text-[9px] italic" style={{ color: '#8d867b' }}>no tags</span>
  )}
  </div>
  {record.notes && (
@@ -368,7 +368,7 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  )}
 
  {/* Footer actions */}
- <div className="flex items-center justify-between pt-1 text-[9px]" style={{ color: '#57534e' }}>
+ <div className="flex items-center justify-between pt-1 text-[9px]" style={{ color: '#8d867b' }}>
  {!editing ? (
  <button
  onClick={onEditToggle}

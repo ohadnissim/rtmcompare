@@ -55,7 +55,7 @@ export default function StreamingDeltaHeatmap({
  </span>
  </div>
  {!hasData ? (
- <p className="text-[10px] italic px-3 py-2" style={{ color: '#57534e' }}>
+ <p className="text-[10px] italic px-3 py-2" style={{ color: '#8d867b' }}>
  Play the Sound Check twin (≋) first — the heatmap draws from the limiter's gain-reduction envelope.
  </p>
  ) : (
@@ -97,7 +97,7 @@ export default function StreamingDeltaHeatmap({
  </div>
  )}
  {hasData && (
- <div className="flex items-center justify-between px-3 py-1 text-[9px]" style={{ color: '#57534e' }}>
+ <div className="flex items-center justify-between px-3 py-1 text-[9px]" style={{ color: '#8d867b' }}>
  <span>0 s</span>
  <span>{(windowSec / 2).toFixed(0)} s</span>
  <span>{windowSec.toFixed(0)} s</span>

@@ -150,6 +150,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  {fileB && filters.length > 0 && (
  <ApplyBounceButton
  bands={scaledFilters as any}
+ bandEnabled={bandEnabled}
  srcFilePath={fileB.path}
  fileName={fileB.name}
  amountPct={eqAmount}
@@ -257,7 +258,7 @@ function MatchScore({ score, engineer }: { score: number; engineer: string }) {
  <div className="text-center">
  <p className="text-[11px]" style={{ color, fontWeight: 500 }}>{verdict.label}</p>
  <p className="text-[9px] mt-0.5" style={{ color: '#7a7164' }}>{verdict.sub}</p>
- <p className="text-[9px] mt-1.5" style={{ color: '#57534e' }}>vs {engineer}'s style</p>
+ <p className="text-[9px] mt-1.5" style={{ color: '#8d867b' }}>vs {engineer}'s style</p>
  </div>
  </div>
  )
@@ -910,7 +911,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  <div className="text-[11px]" style={{ color: enabled ? '#ebe7e0' : '#8d867b' }}>
  {f.region}
  </div>
- <div className="text-[10px] font-mono" style={{ color: enabled ? '#7a7164' : '#57534e' }}>
+ <div className="text-[10px] font-mono" style={{ color: enabled ? '#7a7164' : '#8d867b' }}>
  {f.freq >= 1000 ? `${(f.freq/1000).toFixed(f.freq >= 10000 ? 0 : 1)}k Hz` : `${f.freq} Hz`}
  <span className="mx-1 opacity-50">·</span>
  Q {f.q.toFixed(1)}
@@ -1115,7 +1116,7 @@ function WaveformLoopPicker({ envelope, duration, loopStart, loopEnd, onChange }
  if (!envelope || !duration) {
  return (
  <div className="h-20 rounded-lg flex items-center justify-center text-[11px]"
- style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)', color: '#6a6459' }}>
+ style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)', color: '#a8a29e' }}>
  Press Play to analyse the file — waveform will appear here.
  </div>
  )
@@ -1259,7 +1260,7 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
  </span>
  )}
 
- <svg className="w-3 h-3 flex-shrink-0 transition-transform" style={{ color: '#57534e', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+ <svg className="w-3 h-3 flex-shrink-0 transition-transform" style={{ color: '#8d867b', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
  </svg>
  </button>

@@ -53,7 +53,7 @@ export default function ShortcutHelp() {
  >
  <div className="text-center space-y-1">
  <h2 className="text-lg font-semibold" style={{ color: '#f5f5f4' }}>Keyboard Shortcuts</h2>
- <p className="text-[11px]" style={{ color: '#57534e' }}>Press ? to toggle this overlay</p>
+ <p className="text-[11px]" style={{ color: '#8d867b' }}>Press ? to toggle this overlay</p>
  </div>
 
  <div className="space-y-2.5">

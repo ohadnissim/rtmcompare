@@ -80,7 +80,7 @@ export default function ModuleStore({ allModules, activeIds, onToggle, onClose }
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2">
  <span className="text-[12px] font-medium" style={{ color: '#ebe7e0' }}>{mod.label}</span>
- <span className="text-[9px] font-mono" style={{ color: '#57534e' }}>v{mod.version}</span>
+ <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>v{mod.version}</span>
  {tierBadge && (
  <span className="text-[8px] px-1.5 py-0.5 rounded uppercase tracking-[0.1em]" style={{
  color: '#c5a55a',
@@ -113,7 +113,7 @@ export default function ModuleStore({ allModules, activeIds, onToggle, onClose }
  </div>
 
  {/* Footer */}
- <div className="px-6 py-3 border-t text-center text-[9px]" style={{ borderColor: 'rgba(168,161,150,0.08)', color: '#57534e' }}>
+ <div className="px-6 py-3 border-t text-center text-[9px]" style={{ borderColor: 'rgba(168,161,150,0.08)', color: '#8d867b' }}>
  More modules coming soon — Atmos Studio · Archive · Sync · Broadcast
  </div>
  </div>

@@ -2,7 +2,30 @@ import { spawn, execSync, ChildProcess } from 'child_process'
 import * as path from 'path'
 import * as fs from 'fs'
 
-// Track the active analysis subprocess so the UI can cancel it.
+// 5.2.0 reliability fix (audit P1-14): track ALL active Python subprocesses
+// in a Map keyed by an internal job id, not a single global slot. The old
+// `activeProc` pointer was overwritten on every spawn, so cancellation only
+// killed the most recent comparator and leaked all parallel jobs (render-
+// corrected-eq, master-chain-render, encoded-preview-render, declick,
+// translation, references-add, …).
+const activeJobs = new Map<string, ChildProcess>()
+let _jobCounter = 0
+function nextJobId(prefix = 'job'): string {
+ _jobCounter = (_jobCounter + 1) & 0xffffffff
+ return `${prefix}-${Date.now().toString(36)}-${_jobCounter.toString(36)}`
+}
+export function registerJob(prefix: string, proc: ChildProcess): string {
+ const id = nextJobId(prefix)
+ activeJobs.set(id, proc)
+ const cleanup = () => activeJobs.delete(id)
+ proc.once('exit', cleanup)
+ proc.once('error', cleanup)
+ return id
+}
+export function unregisterJob(id: string): void { activeJobs.delete(id) }
+// Backward-compat shim — old call sites that wrote to `activeProc`
+// directly. The most-recent-spawn semantics are preserved by re-registering
+// each spawn under a fresh id; cancelActiveAnalysis() walks the whole map.
 let activeProc: ChildProcess | null = null
 
 /** Env for every Python subprocess launched from Electron.
@@ -47,16 +70,34 @@ export function pythonSpawnEnv(): NodeJS.ProcessEnv {
 }
 
 export function cancelActiveAnalysis(): boolean {
-  if (!activeProc || activeProc.killed) return false
-  try {
-    // SIGTERM first, SIGKILL after 1s if still alive.
-    activeProc.kill('SIGTERM')
-    const p = activeProc
-    setTimeout(() => { try { if (!p.killed) p.kill('SIGKILL') } catch {} }, 1000)
-    return true
-  } catch {
-    return false
+  // 5.2.0: walk the entire active-jobs map (was: only killed the single
+  // most-recent comparator). SIGTERM each, SIGKILL stragglers after 1s.
+  let killed = false
+  for (const [id, p] of activeJobs) {
+    if (!p.killed) {
+      try {
+        p.kill('SIGTERM')
+        killed = true
+        // Per-process SIGKILL fallback. Clear the timer if exit lands first
+        // so we don't accidentally SIGKILL a recycled PID.
+        const proc = p
+        const t = setTimeout(() => { try { if (!proc.killed) proc.kill('SIGKILL') } catch {} }, 1000)
+        proc.once('exit', () => clearTimeout(t))
+      } catch {}
+    }
+    activeJobs.delete(id)
   }
+  // Legacy single-slot pointer kept in sync.
+  if (activeProc && !activeProc.killed) {
+    try {
+      activeProc.kill('SIGTERM')
+      const p = activeProc
+      const t = setTimeout(() => { try { if (!p.killed) p.kill('SIGKILL') } catch {} }, 1000)
+      p.once('exit', () => clearTimeout(t))
+      killed = true
+    } catch {}
+  }
+  return killed
 }
 
 export function getPythonPaths(): { pythonCmd: string; pythonDir: string; scriptPath: string } {
@@ -149,15 +190,53 @@ export async function analyzePython(
       env: pythonSpawnEnv(),
     })
     activeProc = proc
+    // Register in the multi-job tracker so cancelActiveAnalysis() kills
+    // this even if a parallel job has overwritten `activeProc` since.
+    const jobId = registerJob('analyze', proc)
+
+    // 5.2.0 reliability hardening (audit P1-15):
+    //   • per-stream stdout/stderr cap (256 MB combined) — a runaway
+    //     Python that prints unbounded JSON should fail loudly, not
+    //     OOM the main process
+    //   • timeout (env-tunable RTM_PY_TIMEOUT_MS, default 30 minutes)
+    //     — a deadlocked numba JIT or wedged demucs should never
+    //     leave the renderer waiting forever on a Promise
+    const STDOUT_CAP_BYTES = 256 * 1024 * 1024
+    let stdoutBytes = 0
+    let stderrBytes = 0
+    let bufferKilled = false
+    const TIMEOUT_MS = Number(process.env.RTM_PY_TIMEOUT_MS) || 30 * 60 * 1000
+    const watchdog = setTimeout(() => {
+      if (!proc.killed) {
+        try { proc.kill('SIGTERM') } catch {}
+        bufferKilled = true
+      }
+    }, TIMEOUT_MS)
 
     let stdout = ''
     let stderr = ''
 
     proc.stdout.on('data', (data: Buffer) => {
+      stdoutBytes += data.length
+      if (stdoutBytes + stderrBytes > STDOUT_CAP_BYTES) {
+        if (!bufferKilled) {
+          bufferKilled = true
+          try { proc.kill('SIGTERM') } catch {}
+        }
+        return
+      }
       stdout += data.toString()
     })
 
     proc.stderr.on('data', (data: Buffer) => {
+      stderrBytes += data.length
+      if (stdoutBytes + stderrBytes > STDOUT_CAP_BYTES) {
+        if (!bufferKilled) {
+          bufferKilled = true
+          try { proc.kill('SIGTERM') } catch {}
+        }
+        return
+      }
       const text = data.toString()
       stderr += text
 
@@ -178,6 +257,14 @@ export async function analyzePython(
     proc.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
       // Clear the active-process pointer so future cancellations are no-ops.
       if (activeProc === proc) activeProc = null
+      unregisterJob(jobId)
+      clearTimeout(watchdog)
+      if (bufferKilled) {
+        // Replace whatever stderr looks like with a friendly message —
+        // the renderer should hear "Python ran too long / produced too
+        // much output" not a partial traceback.
+        stderr = `RTMcompare aborted the analysis: ${stdoutBytes + stderrBytes >= STDOUT_CAP_BYTES ? 'output exceeded 256 MB' : 'timed out (set RTM_PY_TIMEOUT_MS to override)'}.`
+      }
 
       // Debug log
       try {

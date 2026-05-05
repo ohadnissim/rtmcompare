@@ -40,6 +40,34 @@
   --color-dark-800: #1e1c18;
   --color-dark-900: #151411;
   --color-dark-950: #0e0d0b;
+
+  /* 5.2.0 design tokens (audit P1-18 + P2-20):
+     - Type tokens — Instrument Serif as the Console-Didone display face
+       (was Outfit, which made the named-Didone system render as a
+       generic sans). Outfit + JetBrains Mono stay for body / mono.
+     - Semantic color aliases — components reach for intent
+       (`var(--color-text-primary)`) instead of shade numbers, and the
+       eventual lint rule banning inline hex has a target to redirect to.
+     - Radius tokens — sharp + pill only, no in-between (audit P2-26). */
+  --font-display: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+  --color-text-primary:   var(--color-sand-100);
+  --color-text-secondary: var(--color-sand-300);
+  --color-text-muted:     var(--color-sand-400);
+  --color-text-dim:       var(--color-sand-500);
+  --color-bg-app:         var(--color-sand-950);
+  --color-bg-panel:       var(--color-sand-800);
+  --color-bg-row-hover:   rgba(42,39,34,0.55);
+  --color-accent:         var(--color-terra);
+  --color-accent-strong:  var(--color-terra-dark);
+  --color-success:        var(--color-sage);
+  --color-danger:         var(--color-warm-red);
+  --color-warning:        var(--color-warm-amber);
+
+  --radius-card: 2px;
+  --radius-pill: 9999px;
 }
 
 @layer base {
@@ -60,16 +88,28 @@
     transition: background-color 0.3s, color 0.3s;
   }
 
-  h1, h2, h3 {
-    font-family: 'Outfit', sans-serif;
+  h1, h2 {
+    /* Console Didone — Instrument Serif for the monumental h1/h2 moments
+       (cover titles, verdict headlines, hero numerals). Italic enabled by
+       Google Fonts subset above; lowercase letterforms breathe better than
+       uppercase tracked-Outfit at the operatic ratio the philosophy wants.
+       5.2.0 fix (audit P1-18). h3 stays sans for utility headings. */
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.005em;
+    color: #f5f2ed;
+    text-transform: none;
+  }
+  h3 {
+    font-family: var(--font-sans);
     font-weight: 500;
     letter-spacing: 0.03em;
     color: #f5f2ed;
     text-transform: uppercase;
   }
 
-  h1 { font-size: 1.7rem; letter-spacing: 0.1em; font-weight: 400; }
-  h2 { font-size: 1.05rem; letter-spacing: 0.07em; font-weight: 500; }
+  h1 { font-size: 1.9rem; line-height: 1.05; letter-spacing: -0.01em; font-weight: 400; }
+  h2 { font-size: 1.4rem; line-height: 1.1;  letter-spacing: -0.005em; font-weight: 400; }
   h3 { font-size: 0.9rem; letter-spacing: 0.05em; font-weight: 500; }
 
   .font-mono {

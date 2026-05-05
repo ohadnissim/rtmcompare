@@ -227,7 +227,7 @@ function CheckRow({ check }: { check: Check }) {
  <div className="flex items-baseline gap-2 flex-wrap">
  <span className="font-medium" style={{ color: '#ebe7e0' }}>{check.name}</span>
  <span className="font-mono text-[10px]" style={{ color }}>{check.value}</span>
- <span className="font-mono text-[10px]" style={{ color: '#57534e' }}>target {check.target}</span>
+ <span className="font-mono text-[10px]" style={{ color: '#8d867b' }}>target {check.target}</span>
  </div>
  <div className="text-[10px] mt-0.5" style={{ color: '#8d867b' }}>{check.note}</div>
  </div>

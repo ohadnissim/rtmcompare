@@ -157,8 +157,21 @@ function createWindow() {
     }
   })
 
-  // Handle file drops — intercept in main process where we have full paths
-  mainWindow.webContents.on('will-navigate', (e) => e.preventDefault())
+  // Handle file drops — intercept in main process where we have full paths.
+  // Also block any in-renderer navigation that isn't our local content,
+  // and refuse all `window.open` popups outright. With sandbox:false
+  // (justified for File.path), these are the renderer-side defences.
+  // Audit P0-5 hardening (5.2.0).
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    // Allow only the same-origin Vite dev URL in dev; block everything
+    // else. In production the loaded file:// origin won't navigate at
+    // all; a renderer compromise that tries `location = 'http://...'`
+    // gets dropped here instead of reaching the network.
+    if (!url.startsWith('http://localhost:5173') && !url.startsWith('file://')) {
+      e.preventDefault()
+    }
+  })
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
   // Listen for files dropped onto the window
   mainWindow.on('closed', () => {
@@ -777,11 +790,15 @@ function runDeclick(args: DeclickArgs, previewHead: boolean): Promise<any> {
 
     if (previewHead) {
       // Build a tiny inline shim that:
-      //   1. reads the first 10 s of args.inPath into a tmp WAV
+      //   1. reads the first 10 s of payload['inPath'] into a tmp WAV
       //   2. imports declick and processes that tmp WAV with the same params
       //   3. prints the resulting JSON on stdout
-      // We do this in Python (not Node) so we don't duplicate WAV parsing
-      // in two languages.
+      // ALL user-controlled values flow through JSON-on-stdin — the script
+      // template only references `payload[...]`. Previous version inlined
+      // numeric args (sensitivity / skew / widenMs) into Python source,
+      // which was a renderer-compromise → arbitrary-Python-execution gap
+      // (audit P0-2, fixed in 5.2.0). Only constants and the trusted
+      // `pythonDir` path may be interpolated into this template.
       const previewDir = path.join(require('os').homedir(), '.rtm')
       try { fs.mkdirSync(previewDir, { recursive: true }) } catch {}
       tmpSlicePath = path.join(require('os').tmpdir(), `rtm-declick-slice-${Date.now()}.wav`)
@@ -791,18 +808,23 @@ import sys, os, json
 sys.path.insert(0, ${JSON.stringify(pythonDir)})
 import soundfile as sf
 import numpy as np
-src = ${JSON.stringify(args.inPath)}
-slice_path = ${JSON.stringify(tmpSlicePath)}
-out_path = ${JSON.stringify(previewOut)}
+payload = json.loads(sys.stdin.read())
+src = payload['inPath']
+slice_path = payload['tmpSlicePath']
+out_path = payload['previewOut']
+algorithm = str(payload['algorithm'])
+sensitivity = float(payload['sensitivity'])
+frequency_skew = float(payload['skew'])
+click_widening_ms = float(payload['widenMs'])
 data, sr = sf.read(src, always_2d=True)
 head = data[: int(sr * 10.0)]
 sf.write(slice_path, head, sr)
 from declick import declick_file, DeclickParams
 params = DeclickParams(
-    algorithm=${JSON.stringify(args.algorithm)},
-    sensitivity=float(${args.sensitivity}),
-    frequency_skew=float(${args.skew}),
-    click_widening_ms=float(${args.widenMs}),
+    algorithm=algorithm,
+    sensitivity=sensitivity,
+    frequency_skew=frequency_skew,
+    click_widening_ms=click_widening_ms,
     output_mode="repair",
 )
 result = declick_file(slice_path, out_path, params)
@@ -817,6 +839,16 @@ print(json.dumps(d))
 `
       spawnScriptPath = '-c'
       spawnArgs = [spawnScriptPath, shim]
+      // Stash the JSON-stdin payload for the spawn block below to write.
+      ;(globalThis as any).__declick_preview_payload__ = JSON.stringify({
+        inPath: String(args.inPath),
+        tmpSlicePath: String(tmpSlicePath),
+        previewOut: String(previewOut),
+        algorithm: String(args.algorithm),
+        sensitivity: Number(args.sensitivity),
+        skew: Number(args.skew),
+        widenMs: Number(args.widenMs),
+      })
     } else {
       spawnScriptPath = scriptPath
       spawnArgs = cliArgs
@@ -826,6 +858,14 @@ print(json.dumps(d))
       cwd: pythonDir,
       env: pythonSpawnEnv(),
     })
+    // Stream the JSON payload to stdin for the preview shim — this is
+    // how user-supplied params reach the Python script SAFELY (never
+    // interpolated into source).
+    const previewPayload = (globalThis as any).__declick_preview_payload__ as string | undefined
+    if (previewPayload && spawnScriptPath === '-c') {
+      proc.stdin.end(previewPayload)
+      ;(globalThis as any).__declick_preview_payload__ = undefined
+    }
     let stdout = ''
     let stderr = ''
     proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
@@ -1074,9 +1114,22 @@ function startIncomingWatcher() {
     }
   } catch {}
   try {
+    // 5.2.0 hardening: filename must be a single basename matching a
+    // strict whitelist. Stops malware on the same machine from dropping
+    // `../../Library/LaunchAgents/x.plist.ready` and having us rename
+    // arbitrary files into ~/.rtm/inbox/. The DAW plugin only ever
+    // writes plain ASCII names anyway.
+    const SAFE_INCOMING = /^[A-Za-z0-9_.-]+\.ready$/
     incomingWatcher = fs.watch(INCOMING_DIR, (event, filename) => {
       if (!filename) return
       if (!filename.endsWith('.ready')) return
+      // Reject path-traversal / symlink-target / non-ASCII shenanigans.
+      // path.basename round-trip catches platform-quirky separators too.
+      const safeName = path.basename(String(filename))
+      if (safeName !== String(filename) || !SAFE_INCOMING.test(safeName)) {
+        try { fs.unlinkSync(path.join(INCOMING_DIR, safeName)) } catch {}
+        return
+      }
       // Debounce tiny write latency — a 50 ms pause lets the plugin
       // finish rename + fsync on slow drives.
       setTimeout(() => {
@@ -1379,6 +1432,12 @@ ipcMain.handle('render-pdf-direct', async (_event, folderPath: string, fileName:
 ipcMain.handle('compute-sha256', async (_e, filePath: string) => {
   try { assertSafeAudioPath(filePath, 'compute-sha256') }
   catch (err: any) { return { error: err?.message || 'invalid path' } }
+  // 5.2.0: also gate by extension so this can't be used to fingerprint
+  // arbitrary files on disk via a renderer compromise.
+  const ext = path.extname(filePath).toLowerCase()
+  if (!AUDIO_EXT.has(ext)) {
+    return { error: 'compute-sha256 only accepts audio files' }
+  }
   const crypto = require('crypto')
   try {
     const data = fs.readFileSync(filePath)
@@ -1390,11 +1449,26 @@ ipcMain.handle('compute-sha256', async (_e, filePath: string) => {
 ipcMain.handle('write-sidecar', async (_e, filePath: string, suffix: string, contents: string) => {
   try { assertSafeAudioPath(filePath, 'write-sidecar') }
   catch (err: any) { return { error: err?.message || 'invalid base path' } }
-  if (typeof suffix !== 'string' || suffix.length === 0 || suffix.length > 64 || suffix.includes('/') || suffix.includes('\\')) {
+  // 5.2.0 hardening: pin the BASE file to a known audio extension so a
+  // renderer compromise can't call writeSidecar('/Users/x/.zshrc',
+  // '.evil', '...') and plant arbitrary content next to system files.
+  // The legitimate use is a `.sha256` next to a master WAV.
+  const baseExt = path.extname(filePath).toLowerCase()
+  if (!AUDIO_EXT.has(baseExt)) {
+    return { error: 'sidecar base must be an audio file (.wav/.flac/.aiff/.aif/.mp3/.m4a/.ogg)' }
+  }
+  if (typeof suffix !== 'string' || suffix.length === 0 || suffix.length > 64 || suffix.includes('/') || suffix.includes('\\') || suffix.includes('..')) {
     return { error: 'invalid sidecar suffix' }
   }
   try {
     const out = `${filePath}${suffix}`
+    // Final guard: the resolved sidecar must still live in the same dir
+    // as the source file. Defends against any suffix-based escape.
+    const baseDir = path.dirname(path.resolve(filePath))
+    const outDir = path.dirname(path.resolve(out))
+    if (baseDir !== outDir) {
+      return { error: 'sidecar must live in the source file dir' }
+    }
     fs.writeFileSync(out, contents, 'utf8')
     return out
   } catch (err: any) {

@@ -205,7 +205,7 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
  </button>
  </div>
 
- <p className="text-[9px]" style={{ color: '#6a6459' }}>
+ <p className="text-[9px]" style={{ color: '#a8a29e' }}>
  Runs locally. Nothing leaves this machine.
  </p>
  </div>
@@ -368,7 +368,7 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  <button
  onClick={onSkip}
  className="text-[10px]"
- style={{ color: '#6a6459' }}
+ style={{ color: '#a8a29e' }}
  >Skip tour</button>
  </div>
  <h3 className="text-base" style={{ color: '#f5f2ed', fontWeight: 500 }}>{step.title}</h3>

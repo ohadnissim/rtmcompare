@@ -36,14 +36,20 @@ const issueIcons: Record<string, string> = {
  'Brightness Fatigue': '**',
 }
 
+// 5.2.0 design fix (audit P2-21): collapse the parallel 6-color palette
+// (which had nothing to do with the @theme tokens) into the warm-red /
+// neutral pair that the tuned palette already supplies. Severity is
+// conveyed by the Δ-dB chip color downstream; the issue name carries
+// the identification weight, not hue. Same value across every issue
+// keeps the cards visually quiet — what the philosophy demands.
 const issueColors: Record<string, string> = {
- 'Boominess': '#6b8cbb',
- 'Muddiness': '#8b7355',
- 'Boxiness': '#a87832',
- 'Harshness': '#e05a5a',
- 'Sibilance': '#d4784f',
- 'Thinness': '#6b8cbb',
- 'Brightness Fatigue': '#e07a4f',
+ 'Boominess': '#a8a29e',
+ 'Muddiness': '#a8a29e',
+ 'Boxiness': '#a8a29e',
+ 'Harshness': '#c96765',
+ 'Sibilance': '#c96765',
+ 'Thinness': '#a8a29e',
+ 'Brightness Fatigue': '#c96765',
 }
 
 export default function TonalIssues({ issues, labelA, labelB }: Props) {
@@ -58,7 +64,7 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  </div>
  <div>
  <p className="text-sm" style={{ color: '#e7e5e4' }}>No tonal issues detected</p>
- <p className="text-[11px]" style={{ color: '#57534e' }}>Tonal balance is clean between both versions</p>
+ <p className="text-[11px]" style={{ color: '#8d867b' }}>Tonal balance is clean between both versions</p>
  </div>
  </div>
  )
@@ -131,7 +137,7 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  <span>{labelA}: {issue.level_a} dB</span>
  <span>→</span>
  <span style={{ color }}>{labelB}: {issue.level_b} dB</span>
- <span style={{ color: '#57534e' }}>({issue.detail})</span>
+ <span style={{ color: '#8d867b' }}>({issue.detail})</span>
  </div>
 
  {/* Fix suggestion */}

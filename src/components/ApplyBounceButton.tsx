@@ -11,6 +11,11 @@ interface Band {
 
 interface Props {
  bands: Band[]
+ /** Same boolean array the live preview uses to bypass individual bands.
+  * The bounce HONOURS this — if a band is off in the preview, it's off
+  * in the rendered WAV. Without this prop the bounce silently re-includes
+  * every band (the 5.1.x correctness bug fixed in 5.2.0). */
+ bandEnabled?: boolean[]
  srcFilePath?: string
  fileName?: string
  amountPct?: number
@@ -40,7 +45,7 @@ interface Props {
  * spec — strictest common ceiling). Not exposed; we don't want users
  * shipping risky bounces.
  */
-export default function ApplyBounceButton({ bands, srcFilePath, fileName, amountPct, tpLimit, setTpLimit, refLufs, refLabel }: Props) {
+export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fileName, amountPct, tpLimit, setTpLimit, refLufs, refLabel }: Props) {
  const [busy, setBusy] = useState<null | string>(null)
  const [toast, setToast] = useState<string | null>(null)
  // Loudness-match toggle. Default OFF — user direction (May 5):
@@ -78,11 +83,24 @@ export default function ApplyBounceButton({ bands, srcFilePath, fileName, amount
  const busyMsg = willMatchLoudness
  ? (tpLimit ? 'Rendering + loudness match + TP limit…' : 'Rendering + loudness match…')
  : (tpLimit ? 'Rendering + true-peak limit…' : 'Rendering corrected version…')
+ // Filter to ONLY enabled bands. Matches what the user heard in the
+ // live preview — the bounce never silently re-introduces a band that
+ // was bypassed. When bandEnabled is undefined (legacy callers / tips
+ // panel without a toggle row), all bands are shipped.
+ const activeBands = bandEnabled
+ ? bands.filter((_, i) => bandEnabled[i])
+ : bands
+
+ if (activeBands.length === 0) {
+ flash('All bands are bypassed — nothing to bounce. Toggle at least one move on.')
+ return
+ }
+
  setBusy(busyMsg)
  try {
  const finalPath = await window.electronAPI.renderCorrectedEq(
  srcFilePath,
- bands,
+ activeBands,
  outPath || undefined,
  tpLimit,
  ceilingDbtp,
@@ -104,7 +122,7 @@ export default function ApplyBounceButton({ bands, srcFilePath, fileName, amount
  useEffect(() => {
  const unsub = onShortcut(RTM_EVENTS.applyBounce, () => applyAndBounce())
  return () => unsub()
- }, [bands, srcFilePath, tpLimit, fileName, amountPct, matchLoudness, refLufs])
+ }, [bands, bandEnabled, srcFilePath, tpLimit, fileName, amountPct, matchLoudness, refLufs])
 
  if (!bands || bands.length === 0) return null
  const disabled = !srcFilePath || !!busy
@@ -128,7 +146,8 @@ export default function ApplyBounceButton({ bands, srcFilePath, fileName, amount
  </div>
 
  {/* Match-loudness toggle — only when a reference LUFS is available.
- Default ON (beta-tester ask). Closed-loop trim, +4 dB boost cap. */}
+ Default OFF (May 5 user direction — opt in deliberately). Closed-loop
+ trim, +4 dB boost cap. */}
  {srcFilePath && refLufsAvailable && (
  <label
  className="flex items-center gap-2 px-2.5 py-1 rounded-md cursor-pointer transition-colors"

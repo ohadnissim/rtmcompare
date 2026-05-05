@@ -3,10 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content-Security-Policy — added in 5.2.0 (audit P0-5).
+      With sandbox:false in BrowserWindow (justified for File.path), CSP is
+      what stands between any reflected/stored XSS (malicious profile JSON,
+      plugin meta, declick output) and the IPC layer. Allowances are tight:
+        script-src 'self'                — no inline scripts, no eval
+        style-src 'self' 'unsafe-inline' — Tailwind + inline color tokens
+        connect-src includes localhost   — Vite dev HMR (ignored at runtime
+                                            by file:// origin in production)
+        font-src 'self' fonts.gstatic.com — local + Google Fonts
+        img/media-src includes blob/data — Web Audio decoded buffers
+        frame-ancestors 'none'           — no embedding
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: file:; media-src 'self' blob: data: file:; connect-src 'self' http://localhost:5173 ws://localhost:5173 ws://localhost:5174; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
     <title>RTM</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Cormorant+Garamond:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Cormorant+Garamond:wght@300;400;500;600&family=Instrument+Serif:ital,wght@0,400;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
   <body class="bg-dark-950 text-white min-h-screen">
     <div id="root"></div>

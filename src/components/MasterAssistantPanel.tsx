@@ -244,7 +244,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <p className="mb-1" style={{ color: '#8d867b' }}>
  <strong style={{ color: '#a8a29e' }}>Gain</strong> moves the master towards the platform's normalisation target so the limiter sees a consistent starting level. <strong style={{ color: '#a8a29e' }}>HPF</strong> strips sub-rumble phone speakers can't play. <strong style={{ color: '#a8a29e' }}>EQ</strong> applies the engineer-profile / reference-match moves. <strong style={{ color: '#a8a29e' }}>Compressor</strong> glues density when LRA &gt; 12 LU. <strong style={{ color: '#a8a29e' }}>TP limiter</strong> catches inter-sample overs that streaming ingest would otherwise squash. <strong style={{ color: '#a8a29e' }}>Dither</strong> shapes quantisation noise when rendering at 16-bit.
  </p>
- <p className="text-[10px] italic" style={{ color: '#57534e' }}>
+ <p className="text-[10px] italic" style={{ color: '#8d867b' }}>
  Three tabs: <strong>Chain</strong> = the full pipeline · <strong>Engineer Tips</strong> = tonal moves from the loaded profile · <strong>Reference Match</strong> = match a library track's spectrum. All three feed the same EQ bank in the main player; whichever tab you engage auditions live.
  </p>
  </div>
@@ -504,7 +504,7 @@ function ChainTable({ chain }: { chain: MasterChain }) {
  <span
  className="ml-1.5 px-1 py-px rounded-sm"
  style={{
- color: r.status === 'on' ? '#d0b066' : '#57534e',
+ color: r.status === 'on' ? '#d0b066' : '#8d867b',
  backgroundColor: r.status === 'on' ? 'rgba(208,176,102,0.12)' : 'transparent',
  border: `1px solid ${r.status === 'on' ? 'rgba(208,176,102,0.35)' : 'rgba(87,83,78,0.3)'}`,
  fontSize: 8,

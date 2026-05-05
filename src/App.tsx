@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react'
 import { AppState, FileInfo, AnalysisResult } from './types'
 import { useTheme } from './ThemeContext'
 import { useModes } from './ModesContext'
@@ -6,10 +6,16 @@ import FileDropZone from './components/FileDropZone'
 import ReferenceLibrary from './components/ReferenceLibrary'
 import RtmIncomingBanner from './components/RtmIncomingBanner'
 import { usePluginDrop } from './PluginDropContext'
-import AnalysisView from './components/AnalysisView'
 import ProgressBar from './components/ProgressBar'
-import RefOnlyView from './components/RefOnlyView'
-import BatchView from './components/BatchView'
+// 5.2.0 perf fix (audit P1-19): the three primary mode panels (Compare,
+// Single-file, Batch) are mutually exclusive — only one is visible at any
+// time — yet the previous eager imports forced all three into the cold
+// boot bundle (~7000 LOC across BatchView 1884 / RefOnlyView 1321 /
+// AnalysisView 1853). Lazy-loading them cuts initial JS by ~40-50%.
+// Vite handles the dynamic import out of the box; no config needed.
+const AnalysisView = lazy(() => import('./components/AnalysisView'))
+const RefOnlyView = lazy(() => import('./components/RefOnlyView'))
+const BatchView = lazy(() => import('./components/BatchView'))
 import RecentAnalyses from './components/RecentAnalyses'
 import type { BatchResult, HistoryEntry, AlbumSession } from './types'
 import OnboardingTour, { useTourState } from './components/OnboardingTour'
@@ -1070,7 +1076,7 @@ export default function App() {
  <p className="mb-1.5" style={{ color: '#d9d4c8' }}>
  RTM branches on what you drop. <strong>One file</strong> → single-file surface: verdict, attention list, A/B player, Master Assistant, Sound Check twin. Use it when you already have a mix and want to finish + ship. <strong>Two files</strong> → compare surface: every delta between the two files (spectrum, dynamics, stereo, phase, loudness, masking) on level-matched playback. Use it for mix revisions, ref tracks, or before-vs-after. <strong>Folder</strong> → batch / album surface: cohort consistency across every track. Use it for albums, EPs, label deliveries.
  </p>
- <p className="text-[10px] italic" style={{ color: '#57534e' }}>
+ <p className="text-[10px] italic" style={{ color: '#8d867b' }}>
  Everything is level-matched to −18 LUFS integrated before comparison so a louder master doesn't fool your ears into thinking it's better. The RTM Send DAW plugin can also stream a bounce from Wavelab / Logic / Pro Tools / Studio One into the single-file surface; no export dialog.
  </p>
  </div>
@@ -1206,7 +1212,7 @@ export default function App() {
  <button
  onClick={() => toggleSavedRef({ path: r.path, name: r.name })}
  className="pl-2 py-1"
- style={{ color: saved ? '#d0b066' : '#57534e' }}
+ style={{ color: saved ? '#d0b066' : '#8d867b' }}
  title={saved ? 'Unstar' : 'Save as go-to reference'}
  >★</button>
  <button
@@ -1261,7 +1267,7 @@ export default function App() {
  className="px-4 py-2 rounded-lg text-xs transition-all"
  style={{
  backgroundColor: !deepScan ? 'rgba(197,165,90,0.15)' : 'transparent',
- color: !deepScan ? '#c5a55a' : '#57534e',
+ color: !deepScan ? '#c5a55a' : '#8d867b',
  border: !deepScan ? '1px solid rgba(197,165,90,0.3)' : '1px solid transparent',
  fontWeight: !deepScan ? 500 : 400,
  }}
@@ -1274,7 +1280,7 @@ export default function App() {
  className="px-4 py-2 rounded-lg text-xs transition-all"
  style={{
  backgroundColor: deepScan ? 'rgba(197,165,90,0.15)' : 'transparent',
- color: atmosLikely ? '#3e3a33' : (deepScan ? '#c5a55a' : '#57534e'),
+ color: atmosLikely ? '#3e3a33' : (deepScan ? '#c5a55a' : '#8d867b'),
  border: deepScan ? '1px solid rgba(197,165,90,0.3)' : '1px solid transparent',
  fontWeight: deepScan ? 500 : 400,
  cursor: atmosLikely ? 'not-allowed' : 'pointer',
@@ -1345,7 +1351,7 @@ export default function App() {
  )}
  {/* What a profile actually does — plain-language explainer
  that stays visible under the selector. " */}
- <p className="text-[10px] max-w-lg text-center" style={{ color: '#57534e' }}>
+ <p className="text-[10px] max-w-lg text-center" style={{ color: '#8d867b' }}>
  A profile is a target tonal curve + loudness + width stats.
  RTM's Match panel will propose EQ moves to get your track closer to it.
  Not sure which to pick? Any modern-pop profile works for most genres; swap later to taste.
@@ -1368,7 +1374,7 @@ export default function App() {
  className="px-5 py-2.5 rounded-xl text-sm transition-all"
  style={{
  backgroundColor: fileA ? 'rgba(107,140,187,0.15)' : 'rgba(51,48,44,0.3)',
- color: fileA ? '#6b8cbb' : '#57534e',
+ color: fileA ? '#6b8cbb' : '#8d867b',
  border: fileA ? '1px solid rgba(107,140,187,0.25)' : '1px solid transparent',
  opacity: fileA ? 1 : 0.4,
  cursor: fileA ? 'pointer' : 'not-allowed',
@@ -1433,25 +1439,35 @@ export default function App() {
  <ProgressBar message={progress} onCancel={handleCancelScan} />
  )}
 
+ {/* Lazy boundaries — see imports above. The Suspense fallback is
+ a tiny progress strip so the user has immediate feedback while
+ the chunk downloads (typically <300 ms on first switch, instant
+ on subsequent visits via Vite's chunk cache). */}
  {state === 'results' && results && (
+ <Suspense fallback={<ProgressBar message="Loading compare view…" />}>
  <AnalysisView
  results={results}
  fileA={fileA!}
  fileB={fileB!}
  />
+ </Suspense>
  )}
 
  {state === 'batch' && batchResults && (
+ <Suspense fallback={<ProgressBar message="Loading batch view…" />}>
  <BatchView
  results={batchResults}
  folderName={batchFolderName || undefined}
  onBack={handleBatchBack}
  initialSession={batchInitialSession}
  />
+ </Suspense>
  )}
 
  {state === 'ref-only' && refOnlyResults && (
+ <Suspense fallback={<ProgressBar message="Loading single-file view…" />}>
  <RefOnlyView check={refOnlyResults} fileName={fileA!.name} filePath={fileA!.path} />
+ </Suspense>
  )}
  </main>
 

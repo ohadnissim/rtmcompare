@@ -16,18 +16,40 @@ export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid }:
 
  return (
  <div
- className="rounded-xl"
  style={{
  backgroundColor: palette.bg,
  borderLeft: `3px solid ${palette.accent}`,
+ borderRadius: 'var(--radius-card)',
  padding: compact ? '10pt 14pt' : '14pt 18pt',
  }}
  >
  <div className="flex items-center gap-3 flex-wrap">
+ {/* 5.2.0 (audit P2-22): the SaaS-pill verdict tag was the same
+ vocabulary as Stripe/Linear/Notion — generic. Replaced with a
+ hairline + tracked small-caps + a 4×4 px gold diamond when the
+ status is READY (single gold gesture per view per Console-
+ Didone philosophy: "the gold is a promise kept sparingly"). */}
  <span
- className="text-[9px] font-semibold tracking-[0.18em] uppercase px-2 py-0.5 rounded-full"
- style={{ color: palette.accent, backgroundColor: `${palette.accent}20` }}
+ className="text-[9px] font-semibold tracking-[0.18em] uppercase inline-flex items-center gap-2 px-2 py-1"
+ style={{
+ color: palette.accent,
+ borderTop: `1px solid ${palette.accent}`,
+ borderBottom: `1px solid ${palette.accent}`,
+ letterSpacing: '0.22em',
+ }}
  >
+ {verdict.level === 'ready' && (
+ <span
+ aria-hidden
+ style={{
+ display: 'inline-block',
+ width: 4,
+ height: 4,
+ backgroundColor: '#d0b066',
+ transform: 'rotate(45deg)',
+ }}
+ />
+ )}
  {palette.tag}
  </span>
  <span

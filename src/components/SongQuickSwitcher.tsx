@@ -124,7 +124,7 @@ export default function SongQuickSwitcher({ songs, displayName, onClose, onJump 
  className="flex-1 bg-transparent outline-none text-[14px]"
  style={{ color: '#ebe7e0' }}
  />
- <span className="text-[9px] tracking-[0.15em] uppercase" style={{ color: '#57534e' }}>esc to close</span>
+ <span className="text-[9px] tracking-[0.15em] uppercase" style={{ color: '#8d867b' }}>esc to close</span>
  </div>
  <div ref={listRef} className="max-h-[360px] overflow-y-auto py-2">
  {results.length === 0 && (
@@ -155,7 +155,7 @@ export default function SongQuickSwitcher({ songs, displayName, onClose, onJump 
  </button>
  ))}
  </div>
- <div className="px-5 py-2 text-[9px] flex items-center gap-4" style={{ color: '#57534e', borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="px-5 py-2 text-[9px] flex items-center gap-4" style={{ color: '#8d867b', borderTop: '1px solid rgba(168,161,150,0.08)' }}>
  <span><kbd className="font-mono" style={{ color: '#a8a29e' }}>↑</kbd> / <kbd className="font-mono" style={{ color: '#a8a29e' }}>↓</kbd> navigate</span>
  <span><kbd className="font-mono" style={{ color: '#a8a29e' }}>↵</kbd> open</span>
  <span><kbd className="font-mono" style={{ color: '#a8a29e' }}>esc</kbd> close</span>

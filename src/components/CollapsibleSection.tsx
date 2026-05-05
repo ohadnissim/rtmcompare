@@ -141,7 +141,7 @@ function GlossarySheet({ title, overview, why, entries, onClose }: {
  ))}
  </div>
 
- <div className="px-6 py-3 text-[10px] text-right" style={{ borderTop: '1px solid rgba(168,161,150,0.08)', color: '#6a6459' }}>
+ <div className="px-6 py-3 text-[10px] text-right" style={{ borderTop: '1px solid rgba(168,161,150,0.08)', color: '#a8a29e' }}>
  Esc or click outside to close
  </div>
  </div>

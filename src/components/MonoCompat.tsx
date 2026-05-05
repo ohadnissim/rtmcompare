@@ -291,7 +291,7 @@ function MonoWaterfall({ bandsA, bandsB, labelA, labelB }: {
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>
  Mono-loss waterfall
  </span>
- <span className="text-[9px] font-mono" style={{ color: '#57534e' }}>
+ <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
  low ← → high · cell = % energy lost on mono fold
  </span>
  </div>

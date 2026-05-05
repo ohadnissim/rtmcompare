@@ -84,7 +84,7 @@ export function CopyableText({ text }: { text: string }) {
  {text}
  <span
  className="ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-[9px]"
- style={{ color: copied ? '#6ec577' : '#57534e' }}
+ style={{ color: copied ? '#6ec577' : '#8d867b' }}
  >
  {copied ? 'Copied!' : '(click to copy)'}
  </span>

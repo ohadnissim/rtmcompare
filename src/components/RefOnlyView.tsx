@@ -879,7 +879,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  )
  })}
  </div>
- <div className="flex justify-between mt-2 text-[7px]" style={{ color: '#57534e' }}>
+ <div className="flex justify-between mt-2 text-[7px]" style={{ color: '#8d867b' }}>
  <span>20</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k</span>
  </div>
  </div>
@@ -967,7 +967,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </div>
  <div>
  <p className="text-sm" style={{ color: '#e7e5e4' }}>No clicks or glitches detected</p>
- <p className="text-[11px]" style={{ color: '#57534e' }}>Clean signal — no sample-level artifacts found</p>
+ <p className="text-[11px]" style={{ color: '#8d867b' }}>Clean signal — no sample-level artifacts found</p>
  </div>
  </div>
  )}
@@ -1278,7 +1278,7 @@ function StatBox({ label, value, sub, warn }: { label: string; value: string; su
  {termKey ? <TeachTerm term={termKey}>{label}</TeachTerm> : label}
  </p>
  <p className="text-sm font-medium" style={{ color: warn ? '#e05a5a' : '#e7e5e4' }}>{value}</p>
- {sub && <p className="text-[9px]" style={{ color: '#57534e' }}>{sub}</p>}
+ {sub && <p className="text-[9px]" style={{ color: '#8d867b' }}>{sub}</p>}
  </div>
  )
 }

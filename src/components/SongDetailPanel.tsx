@@ -831,7 +831,7 @@ export default function SongDetailPanel({
  </span>
  )}
  </span>
- <span className="text-[9px] font-mono" style={{ color: '#57534e' }}>dB · peak-normalised</span>
+ <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>dB · peak-normalised</span>
  </div>
  <SpectrumCurve spectrum={song.spectrum} compareSpectrum={compareTarget?.spectrum} compareLabel={compareTarget?.label} />
  </div>
@@ -1067,7 +1067,7 @@ function SongInfoBlock({ info }: { info: any }) {
  <div className="space-y-2">
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>Key frequencies</span>
- <span className="text-[9px] font-mono" style={{ color: '#57534e' }}>
+ <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
  20 Hz → 20 kHz (log)
  </span>
  </div>
@@ -1099,7 +1099,7 @@ function SongInfoBlock({ info }: { info: any }) {
  )
  })}
  </div>
- <div className="flex justify-between mt-3 text-[7px]" style={{ color: '#57534e' }}>
+ <div className="flex justify-between mt-3 text-[7px]" style={{ color: '#8d867b' }}>
  <span>20</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k</span>
  </div>
  </div>
@@ -1127,7 +1127,7 @@ function MiniStat({ label, value, sub }: { label: string; value: string; sub?: s
  <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <div className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>{label}</div>
  <div className="text-sm font-medium mt-0.5" style={{ color: '#e7e5e4' }}>{value}</div>
- {sub && <div className="text-[9px] mt-0.5" style={{ color: '#57534e' }}>{sub}</div>}
+ {sub && <div className="text-[9px] mt-0.5" style={{ color: '#8d867b' }}>{sub}</div>}
  </div>
  )
 }
@@ -1149,7 +1149,7 @@ function SongNotes({ value, onChange }: { value: string; onChange: (v: string) =
  <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c5a55a' }} title="Has notes" />
  )}
  </div>
- <span className="text-[9px]" style={{ color: '#57534e' }}>Saved with session · included in PDF</span>
+ <span className="text-[9px]" style={{ color: '#8d867b' }}>Saved with session · included in PDF</span>
  </div>
  <div className="px-3 pb-3">
  <textarea

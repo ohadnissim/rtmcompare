@@ -107,7 +107,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  className="flex-1 bg-transparent outline-none text-sm"
  style={{ color: '#ebe7e0' }}
  />
- <kbd className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#6a6459', border: '1px solid rgba(168,161,150,0.15)' }}>
+ <kbd className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#a8a29e', border: '1px solid rgba(168,161,150,0.15)' }}>
  Esc
  </kbd>
  </div>
@@ -115,7 +115,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  {/* Results */}
  <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-2">
  {results.length === 0 && (
- <div className="px-5 py-6 text-center text-[12px]" style={{ color: '#6a6459' }}>
+ <div className="px-5 py-6 text-center text-[12px]" style={{ color: '#a8a29e' }}>
  No matches. Try "lufs", "kick", "spotify", "mono", "atmos"…
  </div>
  )}
@@ -159,7 +159,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
 
  {/* Footer hints */}
  <div className="flex items-center justify-between px-5 py-2.5 text-[10px]"
- style={{ borderTop: '1px solid rgba(168,161,150,0.08)', color: '#6a6459' }}>
+ style={{ borderTop: '1px solid rgba(168,161,150,0.08)', color: '#a8a29e' }}>
  <span>Type to filter · ↑↓ to move · ↵ to jump</span>
  <span className="font-mono">⌘K to reopen</span>
  </div>

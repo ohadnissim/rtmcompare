@@ -128,7 +128,7 @@ export default function PhaseBandsPanel({ bandsA, bandsB, labelA, labelB }: Prop
  <span className="w-24 text-center text-[10px]" style={{ color: verdictColor }}>
  {verdict}
  </span>
- <span className="flex-[2] pl-3 text-[10px]" style={{ color: fix ? '#d0b066' : '#57534e' }}>
+ <span className="flex-[2] pl-3 text-[10px]" style={{ color: fix ? '#d0b066' : '#8d867b' }}>
  {fix || '—'}
  </span>
  </div>

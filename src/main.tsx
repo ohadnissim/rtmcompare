@@ -13,10 +13,15 @@ import { ModesProvider } from './ModesContext'
 import { EQProvider } from './EQContext'
 import { SoloProvider } from './SoloContext'
 import { PluginDropProvider } from './PluginDropContext'
+import ErrorBoundary from './components/ErrorBoundary'
 import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
  <React.StrictMode>
+ {/* Top-level error boundary — without this, any throw inside the
+ React tree (malformed FFT, stem worker reject, …) unmounts the
+ whole app and leaks the AudioContext. Added 5.2.0 audit P1-10. */}
+ <ErrorBoundary label="the app">
  <ThemeProvider>
  <ModesProvider>
  <EQProvider>
@@ -28,5 +33,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
  </EQProvider>
  </ModesProvider>
  </ThemeProvider>
+ </ErrorBoundary>
  </React.StrictMode>
 )

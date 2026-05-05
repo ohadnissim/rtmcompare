@@ -344,6 +344,24 @@ def render_corrected(
         base = os.path.splitext(os.path.basename(src_path))[0]
         out_path = os.path.join(tempfile.gettempdir(), f"{base}__RTM-corrected.wav")
 
+    # 5.2.0 reliability guard (audit P1-16): refuse to load any file whose
+    # decoded float64 buffer would exceed an env-tunable budget. Without
+    # this, a 60-min 96 kHz/24-bit 5.1 master decodes to ~7.5 GB in
+    # float64 and the renderer process OOMs silently.
+    info = sf.info(src_path)
+    estimated_bytes = info.frames * max(info.channels, 1) * 8  # float64
+    budget_bytes = int(os.environ.get('RTM_PY_MAX_DECODE_BYTES', 4 * 1024 * 1024 * 1024))
+    if estimated_bytes > budget_bytes:
+        raise RuntimeError(
+            f"Source file too large to render in one pass: needs "
+            f"~{estimated_bytes / 1024 / 1024 / 1024:.1f} GB of RAM "
+            f"({info.frames / info.samplerate / 60:.1f} min, {info.channels} ch, "
+            f"{info.samplerate} Hz). Cap is "
+            f"{budget_bytes / 1024 / 1024 / 1024:.1f} GB; raise via "
+            f"RTM_PY_MAX_DECODE_BYTES env var, or split the source into "
+            f"shorter sections before rendering."
+        )
+
     data, sr = sf.read(src_path, always_2d=True)  # (samples, channels)
     if data.ndim == 1:
         data = data.reshape(-1, 1)
@@ -409,7 +427,10 @@ def render_corrected(
             out *= (0.98 / peak)
 
     # 32-bit float storage when input was float (preserves dynamic range
-    # for any downstream tools); else 24-bit PCM at minimum. Never PCM_16.
-    write_dtype = np.float32 if out_subtype in ("FLOAT", "DOUBLE") else np.float32
+    # for any downstream tools); else hand soundfile a float64 buffer and
+    # let it do the PCM downconvert with full precision. The previous
+    # `else np.float32` was a typo (both arms were float32) — fixed in
+    # 5.2.0 so PCM_24 sources round-trip from float64 not float32.
+    write_dtype = np.float32 if out_subtype in ("FLOAT", "DOUBLE") else np.float64
     sf.write(out_path, out.astype(write_dtype), sr, subtype=out_subtype)
     return out_path

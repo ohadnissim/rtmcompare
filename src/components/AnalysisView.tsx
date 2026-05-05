@@ -268,7 +268,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </div>
  <div className="flex items-center gap-3">
  <SpecDriftBadge analysisVersion={results.spec_versions?.version} stampedSpecs={results.spec_versions} />
- <span className="text-[10px]" style={{ color: '#57534e' }}>Press <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ backgroundColor: '#272524', color: '#78716c' }}>?</kbd> for shortcuts</span>
+ <span className="text-[10px]" style={{ color: '#8d867b' }}>Press <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ backgroundColor: '#272524', color: '#78716c' }}>?</kbd> for shortcuts</span>
  <ClientReportButton results={results} fileA={fileA} fileB={fileB} />
  <ExportButton results={results} fileA={fileA} fileB={fileB} />
  </div>
@@ -490,7 +490,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {fmtDelta(lufsDelta)} {isAtmos && <span className="text-[9px] opacity-60">(Atmos)</span>}
  </span>
  </div>
- <div className="text-[10px] mt-1" style={{ color: '#57534e' }}>
+ <div className="text-[10px] mt-1" style={{ color: '#8d867b' }}>
  Reference: <span className="font-mono">{lufsA.toFixed(1)}</span>
  </div>
  </div>
@@ -515,7 +515,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {fmtDelta(tpDelta)} {isAtmos && <span className="text-[9px] opacity-60">(Atmos)</span>}
  </span>
  </div>
- <div className="text-[10px] mt-1" style={{ color: '#57534e' }}>
+ <div className="text-[10px] mt-1" style={{ color: '#8d867b' }}>
  Reference: <span className="font-mono">{tpA != null ? tpA.toFixed(1) : '—'}</span>
  </div>
  </div>
@@ -860,7 +860,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <div className="rounded-2xl p-8 text-center space-y-2"
  style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <p className="text-sm" style={{ color: '#a8a29e' }}>No delivery checks for this file</p>
- <p className="text-[11px]" style={{ color: '#57534e' }}>
+ <p className="text-[11px]" style={{ color: '#8d867b' }}>
  Streaming normalization and embedded metadata appear here for stereo WAV/FLAC/AIFF files.
  </p>
  </div>
@@ -1462,7 +1462,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </div>
  <div>
  <p className="text-sm" style={{ color: '#e7e5e4' }}>No clicks or glitches detected</p>
- <p className="text-[11px]" style={{ color: '#57534e' }}>Clean signal — no sample-level artifacts found</p>
+ <p className="text-[11px]" style={{ color: '#8d867b' }}>Clean signal — no sample-level artifacts found</p>
  </div>
  </div>
  )}
@@ -1822,7 +1822,7 @@ function StatBox({ label, value, sub, warn }: { label: string; value: string; su
  <div className="rounded-lg p-3 text-center space-y-1" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <p className="text-[9px] tracking-widest uppercase" style={{ color: '#78716c' }}>{label}</p>
  <p className="text-sm font-medium" style={{ color: warn ? '#e05a5a' : '#e7e5e4' }}>{value}</p>
- {sub && <p className="text-[9px]" style={{ color: '#57534e' }}>{sub}</p>}
+ {sub && <p className="text-[9px]" style={{ color: '#8d867b' }}>{sub}</p>}
  </div>
  )
 }

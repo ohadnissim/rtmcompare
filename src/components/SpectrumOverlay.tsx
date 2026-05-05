@@ -211,7 +211,7 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
 
  return (
  <div className="relative bg-dark-800 rounded-xl p-3">
- <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48" preserveAspectRatio="none">
+ <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48" preserveAspectRatio="none" role="img" aria-label="Frequency spectrum chart — see the table below this chart for the underlying band values">
  {/* Gridlines at ±3 / ±1.5 / 0 dB */}
  {[-3, -1.5, 0, 1.5, 3].map(d => {
  const y = dBToY(d)
@@ -278,14 +278,27 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  const padY = 10
 
  const { normA, normB, diffBands } = useMemo(() => {
- const maxVal = Math.max(...dataA, ...dataB, 0.001)
- const minVal = Math.min(...dataA, ...dataB)
- const range = maxVal - minVal || 1
- return {
- normA: dataA.map(v => (v - minVal) / range),
- normB: dataB.map(v => (v - minVal) / range),
- diffBands: dataA.map((a, i) => dataB[i] - a),
+ // 5.2.0 perf fix (audit P2-25): the previous Math.max(...dataA, ...dataB)
+ // spread two 31-element arrays onto the call stack on every render —
+ // small in absolute terms but wasted work when the chart updates often.
+ // Single-pass loop instead.
+ let maxVal = 0.001
+ let minVal = Infinity
+ for (let i = 0; i < dataA.length; i++) {
+ const a = dataA[i], b = dataB[i] ?? 0
+ if (a > maxVal) maxVal = a; if (b > maxVal) maxVal = b
+ if (a < minVal) minVal = a; if (b < minVal) minVal = b
  }
+ const range = maxVal - minVal || 1
+ const nA: number[] = new Array(dataA.length)
+ const nB: number[] = new Array(dataA.length)
+ const diff: number[] = new Array(dataA.length)
+ for (let i = 0; i < dataA.length; i++) {
+ nA[i] = (dataA[i] - minVal) / range
+ nB[i] = ((dataB[i] ?? 0) - minVal) / range
+ diff[i] = (dataB[i] ?? 0) - dataA[i]
+ }
+ return { normA: nA, normB: nB, diffBands: diff }
  }, [dataA, dataB])
 
  const makePath = (data: number[]): string => {
@@ -362,7 +375,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  return (
  <>
  <div className="relative bg-dark-800 rounded-xl p-3">
- <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48" preserveAspectRatio="none">
+ <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48" preserveAspectRatio="none" role="img" aria-label="Frequency spectrum chart — see the table below this chart for the underlying band values">
  {[0.25, 0.5, 0.75].map(pct => (
  <line
  key={pct}
@@ -412,6 +425,34 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  <span key={i} className="text-[8px] text-dark-500">{FREQ_LABELS[i]}</span>
  ))}
  </div>
+
+ {/* Screen-reader fallback table — gives non-visual users access
+ to the same per-band data the chart shows. Hidden visually with
+ `sr-only` (Tailwind utility) but available to assistive tech.
+ 5.2.0 a11y baseline (audit P0-6). */}
+ <table className="sr-only" aria-label="Spectrum band-by-band values">
+ <caption>31 third-octave bands, dB difference (B minus A). Negative = B is quieter at that band.</caption>
+ <thead>
+ <tr>
+ <th scope="col">Band</th>
+ <th scope="col">Frequency</th>
+ <th scope="col">A (dB)</th>
+ <th scope="col">B (dB)</th>
+ <th scope="col">Δ (dB)</th>
+ </tr>
+ </thead>
+ <tbody>
+ {dataA.map((a, i) => (
+ <tr key={i}>
+ <td>{i + 1}</td>
+ <td>{FREQ_LABELS[i] || '—'} Hz</td>
+ <td>{a.toFixed(1)}</td>
+ <td>{(dataB[i] ?? 0).toFixed(1)}</td>
+ <td>{((dataB[i] ?? 0) - a).toFixed(1)}</td>
+ </tr>
+ ))}
+ </tbody>
+ </table>
  </div>
 
  {annotations.length > 0 && (

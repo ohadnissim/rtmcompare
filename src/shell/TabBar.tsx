@@ -115,7 +115,7 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
  <button
  onClick={onOpenStore}
  className="flex items-center justify-center px-4 py-3 text-[11px] transition-colors hover:text-sand-200 flex-shrink-0"
- style={{ color: '#57534e' }}
+ style={{ color: '#8d867b' }}
  title="Add or remove modules"
  aria-label="Open module store"
  >

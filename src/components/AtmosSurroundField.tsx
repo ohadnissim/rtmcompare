@@ -106,7 +106,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  {/* Label */}
  <text
  x={ch.pos.x} y={ch.pos.y + ch.radius + 5}
- textAnchor="middle" fontSize="3" fill={ch.isActive ? '#a8a29e' : '#57534e'}
+ textAnchor="middle" fontSize="3" fill={ch.isActive ? '#a8a29e' : '#8d867b'}
  >
  {ch.channel}
  </text>
@@ -119,7 +119,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  <div className="space-y-4 min-w-[140px]">
  <div className="space-y-1">
  <span className="text-[10px] text-dark-500 uppercase tracking-wider">Height Energy</span>
- <div className="text-xl font-semibold" style={{ color: heightRatio > 0.05 ? '#a855f7' : '#57534e' }}>
+ <div className="text-xl font-semibold" style={{ color: heightRatio > 0.05 ? '#a855f7' : '#8d867b' }}>
  {(heightRatio * 100).toFixed(1)}%
  </div>
  <span className="text-[10px] text-dark-500">

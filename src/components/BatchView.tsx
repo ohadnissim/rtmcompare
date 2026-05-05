@@ -967,7 +967,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <p className="mb-1" style={{ color: '#8d867b' }}>
  <strong style={{ color: '#a8a29e' }}>Cohort Mode</strong> pins one track as the reference; every other track's distance from it renders as a heatmap. <strong style={{ color: '#a8a29e' }}>Loudness anchor</strong> reframes the Δ column from "vs. album median" to "vs. Spotify −14" / "Apple −16" / "R128 −23" so you can read delivery headroom directly. <strong style={{ color: '#a8a29e' }}>Album notes</strong> and <strong style={{ color: '#a8a29e' }}>per-song notes</strong> ride along in the PDF export. Click any row to rotate a song-detail tab in the slot to the right of Overview.
  </p>
- <p className="text-[10px] italic" style={{ color: '#57534e' }}>
+ <p className="text-[10px] italic" style={{ color: '#8d867b' }}>
  <strong>Reissue mode</strong> (top-right toggle) reframes the batch for old-master vs. new-master. Auto-suggests the likely "original" as the A-side reference across every song tab. <strong>DDP Preflight</strong> exports a per-track pass/fail receipt. <strong>Save session</strong> writes a .rtmalbum.json so the engineer can reopen the exact state without re-analysing.
  </p>
  </div>
@@ -1125,7 +1125,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <td className="px-3 py-2 text-left text-dark-200">
  <div className="flex items-center gap-2">
  <span className="truncate max-w-[32ch]" title={r.filename}>{r.filename}</span>
- {r.title && <span className="text-[10px]" style={{ color: '#6a6459' }}>· {r.title}</span>}
+ {r.title && <span className="text-[10px]" style={{ color: '#a8a29e' }}>· {r.title}</span>}
  {/* Deep-analysis indicator — appears the moment the
  user opens a song tab for the first time, so
  they know analysis is actually running. Stays as
@@ -1216,7 +1216,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <button
  onClick={() => setReference(r)}
  className="text-[9px] uppercase tracking-[0.1em] hover:text-[#d0b066] transition-colors"
- style={{ color: '#57534e' }}
+ style={{ color: '#8d867b' }}
  title="Use this track as the cohort reference"
  >
  ref ↑
@@ -1410,7 +1410,7 @@ function NotesBlock({ label, placeholder, value, onChange }: {
  lineHeight: 1.5,
  }}
  />
- <div className="mt-1 text-[9px]" style={{ color: '#57534e' }}>
+ <div className="mt-1 text-[9px]" style={{ color: '#8d867b' }}>
  Saved with this session · included in PDF export
  </div>
  </div>

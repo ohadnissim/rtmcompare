@@ -172,8 +172,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  const tpAnalyserRef = useRef<AnalyserNode | null>(null)
  const tpSampleBufRef = useRef<Float32Array | null>(null)
  const tpPeakHoldRef = useRef<{ db: number; expires: number }>({ db: -Infinity, expires: 0 })
- const [tpLiveDb, setTpLiveDb] = useState<number>(-Infinity)
- const [tpPeakDb, setTpPeakDb] = useState<number>(-Infinity)
+ // 5.2.0 perf fix (audit P0-8): the meter values were `useState`d and
+ // setX'd on every rAF tick (~60 Hz), re-rendering the entire 1700-line
+ // ABPlayer component plus every consumer of its derived state during
+ // playback. Now we keep them in refs and have a tiny <LiveTpMeter />
+ // child read its own RAF — only the meter re-renders, not the parent.
+ const tpLiveDbRef = useRef<number>(-Infinity)
+ const tpPeakDbRef = useRef<number>(-Infinity)
  const startTimeRef = useRef(0)
  const offsetRef = useRef(0)
  const rafRef = useRef<number>(0)
@@ -677,13 +682,15 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  }
  }
  const db = peak > 0 ? 20 * Math.log10(peak) : -Infinity
- setTpLiveDb(db)
+ // Ref writes — the LiveTpMeter child reads these via its own
+ // rAF and self-updates, so no parent re-render fires here.
+ tpLiveDbRef.current = db
  const now = performance.now()
  const hold = tpPeakHoldRef.current
  if (db > hold.db || now > hold.expires) {
  hold.db = db
  hold.expires = now + 2000
- setTpPeakDb(db)
+ tpPeakDbRef.current = db
  }
  }
 
@@ -952,14 +959,14 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  aria-label={`EQ amount ${Math.round(eq.amount * 100)} percent`}
  title={`EQ Amount · ${Math.round(eq.amount * 100)}% · scales all band gains. 0 = silence, 100 = as proposed, 150 = 1.5× push.`}
  />
- <span className="text-[9px] font-mono" style={{ color: eq.enabled ? '#d0b066' : '#57534e', minWidth: 26 }}>
+ <span className="text-[9px] font-mono" style={{ color: eq.enabled ? '#d0b066' : '#8d867b', minWidth: 26 }}>
  {Math.round(eq.amount * 100)}%
  </span>
  <button
  onClick={() => eq.setEnabled(!eq.enabled)}
  className="text-[10px] px-2 py-0.5 rounded-md transition-colors"
  style={{
- color: eq.enabled ? '#d0b066' : '#57534e',
+ color: eq.enabled ? '#d0b066' : '#8d867b',
  backgroundColor: eq.enabled ? 'rgba(208,176,102,0.15)' : 'transparent',
  border: `1px solid ${eq.enabled ? 'rgba(208,176,102,0.45)' : 'rgba(87,83,78,0.35)'}`,
  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -1001,7 +1008,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  className="px-4 py-1.5 rounded-md text-xs transition-all"
  style={{
  backgroundColor: playerMode === 'mix' ? 'rgba(224,122,79,0.15)' : 'transparent',
- color: playerMode === 'mix' ? '#e07a4f' : '#57534e',
+ color: playerMode === 'mix' ? '#e07a4f' : '#8d867b',
  fontWeight: playerMode === 'mix' ? 500 : 400,
  }}
  >
@@ -1020,7 +1027,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  className="px-4 py-1.5 rounded-md text-xs transition-all"
  style={{
  backgroundColor: playerMode === 'stems' ? 'rgba(224,122,79,0.15)' : 'transparent',
- color: playerMode === 'stems' ? '#e07a4f' : '#57534e',
+ color: playerMode === 'stems' ? '#e07a4f' : '#8d867b',
  fontWeight: playerMode === 'stems' ? 500 : 400,
  }}
  >
@@ -1233,7 +1240,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  style={{
  backgroundColor: activeFile === 'A' ? 'rgba(107,140,187,0.2)' : 'rgba(51,48,44,0.3)',
  border: activeFile === 'A' ? '1px solid rgba(107,140,187,0.4)' : '1px solid transparent',
- color: activeFile === 'A' ? '#6b8cbb' : '#57534e',
+ color: activeFile === 'A' ? '#6b8cbb' : '#8d867b',
  }}
  >
  A — {labelA}
@@ -1261,7 +1268,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  style={{
  backgroundColor: activeFile === 'B' ? 'rgba(224,122,79,0.15)' : 'rgba(51,48,44,0.3)',
  border: activeFile === 'B' ? '1px solid rgba(224,122,79,0.3)' : '1px solid transparent',
- color: activeFile === 'B' ? '#e07a4f' : '#57534e',
+ color: activeFile === 'B' ? '#e07a4f' : '#8d867b',
  }}
  >
  B — {labelB}
@@ -1342,7 +1349,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  rolling max. Display only — no warning colours (per user
  direction, top-40 references routinely exceed −1 dBTP and
  the alarm was crying wolf). */}
- <LiveTpMeter live={tpLiveDb} peak={tpPeakDb} isPlaying={isPlaying} />
+ <LiveTpMeter liveRef={tpLiveDbRef} peakRef={tpPeakDbRef} isPlaying={isPlaying} />
 
  {/* Transport */}
  <div className="flex items-center justify-between">
@@ -1442,7 +1449,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  </div>
 
  {/* Keyboard shortcuts */}
- <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: '#57534e' }}>
+ <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: '#8d867b' }}>
  <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>Space</kbd> play</span>
  <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>A</kbd> <kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>B</kbd> switch</span>
  <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>←</kbd> <kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>→</kbd> scrub</span>
@@ -1455,7 +1462,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  )}
 
  {!isLoaded && !isLoading && (
- <p className="text-xs text-center py-2" style={{ color: '#57534e' }}>
+ <p className="text-xs text-center py-2" style={{ color: '#8d867b' }}>
  Preparing audio...
  </p>
  )}
@@ -1668,13 +1675,38 @@ function formatTime(seconds: number): string {
  * rather than a UI chrome element. Hidden when nothing's playing yet
  * (values are −∞ until the first sample comes through).
  */
-function LiveTpMeter({ live, peak, isPlaying }: { live: number; peak: number; isPlaying: boolean }) {
+function LiveTpMeter({ liveRef, peakRef, isPlaying }: {
+ liveRef: React.MutableRefObject<number>
+ peakRef: React.MutableRefObject<number>
+ isPlaying: boolean
+}) {
+ // 5.2.0 perf fix: read from refs on our own rAF and write to local
+ // state at most ~30Hz. Kills the parent's full re-render that the
+ // previous setState-on-every-tick pattern caused. Only THIS small
+ // component re-renders; the 1700-line ABPlayer is untouched.
+ const [tick, setTick] = React.useState(0)
+ React.useEffect(() => {
+ if (!isPlaying) return
+ let raf = 0
+ let last = 0
+ const loop = (t: number) => {
+ if (t - last > 33) { // ~30 Hz repaint, plenty for a meter
+ last = t
+ setTick(n => (n + 1) & 0xffff)
+ }
+ raf = requestAnimationFrame(loop)
+ }
+ raf = requestAnimationFrame(loop)
+ return () => cancelAnimationFrame(raf)
+ }, [isPlaying])
+ void tick // read so React keeps the effect alive
+
  const fmt = (db: number) => {
  if (!isFinite(db) || db === -Infinity) return '—'
  return `${db >= 0 ? '+' : ''}${db.toFixed(1)}`
  }
- const peakOver = false
- const liveOver = false
+ const live = liveRef.current
+ const peak = peakRef.current
  const show = isPlaying || isFinite(peak)
  if (!show) return null
  return (
@@ -1682,25 +1714,25 @@ function LiveTpMeter({ live, peak, isPlaying }: { live: number; peak: number; is
  className="flex items-center gap-3 px-3 py-1.5 rounded-md self-end"
  style={{
  backgroundColor: 'rgba(14,13,11,0.55)',
- border: `1px solid ${peakOver ? 'rgba(224,90,90,0.45)' : 'rgba(168,161,150,0.18)'}`,
+ border: '1px solid rgba(168,161,150,0.18)',
  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
  }}
  title="Live true-peak meter. 2× linear estimate off the final bus. PEAK holds for 2 s. Numbers only — no warning colour."
  aria-label="Live true-peak meter"
  >
  <div className="flex items-baseline gap-1.5">
- <span className="text-[8px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>INST</span>
- <span className="text-[11px] tabular-nums" style={{ color: liveOver ? '#e05a5a' : '#a8a29e' }}>
+ <span className="text-[8px] uppercase tracking-[0.15em]" style={{ color: '#a8a29e' }}>INST</span>
+ <span className="text-[11px] tabular-nums" style={{ color: '#a8a29e' }}>
  {fmt(live)}
  </span>
  </div>
- <span className="w-px h-3" style={{ backgroundColor: 'rgba(87,83,78,0.4)' }} />
+ <span className="w-px h-3" style={{ backgroundColor: 'rgba(168,161,150,0.4)' }} />
  <div className="flex items-baseline gap-1.5">
- <span className="text-[8px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>PEAK</span>
- <span className="text-[11px] font-medium tabular-nums" style={{ color: peakOver ? '#e05a5a' : '#d0b066' }}>
+ <span className="text-[8px] uppercase tracking-[0.15em]" style={{ color: '#a8a29e' }}>PEAK</span>
+ <span className="text-[11px] font-medium tabular-nums" style={{ color: '#d0b066' }}>
  {fmt(peak)}
  </span>
- <span className="text-[8px]" style={{ color: '#7a7164' }}>dBTP</span>
+ <span className="text-[8px]" style={{ color: '#a8a29e' }}>dBTP</span>
  </div>
  </div>
  )
