@@ -191,7 +191,7 @@ def _read_id3v2(path: str) -> dict:
             keymap = {
                 "TIT2": "title", "TPE1": "artist", "TPE2": "album_artist",
                 "TALB": "album", "TRCK": "track", "TYER": "year",
-                "TDRC": "date", "TCON": "genre", "TSRC": "isrc",
+                "TDRC": "date", "TSRC": "isrc",  # 5.2.3: TCON/genre stripped
                 "TCOP": "copyright", "TSSE": "software", "TENC": "encoded_by",
                 "COMM": "comment",
             }
@@ -259,7 +259,7 @@ def _parse_list_info(data: bytes) -> dict:
     i = 4
     keymap = {
         "INAM": "title", "IART": "artist", "IPRD": "album",
-        "ICRD": "date", "IGNR": "genre", "ITRK": "track",
+        "ICRD": "date", "ITRK": "track",  # 5.2.3: IGNR/genre stripped
         "ICOP": "copyright", "ISFT": "software", "ICMT": "comment",
         "IENG": "engineer", "ISRC": "source",
     }

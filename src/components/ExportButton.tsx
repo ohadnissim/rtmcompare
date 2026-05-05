@@ -136,7 +136,7 @@ function generateReport(results: AnalysisResult, labelA: string, labelB: string)
  <tr><td><strong>BPM</strong></td><td>${songInfo.bpm}</td></tr>
  <tr><td><strong>Key</strong></td><td>${songInfo.key}${songInfo.key_confidence != null ? ` <span style="color:#888">(${(songInfo.key_confidence * 100).toFixed(0)}% confidence)</span>` : ''}</td></tr>
  ${songInfo.key_alternates && songInfo.key_alternates.length > 0 ? `<tr><td><strong>Alt keys</strong></td><td style="color:#666">${songInfo.key_alternates.map((a: any) => `${a.key} (${a.score.toFixed(2)})`).join(', ')}</td></tr>` : ''}
- ${songInfo.genre && songInfo.genre.primary ? `<tr><td><strong>Genre</strong></td><td>${songInfo.genre.primary} <span style="color:#888">(${(songInfo.genre.confidence * 100).toFixed(0)}% confidence)</span></td></tr>` : ''}
+ ${/* 5.2.3: Genre row removed from PDF export — auto-detection was unreliable. */ ''}
  ${songInfo.tempo_drift && songInfo.tempo_drift.drift ? `<tr><td><strong>Tempo drift</strong></td><td style="color:#b8860b">${songInfo.tempo_drift.range_bpm.toFixed(1)} BPM range — variable tempo</td></tr>` : ''}
  </table>
  </div>

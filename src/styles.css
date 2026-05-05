@@ -70,6 +70,85 @@
   --radius-pill: 9999px;
 }
 
+/* ───────────────────────────────────────────────────────────────────
+   v5.2 Console Didone shell — additive tokens.
+   See `.rtm-design/v5.2-tokens.md` for intent + acceptance.
+   Reads from existing tokens above; does not redefine any.
+   ──────────────────────────────────────────────────────────────────*/
+@theme {
+  /* ── Wordmark scale ─────────────────────────────────────────────
+     Four variants so a single <Wordmark size="…" /> renders in every
+     context: dense header, header default, onboarding tour, empty-
+     state cover. Hero uses clamp() so the cover wordmark breathes
+     from a narrow Electron window up to a wide external display. */
+  --text-wordmark-sm:    1.25rem;                      /* 20px — header dense */
+  --text-wordmark-md:    1.875rem;                     /* 30px — header default */
+  --text-wordmark-lg:    3rem;                         /* 48px — onboarding */
+  --text-wordmark-hero:  clamp(2.5rem, 6vw, 5rem);     /* 40–80px — cover */
+
+  --leading-wordmark:    1.0;                          /* tight — single line */
+  --tracking-wordmark:   0.05em;                       /* 5% — refined */
+
+  /* ── Metric strip ───────────────────────────────────────────────
+     9 / 28 / 14 px ladder targets a 44px-tall metric cell. Eyebrow
+     stays 9px (8px falls under WCAG floor on dense displays). Value
+     at 28px gives a four-character Didone numeral the operatic
+     ratio. Delta one step down so it never out-shouts the value.  */
+  --text-metric-eyebrow:     0.5625rem;                /* 9px */
+  --text-metric-value:       1.75rem;                  /* 28px */
+  --text-metric-delta:       0.875rem;                 /* 14px */
+
+  --leading-metric-value:    1.0;
+  --leading-metric-delta:    1.1;
+  --tracking-metric-eyebrow: 0.16em;                   /* aggressive — labels announce */
+  --tracking-metric-value:   -0.01em;                  /* tighter — numerals are proper names */
+
+  /* ── Panel verdict ──────────────────────────────────────────────
+     Hero number scales from 64px (compact panels — Quality, EQ
+     Match) to 96px (verdicts that earn the operatic ratio —
+     Overview, Mastering Delta). Caption stays ≤14px italic display
+     in sand-secondary so it sits beneath, never competing.        */
+  --text-verdict-eyebrow:     0.625rem;                /* 10px */
+  --text-verdict-hero-sm:     4rem;                    /* 64px */
+  --text-verdict-hero-lg:     6rem;                    /* 96px */
+  --text-verdict-caption:     0.875rem;                /* 14px */
+
+  --leading-verdict-hero:     0.95;
+  --leading-verdict-caption:  1.4;
+  --tracking-verdict-eyebrow: 0.18em;
+
+  /* ── Motion ─────────────────────────────────────────────────────
+     v5.2 introduces exactly one motion (metric-strip stagger).
+     Tooltip + overflow-menu use the same easing for a unified feel.
+     Per-component reduced-motion guards live with each component.*/
+  --duration-stagger-cell:   200ms;                    /* per-cell fade-in */
+  --duration-stagger-step:   30ms;                     /* delay between cells */
+  --duration-tooltip:        120ms;
+  --duration-menu:           160ms;
+  --easing-shell:            cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* ── Spec-violation alias ───────────────────────────────────────
+     Single knob v5.2 components use to paint a number that crossed
+     a delivery-spec threshold. Today maps to --color-warm-red. If
+     we later decide violation should differ from "general error",
+     we change ONE alias and every component flips. Components must
+     NEVER reach for --color-warm-red directly in the v5.2 shell.  */
+  --color-violation:         var(--color-warm-red);
+  --color-violation-soft:    rgba(201,103,101,0.12);   /* delta-cell tint */
+
+  /* ── Overflow menu ──────────────────────────────────────────────
+     Sizing only. Colours come from existing semantic aliases. The
+     shadow combines a deep ambient drop + a 1px inset highlight so
+     the menu reads as a panel ON TOP OF the dark field, not CUT
+     INTO it — a colophon, not a hole.                             */
+  --w-overflow-menu:        280px;
+  --h-overflow-row:         32px;
+  --gap-overflow-row:       12px;
+  --pad-overflow-menu:      8px;
+  --shadow-overflow-menu:   0 8px 24px -8px rgba(0,0,0,0.45),
+                            0 1px 0 rgba(255,255,255,0.04) inset;
+}
+
 @layer base {
   :root {
     /* Base font-size scales all rem values across the app. Bumped from 16 → 17 for readability. */

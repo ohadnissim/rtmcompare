@@ -61,7 +61,6 @@ contextBridge.exposeInMainWorld('rtmprofileAPI', {
   buildProfile: (args: {
     name: string
     role: string
-    genres: string
     outPath?: string
     files: string[]
     /** Deep Scan: per-stem profile via Demucs. Adds ~30s-2min per track. */

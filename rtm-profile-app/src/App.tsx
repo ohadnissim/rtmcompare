@@ -88,7 +88,9 @@ export default function App() {
   const [files, setFiles] = useState<string[]>([])
   const [name, setName] = useState('')
   const [role, setRole] = useState('Mastering Engineer')
-  const [genres, setGenres] = useState('')
+  // 5.2.3: genre tag removed from the profile schema. The user-typed
+  // value didn't drive any downstream behaviour and the auto-detected
+  // counterpart was unreliable.
   const [deepScan, setDeepScan] = useState(false)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<BuildResult | null>(null)
@@ -114,7 +116,6 @@ export default function App() {
       const r = await window.rtmprofileAPI.buildProfile({
         name: name.trim(),
         role: role.trim() || 'Mastering Engineer',
-        genres: genres.trim(),
         deep: deepScan,
         files,
       })
@@ -122,7 +123,7 @@ export default function App() {
     } finally {
       setBusy(false)
     }
-  }, [files, name, role, genres, deepScan])
+  }, [files, name, role, deepScan])
 
   const onReveal = useCallback(async () => {
     if (result?.path) await window.rtmprofileAPI.showSavedProfile(result.path)
@@ -216,13 +217,10 @@ export default function App() {
         </p>
       </header>
 
-      {/* Form */}
+      {/* Form — 5.2.3: Genres field removed (no downstream effect). */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
         <Field label="Engineer name *" value={name} onChange={setName} placeholder="e.g. Ohad Nissim" />
         <Field label="Role" value={role} onChange={setRole} placeholder="Mastering Engineer" />
-        <div style={{ gridColumn: '1 / -1' }}>
-          <Field label="Genres (comma-separated)" value={genres} onChange={setGenres} placeholder="Hip-Hop, R&B, Electronic" />
-        </div>
       </div>
 
       {/* Drop zone — real ARIA + visible drag affordance */}

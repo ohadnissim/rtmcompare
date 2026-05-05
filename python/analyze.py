@@ -340,33 +340,10 @@ def main():
         # slow but already runs once; we add a second pass for file B in
         # 2-file mode. For ref-only we mirror file A into both slots so the
         # same panel renders.
-        try:
-            # File A's genre lives directly inside reference_check's song_info
-            # (where the reference_check panel reads it from), and ALSO at the
-            # top level of the ref-check payload. Try both.
-            genre_a = None
-            if result_ref_check:
-                genre_a = (
-                    result_ref_check.get("genre")
-                    or (result_ref_check.get("song_info") or {}).get("genre")
-                )
-            if genre_a:
-                result["genre_a"] = genre_a
-            if not is_ref_only_path:
-                rc_b = check_reference(file_b)
-                if rc_b:
-                    genre_b = (
-                        rc_b.get("genre")
-                        or (rc_b.get("song_info") or {}).get("genre")
-                    )
-                    if genre_b:
-                        result["genre_b"] = genre_b
-            elif genre_a:
-                # Ref-only — mirror so the GenreCompareCard still has both
-                # slots filled (will collapse to a single read in the UI).
-                result["genre_b"] = genre_a
-        except Exception as e:
-            _warn_optional("genre_b", e)
+        # 5.2.3 (beta-tester report): genre auto-detection removed.
+        # The classifier produced false readings on real-world masters
+        # ("Hip-Hop" on a folk track, etc.) and nothing downstream
+        # acted on the value. Saved a Python pass on every analyse.
         result["file_warnings"] = file_warnings
         result["headroom"] = {
             "a": headroom_a,

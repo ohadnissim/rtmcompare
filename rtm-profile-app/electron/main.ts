@@ -120,7 +120,6 @@ ipcMain.handle('show-saved-profile', async (_e, jsonPath: string) => {
 interface BuildArgs {
   name: string
   role: string
-  genres: string
   outPath?: string
   files: string[]
   /** Deep Scan: per-stem profile via Demucs. Adds ~30s-2min per track. */
@@ -174,7 +173,7 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
     scriptPath,
     '--name', args.name,
     '--role', args.role || 'Mastering Engineer',
-    '--genres', args.genres || '',
+    // 5.2.3: --genres removed; build_profile.py no longer accepts it
     '--progress',
   ]
   if (args.deep) cliArgs.push('--deep')

@@ -295,7 +295,7 @@ export default function App() {
  limiter_artefacts: result.limiter_artefacts,
  spec_versions: result.spec_versions,
  adm_validation: result.adm_validation,
- genre_a: result.genre_a,
+ // 5.2.3: genre_a removed
  atmos: result.atmos,
  comparison_mode: result.comparison_mode,
  song_info: result.song_info,
@@ -596,7 +596,7 @@ export default function App() {
  limiter_artefacts: (result as any).limiter_artefacts,
  spec_versions: (result as any).spec_versions,
  adm_validation: (result as any).adm_validation,
- genre_a: (result as any).genre_a,
+ // 5.2.3: genre_a removed
  atmos: (result as any).atmos,
  comparison_mode: (result as any).comparison_mode,
  // File-level warnings (SR/BD/length/container oddities). RefOnlyView

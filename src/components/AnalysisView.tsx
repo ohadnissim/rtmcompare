@@ -3,7 +3,6 @@ import { AnalysisResult, FileInfo } from '../types'
 import ABPlayer from './ABPlayer'
 import AIDetectionPanel from './AIDetectionPanel'
 import CategoryCard from './CategoryCard'
-import GenreCompareCard from './GenreCompareCard'
 import SpectrumOverlay from './SpectrumOverlay'
 import MonoCompat from './MonoCompat'
 import DistortionPanel from './DistortionPanel'
@@ -779,18 +778,10 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </CollapsibleSection>
  )}
 
- {/* Genre comparison — surfaces backend `genre_a`/`genre_b` data
- that was previously computed and dropped (codex frontend-gap
- audit, restored in 5.0.4). Same/different glance, primary +
- confidence, top runner-up candidates. */}
- {(results.genre_a || results.genre_b) && (
- <GenreCompareCard
- a={results.genre_a}
- b={results.genre_b}
- labelA={labelA}
- labelB={labelB}
- />
- )}
+ {/* 5.2.3: GenreCompareCard removed — auto-detection was unreliable
+ (false readings on real-world masters) and the value wasn't acted
+ on anywhere downstream. Top-level genre_a/genre_b are no longer
+ emitted by analyze.py. */}
 
  </div>
  )}

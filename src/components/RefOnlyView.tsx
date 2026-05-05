@@ -421,9 +421,10 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  Promoted from Advanced QC to the very top of the single-
  file surface so the user sees the programme level, TP,
  LRA, and stereo width before anything else on the page.
- The BPM / key / genre trivia rides along in the same
- card when the deep analysis populates it; otherwise
- those rows simply blank out. */}
+ The BPM / key trivia rides along in the same card when
+ the deep analysis populates it; otherwise those rows
+ simply blank out. (5.2.3: genre detection removed — was
+ unreliable on real-world masters.) */}
  {check?.stats && (
  <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
  <h3 className="text-lg font-semibold">Song Info</h3>
@@ -450,39 +451,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <StatBox label="Clipped" value={check.stats.clip_count === 0 ? 'None' : `${check.stats.clip_count}`} warn={check.stats.clip_count > 0} />
  </div>
 
- {check.song_info?.genre && check.song_info.genre.primary && (
- <div className="rounded-xl p-4 mt-3" style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
- <div className="flex items-center justify-between mb-2">
- <span className="text-[10px] uppercase tracking-[0.15em] text-dark-500">Estimated Genre</span>
- <span className="text-[9px] font-mono text-dark-500 tabular-nums">
- {(check.song_info.genre.confidence * 100).toFixed(0)}% confidence
- </span>
- </div>
- <div className="flex items-baseline gap-3">
- <span className="text-xl font-medium" style={{ color: '#d0b066' }}>
- {check.song_info.genre.primary}
- </span>
- </div>
- <div className="mt-3 h-1 rounded-full bg-dark-800 overflow-hidden">
- <div
- className="h-full rounded-full transition-[width] duration-500"
- style={{
- width: `${Math.max(4, check.song_info.genre.confidence * 100)}%`,
- backgroundColor: check.song_info.genre.confidence > 0.7 ? '#6fa37e' : check.song_info.genre.confidence > 0.4 ? '#d0b066' : '#8d867b',
- }}
- />
- </div>
- {check.song_info.genre.candidates && check.song_info.genre.candidates.length > 1 && (
- <div className="flex flex-wrap gap-1.5 mt-3">
- {check.song_info.genre.candidates.slice(1, 4).map((c: any) => (
- <span key={c.name} className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ backgroundColor: 'rgba(87,83,78,0.25)', color: '#a8a196' }}>
- {c.name} · {c.score}
- </span>
- ))}
- </div>
- )}
- </div>
- )}
+ {/* 5.2.3: Estimated-Genre card removed — auto-detection was unreliable
+ on real-world masters and confused engineers more than it helped. */}
  </div>
  )}
 

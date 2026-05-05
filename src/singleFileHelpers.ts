@@ -90,7 +90,9 @@ export function metricsFromFull(r: AnalysisResult, fallback?: SingleFileMetrics)
  sample_rate: fallback?.sample_rate ?? null,
  bit_depth: fallback?.bit_depth ?? null,
  channels: fallback?.channels ?? null,
- isrc: (r as any).genre_a?.isrc ?? fallback?.isrc ?? null,
+ // 5.2.3: top-level genre_a removed — fall back directly to the
+ // reference-check ISRC like everywhere else.
+ isrc: fallback?.isrc ?? null,
  upc: fallback?.upc ?? null,
  clipped_samples: clip != null ? clip : (fallback?.clipped_samples ?? null),
  mono_compat_loss_pct: fallback?.mono_compat_loss_pct ?? null,

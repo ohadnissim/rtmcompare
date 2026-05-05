@@ -704,8 +704,13 @@ def check_reference(path: str, sr: int = 44100) -> dict:
             abs(drift_bpm - bpm) > 2):
             bpm = drift_bpm
 
-    # Genre — rule-based classifier using acoustic features
-    genre = _estimate_genre(mono, sr, bpm, deviations, lufs, dynamic_range, correlation)
+    # 5.2.3 (beta-tester report): genre auto-detection removed —
+    # `_estimate_genre` produced false readings on real-world masters
+    # ("Hip-Hop" on a folk track, "EDM" on a singer-songwriter cut),
+    # and nothing downstream actually acted on the value. The
+    # function definition is kept earlier in this file (dead code,
+    # scheduled for removal in a follow-up cleanup) so anyone
+    # curious about the previous heuristic can still read it.
 
     # ── Key detection using Krumhansl-Schmuckler key-profile correlation ──
     # This is the standard method used by Sonic Visualiser / Mixed In Key:
@@ -839,7 +844,8 @@ def check_reference(path: str, sr: int = 44100) -> dict:
             "root_note": root_note,
             "harmonics": harmonic_labels,
             "scale_freqs": scale_freqs[:40],  # limit
-            "genre": genre,
+            # 5.2.3: "genre" key removed (was unreliable, see comment near
+            # the call site).
         },
         "stats": {
             "lufs": round(lufs, 1),

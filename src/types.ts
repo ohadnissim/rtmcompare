@@ -193,12 +193,10 @@ export interface ReferenceCheck {
  key_freq: number
  root_note: string
  harmonics?: { freq: number; label: string; is_root: boolean }[]
- genre?: {
- primary: string
- confidence: number
- candidates: { name: string; score: number }[]
- features?: Record<string, number>
- }
+ // 5.2.3: genre auto-detection removed entirely. The classifier was
+ // unreliable on real-world masters (false readings) and the data
+ // wasn't acted on anywhere downstream. Field kept optional in case
+ // any cached old result still has it; ignored on render.
  }
  stats: {
  lufs: number
@@ -358,8 +356,9 @@ export interface AnalysisResult {
  a: { name: string; played_lufs: number; played_tp: number; delta_db: number; action: string; tp_breach: boolean; target_lufs: number; target_tp: number }[]
  b: { name: string; played_lufs: number; played_tp: number; delta_db: number; action: string; tp_breach: boolean; target_lufs: number; target_tp: number }[]
  }
- genre_a?: { primary: string; confidence: number; candidates?: { name: string; score: number }[] }
- genre_b?: { primary: string; confidence: number; candidates?: { name: string; score: number }[] }
+ // 5.2.3: top-level genre_a/genre_b removed alongside song_info.genre
+ // (see comment above). Cached results may still carry these fields;
+ // they're silently ignored downstream.
  hum?: {
  mains: number
  harmonics: { freq: number; prominence_db: number; coverage: number }[]

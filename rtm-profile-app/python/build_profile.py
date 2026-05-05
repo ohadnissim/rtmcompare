@@ -12,10 +12,10 @@ RTMcompare repo:
     {
       "name":              str,
       "role":              str,
-      "genres":            [str, ...],
       "description":       str,
       "sample_count":      int,
       "curve":             [31 floats]   ← third-octave dB, mean-centred
+      "curve_mad":         [31 floats]   ← per-band median absolute deviation
       "lufs_avg":          float,
       "lufs_std":          float,
       "lufs_range":        [min, max],
@@ -26,10 +26,13 @@ RTMcompare repo:
       "peak_avg":          float
     }
 
+(5.2.3: "genres" field removed — was decorative metadata that didn't
+drive any downstream behaviour. The user-typed value lived in the JSON
+but no consumer read it.)
+
 Usage:
     python3 build_profile.py \
         --name "Engineer Name" --role "Mastering Engineer" \
-        --genres "Hip-Hop,R&B" \
         --out engineer-name.json \
         track1.wav track2.wav ...
 
@@ -363,7 +366,7 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def aggregate(per_file: list[dict[str, Any]],
-              name: str, role: str, genres: list[str],
+              name: str, role: str,
               deep: bool = False) -> dict[str, Any]:
     # 5.2.2 (audit P2): finite-LUFS alone isn't enough. A digital-silence
     # file passes pyloudnorm's gate at ~-70 LUFS and finite — but its
@@ -388,11 +391,12 @@ def aggregate(per_file: list[dict[str, Any]],
     if not valid:
         raise SystemExit("no valid measurements — every input file failed to read or was silent")
 
+    # 5.2.3: "genres" removed from the schema. Description simplifies to
+    # role + sample count.
     profile: dict[str, Any] = {
         "name":              name,
         "role":              role,
-        "genres":            genres,
-        "description":       f"{role} — {', '.join(genres) if genres else 'mixed catalog'}",
+        "description":       f"{role} — {len(valid)}-track profile",
         "sample_count":      len(valid),
     }
     profile.update(_aggregate_scalar_block(valid))
@@ -430,7 +434,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Build an RTMcompare engineer profile from a corpus.")
     p.add_argument("--name", required=True, help='Engineer name (e.g. "Ohad Nissim")')
     p.add_argument("--role", default="Mastering Engineer", help="Role (default: Mastering Engineer)")
-    p.add_argument("--genres", default="", help='Comma-separated genres (e.g. "Hip-Hop,R&B")')
+    # 5.2.3: --genres deprecated. Accepted for back-compat (older Electron
+    # wrappers still pass it) but its value is ignored.
+    p.add_argument("--genres", default="", help=argparse.SUPPRESS)
     p.add_argument("--out", default="", help="Output JSON path. Default: ~/.rtm/profiles/<slug>.json")
     p.add_argument("--progress", action="store_true",
                    help="Emit JSON progress lines on stderr (used by the Electron wrapper).")
@@ -441,7 +447,7 @@ def main() -> int:
     p.add_argument("files", nargs="+", help="Audio files to analyse")
     args = p.parse_args()
 
-    genres = [g.strip() for g in args.genres.split(",") if g.strip()]
+    # 5.2.3: --genres ignored if passed (back-compat shim only)
     if args.out:
         out_path = Path(args.out).expanduser()
     else:
@@ -465,7 +471,7 @@ def main() -> int:
         measurements.append(m)
 
     profile = aggregate(measurements, name=args.name, role=args.role,
-                        genres=genres, deep=args.deep)
+                        deep=args.deep)
     out_path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
 
     sys.stdout.write(json.dumps({
