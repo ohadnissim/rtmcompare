@@ -104,7 +104,21 @@ def load_profile(profile_id):
 
 
 def compute_spectrum(y, sr):
-    """Compute 31-band ISO spectrum in dB, normalized to 1kHz."""
+    """Compute 31-band ISO spectrum in dB, mean-centred across the 31 bands.
+
+    5.2.1 fix (Austin Seltzer beta-tester report): the previous "normalize
+    to 1 kHz band" anchor produced phantom 3–6 dB diffs vs RTMprofile-built
+    target curves, because RTMprofile mean-centres each per-track curve
+    (`rtm-profile-app/python/build_profile.py:165`). Using two different
+    anchor points made the entire candidate spectrum read several dB
+    hotter (or colder) than the target — the K-pop "smile curve" sits
+    well below the broadband mean at 1 kHz, so 1 kHz-anchoring of a
+    finished pro mix vs a mean-centred profile generated +14 dB low-end
+    "boost" recommendations even when the candidate's tonal shape was
+    already a perfect cohort match. Switching the candidate to mean-
+    centring brings both axes onto the same reference and the diff
+    becomes a true tonal-shape delta.
+    """
     nyq = sr / 2
     levels = []
     for freq in FREQS:
@@ -119,9 +133,8 @@ def compute_spectrum(y, sr):
         filtered = sosfilt(sos, y)
         rms = np.sqrt(np.mean(filtered ** 2))
         levels.append(float(20 * np.log10(max(rms, 1e-10))))
-    # Normalize to 1kHz
-    ref = levels[17]
-    return [l - ref for l in levels]
+    arr = np.asarray(levels, dtype=np.float64)
+    return list(arr - float(np.mean(arr)))
 
 
 def _compute_ms_tips(y_stereo, sr):
@@ -306,7 +319,11 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
     # Pre-compute the parametric EQ filters so we can quote freq + Q directly
     # in the tip text — readers shouldn't have to cross-reference a chart to
     # know "what Q" the suggestion implies.
-    pre_filters = _compute_eq_filters(spec_b, curve)
+    # 5.2.1: pass cohort per-band MAD when the profile was built with it
+    # (RTMprofile 1.1.0+). Older profiles silently fall back to the
+    # original 1 dB threshold inside _compute_eq_filters.
+    curve_mad = profile.get("curve_mad") if isinstance(profile, dict) else None
+    pre_filters = _compute_eq_filters(spec_b, curve, target_curve_mad=curve_mad)
     filter_by_region = {f["region"]: f for f in pre_filters}
 
     def _fmt_freq(hz):
@@ -407,12 +424,12 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
         "spectrum_target": [round(v, 1) for v in curve],
         "spectrum_corrected": [round(float(spec_b[i] - (spec_b[i] - curve[i]) * 0.6), 1) for i in range(len(spec_b))],
         "freqs": FREQ_LABELS,
-        "eq_filters": _compute_eq_filters(spec_b, curve),
+        "eq_filters": _compute_eq_filters(spec_b, curve, target_curve_mad=curve_mad),
         "match_score": _compute_match_score(spec_b, curve, lufs_b, dr_b, width_b, profile),
     }
 
 
-def _compute_eq_filters(spec_file, spec_target):
+def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
     """
     Compute parametric EQ filter bands to move file toward target.
 
@@ -427,6 +444,15 @@ def _compute_eq_filters(spec_file, spec_target):
     arr = np.asarray(spec_file)
     tgt = np.asarray(spec_target)
 
+    # 5.2.1 fix: optional cohort-spread (per-band MAD) lets us widen the
+    # "no move" dead-zone whenever the candidate sits inside the cohort's
+    # natural variance. When `target_curve_mad` is provided (RTMprofile
+    # builds with curve_mad), we require the diff to exceed
+    # max(1.0, 1.5 * region_mad) before firing a recommendation.
+    # Without it (legacy profiles, single-track Match) we fall back to
+    # the original 1 dB threshold.
+    mad = np.asarray(target_curve_mad) if target_curve_mad is not None else None
+
     for (start, end), (region_name, freq_range) in REGION_NAMES.items():
         if start >= len(arr) or start >= len(tgt):
             continue
@@ -435,7 +461,19 @@ def _compute_eq_filters(spec_file, spec_target):
         avg_target = float(np.mean(tgt[start:region_end]))
         diff = avg_target - avg_file  # positive = need boost, negative = need cut
 
-        if abs(diff) < 1.0:
+        # Cohort-aware threshold. If the cohort's natural per-band spread
+        # in this region is, say, ±2 dB MAD, we don't fire moves under
+        # ~3 dB — the candidate is statistically "in the family" and a
+        # recommendation would just push it toward the median for no
+        # perceptual reason. Austin's report (May 2026) was the canonical
+        # case: 14 dB recommendations on a finished K-pop mix that already
+        # sat inside a 15-track K-pop cohort.
+        if mad is not None and region_end > start:
+            region_mad = float(np.mean(mad[start:region_end]))
+            tol = max(1.0, 1.5 * region_mad)
+        else:
+            tol = 1.0
+        if abs(diff) < tol:
             continue
 
         # Find the band within the region with the most extreme deviation
@@ -449,6 +487,17 @@ def _compute_eq_filters(spec_file, spec_target):
 
         # Apply 60% of the correction (don't over-correct)
         gain = round(diff * 0.6, 1)
+
+        # 5.2.1 cap (Austin beta-tester report): mirror the ±4 dB / ±3 dB
+        # sub cap from `MatchReferenceEQPanel.deriveMatchBands` (frontend).
+        # The frontend cap was added in 5.1.x but only protected the
+        # spectrum-comparison path; the engineer-profile path was
+        # uncapped, so a phantom 14 dB diff (from the pre-5.2.1 axis
+        # mismatch) shipped uncapped to the user. Belt-and-suspenders:
+        # even with the axis fix, no single peaking-EQ move on a finished
+        # mix should ever exceed ±4 dB broadband / ±3 dB sub.
+        cap = 3.0 if freq < 80 else 4.0
+        gain = round(max(-cap, min(cap, gain)), 1)
 
         # ── Q selection — based on how localised the deviation is ────────
         # Compute how "pointy" the peak band is vs its neighbours.

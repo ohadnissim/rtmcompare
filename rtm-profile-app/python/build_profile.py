@@ -328,15 +328,29 @@ def measure_file(path: Path, deep: bool = False) -> dict[str, Any] | None:
 
 def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     """Common stats block — used both for the whole-mix profile and for
-    each per-stem profile when Deep Scan is on."""
+    each per-stem profile when Deep Scan is on.
+
+    Profile schema 1.1.0 (May 2026): adds `curve_mad` — per-band median
+    absolute deviation across the cohort. Lets the Engineer-Tips EQ
+    derivation widen its "no move" dead-zone whenever the candidate
+    sits inside the cohort's natural variance, instead of pushing the
+    candidate toward the median regardless of cohort spread (Austin
+    Seltzer beta-tester report: a finished K-pop mix against a 15-track
+    K-pop profile was getting +14 dB recommendations because the cohort
+    spread wasn't being respected).
+    """
     lufs_arr = np.array([m["lufs"] for m in valid])
     crest_arr = np.array([m["crest_db"] for m in valid])
     width_arr = np.array([m["width"] for m in valid])
     peak_arr  = np.array([m["peak_db"] for m in valid])
     curves    = np.array([m["curve"]  for m in valid])
     curve_median = np.median(curves, axis=0)
+    # Median Absolute Deviation — robust spread measure; doesn't blow up
+    # on a single outlier track. One MAD ≈ 0.6745 σ for normal data.
+    curve_mad = np.median(np.abs(curves - curve_median), axis=0)
     return {
         "curve":             [round(float(v), 1) for v in curve_median],
+        "curve_mad":         [round(float(v), 1) for v in curve_mad],
         "lufs_avg":          round(float(np.mean(lufs_arr)), 1),
         "lufs_std":          round(float(np.std(lufs_arr)), 1),
         "lufs_range":        [round(float(np.min(lufs_arr)), 1), round(float(np.max(lufs_arr)), 1)],

@@ -304,7 +304,11 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  const bandIdx = bands.findIndex(b => b.region === rec.area)
  const hasBand = bandIdx >= 0
  const bandEnabledForRec = hasBand && bandEnabled[bandIdx]
- const band = hasBand ? bands[bandIdx] : null
+ // 5.2.1 fix: chip text now shows the SCALED gain (matches what audio
+ // plays + what the bounce bakes), not the raw value. Pulling the
+ // Amount fader to 25% used to show "+4 dB" while the audio played
+ // +1 dB — actively misleading the engineer reading the panel.
+ const band = hasBand ? scaledBands[bandIdx] : null
  return (
  <div
  key={i}

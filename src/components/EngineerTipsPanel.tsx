@@ -17,8 +17,18 @@ const PRIORITY_CONFIG = {
  low: { color: '#6ec577', bg: 'rgba(110,197,119,0.08)', label: 'Fine-tune' },
 }
 
+// 5.2.1 defensive cap (Austin Seltzer beta-tester report). The Python
+// `_compute_eq_filters` is now capped server-side at ±4 dB / ±3 dB sub,
+// but a profile JSON cached from a previous version may still ship hot
+// values. We re-clamp at the panel boundary so no path can deliver
+// destructive moves into the EQ chain or the bounce.
+function clampEqFilter<T extends { freq: number; gain_db: number }>(f: T): T {
+ const cap = f.freq < 80 ? 3.0 : 4.0
+ return { ...f, gain_db: Math.max(-cap, Math.min(cap, f.gain_db)) }
+}
+
 export default function EngineerTipsPanel({ tips, fileB }: Props) {
- const filters = tips.eq_filters || []
+ const filters = (tips.eq_filters || []).map(clampEqFilter)
  const [bandEnabled, setBandEnabled] = useState<boolean[]>(filters.map(() => false))
  // EQ amount lives at the panel level so the export / apply-and-bounce
  // buttons can scale their bands by it too.
