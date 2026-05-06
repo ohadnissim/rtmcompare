@@ -309,12 +309,7 @@ function PlatformCell({ row, file, side, audition, twin, integratedLufs, twinSta
  {row.delta_db > 0 ? '+' : ''}{row.delta_db.toFixed(1)} dB
  </span>
  )}
- {/* tp_breach badge disabled by user direction — show numbers only. */}
- {false && row.tp_breach && (
- <span className="text-[9px] px-1 rounded" style={{ color: '#c96765', backgroundColor: 'rgba(201,103,101,0.15)' }} title={`TP ${row.played_tp.toFixed(1)} exceeds platform limit ${row.target_tp.toFixed(1)} dBTP`}>
- TP!
- </span>
- )}
+ {/* tp_breach badge removed in 5.3.0 — no warnings, just numbers. */}
  {/* Surface twin-render errors inline so the green ≋ button never
  fails silently. Previous behaviour (console.error only) had
  testers reporting "the render button just stops the audio".

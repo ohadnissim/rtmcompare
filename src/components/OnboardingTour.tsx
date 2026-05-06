@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import Wordmark from './shell/Wordmark'
 
 /**
  * First-run onboarding. Welcome modal, then a 5-step spotlight over the
@@ -169,7 +170,7 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
  style={{ backgroundColor: '#151411', border: '1px solid rgba(208,176,102,0.25)' }}>
  <div>
  <div className="text-[10px] tracking-[0.3em] uppercase" style={{ color: '#8d867b' }}>Pro audio QC for engineers &amp; producers</div>
- <div className="text-3xl tracking-[0.05em] mt-2" style={{ color: '#f5f2ed', fontWeight: 300 }}>RTMcompare</div>
+ <div className="mt-2"><Wordmark size="lg" /></div>
  <div className="text-[10px] tracking-[0.2em] uppercase mt-1" style={{ color: '#d0b066' }}>Industry-standard QC &amp; A/B</div>
  </div>
 

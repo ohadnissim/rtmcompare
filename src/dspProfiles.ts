@@ -345,19 +345,13 @@ export function evaluateAgainstProfile(
  profile: DspProfile,
 ): ProfileFinding[] {
  const out: ProfileFinding[] = []
- if (m.true_peak != null) {
- if (m.true_peak > profile.tpCeiling) {
- out.push({
- severity: 'block', field: 'tp',
- message: `TP ${m.true_peak.toFixed(1)} dBTP over ${profile.name}'s ${profile.tpCeiling.toFixed(1)} dBTP ceiling — limiter will engage on ingest.`,
- })
- } else if (m.true_peak > profile.tpCeiling - profile.advisoryTpMargin) {
- out.push({
- severity: 'warn', field: 'tp',
- message: `TP ${m.true_peak.toFixed(1)} dBTP within ${profile.advisoryTpMargin.toFixed(1)} dB of ${profile.name}'s ceiling — leave more margin before ingest.`,
- })
- }
- }
+ // 5.3.0: TP is informational only — no warn/block per user
+ // direction "no warnings at all, just display numbers." The
+ // platform's loudness-normalisation will turn the master DOWN if
+ // it's hot, which is desirable, not a delivery failure.
+ // (Modern reference top-40 masters routinely sit above the
+ // streaming TP floor; the alarm was crying wolf.) Keep the
+ // number visible elsewhere; do not emit a finding here.
  if (m.sample_rate != null && m.sample_rate < profile.minSampleRate) {
  out.push({
  severity: 'block', field: 'sr',

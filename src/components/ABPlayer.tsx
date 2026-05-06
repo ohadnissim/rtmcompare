@@ -77,6 +77,12 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  const [isPlaying, setIsPlaying] = useState(false)
  const [activeFile, setActiveFile] = useState<'A' | 'B'>('A')
  const [currentTime, setCurrentTime] = useState(0)
+ // 5.3.0 perf — every-frame ref so subscribers (TransportClock,
+ // ProgressCursor) animate smoothly while the parent re-renders at
+ // throttled ~10Hz (the waveform coloring is coarse enough that the
+ // eye doesn't notice the lower state-update cadence).
+ const currentTimeRef = useRef(0)
+ const lastSetCurrentTimeRef = useRef(0)
  const [duration, setDuration] = useState(0)
  const [isLoaded, setIsLoaded] = useState(false)
  const [isLoading, setIsLoading] = useState(false)
@@ -654,7 +660,17 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  startTimeRef.current = audioCtxRef.current.currentTime - lStart
  }
 
- setCurrentTime(Math.min(t, effectiveDurationRef.current))
+ // 5.3.0 perf — ref every frame; state throttled to ~10Hz so
+ // the 1700-line component doesn't re-render on every rAF tick
+ // just to recolor waveform bars. TransportClock + cursor read
+ // from the ref directly via their own rAF and stay smooth.
+ const clampedT = Math.min(t, effectiveDurationRef.current)
+ currentTimeRef.current = clampedT
+ const _nowMs = performance.now()
+ if (_nowMs - lastSetCurrentTimeRef.current > 100) {
+  lastSetCurrentTimeRef.current = _nowMs
+  setCurrentTime(clampedT)
+ }
 
  // ── Live TP meter sample ───────────────────────────────────
  // Read the analyser's time-domain buffer → absolute peak →
@@ -1232,10 +1248,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  </div>
  )}
 
- {/* A/B Switch */}
- <div className="flex items-center gap-2">
+ {/* A/B Switch — 5.3.0 a11y: role=group with aria-pressed on each
+     button so screen readers announce which channel is active. */}
+ <div className="flex items-center gap-2" role="group" aria-label="A/B audio source">
  <button
  onClick={() => switchFile('A')}
+ aria-pressed={activeFile === 'A'}
+ aria-label={`A — ${labelA}${activeFile === 'A' ? ' (active)' : ''}`}
  className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all"
  style={{
  backgroundColor: activeFile === 'A' ? 'rgba(107,140,187,0.2)' : 'rgba(51,48,44,0.3)',
@@ -1249,6 +1268,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  {/* Quick A/B flip button */}
  <button
  onClick={() => switchFile(activeFile === 'A' ? 'B' : 'A')}
+ aria-label="Flip A/B"
  className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all"
  style={{
  backgroundColor: 'rgba(224,122,79,0.12)',
@@ -1257,13 +1277,15 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  }}
  title="Flip A/B"
  >
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+ <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
  </svg>
  </button>
 
  <button
  onClick={() => switchFile('B')}
+ aria-pressed={activeFile === 'B'}
+ aria-label={`B — ${labelB}${activeFile === 'B' ? ' (active)' : ''}`}
  className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all"
  style={{
  backgroundColor: activeFile === 'B' ? 'rgba(224,122,79,0.15)' : 'rgba(51,48,44,0.3)',

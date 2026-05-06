@@ -1,4 +1,5 @@
 import React from 'react'
+import { useToast } from '../hooks/useToast'
 
 interface Hum {
  mains: number
@@ -9,6 +10,7 @@ interface Hum {
 }
 
 export default function HumPanel({ hum }: { hum: Hum }) {
+ const { message: toast, show: showToast } = useToast()
  if (!hum) return null
 
  const SEVERITY_COLOR: Record<string, string> = {
@@ -29,7 +31,10 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  } else {
  await navigator.clipboard.writeText(text)
  }
- } catch {}
+ showToast('Copied')
+ } catch {
+ showToast('Copy failed')
+ }
  }
 
  return (
@@ -72,6 +77,17 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color }}>
  Suggested notch preset
  </span>
+ <div className="flex items-center gap-2">
+ {toast && (
+ <span
+ role="status"
+ aria-live="polite"
+ className="text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded"
+ style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
+ >
+ {toast}
+ </span>
+ )}
  <button
  onClick={copyPreset}
  className="text-[10px] px-2 py-1 rounded-md transition-colors"
@@ -79,6 +95,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  >
  Copy preset
  </button>
+ </div>
  </div>
  <div className="rounded-xl p-3 font-mono text-[11px] space-y-0.5" style={{ backgroundColor: 'rgba(26,25,24,0.6)' }}>
  {hum.notch_preset.map((n, i) => (

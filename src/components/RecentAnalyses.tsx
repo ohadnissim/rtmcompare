@@ -63,13 +63,13 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.15em] text-sand-500">Recent analyses</span>
  <div className="flex items-center gap-3">
- <span className="text-[10px] text-sand-600">
+ <span className="text-[10px] text-sand-400">
  {history.length} total · click to load as Reference
  </span>
  {onClear && (
  <button
  onClick={() => { if (confirm('Clear the entire history log?')) onClear() }}
- className="text-[10px] text-sand-600 hover:text-warm-red transition-colors"
+ className="text-[10px] text-sand-400 hover:text-warm-red transition-colors"
  title="Clear the whole history log"
  >
  clear
@@ -105,7 +105,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  </span>
  )}
  </div>
- <div className="flex items-center gap-2 mt-0.5 text-[9px] font-mono text-sand-600">
+ <div className="flex items-center gap-2 mt-0.5 text-[9px] font-mono text-sand-400">
  {e.lufs != null && <span>{e.lufs.toFixed(1)} LUFS</span>}
  {e.true_peak != null && (
  <span>
@@ -114,7 +114,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  )}
  {e.lra != null && <span>{e.lra.toFixed(1)} LU</span>}
  {e.duration_sec != null && <span>{fmtDur(e.duration_sec)}</span>}
- <span className="text-sand-700">· {fmtTime(e.ts)}</span>
+ <span className="text-sand-400">· {fmtTime(e.ts)}</span>
  </div>
  </button>
  {/* Tiny B-slot badge — loads into the Compare slot instead */}

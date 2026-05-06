@@ -100,9 +100,12 @@ function createSplashWindow() {
   // Splash lives at build/splash.html (shipped via electron-builder
   // `files` glob — see package.json). In dev mode (unpackaged) the
   // build/ folder is at <projectRoot>/build/ relative to dist-electron.
-  const splashPath = app.isPackaged
-    ? path.join(__dirname, '..', 'build', 'splash.html')
-    : path.join(__dirname, '..', '..', 'build', 'splash.html')
+  // Both packaged and dev resolve to <projectRoot>/build/splash.html.
+  // `__dirname` is `<projectRoot>/dist-electron/` in dev (via tsc) and
+  // resources/app/dist-electron/ in packaged builds — one level up
+  // reaches `build/` in both contexts. (5.2.x: was wrongly `..`,`..`
+  // in dev which resolved outside the project, ERR_FILE_NOT_FOUND.)
+  const splashPath = path.join(__dirname, '..', 'build', 'splash.html')
   splashWindow.loadFile(splashPath).catch(() => {
     // Splash is non-essential — if it fails to load, just close it
     // and let the main window come up alone.
@@ -1068,6 +1071,58 @@ function processReadyMarker(readyPath: string): IncomingDrop | null {
     // The plugin may have written them in a different order; give up
     // cleanly and let the next scan pick up a fully-formed pair.
     return null
+  }
+  // 5.3.0 (audit P0 #4): refuse to follow a symlink. A same-user
+  // attacker can pre-plant `<predictable>.wav` as a symlink to e.g.
+  // ~/Library/Cookies/Cookies.binarycookies and have us rename it
+  // into our inbox. lstat-equivalent via fs.lstatSync.
+  try {
+    const wavStat = fs.lstatSync(candidateWav)
+    if (!wavStat.isFile() || wavStat.isSymbolicLink()) {
+      console.warn('[rtm-incoming] refusing non-regular file:', candidateWav)
+      return null
+    }
+    if (fs.existsSync(candidateMeta)) {
+      const metaStat = fs.lstatSync(candidateMeta)
+      if (!metaStat.isFile() || metaStat.isSymbolicLink()) {
+        console.warn('[rtm-incoming] refusing non-regular meta:', candidateMeta)
+        return null
+      }
+    }
+    const readyStat = fs.lstatSync(readyPath)
+    if (!readyStat.isFile() || readyStat.isSymbolicLink()) {
+      console.warn('[rtm-incoming] refusing non-regular .ready:', readyPath)
+      return null
+    }
+  } catch {
+    return null
+  }
+  // 5.3.0 (audit P1 #9): if the .ready marker carries SHA-256 hashes
+  // (RTM Send 1.1.0+), verify the WAV + JSON match before promoting.
+  // RTM Send 1.0.0 wrote a zero-byte marker — we accept that for
+  // back-compat but emit a debug note so we know which clients are
+  // pre-1.1.0. Tolerant additive per docs/protocol.md.
+  try {
+    const readyText = fs.readFileSync(readyPath, 'utf8').trim()
+    if (readyText.length > 0) {
+      const ready = JSON.parse(readyText)
+      const verify = (filePath: string, expected: unknown) => {
+        if (typeof expected !== 'string' || !expected) return true
+        const buf = fs.readFileSync(filePath)
+        const got = require('crypto').createHash('sha256').update(buf).digest('hex')
+        return got.toLowerCase() === expected.toLowerCase()
+      }
+      if (!verify(candidateWav, ready.wavSha256)) {
+        console.warn('[rtm-incoming] WAV SHA-256 mismatch — refusing drop:', candidateWav)
+        return null
+      }
+      if (fs.existsSync(candidateMeta) && !verify(candidateMeta, ready.jsonSha256)) {
+        console.warn('[rtm-incoming] JSON SHA-256 mismatch — refusing drop:', candidateMeta)
+        return null
+      }
+    }
+  } catch (err) {
+    console.warn('[rtm-incoming] .ready parse failed (treating as legacy zero-byte marker):', err)
   }
   if (!fs.existsSync(INBOX_DIR)) fs.mkdirSync(INBOX_DIR, { recursive: true })
   const inboxWav = path.join(INBOX_DIR, path.basename(candidateWav))

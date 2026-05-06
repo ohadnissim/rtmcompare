@@ -3,12 +3,14 @@ import { DSP_PROFILES, streamingTpFloorDbtp } from './dspProfiles'
 
 /**
  * Ready-to-Deliver verdict — the top-of-view traffic light every single-file
- * surface (RefOnlyView, SongDetailPanel) shares. Pass/Warn/Hold mapped against
- * the strictest streaming spec we care about plus the obvious QC flags.
+ * surface (RefOnlyView, SongDetailPanel) shares. Pass/Warn/Hold derived from
+ * the obvious QC flags only.
  *
- * We're intentionally conservative: a single -1 dBTP over at any point is a
- * HOLD, not a WARN, because Apple's ingest will reject it. Hum / distortion
- * "problem" severity is also HOLD. Everything else rolls up into WARN.
+ * 5.3.0: TP is informational. The streaming platforms turn the master DOWN on
+ * ingest, which is desirable, not a delivery failure. Reference top-40 masters
+ * routinely sit above the streaming TP floor — the alarm was crying wolf.
+ * Hum / distortion "problem" severity is HOLD. Everything else rolls up to
+ * WARN.
  */
 export type VerdictLevel = 'ready' | 'warn' | 'hold'
 

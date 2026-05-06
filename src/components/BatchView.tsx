@@ -520,7 +520,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  const notes: string[] = []
  // Auto-generated warnings go first.
  if (r.error) notes.push(r.error)
- if (r.true_peak_dbtp != null && r.true_peak_dbtp > streamingTpFloorDbtp()) notes.push('TP over −1 dBTP')
+ // 5.3.0: TP is informational only — the streaming platforms
+ // turn it down on ingest. No CSV warning. (Modern top-40 masters
+ // routinely sit above −1 dBTP; the alarm was crying wolf.)
  if ((r.clipped_samples || 0) > 0) notes.push(`${r.clipped_samples} clipped samples`)
  // ISRC missing/duplicate warnings disabled by user direction.
  if (stats.lufsMedian != null && r.lufs_i != null && Math.abs(r.lufs_i - stats.lufsMedian) > 1.5) {
@@ -590,7 +592,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  const userNote = (songNotes[r.path] || '').trim() || null
  const flags: string[] = []
  if (r.error) flags.push('analysis_error')
- if (r.true_peak_dbtp != null && r.true_peak_dbtp > streamingTpFloorDbtp()) flags.push('tp_over_minus_1')
+ // 5.3.0: no tp_over_minus_1 flag — TP is informational only.
  if ((r.clipped_samples || 0) > 0) flags.push('clipped')
  // ISRC missing/duplicate flags disabled by user direction.
  if (stats.lufsMedian != null && r.lufs_i != null && Math.abs(r.lufs_i - stats.lufsMedian) > 1.5) flags.push('lufs_outlier')
@@ -998,7 +1000,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  style={{ backgroundColor: 'rgba(30,28,24,0.6)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="grid grid-cols-3 gap-6">
  <StatCard label="Album LUFS · median" value={`${stats.lufsMedian.toFixed(1)} LUFS`} />
- {stats.tpMedian != null && <StatCard label="True peak · median" value={`${stats.tpMedian.toFixed(1)} dBTP`} warn={stats.tpMedian > streamingTpFloorDbtp()} />}
+ {stats.tpMedian != null && <StatCard label="True peak · median" value={`${stats.tpMedian.toFixed(1)} dBTP`} />}
  {stats.lraMedian != null && <StatCard label="LRA · median" value={`${stats.lraMedian.toFixed(1)} LU`} />}
  </div>
  {/* Loudness anchor picker — changes the Δ column in the table
@@ -1088,7 +1090,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  const lufsDelta = anchorVal != null && r.lufs_i != null ? (r.lufs_i - anchorVal) : null
  const outlierThreshold = lufsAnchor === 'median' ? 1.5 : 1.0
  const lufsOutlier = lufsDelta != null && Math.abs(lufsDelta) > outlierThreshold
- const tpHot = r.true_peak_dbtp != null && r.true_peak_dbtp > streamingTpFloorDbtp()
+ // 5.3.0: TP is informational only — no visual warning. Numbers
+ // still render; the color flag is suppressed.
+ const tpHot = false; void streamingTpFloorDbtp;
  const isrcDup = !!(r.isrc && (isrcCounts.get(r.isrc) || 0) > 1)
  return (
  <tr
@@ -1507,7 +1511,9 @@ function buildBatchPdfHtml(
  const rowHtml = rows.map(r => {
  const lufsDelta = stats.lufsMedian != null && r.lufs_i != null ? (r.lufs_i - stats.lufsMedian) : null
  const lufsOutlier = lufsDelta != null && Math.abs(lufsDelta) > 1.5
- const tpHot = r.true_peak_dbtp != null && r.true_peak_dbtp > streamingTpFloorDbtp()
+ // 5.3.0: TP is informational only — no visual warning. Numbers
+ // still render; the color flag is suppressed.
+ const tpHot = false; void streamingTpFloorDbtp;
  const isrcDup = !!(r.isrc && (isrcCounts.get(r.isrc) || 0) > 1)
  return `
  <tr>
@@ -1595,7 +1601,7 @@ function buildBatchPdfHtml(
  <hr class="hairline" />
  <div class="stats">
  <div class="stat"><div class="l">Album LUFS · median</div><div class="v">${stats.lufsMedian != null ? stats.lufsMedian.toFixed(1) + ' LUFS' : '—'}</div></div>
- <div class="stat ${stats.tpMedian != null && stats.tpMedian > streamingTpFloorDbtp() ? 'warn' : ''}"><div class="l">True peak · median</div><div class="v">${stats.tpMedian != null ? stats.tpMedian.toFixed(1) + ' dBTP' : '—'}</div></div>
+ <div class="stat"><div class="l">True peak · median</div><div class="v">${stats.tpMedian != null ? stats.tpMedian.toFixed(1) + ' dBTP' : '—'}</div></div>
  <div class="stat"><div class="l">LRA · median</div><div class="v">${stats.lraMedian != null ? stats.lraMedian.toFixed(1) + ' LU' : '—'}</div></div>
  </div>
  ${albumNoteHtml}

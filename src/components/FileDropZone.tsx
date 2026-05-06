@@ -80,13 +80,34 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  onFile(null as any) // null = clear
  }, [onFile])
 
+ // 5.3.0 a11y: keyboard-activate (SC 2.1.1). The zone is a "button"
+ // with role + tabIndex + Enter/Space activation. The hint text now
+ // names the file picker explicitly so screen-reader users know
+ // pressing Enter opens it. Drop area is announced via aria-label.
+ const onKeyDown = (e: React.KeyboardEvent) => {
+ if (locked) return
+ if (e.key === 'Enter' || e.key === ' ') {
+ e.preventDefault()
+ handleClick()
+ }
+ }
+ const ariaLabel = locked
+ ? `${label} drop zone — locked`
+ : file
+ ? `${label} drop zone — ${file.name} loaded. Press Enter to replace.`
+ : `${label} drop zone. Drop an audio file, or press Enter to browse.`
+
  return (
  <div
+ role="button"
+ tabIndex={locked ? -1 : 0}
+ aria-label={ariaLabel}
  className={`drop-zone ${dragging ? 'active' : ''} ${file ? 'loaded' : ''} relative`}
  onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
  onDragLeave={() => setDragging(false)}
  onDrop={handleDrop}
  onClick={handleClick}
+ onKeyDown={onKeyDown}
  >
  <input
  ref={inputRef}
@@ -150,14 +171,14 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  </div>
  ) : (
  <div className="space-y-4">
- <svg className="w-5 h-5 mx-auto text-sand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+ <svg className="w-5 h-5 mx-auto text-sand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
  </svg>
  <div>
  <p className="text-xs tracking-widest uppercase text-sand-400">{label}</p>
- <p className="text-[11px] text-sand-600 mt-1">{hint}</p>
+ <p className="text-[11px] text-sand-400 mt-1">{hint}</p>
  </div>
- <p className="text-[11px] text-sand-700">
+ <p className="text-[11px] text-sand-400">
  Drop audio or click to browse
  </p>
  {dropError && (

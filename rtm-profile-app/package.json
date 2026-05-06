@@ -1,6 +1,6 @@
 {
   "name": "rtmprofile",
-  "version": "1.1.3",
+  "version": "1.2.0",
   "description": "Build a custom engineer profile from a corpus of audio. Loads into RTMcompare's Match tab.",
   "main": "dist-electron/main.js",
   "scripts": {

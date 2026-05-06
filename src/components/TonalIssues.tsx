@@ -42,14 +42,21 @@ const issueIcons: Record<string, string> = {
 // conveyed by the Δ-dB chip color downstream; the issue name carries
 // the identification weight, not hue. Same value across every issue
 // keeps the cards visually quiet — what the philosophy demands.
+// 5.3.0: route through @theme tokens so the file no longer ships its
+// own three-color palette. `--color-text-muted` is the warm grey from
+// styles.css; `--color-violation` is the warm-red used everywhere else
+// for "this needs your attention." Keeping the map by-name so callers
+// don't need to know which class an issue lives in.
+const TOKEN_MUTED = 'var(--color-text-muted)'
+const TOKEN_WARN = 'var(--color-violation)'
 const issueColors: Record<string, string> = {
- 'Boominess': '#a8a29e',
- 'Muddiness': '#a8a29e',
- 'Boxiness': '#a8a29e',
- 'Harshness': '#c96765',
- 'Sibilance': '#c96765',
- 'Thinness': '#a8a29e',
- 'Brightness Fatigue': '#c96765',
+ 'Boominess': TOKEN_MUTED,
+ 'Muddiness': TOKEN_MUTED,
+ 'Boxiness': TOKEN_MUTED,
+ 'Harshness': TOKEN_WARN,
+ 'Sibilance': TOKEN_WARN,
+ 'Thinness': TOKEN_MUTED,
+ 'Brightness Fatigue': TOKEN_WARN,
 }
 
 export default function TonalIssues({ issues, labelA, labelB }: Props) {

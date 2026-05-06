@@ -391,9 +391,12 @@ def aggregate(per_file: list[dict[str, Any]],
     if not valid:
         raise SystemExit("no valid measurements — every input file failed to read or was silent")
 
-    # 5.2.3: "genres" removed from the schema. Description simplifies to
-    # role + sample count.
+    # 5.3.0: explicit `schema_version`. Tolerant additive — readers
+    # tolerate unknown fields and warn on a higher major. Stamp here
+    # so every profile from this build forward carries the version.
+    # 5.2.3: "genres" removed from the schema.
     profile: dict[str, Any] = {
+        "schema_version":    1,
         "name":              name,
         "role":              role,
         "description":       f"{role} — {len(valid)}-track profile",

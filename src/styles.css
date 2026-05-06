@@ -147,6 +147,22 @@
   --pad-overflow-menu:      8px;
   --shadow-overflow-menu:   0 8px 24px -8px rgba(0,0,0,0.45),
                             0 1px 0 rgba(255,255,255,0.04) inset;
+
+  /* ── v5.2 shell themed surfaces ─────────────────────────────────
+     Surfaces that need different rgba values in dark vs light. The
+     dark defaults sit here; the light overrides live in the
+     [data-theme="light"] block lower in this file. Components
+     reference these via var(...) instead of inline rgba so light
+     mode flips cleanly.                                            */
+  --rtm-header-bg:          rgba(14,13,11,0.85);
+  --rtm-header-border:      rgba(168,161,150,0.08);
+  --rtm-header-divider:     rgba(168,161,150,0.06);
+  --rtm-chip-bg-inactive:   rgba(87,83,78,0.18);
+  --rtm-chip-bg-active:     rgba(208,176,102,0.18);
+  --rtm-frame-border:       rgba(168,161,150,0.18);
+  --rtm-toggle-border:      rgba(168,161,150,0.18);
+  --rtm-overflow-shadow:    0 8px 24px -8px rgba(0,0,0,0.45),
+                            0 1px 0 rgba(255,255,255,0.04) inset;
 }
 
 @layer base {
@@ -290,9 +306,68 @@
     background: #96803a;
     color: #f0ece4;
   }
+
+  /* ─── v5.2 shell — light-theme overrides ────────────────────────
+     Re-paints the rgba surfaces so the v2 header / chips / overflow
+     menu / drop frame read correctly on the warm-ivory background.
+     Components reference these tokens, not the rgba literals — so
+     this block flips the entire shell with one selector.         */
+  [data-theme="light"] {
+    --rtm-header-bg:        rgba(239,238,232,0.85);
+    --rtm-header-border:    rgba(85,79,68,0.10);
+    --rtm-header-divider:   rgba(85,79,68,0.08);
+    --rtm-chip-bg-inactive: rgba(85,79,68,0.10);
+    --rtm-chip-bg-active:   rgba(156,129,58,0.18);
+    --rtm-frame-border:     rgba(85,79,68,0.20);
+    --rtm-toggle-border:    rgba(85,79,68,0.20);
+    --rtm-overflow-shadow:  0 8px 24px -8px rgba(0,0,0,0.18),
+                            0 1px 0 rgba(255,255,255,0.55) inset;
+  }
 }
 
 @layer components {
+  /* ─── v5.2 shell focus ring ─────────────────────────────────────
+     Per `.rtm-design/v5.2-shell-brief.md`: 2px outline using
+     --color-accent at 50% opacity, offset 2px, only on :focus-visible.
+     Scoped to v2 shell components via [data-rtm-v2-focus] so we
+     don't override the v1 shell's focus behaviour. Anything inside
+     /src/components/shell/ should opt in by either:
+       a) adding `data-rtm-v2-focus` on the focusable element, or
+       b) being a button/input descendant of an opt-in container.
+     Currently applied broadly — narrow with the attribute later if
+     v1 styling clashes appear.                                    */
+  [data-rtm-metric-strip] :focus-visible,
+  [role="radiogroup"][aria-label="Delivery target"] :focus-visible,
+  [role="menu"] :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 50%, transparent);
+    outline-offset: 2px;
+    border-radius: var(--radius-pill);
+  }
+
+  /* Reduced-motion override for v2 inline transitions. The metric
+     strip handles its own animation in MetricStrip.tsx; this catches
+     `transition:` declarations on overflow menu, surface chips, etc.
+     so users with motion sensitivity get an instant feel. */
+  @media (prefers-reduced-motion: reduce) {
+    [role="menu"] *,
+    [role="radiogroup"][aria-label="Delivery target"] * {
+      transition: none !important;
+      animation: none !important;
+    }
+    /* 5.3.0 a11y (SC 2.3.3): kill the drop-zone breathing pulse and
+       any other top-level animation so motion-sensitive users don't
+       see continuous oscillation on the entry screen. */
+    .drop-zone::after,
+    .drop-zone:hover::after { animation: none !important; }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+
   /* ─── Drop Zones — minimal, refined, with subtle invitation pulse ─── */
   .drop-zone {
     position: relative;

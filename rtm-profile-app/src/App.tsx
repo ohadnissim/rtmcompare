@@ -199,7 +199,11 @@ export default function App() {
         {/* The single Instrument-Serif moment — the wordmark dominates,
             everything else stays in the warm-grey palette. Gold here is
             the ONE gesture per the Console-Didone philosophy. */}
-        <div className="display-serif" style={{ fontSize: 44, color: GOLD, lineHeight: 1, marginBottom: 12 }}>
+        {/* 5.2.4: wordmark moved from gold → cream to honour the
+            "gold appears once per screen" rule — gold is reserved
+            for the Build profile CTA outline below. Italic dropped
+            so the wordmark matches RTMcompare's HeaderV2 wordmark. */}
+        <div className="display-serif" style={{ fontSize: 48, color: SAND_100, lineHeight: 1, marginBottom: 12, letterSpacing: '0.02em' }}>
           RTMprofile
         </div>
         <div style={{ fontSize: 11, color: SAND_400, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 14 }}>
@@ -353,15 +357,23 @@ export default function App() {
         </div>
       )}
 
-      <footer style={{
-        marginTop: 24,
-        textAlign: 'center',
-        fontSize: 10,
-        color: SAND_400,
-        letterSpacing: '0.14em',
-        textTransform: 'uppercase',
-      }}>
-        RTMprofile · companion to RTMcompare
+      {/* 5.2.4: footer rebuilt as a colophon — same vocabulary as
+          RTMcompare's <Colophon />. Three centre-dots between
+          segments; tracked all-caps in sand-dim. Decorative only —
+          aria-hidden so screen readers skip it. */}
+      <footer
+        aria-hidden
+        style={{
+          marginTop: 24,
+          textAlign: 'center',
+          fontSize: 9,
+          color: '#6a6459',
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          fontWeight: 500,
+        }}
+      >
+        RTMprofile · v1.1.3 · Companion to RTMcompare
       </footer>
     </div>
   )

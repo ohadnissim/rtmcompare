@@ -1,7 +1,11 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react'
 import { AppState, FileInfo, AnalysisResult } from './types'
 import { useTheme } from './ThemeContext'
+import { useShell } from './ShellContext'
 import { useModes } from './ModesContext'
+import HeaderV2 from './components/shell/HeaderV2'
+import EmptyStateV2 from './components/shell/EmptyStateV2'
+import { buildMetricCells } from './lib/buildMetricCells'
 import FileDropZone from './components/FileDropZone'
 import ReferenceLibrary from './components/ReferenceLibrary'
 import RtmIncomingBanner from './components/RtmIncomingBanner'
@@ -384,6 +388,14 @@ export default function App() {
  if (!parsed || !Array.isArray(parsed.results)) {
  setError('That file does not look like an RTM album session.')
  return
+ }
+ // 5.3.0 protocol check — tolerant additive: unknown extra fields
+ // are kept; missing required fields are caught above; a higher
+ // version warns but still loads (forward-compat by default).
+ // See docs/protocol.md.
+ const v = (parsed as any).version
+ if (typeof v === 'number' && v > 1) {
+ console.warn(`[rtmalbum] file is version ${v}, this build understands version 1. Loading anyway; some fields may be ignored.`)
  }
  applyLoadedSession(parsed)
  } catch (err: any) {
@@ -824,6 +836,15 @@ export default function App() {
  const { educator: educatorMode, blind: blindMode, toggleEducator, toggleBlind, surface, setSurface, advancedQc, toggleAdvancedQc } = useModes()
  const pluginDrop = usePluginDrop()
 
+ // ── Shell version (v5.2 Console Didone). v1 = classic header (the
+ //    markup immediately below); v2 = HeaderV2 shell (Wordmark +
+ //    SurfaceChips + OverflowMenu + MetricStrip). Toggle via the
+ //    OverflowMenu → Shell version, or directly with
+ //    localStorage['rtm-shell'] = 'v1' | 'v2'. Default is v2.
+ //    See `.rtm-design/v5.2-shell-brief.md` and the anti-AI-design
+ //    discipline before editing any v2 surface.
+ const { shellVersion } = useShell()
+
 
  return (
  <div className="min-h-screen bg-sand-950 transition-colors duration-300">
@@ -849,12 +870,34 @@ export default function App() {
  * chrome components set `user-select: none` locally).
  */}
  {/* Zero-cost drag strip — 28 px tall, transparent, sits above the
- real header. This is where macOS registers the window drag. */}
+ real header. This is where macOS registers the window drag.
+ NOTE (v5.2): the drag strip stays at the parent level — both v1 and
+ v2 shells consume it via the sticky+top:28 contract on the header
+ below. Do NOT move it inside either branch. */}
  <div
  className="app-drag-region sticky top-0 z-40"
  style={{ height: 28, backgroundColor: 'transparent' }}
  aria-hidden
  />
+ {shellVersion === 'v2' && (
+ <HeaderV2
+ state={state}
+ metricCells={buildMetricCells(results, {
+ isAtmos: !!(results && results.atmos && (results.atmos as any).is_atmos),
+ })}
+ canShowBlind={state === 'results' && !!fileA && !!fileB && fileA.path !== fileB.path}
+ zoom={{
+ value: zoom,
+ pct: `${zoomPct}%`,
+ in: zoomIn,
+ out: zoomOut,
+ reset: zoomReset,
+ outDisabled: zoom <= 0.86,
+ inDisabled: zoom >= 1.49,
+ }}
+ />
+ )}
+ {shellVersion === 'v1' && (
  <header
  className="app-no-drag px-8 py-5 sticky z-30 backdrop-blur-md"
  style={{
@@ -1039,21 +1082,24 @@ export default function App() {
  </div>
  </div>
  </header>
+ )}
 
  <main className="max-w-5xl mx-auto px-8 py-6">
  {/* ReleaseCockpit removed — Label mode is shelved while we
  focus on the engineer side. The component + its tour + the
  releases store all remain in the codebase. */}
 
- {state === 'upload' && (
+ {/* v5.2: classic upload UI runs only when shellVersion === 'v1'.
+  v2 cover empty-state below routes through EmptyStateV2. */}
+ {state === 'upload' && shellVersion === 'v1' && (
  <div className="space-y-6">
  <div className="text-center space-y-2">
  <h2 className="text-xl font-light tracking-[0.15em] uppercase" style={{ color: '#ebe7e0' }}>Analyze your audio</h2>
  <div className="max-w-2xl mx-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px]">
  <span className="text-sand-400"><span className="text-sand-200">One file</span> · QC any track.</span>
- <span className="text-sand-600">·</span>
+ <span className="text-sand-400">·</span>
  <span className="text-sand-400"><span className="text-sand-200">Two files</span> · level-matched A/B.</span>
- <span className="text-sand-600">·</span>
+ <span className="text-sand-400">·</span>
  <span className="text-sand-400"><span className="text-sand-200">Folder</span> · album / batch mode.</span>
  </div>
  </div>
@@ -1160,7 +1206,7 @@ export default function App() {
  <div className="space-y-2" data-tour="recent">
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.15em] text-sand-500">Saved references</span>
- <span className="text-[10px] text-sand-600">{savedRefs.length} starred · click to load into Reference slot</span>
+ <span className="text-[10px] text-sand-400">{savedRefs.length} starred · click to load into Reference slot</span>
  </div>
  <div className="flex flex-wrap gap-2">
  {savedRefs.map(r => (
@@ -1200,7 +1246,7 @@ export default function App() {
  <div className="space-y-2" data-tour={savedRefs.length === 0 ? 'recent' : undefined}>
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.15em] text-sand-500">Recent references</span>
- <span className="text-[10px] text-sand-600">{recentRefs.length} · click ★ to save as go-to</span>
+ <span className="text-[10px] text-sand-400">{recentRefs.length} · click ★ to save as go-to</span>
  </div>
  <div className="flex flex-wrap gap-2">
  {recentRefs.map(r => {
@@ -1301,7 +1347,7 @@ export default function App() {
  {/* Engineer Profile Selector */}
  <div className="flex flex-col items-center gap-2" data-tour="profile">
  <div className="flex items-center justify-center gap-3">
- <span className="text-[11px] text-sand-600" title="An Engineer Profile is a target tonal curve + loudness + width stats. Picking one tells the Match panel what 'ideal' looks like — RTM then suggests EQ moves to get your track closer to it. You can use the shipped profiles, load a custom JSON, or skip profiles entirely (Match will fall back to the two-file spectrum diff).">Engineer Profile:</span>
+ <span className="text-[11px] text-sand-400" title="An Engineer Profile is a target tonal curve + loudness + width stats. Picking one tells the Match panel what 'ideal' looks like — RTM then suggests EQ moves to get your track closer to it. You can use the shipped profiles, load a custom JSON, or skip profiles entirely (Match will fall back to the two-file spectrum diff).">Engineer Profile:</span>
  <div className="relative">
  <select
  value={profile}
@@ -1429,10 +1475,97 @@ export default function App() {
  )}
  </div>
 
- <p className="text-center text-[10px] text-sand-600 italic">
+ <p className="text-center text-[10px] text-sand-400 italic">
  *For best Atmos analysis, use an ADM BWF file
  </p>
  </div>
+ )}
+
+ {/* v5.2: cover-page empty state — Console Didone treatment.
+  Renders only the FileDropZones + primary CTA inside the cover
+  frame. The library shortcut, deep-scan toggle, educator banner,
+  workflow hints, and profile picker are intentionally NOT rendered
+  here — those secondary affordances are available via the v1
+  shell or via the OverflowMenu / future settings panel. */}
+ {state === 'upload' && shellVersion === 'v2' && (
+ <EmptyStateV2>
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" data-tour="dropzone">
+ <FileDropZone
+ label="Reference"
+ hint="Demo, rough or your mix"
+ file={fileA}
+ onFile={setFileA}
+ locked={lockFileA && !!fileA}
+ onToggleLock={fileA ? () => setLockFileA(v => !v) : undefined}
+ />
+ <FileDropZone
+ label="Compare"
+ hint="Mix, new version, master or atmos file"
+ file={fileB}
+ onFile={setFileB}
+ />
+ {fileA && fileB && (
+ <button
+ onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
+ className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full hidden md:flex items-center justify-center transition-all hover:scale-110"
+ style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)' }}
+ aria-label="Swap reference and compare files"
+ title="Swap files"
+ >
+ <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+ <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+ </svg>
+ </button>
+ )}
+ </div>
+
+ {/* Single CTA row — primary "Begin analysis" routes to the
+  appropriate handler based on what's loaded; album / ref-only
+  available as quiet inline links. No coloured backgrounds, no
+  icons-as-decoration; matches anti-AI-design rule #14. */}
+ <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 32 }}>
+ <button
+ type="button"
+ onClick={fileA && fileB ? handleCompare : (fileA ? handleRefOnly : undefined)}
+ disabled={!fileA}
+ style={{
+ fontFamily: 'var(--font-display)',
+ fontStyle: 'italic',
+ fontSize: 22,
+ color: fileA ? 'var(--color-text-primary)' : 'var(--color-text-dim)',
+ background: 'transparent',
+ border: 'none',
+ cursor: fileA ? 'pointer' : 'not-allowed',
+ padding: '4px 12px',
+ transition: 'color 120ms var(--easing-shell)',
+ }}
+ >
+ Begin analysis
+ </button>
+ {window.electronAPI?.selectFolder && (
+ <button
+ type="button"
+ onClick={handleBatch}
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontWeight: 500,
+ fontSize: 'var(--text-metric-eyebrow)',
+ letterSpacing: 'var(--tracking-metric-eyebrow)',
+ textTransform: 'uppercase',
+ color: 'var(--color-text-dim)',
+ background: 'transparent',
+ border: 'none',
+ cursor: 'pointer',
+ transition: 'color 120ms var(--easing-shell)',
+ }}
+ onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
+ onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dim)')}
+ >
+ ↘ Or analyse a folder
+ </button>
+ )}
+ </div>
+ </EmptyStateV2>
  )}
 
  {state === 'processing' && (

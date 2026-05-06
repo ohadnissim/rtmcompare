@@ -189,11 +189,29 @@ export default function ProgressBar({ message, onCancel }: Props) {
  return () => clearInterval(interval)
  }, [queue.length])
 
+ // 5.3.0 a11y (SC 4.1.3): announce progress to assistive tech via
+ // role="status" + aria-live="polite". The progressbar primitive
+ // also gets explicit aria-valuenow / -valuemin / -valuemax so SR
+ // users hear the percent each time the message text changes.
+ const ariaValueNow = displayPct > 0 ? Math.round(displayPct) : undefined
  return (
- <div className="flex flex-col items-center justify-center py-24 space-y-8">
+ <div
+ className="flex flex-col items-center justify-center py-24 space-y-8"
+ role="status"
+ aria-live="polite"
+ aria-busy="true"
+ >
  {/* Progress bar */}
  <div className="w-full max-w-xs space-y-2">
- <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+ <div
+ className="h-1.5 rounded-full overflow-hidden"
+ role="progressbar"
+ aria-valuenow={ariaValueNow}
+ aria-valuemin={0}
+ aria-valuemax={100}
+ aria-label={message}
+ style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+ >
  <div
  className="h-full rounded-full transition-all duration-300"
  style={{
@@ -204,9 +222,9 @@ export default function ProgressBar({ message, onCancel }: Props) {
  />
  </div>
  <div className="flex justify-between items-center">
- <p className="text-xs tracking-wide" style={{ color: '#6b7490' }}>{message}</p>
+ <p className="text-xs tracking-wide" style={{ color: '#a59d8e' }}>{message}</p>
  {displayPct > 0 && (
- <span className="text-xs font-mono" style={{ color: '#8d867b' }}>{displayPct}%</span>
+ <span className="text-xs font-mono" style={{ color: '#a59d8e' }}>{displayPct}%</span>
  )}
  </div>
  </div>

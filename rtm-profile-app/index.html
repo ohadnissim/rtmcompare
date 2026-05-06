@@ -19,12 +19,16 @@
       because every input had `outline: none` with no replacement —
       keyboard users were stranded.
     */
+    /* 5.2.4: aligned with RTMcompare v5.2 Console Didone shell.
+       Background switched from #1c1a17 (warm dark) to #0e0d0b (ink)
+       so RTMprofile and RTMcompare share the same field. Body type
+       stays Outfit at 14px / 1.55. */
     html, body, #root {
       margin: 0;
       padding: 0;
       height: 100%;
       overflow: hidden;
-      background: #1c1a17;
+      background: #0e0d0b;
       color: #c9c3b7;
       font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       font-size: 14px;
@@ -37,13 +41,18 @@
       outline-offset: 2px;
       border-radius: 2px;
     }
-    /* Console-Didone display face — used for the wordmark + the
-       "Build profile" CTA label only. Keep gold for ONE gesture per
-       view; everything else stays in the warm-grey palette. */
+    /* Console-Didone display face — used for the wordmark and any
+       hero numerals. 5.2.4: italic dropped from the default style;
+       opt in via `.display-serif.italic` where editorial italic is
+       called for. The wordmark itself stays upright to match
+       RTMcompare's HeaderV2. */
     .display-serif {
       font-family: 'Instrument Serif', Georgia, serif;
-      font-style: italic;
+      font-style: normal;
       letter-spacing: -0.005em;
+    }
+    .display-serif.italic {
+      font-style: italic;
     }
     .mono {
       font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;

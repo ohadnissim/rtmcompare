@@ -1,6 +1,7 @@
 import React from 'react'
 import { Category } from '../types'
 import { useSolo, formatSoloFreq } from '../SoloContext'
+import { useToast } from '../hooks/useToast'
 
 interface Props {
  category: Category
@@ -38,6 +39,7 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  const diff = category.level_diff
  const absDiff = Math.abs(diff)
  const { soloBand, setSolo, clearSolo } = useSolo()
+ const { message: toast, show: showToast } = useToast()
  const soloMap = CATEGORY_SOLO_FREQ[category.name]
  const isSoloed = soloMap != null && soloBand != null && Math.abs(soloBand - soloMap.freq) < 0.1
 
@@ -94,14 +96,34 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  </div>
  </div>
 
- {/* Insight text — click to copy */}
+ {/* Insight text — click to copy. Toast confirms (5.3.0; was silent
+     pre-5.3, audit P2-24). */}
+ <div className="relative mb-3">
  <p
- className="text-xs text-dark-300 leading-relaxed mb-3 cursor-pointer hover:text-dark-200 transition-colors"
- onClick={() => navigator.clipboard.writeText(category.insight)}
+ className="text-xs text-dark-300 leading-relaxed cursor-pointer hover:text-dark-200 transition-colors"
+ onClick={async () => {
+  try {
+   await navigator.clipboard.writeText(category.insight)
+   showToast('Copied')
+  } catch {
+   showToast('Copy failed')
+  }
+ }}
  title="Click to copy"
  >
  {category.insight}
  </p>
+ {toast && (
+ <span
+ role="status"
+ aria-live="polite"
+ className="absolute right-0 top-0 text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded"
+ style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
+ >
+ {toast}
+ </span>
+ )}
+ </div>
 
  {/* Level bars */}
  <div className="space-y-1">

@@ -13,6 +13,8 @@ import MatchTab from './MatchTab'
 import CommandPalette from './CommandPalette'
 import { emitShortcut, isEditableTarget, RTM_EVENTS } from '../shortcuts'
 import { useModes } from '../ModesContext'
+import { useShell } from '../ShellContext'
+import TabVerdict from './shell/TabVerdict'
 import DurationPill, { formatDuration } from './DurationPill'
 import ExportButton from './ExportButton'
 import LufsTargets from './LufsTargets'
@@ -68,6 +70,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  // ⌘K palette — opens on Cmd/Ctrl+K, closes on Esc.
  const [paletteOpen, setPaletteOpen] = useState(false)
  const { setBlind, toggleBlind, surface, advancedQc } = useModes()
+ const { shellVersion } = useShell()
 
  // Refs for scroll targets.
  const playerRef = useRef<HTMLDivElement>(null) // set on the A/B player wrapper
@@ -253,7 +256,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <DurationPill seconds={results.duration_sec_a ?? results.duration_sec} tint="#6b8cbb" compact />
  </div>
  {!isSolo && (<>
- <span className="text-sand-700 text-xs">vs</span>
+ <span className="text-sand-400 text-xs">vs</span>
  <div className="flex items-center gap-2">
  <span className="text-sand-300">{labelB}</span>
  <DurationPill seconds={results.duration_sec_b ?? results.duration_sec} tint="#d0b066" compact />
@@ -435,6 +438,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── OVERVIEW TAB ─── */}
  {activeTab === 'overview' && (
  <div className="space-y-6">
+ {shellVersion === 'v2' && <TabVerdict tab="overview" results={results} isAtmos={isAtmos} />}
  <CollapsibleSection
  title="Overall Summary"
  tooltip="High-level comparison of loudness, stereo width, and dynamic range between the two files."
@@ -789,6 +793,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── MASTERING DELTA TAB ─── */}
  {activeTab === 'mastering' && results.mastering_delta && (
  <div className="space-y-6">
+ {shellVersion === 'v2' && <TabVerdict tab="mastering" results={results} isAtmos={isAtmos} />}
  <MasteringDelta delta={results.mastering_delta} overall={results.overall} />
  </div>
  )}
@@ -796,6 +801,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── DELIVERY TAB ─── */}
  {activeTab === 'delivery' && (
  <div className="space-y-6">
+ {shellVersion === 'v2' && <TabVerdict tab="delivery" results={results} isAtmos={isAtmos} />}
  {/* Streaming Normalization Preview — the main attraction on this
  tab. Default-open because delivery is the whole reason anyone
  clicks here. Hidden for Atmos modes (platforms normalise those
@@ -862,6 +868,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── BREAKDOWN TAB ─── */}
  {activeTab === 'breakdown' && (
  <div className="space-y-6">
+ {shellVersion === 'v2' && <TabVerdict tab="breakdown" results={results} isAtmos={isAtmos} />}
  {/* Genre classification is surfaced only on the Reference-only
  single-file view — on a 2-file comparison it adds clutter
  without helping the mix decision. (Mood analyser was removed
@@ -1263,6 +1270,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── STEREO & SPECTRUM TAB ─── */}
  {activeTab === 'stereo' && (
  <div className="space-y-6">
+ {shellVersion === 'v2' && <TabVerdict tab="stereo" results={results} isAtmos={isAtmos} />}
  {results.spectrum_a && results.spectrum_b && (
  <CollapsibleSection
  title="Frequency Spectrum"
@@ -1365,6 +1373,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── QUALITY TAB ─── */}
  {activeTab === 'quality' && (
  <div className="space-y-6">
+ {shellVersion === 'v2' && <TabVerdict tab="quality" results={results} isAtmos={isAtmos} />}
  {/* Hum / 50-60 Hz detector */}
  {results.hum && results.hum.mains > 0 && (
  <CollapsibleSection
@@ -1490,6 +1499,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── MATCH TAB (unified Reference / Engineer / Hybrid) ─── */}
  {activeTab === 'match' && (
  <div className="space-y-6">
+ {shellVersion === 'v2' && <TabVerdict tab="match" results={results} isAtmos={isAtmos} />}
  <MatchTab
  results={results}
  fileB={fileB}

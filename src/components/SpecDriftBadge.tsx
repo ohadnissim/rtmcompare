@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { SpecVersions } from '../types'
 import { currentSpecsVersion, diffSpecVersions, specDriftSummary } from '../specsCompare'
 
@@ -9,6 +9,46 @@ interface Props {
 
 export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props) {
  const [open, setOpen] = useState(false)
+ const triggerRef = useRef<HTMLButtonElement | null>(null)
+ const dialogRef = useRef<HTMLDivElement | null>(null)
+ const closeBtnRef = useRef<HTMLButtonElement | null>(null)
+
+ // 5.3.0 a11y: focus trap + Escape to close + return focus on close.
+ // Standard modal-dialog hygiene the prior audit flagged.
+ useEffect(() => {
+ if (!open) return
+ const previouslyFocused = document.activeElement as HTMLElement | null
+ // Move focus into the dialog.
+ closeBtnRef.current?.focus()
+ const onKey = (e: KeyboardEvent) => {
+ if (e.key === 'Escape') {
+ e.preventDefault()
+ setOpen(false)
+ return
+ }
+ if (e.key !== 'Tab' || !dialogRef.current) return
+ const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+ 'a[href], area[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+ )
+ if (!focusables.length) return
+ const first = focusables[0]
+ const last = focusables[focusables.length - 1]
+ if (e.shiftKey && document.activeElement === first) {
+ e.preventDefault()
+ last.focus()
+ } else if (!e.shiftKey && document.activeElement === last) {
+ e.preventDefault()
+ first.focus()
+ }
+ }
+ document.addEventListener('keydown', onKey)
+ return () => {
+ document.removeEventListener('keydown', onKey)
+ // Return focus to the trigger that opened the dialog.
+ try { (previouslyFocused || triggerRef.current)?.focus?.() } catch {}
+ }
+ }, [open])
+
  if (analysisVersion == null || analysisVersion === currentSpecsVersion) return null
 
  const deltas = diffSpecVersions(stampedSpecs)
@@ -17,6 +57,7 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  return (
  <>
  <button
+ ref={triggerRef}
  type="button"
  onClick={() => setOpen(true)}
  className="inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-[10px] font-medium"
@@ -40,6 +81,7 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  onClick={() => setOpen(false)}
  >
  <div
+ ref={dialogRef}
  className="w-full max-w-2xl rounded-xl p-5"
  style={{ backgroundColor: '#1e1c18', border: '1px solid rgba(168,161,150,0.18)', color: '#ebe7e0' }}
  onClick={(e) => e.stopPropagation()}
@@ -50,8 +92,10 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  <h3 className="mt-1 text-lg font-medium">Spec v{analysisVersion}{' -> '}v{currentSpecsVersion}</h3>
  </div>
  <button
+ ref={closeBtnRef}
  type="button"
  onClick={() => setOpen(false)}
+ aria-label="Close spec drift details"
  className="rounded-md px-2 py-1 text-[11px]"
  style={{ color: '#a8a196', border: '1px solid rgba(168,161,150,0.18)' }}
  >
