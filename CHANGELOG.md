@@ -4,6 +4,14 @@ All the changes worth telling you about, newest first.
 
 ---
 
+## 5.5.2 — solo-in-place on the EQ Preview
+
+Tiny **S** toggle next to every band on the EQ Preview panel. Click it to solo that band in place — the other bands stay in the chain at 0 dB so the biquad order, Q, and frequency positions are preserved (the band keeps its slot — hence "in place"). Click again or press `Esc` from anywhere to clear.
+
+Useful when you're trying to hear what one specific EQ move is doing without the others colouring the result.
+
+---
+
 ## 5.5.1 — the "?" button works now
 
 A one-liner. The `?` button in the header dispatched a custom event that nothing was listening for, so clicking it did nothing. Pressing the `?` key worked fine; only the click route was broken. Fixed.

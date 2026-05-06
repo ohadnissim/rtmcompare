@@ -215,7 +215,7 @@ def build_manual(path):
                 "are short. Nobody asked for a textbook."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.1', 'Apple Silicon', 'macOS 12+'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.2', 'Apple Silicon', 'macOS 12+'])
 
     # ── 1 · Install ──
     new_page()
@@ -543,7 +543,7 @@ def build_features(path):
                 "before you click into it."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.1', 'Features', '10 surfaces'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.2', 'Features', '10 surfaces'])
 
     # ── A/B Compare ──
     new_page()
@@ -1125,7 +1125,25 @@ def build_changelog(path):
                 "and one big subtraction (the AI panel)."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.1', 'Changelog', 'May 2026'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.2', 'Changelog', 'May 2026'])
+
+    # ── 5.5.2 — Solo-in-place ──
+    new_page()
+    y = section_heading('5.5.2 — TUNED UP', 'Solo-in-place on EQ Preview.',
+                        'A small new control on every band row. Click S to solo that band — the others stay in the chain at 0 dB.')
+    text_block(c, margin, y,
+               ["Each band on the EQ Preview now has a tiny `S` toggle to its",
+                "right. Click it and only that band contributes gain; every",
+                "other band stays in the biquad chain at 0 dB so the chain",
+                "length, the Qs, and the frequency positions are preserved.",
+                "That's the \"in place\" part — the band keeps its slot.",
+                "",
+                "Click S again on the same row, click S on a different row, or",
+                "press `Esc` from anywhere on the panel to clear.",
+                "",
+                "Useful when you're trying to hear what one specific EQ move",
+                "is doing without the others colouring the result."],
+               SANS, 11.5, SAND_SECONDARY, leading=18)
 
     # ── 5.5.1 — point fix ──
     new_page()

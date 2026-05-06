@@ -452,6 +452,28 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // are set-and-forget, not per-session knobs).
  const [listeningOpen, setListeningOpen] = useState(false)
 
+ // 5.5.2: solo-in-place. When non-null, only that band contributes gain;
+ // all other bands stay in the chain at gain 0 dB (so the biquad chain
+ // length / phase stays identical, the band keeps its position — hence
+ // "in place"). Esc clears.
+ const [soloBand, setSoloBand] = useState<number | null>(null)
+ const gainForBand = useCallback((i: number): number => {
+ if (bypassed) return 0
+ if (soloBand != null) return i === soloBand ? filters[i].gain_db * (eqAmount / 100) : 0
+ return bandEnabled[i] ? filters[i].gain_db * (eqAmount / 100) : 0
+ }, [bypassed, soloBand, bandEnabled, filters, eqAmount])
+ useEffect(() => {
+ const onKey = (e: KeyboardEvent) => {
+ if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+ if (e.key === 'Escape' && soloBand != null) {
+ e.preventDefault()
+ setSoloBand(null)
+ }
+ }
+ window.addEventListener('keydown', onKey)
+ return () => window.removeEventListener('keydown', onKey)
+ }, [soloBand])
+
  // Loop region (seconds). Null until the file is analysed and we pick a
  // default "loudest section" window — users can drag on the waveform to
  // override. Refs mirror the state so the async play() + RAF closures
@@ -565,7 +587,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  const bq = ctx.createBiquadFilter()
  bq.type = 'peaking'
  bq.frequency.value = filters[i].freq
- bq.gain.value = (!bypassed && bandEnabled[i]) ? filters[i].gain_db * (eqAmount / 100) : 0
+ bq.gain.value = gainForBand(i)
  bq.Q.value = filters[i].q
  biquads.push(bq)
  }
@@ -706,20 +728,28 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  setBandEnabled(prev => {
  const next = [...prev]
  next[idx] = !next[idx]
- if (biquadsRef.current[idx] && !bypassed) {
+ // Mirror the new state into the biquad ourselves rather than
+ // depending on the gainForBand effect to fire — keeps clicks
+ // snappy. When solo is active, toggling a band's enabled flag
+ // doesn't change audible audio (only the soloed band sounds);
+ // it just re-stores intent for when solo clears.
+ if (biquadsRef.current[idx] && !bypassed && soloBand == null) {
  biquadsRef.current[idx].gain.value = next[idx] ? filters[idx].gain_db * (eqAmount / 100) : 0
  }
  return next
  })
- }, [filters, setBandEnabled, bypassed, eqAmount])
+ }, [filters, setBandEnabled, bypassed, eqAmount, soloBand])
 
- // Live update when user drags the amount fader
+ const toggleSolo = useCallback((idx: number) => {
+ setSoloBand(prev => prev === idx ? null : idx)
+ }, [])
+
+ // Live update when user drags the amount fader, toggles solo, or
+ // changes any band-enable flag — single source of truth via gainForBand.
  useEffect(() => {
  if (bypassed) return
- biquadsRef.current.forEach((bq, i) => {
- bq.gain.value = bandEnabled[i] ? filters[i].gain_db * (eqAmount / 100) : 0
- })
- }, [eqAmount, bypassed, bandEnabled, filters])
+ biquadsRef.current.forEach((bq, i) => { bq.gain.value = gainForBand(i) })
+ }, [eqAmount, bypassed, bandEnabled, filters, soloBand, gainForBand])
 
  // Live loop-region update during playback. Setting source.loopStart /
  // loopEnd mid-flight only helps when the playhead is still inside the
@@ -791,9 +821,14 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  const newBypassed = !bypassed
  setBypassed(newBypassed)
  biquadsRef.current.forEach((bq, i) => {
- bq.gain.value = newBypassed ? 0 : (bandEnabled[i] ? filters[i].gain_db * (eqAmount / 100) : 0)
+ if (newBypassed) { bq.gain.value = 0; return }
+ if (soloBand != null) {
+ bq.gain.value = i === soloBand ? filters[i].gain_db * (eqAmount / 100) : 0
+ } else {
+ bq.gain.value = bandEnabled[i] ? filters[i].gain_db * (eqAmount / 100) : 0
+ }
  })
- }, [bypassed, bandEnabled, filters])
+ }, [bypassed, bandEnabled, filters, soloBand, eqAmount])
 
  // Enable all bands
  const enableAll = useCallback(() => {
@@ -909,14 +944,17 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  const scaledGain = f.gain_db * (eqAmount / 100)
  const scaledDisplay = (scaledGain > 0 ? '+' : '') + scaledGain.toFixed(1)
  const fullDisplay = (f.gain_db > 0 ? '+' : '') + f.gain_db.toFixed(1)
+ const isSoloed = soloBand === i
+ const isMuted = soloBand != null && soloBand !== i
  return (
  <div
  key={i}
  onClick={() => toggleBand(i)}
  className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-white/[0.03]"
  style={{
- backgroundColor: enabled ? 'rgba(208,176,102,0.05)' : 'transparent',
- borderLeft: `2px solid ${enabled ? (isBoost ? '#6ec577' : '#e07a4f') : 'transparent'}`,
+ backgroundColor: isSoloed ? 'rgba(208,176,102,0.12)' : enabled ? 'rgba(208,176,102,0.05)' : 'transparent',
+ borderLeft: `2px solid ${isSoloed ? '#d0b066' : enabled ? (isBoost ? '#6ec577' : '#e07a4f') : 'transparent'}`,
+ opacity: isMuted ? 0.45 : 1,
  }}
  role="button"
  tabIndex={0}
@@ -951,6 +989,24 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  Q {f.q.toFixed(1)}
  </div>
  </div>
+ {/* Solo-in-place — mutes other bands' gain to 0 dB but keeps
+ them in the chain. Esc clears. Stops the row click from
+ toggling band-enable. */}
+ <button
+ type="button"
+ onClick={(e) => { e.stopPropagation(); toggleSolo(i) }}
+ className="w-6 h-6 rounded text-[9px] tracking-[0.08em] uppercase font-mono flex-shrink-0 flex items-center justify-center transition-colors"
+ style={{
+ color: isSoloed ? '#0e0d0b' : '#8d867b',
+ backgroundColor: isSoloed ? '#d0b066' : 'transparent',
+ border: `1px solid ${isSoloed ? '#d0b066' : 'rgba(168,161,150,0.25)'}`,
+ }}
+ title={isSoloed ? 'Clear solo (Esc)' : 'Solo in place — only this band sounds; others stay in the chain at 0 dB'}
+ aria-pressed={isSoloed}
+ aria-label={isSoloed ? `Clear solo on ${f.region}` : `Solo ${f.region} in place`}
+ >
+ S
+ </button>
  </div>
  )
  })}
