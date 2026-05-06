@@ -5,18 +5,92 @@ interface Props {
  detection: AIDetection
 }
 
+// 5.3.1: verdict labels softened to match what the math actually delivers.
+// `python/ai_detector.py:5-7` declares "the output is a risk index, not a
+// forensic probability ... `probability` remains an alias of `risk_score_raw`
+// until a calibrated mapping ships." Calibration corpus is currently 13
+// samples (deployment_ready: false). UI must therefore say "risk", not
+// "detected." A delivery decision belongs with a human.
 const VERDICT_COLORS = {
- likely_human: { color: '#6ec577', bg: 'rgba(110,197,119,0.1)', label: 'Human' },
- uncertain: { color: '#e07a4f', bg: 'rgba(224,122,79,0.1)', label: 'Review' },
- likely_ai: { color: '#e05a5a', bg: 'rgba(224,90,90,0.1)', label: 'AI Detected' },
+ likely_human: { color: '#6ec577', bg: 'rgba(110,197,119,0.1)', label: 'Low AI risk' },
+ uncertain:    { color: '#e07a4f', bg: 'rgba(224,122,79,0.1)', label: 'Review' },
+ likely_ai:    { color: '#e05a5a', bg: 'rgba(224,90,90,0.1)',  label: 'High AI risk' },
+}
+
+// 5.3.x: provenance + calibration badges. The vendored UAI ensemble
+// is genuinely calibrated (Lambda-validated F1 0.998); the legacy
+// heuristic kept as fallback is uncalibrated. The panel shows which
+// engine produced the verdict so engineers don't conflate the two.
+const METHOD_BADGE: Record<string, { label: string; tip: string; color: string; bg: string }> = {
+ 'uai_v1.4': {
+ label: 'CALIBRATED · v1.4',
+ tip: 'UAI 24-detector calibrated ensemble. Lambda-validated F1 0.998, Lyria-3 OOD recall 0.978, Jamendo human FPR 0.85%. Probability is a real calibrated value, not a heuristic alias. Still review flagged elements manually before any decision.',
+ color: '#6ec577',
+ bg: 'rgba(110,197,119,0.10)',
+ },
+ 'rtm_v1_heuristic': {
+ label: 'HEURISTIC · v1',
+ tip: 'Legacy heuristic detector — probability is an alias of an uncalibrated risk index, not a real probability. The vendored UAI ensemble was unavailable on this run; check the dev log for the reason. Treat all scores as advisory.',
+ color: '#c5a55a',
+ bg: 'rgba(197,165,90,0.10)',
+ },
+ 'unavailable': {
+ label: 'UNAVAILABLE',
+ tip: 'Both detectors errored on this run. AI detection panel is showing zero scores as a placeholder; see the dev log.',
+ color: '#c96765',
+ bg: 'rgba(201,103,101,0.10)',
+ },
 }
 
 export default function AIDetectionPanel({ detection }: Props) {
  const stemVerdicts = detection.stem_verdicts || []
  const hasFlags = stemVerdicts.some(s => s.verdict !== 'likely_human')
+ const method = detection.method ?? 'rtm_v1_heuristic'
+ const badge = METHOD_BADGE[method] ?? METHOD_BADGE['rtm_v1_heuristic']
+ const isCalibrated = method === 'uai_v1.4'
+ // 4-way verdict (UAI native: 'Human' / 'AI Generated' / 'Hybrid' /
+ // 'Unknown'). The 3-way `verdict` collapses Hybrid → likely_ai for
+ // back-compat; show the 4-way form here so engineers see the
+ // honest answer.
+ const fourWay = detection.track_verdict_4way
 
  return (
  <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ {/* Header — calibration badge + 4-way verdict + max stem chip. */}
+ <div className="flex items-start justify-between gap-3">
+ <div className="space-y-1">
+ <div className="flex items-center gap-2">
+ <span
+ className="text-[9px] uppercase tracking-[0.18em] px-1.5 py-0.5 rounded font-semibold"
+ style={{ color: badge.color, backgroundColor: badge.bg, border: `1px solid ${badge.color}40` }}
+ title={badge.tip}
+ >
+ {badge.label}
+ </span>
+ {fourWay && (
+ <span
+ className="text-[10px] uppercase tracking-[0.14em]"
+ style={{ color: '#a8a29e' }}
+ title="UAI's native four-way verdict. The summary below collapses Hybrid onto 'High AI risk' for backwards compatibility."
+ >
+ {fourWay}
+ </span>
+ )}
+ </div>
+ {detection.max_stem_name && detection.max_stem_score != null && (
+ <div className="text-[10px] text-dark-500 font-mono">
+ Loudest stem risk: <span style={{ color: '#ebe7e0' }}>{detection.max_stem_name}</span>{' '}
+ {(detection.max_stem_score * 100).toFixed(0)}%
+ {detection.instrumental_aggregate != null && (
+ <span className="ml-3">
+ Instr. agg: <span style={{ color: '#ebe7e0' }}>{(detection.instrumental_aggregate * 100).toFixed(0)}%</span>
+ </span>
+ )}
+ </div>
+ )}
+ </div>
+ </div>
+
  {/* Per-stem verdicts — the main display */}
  {stemVerdicts.length > 0 ? (
  <div className="space-y-2">
@@ -24,7 +98,15 @@ export default function AIDetectionPanel({ detection }: Props) {
  const config = VERDICT_COLORS[sv.verdict]
  const pct = Math.round(sv.score * 100)
  return (
- <StemRow key={i} stem={sv.stem} verdict={sv.verdict} score={pct} detail={sv.detail} config={config} />
+ <StemRow
+  key={i}
+  stem={sv.stem}
+  verdict={sv.verdict}
+  score={pct}
+  detail={sv.detail}
+  config={config}
+  fourWay={detection.stem_4way_classes?.[sv.stem]}
+ />
  )
  })}
  </div>
@@ -45,16 +127,24 @@ export default function AIDetectionPanel({ detection }: Props) {
  <MixDetails checks={detection.checks} />
  )}
 
- <div className="text-[10px] text-dark-600 leading-relaxed">
- Heuristic screening — not forensic-grade. Heavy processing can trigger false positives. Flagged elements should be reviewed manually.
+ <div
+ className="text-[10px] text-dark-600 leading-relaxed"
+ title={isCalibrated
+ ? 'UAI v1.4 calibrated ensemble — probability is a real calibrated value (Lambda-validated F1 0.998, Jamendo human FPR 0.85%). Still review flagged elements manually before any decision; calibration is good but not forensic-grade.'
+ : 'Legacy heuristic — probability is an uncalibrated alias of risk_score_raw. Calibration corpus is small (13 samples; deployment_ready: false). Always review flagged elements manually before any decision.'}
+ >
+ {isCalibrated
+ ? 'Calibrated ensemble (UAI v1.4) — high confidence on instrumental + vocal stems, but still review flagged elements manually.'
+ : 'Heuristic risk index — not a calibrated probability. Always review flagged elements manually.'}
  </div>
  </div>
  )
 }
 
-function StemRow({ stem, verdict, score, detail, config }: {
+function StemRow({ stem, verdict, score, detail, config, fourWay }: {
  stem: string; verdict: string; score: number; detail: string;
- config: { color: string; bg: string; label: string }
+ config: { color: string; bg: string; label: string };
+ fourWay?: string;
 }) {
  const [expanded, setExpanded] = useState(false)
 
@@ -78,9 +168,20 @@ function StemRow({ stem, verdict, score, detail, config }: {
  {config.label}
  </span>
 
- {/* Stem name */}
- <span className="text-sm font-medium text-dark-200 capitalize flex-shrink-0 w-20">
+ {/* Stem name + UAI's 4-way classification (subtle, monospace) */}
+ <span className="flex-shrink-0 w-28 flex items-baseline gap-1.5">
+ <span className="text-sm font-medium text-dark-200 capitalize">
  {stem}
+ </span>
+ {fourWay && (
+ <span
+ className="text-[8px] font-mono uppercase tracking-[0.10em]"
+ style={{ color: '#7a7164' }}
+ title="UAI's per-stem 4-way classification (Human / AI Generated / Hybrid / Unknown)"
+ >
+ {fourWay}
+ </span>
+ )}
  </span>
 
  {/* Score bar */}

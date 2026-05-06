@@ -1032,10 +1032,13 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  />
  <div className="flex-1">
  <div className="text-[11px]" style={{ color: '#ebe7e0' }}>
- True-peak limiter <span className="text-[9px] uppercase tracking-[0.12em]" style={{ color: '#d0b066' }}>industry-standard</span>
+ Safety limiter
  </div>
- <div className="text-[9px] text-dark-500 mt-0.5">
- 16× oversampled, ceiling −0.3 dBTP. Prevents clipping when EQ boosts the master.
+ <div
+ className="text-[9px] text-dark-500 mt-0.5"
+ title="Web Audio DynamicsCompressor at -0.3 dB / 20:1 — click-free during live audition. The Apply-and-bounce render uses the mastering-grade Python limiter (16× polyphase Kaiser, sub-0.05 dB ceiling accuracy)."
+ >
+ −0.3 dB ceiling on the live audition. Apply-and-bounce uses the mastering-grade 16× limiter.
  </div>
  </div>
  </label>

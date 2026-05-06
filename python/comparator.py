@@ -58,19 +58,22 @@ def compute_lufs(y: np.ndarray, sr: int) -> float:
             return -70.0
         return float(loudness)
     except Exception as e:
-        # pyloudnorm can't integrate this signal (too short, NaN, etc.).
-        # Log the reason instead of silently substituting an RMS-based
-        # estimate that the caller may mistake for a real LUFS value.
+        # 5.3.1 honesty fix: pre-5.3 we returned an RMS estimate with a
+        # `-0.691` constant tacked on, which made the value LOOK like a
+        # BS.1770 LUFS reading even though it wasn't. The number then
+        # flowed into the UI alongside real LUFS-I figures, with no way
+        # for the caller (or the engineer) to tell which was which.
+        # Now we log loudly and return the BS.1770 absolute floor —
+        # UI can render this as "—" / "below floor" rather than a
+        # plausible-but-wrong number.
         import logging as _lg, sys as _sys
         _lg.getLogger(__name__).warning(
-            "[comparator] integrated_loudness failed, using RMS fallback: %s", e
+            "[comparator] integrated_loudness failed (%s) — returning -70 LUFS floor.", e
         )
-        _sys.stderr.write(f"[comparator] integrated_loudness fallback: {e}\n")
-        # Fallback: simple RMS
-        rms = np.sqrt(np.mean(data ** 2))
-        if rms < 1e-10:
-            return -70.0
-        return float(20 * np.log10(rms) - 0.691)
+        _sys.stderr.write(
+            f"[comparator] integrated_loudness failed: {e} — returning -70 floor (no RMS substitute).\n"
+        )
+        return -70.0
 
 
 def _high_shelf(freq, gain_db, sr):
@@ -163,13 +166,78 @@ def compute_stereo_width(left: np.ndarray, right: np.ndarray) -> float:
     return float(side_energy / total)
 
 
+def _bs1770_k_weight(y_samples: np.ndarray, sr: int) -> np.ndarray:
+    """Apply ITU-R BS.1770-4 K-weighting (pre-filter + RLB) per channel.
+
+    Returns the K-weighted signal in the same shape as input. Used for
+    a proper short-term / momentary loudness measurement that doesn't
+    inherit the BS.1770 gating that `pyln.Meter.integrated_loudness`
+    applies (we want EBU R128 Tech 3341 S/M, not a gated mean).
+
+    Biquad coefficients are the standard BS.1770-4 reference (1681.97 Hz
+    pre-shelf + 38.13 Hz RLB high-pass), pre-warped at the source sample
+    rate. pyloudnorm uses the same numbers internally.
+    """
+    from scipy.signal import lfilter
+    # Pre-filter (stage 1): high-shelf, fc=1681.97 Hz, gain≈+4 dB
+    f0 = 1681.97
+    G_db = 3.999843853973347
+    Q = 0.7071752369554196
+    K = np.tan(np.pi * f0 / sr)
+    Vh = 10 ** (G_db / 20.0)
+    Vb = Vh ** 0.4996667741545416
+    a0_pre = 1.0 + K / Q + K * K
+    pre_b = np.array([
+        (Vh + Vb * K / Q + K * K) / a0_pre,
+        2.0 * (K * K - Vh) / a0_pre,
+        (Vh - Vb * K / Q + K * K) / a0_pre,
+    ])
+    pre_a = np.array([
+        1.0,
+        2.0 * (K * K - 1.0) / a0_pre,
+        (1.0 - K / Q + K * K) / a0_pre,
+    ])
+    # RLB (stage 2): high-pass, fc=38.13 Hz, Q≈0.5
+    f0r = 38.13547087613982
+    Qr  = 0.5003270373253953
+    Kr = np.tan(np.pi * f0r / sr)
+    a0_rlb = 1.0 + Kr / Qr + Kr * Kr
+    rlb_b = np.array([
+        1.0 / a0_rlb,
+        -2.0 / a0_rlb,
+        1.0 / a0_rlb,
+    ])
+    rlb_a = np.array([
+        1.0,
+        2.0 * (Kr * Kr - 1.0) / a0_rlb,
+        (1.0 - Kr / Qr + Kr * Kr) / a0_rlb,
+    ])
+    if y_samples.ndim == 1:
+        out = lfilter(pre_b, pre_a, y_samples)
+        out = lfilter(rlb_b, rlb_a, out)
+        return out
+    # (samples, channels)
+    cols = []
+    for ch in range(y_samples.shape[1]):
+        s = lfilter(pre_b, pre_a, y_samples[:, ch])
+        s = lfilter(rlb_b, rlb_a, s)
+        cols.append(s)
+    return np.stack(cols, axis=1)
+
+
 def compute_short_term_max(y: np.ndarray, sr: int) -> float:
     """
-    Compute maximum short-term loudness (3-second window) using pyloudnorm.
-    Scans every 1 second for the loudest 3-second block.
-    """
-    import pyloudnorm as pyln
+    Compute maximum short-term loudness (3 s sliding window) per
+    EBU R128 Tech 3341 §3 — K-weighted mean-square over the 3 s window,
+    NO gating. Scans every 1 s for the loudest 3 s block.
 
+    5.3.1 fix: pre-5.3 we called `meter.integrated_loudness(block)` per
+    window, which applies BS.1770 absolute + relative gates designed
+    for the integrated metric. On a near-silent window the absolute
+    gate truncates to -inf, which then gets clamped to -70 — the
+    answer is approximately right on busy material but wrong on
+    sparse music. The corrected math here matches Tech 3341.
+    """
     # Ensure (samples, channels) format
     if y.ndim == 1:
         data = y.reshape(-1, 1)
@@ -181,18 +249,24 @@ def compute_short_term_max(y: np.ndarray, sr: int) -> float:
         data = y.reshape(-1, 1)
 
     try:
-        meter = pyln.Meter(sr, block_size=3.0)
+        kw = _bs1770_k_weight(data, sr)
         block_samples = int(sr * 3.0)
-        hop = int(sr * 1.0)  # 1-second hop
+        hop = int(sr * 1.0)
         max_st = -70.0
 
-        # `range(... - block_samples + 1, ...)` — the `+1` keeps the
-        # final valid window in scope. Without it, an end-loaded signal
-        # whose loudest 3-second block is the very last block under-
-        # reports short-term max by one window.
+        # BS.1770-4 channel weights: L=R=C=1.0, Ls=Rs=1.41, LFE=0.
+        ch_weights_full = np.array([1.0, 1.0, 1.0, 1.41, 1.41])
+        n_ch = min(kw.shape[1], len(ch_weights_full))
+        ch_weights = ch_weights_full[:n_ch]
+
+        # `... - block_samples + 1` keeps the final valid window in scope.
         for i in range(0, len(data) - block_samples + 1, hop):
-            block = data[i:i + block_samples]
-            st = meter.integrated_loudness(block)
+            block = kw[i:i + block_samples, :n_ch]
+            mean_sq = np.mean(block ** 2, axis=0)
+            weighted = float(np.sum(mean_sq * ch_weights))
+            if weighted <= 0:
+                continue
+            st = -0.691 + 10.0 * np.log10(weighted)
             if not np.isinf(st) and not np.isnan(st) and st > max_st:
                 max_st = st
 
@@ -558,11 +632,14 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
 
 def compute_momentary_max(y: np.ndarray, sr: int) -> float:
     """
-    EBU R128 momentary max — max 400 ms LUFS block across the track.
-    Broadcast compliance teams (CALM Act, ATSC, EBU R128) want this.
+    EBU R128 momentary max — max K-weighted 400 ms LUFS block across the
+    track per EBU R128 Tech 3341 §4. NO BS.1770 gating (gating is a
+    property of the integrated metric, not M).
+
+    5.3.1 fix: paired with compute_short_term_max — same wrong use of
+    `integrated_loudness` per window pre-5.3.
     """
     try:
-        import pyloudnorm as pyln
         if y.ndim == 1:
             data = y.reshape(-1, 1)
         elif y.shape[0] == 2 and y.shape[1] > 2:
@@ -571,22 +648,22 @@ def compute_momentary_max(y: np.ndarray, sr: int) -> float:
             data = y
         else:
             data = y.reshape(-1, 1)
-        meter = pyln.Meter(sr, block_size=0.4)
+        kw = _bs1770_k_weight(data, sr)
         block = int(sr * 0.4)
         hop = int(sr * 0.1)
         max_m = -70.0
-        # `+ 1` keeps the final valid 400ms block in scope (paired fix
-        # with compute_short_term_max — same off-by-one).
+        ch_weights_full = np.array([1.0, 1.0, 1.0, 1.41, 1.41])
+        n_ch = min(kw.shape[1], len(ch_weights_full))
+        ch_weights = ch_weights_full[:n_ch]
         for i in range(0, len(data) - block + 1, hop):
-            seg = data[i:i + block]
-            try:
-                v = meter.integrated_loudness(seg)
-                if not (np.isnan(v) or np.isinf(v)) and v > max_m:
-                    max_m = float(v)
-            except Exception:
-                # One 400ms block failing is normal (silent tail, etc.);
-                # continue without logging per-block noise.
+            seg = kw[i:i + block, :n_ch]
+            mean_sq = np.mean(seg ** 2, axis=0)
+            weighted = float(np.sum(mean_sq * ch_weights))
+            if weighted <= 0:
                 continue
+            v = -0.691 + 10.0 * np.log10(weighted)
+            if not (np.isnan(v) or np.isinf(v)) and v > max_m:
+                max_m = float(v)
         return float(max_m)
     except Exception as e:
         import sys as _sys

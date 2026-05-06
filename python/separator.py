@@ -1,81 +1,91 @@
+"""Stem separator — UAI BS-RoFormer 4-stem (state-of-the-art) with
+Demucs htdemucs as a graceful fallback.
+
+5.3.x: replaces the Demucs-only path. The new BS-RoFormer 4-stem
+checkpoint (`models/bs_roformer_4stem_ep_17_sdr_9.6568.ckpt`) trained
+by ZFTurbo on MUSDB18HQ scores SDR 9.66 — meaningfully better than
+htdemucs (~7.0 SDR) at separating drums/bass/other/vocals in one pass.
+
+Public API kept stable for RTM's analyze.py + masking.py callers:
+
+    separate(audio_path, output_dir, progress_cb=None) -> dict[stem, wav_path]
+
+Stem keys: vocals, drums, bass, other.
+
+Fallback chain on any failure (model load, OOM, audio-separator wheel
+missing, torch version mismatch): drop to UAI's cascade backend
+(roformer-vocals + htdemucs-instrumentals), then to plain htdemucs,
+then to RTM's pre-5.3 separator_demucs.py path. RTM's analyze pipeline
+handles "no stems" gracefully — UI hides the masking + AI panels.
 """
-Stem separation using Demucs Python API.
-Loads model ONCE, processes both files — saves ~30s of model loading.
-"""
+from __future__ import annotations
 
 import os
-import torch
-import numpy as np
-import librosa
-import soundfile as sf
+import pathlib
+import sys
+from typing import Callable, Dict, Optional
+
+# ── Configure UAI's vendored runtime to find models in RTM's model-cache ──
+# This MUST happen before any uai.* import that resolves model paths.
+_RTM_PYTHON_DIR = pathlib.Path(__file__).resolve().parent
+_RTM_ROOT = _RTM_PYTHON_DIR.parent
+os.environ.setdefault(
+    "RTM_UAI_APPLICATION_ROOT",
+    str(_RTM_ROOT / "model-cache" / "uai_root"),
+)
+# Make the vendored UAI package importable.
+if str(_RTM_PYTHON_DIR) not in sys.path:
+    sys.path.insert(0, str(_RTM_PYTHON_DIR))
 
 
-_model = None
-_device = None
+def separate(audio_path: str, output_dir: str,
+             progress_cb: Optional[Callable[[str], None]] = None) -> Dict[str, str]:
+    """Separate `audio_path` into per-stem WAVs in `output_dir`.
 
+    Returns a mapping `{stem_name: wav_path}` with keys
+    `vocals / drums / bass / other`.
 
-def get_model():
-    """Load Demucs model once, reuse for all separations."""
-    global _model, _device
-
-    if _model is not None:
-        return _model, _device
-
-    # Set torch cache to app bundle so the model is found without downloading
-    # Works both in dev (Compare App/) and packaged (Resources/)
-    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for base in [app_dir, os.path.join(app_dir, '..', 'Resources')]:
-        bundled_cache = os.path.join(base, 'model-cache', 'torch', 'hub', 'checkpoints')
-        if os.path.isdir(bundled_cache):
-            os.environ['TORCH_HOME'] = os.path.join(base, 'model-cache', 'torch')
-            break
-
-    from demucs.pretrained import get_model as load_model
-
-    _device = torch.device("cpu")
-    _model = load_model("htdemucs")
-    _model.to(_device)
-    _model.eval()
-
-    return _model, _device
-
-
-def separate(audio_path: str, output_dir: str, progress_cb=None):
-    """Separate audio into 4 stems using Demucs API."""
+    Tries BS-RoFormer 4-stem first (UAI default); falls through to
+    cascade → plain demucs → legacy `separator_demucs.py`.
+    """
     if progress_cb:
         progress_cb(f"Separating: {os.path.basename(audio_path)}")
 
-    from demucs.apply import apply_model
+    os.makedirs(output_dir, exist_ok=True)
 
-    model, device = get_model()
-    if progress_cb:
-        progress_cb("Processing...")
+    backends_to_try = ("bs_roformer_4stem", "cascade", "demucs")
+    last_error: Optional[BaseException] = None
+    for backend_name in backends_to_try:
+        try:
+            from uai.core.stem_backends import get_backend  # type: ignore
+            if progress_cb:
+                progress_cb(f"Loading {backend_name} backend…")
+            backend = get_backend(backend_name)
+            if progress_cb:
+                progress_cb("Processing…")
+            stem_paths = backend.separate(audio_path, output_dir)
+            # Normalise to canonical RTM keys. UAI's BS-RoFormer emits
+            # exactly `vocals / drums / bass / other`; cascade emits the
+            # same names; htdemucs emits the same. No remap needed.
+            return {k: v for k, v in stem_paths.items()
+                    if k in ("vocals", "drums", "bass", "other")}
+        except Exception as err:  # noqa: BLE001
+            last_error = err
+            sys.stderr.write(
+                f"[separator] {backend_name} backend failed: {err}\n"
+            )
+            continue
 
-    # Load audio
-    wav, sr = librosa.load(audio_path, sr=model.samplerate, mono=False)
-    if wav.ndim == 1:
-        wav = np.stack([wav, wav])
-
-    # Convert to torch tensor
-    tensor = torch.tensor(wav, dtype=torch.float32).unsqueeze(0).to(device)
-
-    # Separate
-    with torch.no_grad():
-        sources = apply_model(model, tensor, device=device)
-
-    # sources: (1, 4, 2, samples)
-    sources = sources.squeeze(0).cpu().numpy()
-
-    # Save stems
-    stem_names = ["drums", "bass", "other", "vocals"]
-    base_name = os.path.splitext(os.path.basename(audio_path))[0]
-    stems_dir = os.path.join(output_dir, base_name)
-    os.makedirs(stems_dir, exist_ok=True)
-
-    stems = {}
-    for i, name in enumerate(stem_names):
-        stem_path = os.path.join(stems_dir, f"{name}.wav")
-        sf.write(stem_path, sources[i].T, model.samplerate)
-        stems[name] = stem_path
-
-    return stems
+    # Last-resort: RTM's pre-5.3 demucs wrapper. Same public shape.
+    sys.stderr.write(
+        "[separator] all UAI backends failed; falling back to legacy "
+        "separator_demucs.py\n"
+    )
+    try:
+        from separator_demucs import separate as _legacy_separate  # type: ignore
+        return _legacy_separate(audio_path, output_dir, progress_cb)
+    except Exception as err:  # noqa: BLE001
+        sys.stderr.write(f"[separator] legacy fallback also failed: {err}\n")
+        if last_error is not None:
+            raise last_error
+        raise

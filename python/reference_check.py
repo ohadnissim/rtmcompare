@@ -336,8 +336,12 @@ def check_reference(path: str, sr: int = 44100) -> dict:
 
     # Stereo
     left, right = y[0], y[1]
-    denom = np.sqrt(np.sum(left**2) * np.sum(right**2))
-    correlation = float(np.sum(left * right) / max(denom, 1e-10))
+    denom = float(np.sqrt(np.sum(left**2) * np.sum(right**2)))
+    # 5.3.1 honesty fix: undefined correlation when energy is sub-floor.
+    if denom < 1e-9:
+        correlation = 0.0
+    else:
+        correlation = float(np.clip(np.sum(left * right) / denom, -1.0, 1.0))
 
     if correlation > 0.99:
         warnings.append({

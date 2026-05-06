@@ -61,9 +61,15 @@ def detect_distortion(path_a: str, path_b: str, sr: int = 44100) -> dict:
         elif severity == "clean":
             severity = "warning"
 
-    # Harmonic distortion: only flag extreme cases — saturation is often intentional
-    if harmonics["thd_increase_pct"] > 15.0:  # very strict — only flag obvious distortion
-        issues.append(f"Harmonic distortion increased by {harmonics['thd_increase_pct']:.1f}%")
+    # 5.3.1: this is an HF-energy-ratio probe, not real THD. A bright
+    # master can trip it without any harmonic distortion. We keep the
+    # check (it does correlate with audible saturation in practice) but
+    # the user-facing language no longer claims THD.
+    if harmonics["hf_energy_ratio_increase_pct"] > 15.0:
+        issues.append(
+            f"High-frequency energy increased by {harmonics['hf_energy_ratio_increase_pct']:.1f}% — "
+            f"could be saturation, exciter, or a brighter EQ. A/B against the source to confirm."
+        )
         if severity == "clean":
             severity = "warning"
 
@@ -78,8 +84,11 @@ def detect_distortion(path_a: str, path_b: str, sr: int = 44100) -> dict:
         recommendations.append("Enable true-peak limiting (set ceiling to -1.0 dBTP)")
     if limiting["b_flat_pct"] > 5.0:
         recommendations.append("Ease off the limiter — try less gain reduction or a slower release")
-    if harmonics["thd_increase_pct"] > 15.0:
-        recommendations.append("Check saturators/exciters — harmonic distortion is noticeable")
+    if harmonics["hf_energy_ratio_increase_pct"] > 15.0:
+        recommendations.append(
+            "HF energy is up — could be saturator/exciter or just a brighter EQ. "
+            "A/B against the source to tell which."
+        )
 
     # Confidence — how strong is the evidence?  The panel review (Marek)
     # correctly flagged that THD-increase and flat-waveform % are crude
@@ -94,8 +103,8 @@ def detect_distortion(path_a: str, path_b: str, sr: int = 44100) -> dict:
         confidence = "high"
     elif limiting["b_flat_pct"] > 5.0:
         confidence = "medium"
-    elif harmonics["thd_increase_pct"] > 15.0:
-        confidence = "low"
+    elif harmonics["hf_energy_ratio_increase_pct"] > 15.0:
+        confidence = "low"  # HF-ratio is the weakest proxy; brightness ≠ distortion
     else:
         confidence = "high"  # "clean" verdict is itself high-confidence
 
@@ -329,15 +338,26 @@ def detect_harmonic_distortion(mono_a: np.ndarray, mono_b: np.ndarray,
     avg_a = avg_a / (np.max(avg_a) + 1e-10)
     avg_b = avg_b / (np.max(avg_b) + 1e-10)
 
-    # Compare upper quarter of spectrum (where distortion harmonics live)
+    # 5.3.1 honesty fix: this is HF energy ratio of the upper-quarter
+    # spectrum — NOT THD. Pre-5.3 we labelled it `thd_increase_pct`
+    # and the UI strings called it "harmonic distortion" — both lies.
+    # A bright master with a tilted EQ would trip this ratio without
+    # any actual harmonic distortion present. Renamed; both the old
+    # and new key names are emitted for one release so the UI doesn't
+    # break.
     upper_start = len(avg_a) * 3 // 4
     high_a = np.mean(avg_a[upper_start:])
     high_b = np.mean(avg_b[upper_start:])
 
-    thd_increase = max(0, (high_b - high_a) / max(high_a, 1e-10) * 100)
+    hf_ratio_increase = max(0, (high_b - high_a) / max(high_a, 1e-10) * 100)
 
     return {
         "a_high_energy": round(float(high_a), 4),
         "b_high_energy": round(float(high_b), 4),
-        "thd_increase_pct": round(float(thd_increase), 1),
+        # New canonical key. Honest name for what's measured: ratio of
+        # upper-quarter HF energy in B vs A, in percent.
+        "hf_energy_ratio_increase_pct": round(float(hf_ratio_increase), 1),
+        # Legacy alias kept for one release for any UI/JSON consumers
+        # that still reference `thd_increase_pct`. Will be dropped.
+        "thd_increase_pct": round(float(hf_ratio_increase), 1),
     }

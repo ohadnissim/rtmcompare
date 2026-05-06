@@ -13,7 +13,6 @@ import MatchTab from './MatchTab'
 import CommandPalette from './CommandPalette'
 import { emitShortcut, isEditableTarget, RTM_EVENTS } from '../shortcuts'
 import { useModes } from '../ModesContext'
-import { useShell } from '../ShellContext'
 import TabVerdict from './shell/TabVerdict'
 import DurationPill, { formatDuration } from './DurationPill'
 import ExportButton from './ExportButton'
@@ -70,7 +69,6 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  // ⌘K palette — opens on Cmd/Ctrl+K, closes on Esc.
  const [paletteOpen, setPaletteOpen] = useState(false)
  const { setBlind, toggleBlind, surface, advancedQc } = useModes()
- const { shellVersion } = useShell()
 
  // Refs for scroll targets.
  const playerRef = useRef<HTMLDivElement>(null) // set on the A/B player wrapper
@@ -438,7 +436,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── OVERVIEW TAB ─── */}
  {activeTab === 'overview' && (
  <div className="space-y-6">
- {shellVersion === 'v2' && <TabVerdict tab="overview" results={results} isAtmos={isAtmos} />}
+ <TabVerdict tab="overview" results={results} isAtmos={isAtmos} />
  <CollapsibleSection
  title="Overall Summary"
  tooltip="High-level comparison of loudness, stereo width, and dynamic range between the two files."
@@ -450,7 +448,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  { term: 'Momentary Max', def: 'Loudest 400 ms LUFS window. Catches spikey masters that game the integrated number.' },
  { term: 'LRA (Loudness Range)', def: 'Difference between the loudest and quietest loudness-gated sections, in LU. Big LRA = dynamic; small LRA = over-limited.' },
  { term: 'PLR', def: 'Peak-to-loudness ratio. How much crest-factor your master has — 8–12 is punchy, <6 is squashed.' },
- { term: 'Binaural TP', def: 'True-peak measurement of the Atmos binaural render. Apple requires this under −1 dBTP for Atmos delivery.' },
+ { term: 'Binaural TP (approx)', def: 'Early-warning binaural-headroom estimate via an ILD downmix (no HRTF render). Apple\'s Atmos guideline is < −1 dBTP on their renderer\'s binaural deliverable; this is a fast sanity-check, not a substitute for that renderer. Verify on Apple\'s renderer before delivery.' },
  { term: 'Stereo Width', def: 'Side energy / (mid + side energy). 0% = mono, 15–25% is typical pop, >40% is extreme M/S processing.' },
  { term: 'Mono-compat risk', def: 'How much energy is lost when the stereo signal is summed to mono. High risk = audio disappears on phone speakers.' },
  { term: 'Diff column', def: 'Signed difference B − A. Positive means B is more of that metric than A; negative means less.' },
@@ -689,14 +687,20 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </tr>
  )}
  <tr className="border-b border-dark-700/20">
- <td className="px-4 py-2 text-dark-400">LRA</td>
+ <td
+ className="px-4 py-2 text-dark-400"
+ title="LRA — Loudness Range (BS.1770-4 / EBU R128). Difference between the loudest and quietest loudness-gated sections, in LU. Big LRA = dynamic; small LRA = over-limited. Modern pop sits 4–8 LU; classical can run 15+ LU."
+ >LRA</td>
  <td className="text-center font-mono text-dark-300">{results.overall.dynamics_a.toFixed(1)} LU</td>
  <td className="text-center font-mono text-terra">{results.overall.dynamics_b.toFixed(1)} LU</td>
  <td className="text-center font-mono text-dark-500">{(results.overall.dynamics_b - results.overall.dynamics_a) > 0 ? '+' : ''}{(results.overall.dynamics_b - results.overall.dynamics_a).toFixed(1)}</td>
  </tr>
  {results.overall.plr_a != null && results.overall.plr_b != null && (
  <tr className="border-b border-dark-700/20">
- <td className="px-4 py-2 text-dark-400">PLR</td>
+ <td
+ className="px-4 py-2 text-dark-400"
+ title="PLR — Peak-to-Loudness Ratio. True-peak minus integrated LUFS, in dB. How much crest-factor your master has. 8–12 dB is punchy; <6 dB is squashed; >14 dB is unusually dynamic for music."
+ >PLR</td>
  <td className="text-center font-mono text-dark-300">{results.overall.plr_a.toFixed(1)} dB</td>
  <td className="text-center font-mono text-terra">{results.overall.plr_b.toFixed(1)} dB</td>
  <td className="text-center font-mono text-dark-500">{(results.overall.plr_b - results.overall.plr_a) > 0 ? '+' : ''}{(results.overall.plr_b - results.overall.plr_a).toFixed(1)}</td>
@@ -793,7 +797,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── MASTERING DELTA TAB ─── */}
  {activeTab === 'mastering' && results.mastering_delta && (
  <div className="space-y-6">
- {shellVersion === 'v2' && <TabVerdict tab="mastering" results={results} isAtmos={isAtmos} />}
+ <TabVerdict tab="mastering" results={results} isAtmos={isAtmos} />
  <MasteringDelta delta={results.mastering_delta} overall={results.overall} />
  </div>
  )}
@@ -801,7 +805,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── DELIVERY TAB ─── */}
  {activeTab === 'delivery' && (
  <div className="space-y-6">
- {shellVersion === 'v2' && <TabVerdict tab="delivery" results={results} isAtmos={isAtmos} />}
+ <TabVerdict tab="delivery" results={results} isAtmos={isAtmos} />
  {/* Streaming Normalization Preview — the main attraction on this
  tab. Default-open because delivery is the whole reason anyone
  clicks here. Hidden for Atmos modes (platforms normalise those
@@ -868,7 +872,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── BREAKDOWN TAB ─── */}
  {activeTab === 'breakdown' && (
  <div className="space-y-6">
- {shellVersion === 'v2' && <TabVerdict tab="breakdown" results={results} isAtmos={isAtmos} />}
+ <TabVerdict tab="breakdown" results={results} isAtmos={isAtmos} />
  {/* Genre classification is surfaced only on the Reference-only
  single-file view — on a 2-file comparison it adds clutter
  without helping the mix decision. (Mood analyser was removed
@@ -1270,7 +1274,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── STEREO & SPECTRUM TAB ─── */}
  {activeTab === 'stereo' && (
  <div className="space-y-6">
- {shellVersion === 'v2' && <TabVerdict tab="stereo" results={results} isAtmos={isAtmos} />}
+ <TabVerdict tab="stereo" results={results} isAtmos={isAtmos} />
  {results.spectrum_a && results.spectrum_b && (
  <CollapsibleSection
  title="Frequency Spectrum"
@@ -1373,7 +1377,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── QUALITY TAB ─── */}
  {activeTab === 'quality' && (
  <div className="space-y-6">
- {shellVersion === 'v2' && <TabVerdict tab="quality" results={results} isAtmos={isAtmos} />}
+ <TabVerdict tab="quality" results={results} isAtmos={isAtmos} />
  {/* Hum / 50-60 Hz detector */}
  {results.hum && results.hum.mains > 0 && (
  <CollapsibleSection
@@ -1499,7 +1503,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* ─── MATCH TAB (unified Reference / Engineer / Hybrid) ─── */}
  {activeTab === 'match' && (
  <div className="space-y-6">
- {shellVersion === 'v2' && <TabVerdict tab="match" results={results} isAtmos={isAtmos} />}
+ <TabVerdict tab="match" results={results} isAtmos={isAtmos} />
  <MatchTab
  results={results}
  fileB={fileB}
@@ -1706,6 +1710,7 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  unit="LU"
  delta={lraA != null && lraB != null ? lraB - lraA : null}
  deltaUnit="LU"
+ title="LRA — Loudness Range (BS.1770-4). Difference between loudest and quietest gated sections, in LU. 4–8 LU = modern pop; <4 = squashed; >12 = unusually dynamic."
  />
  {/* Mono dot — colour-coded traffic light, numeric risk in brackets. */}
  <div className="inline-flex items-center gap-2 px-4 py-1 border-l" style={{ borderColor: 'rgba(168,161,150,0.1)' }}>
@@ -1721,9 +1726,9 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  cells so label/ops don't need to tab into Atmos to spot a breach. */}
  {isAtmos && btp != null && (
  <div className="inline-flex items-center gap-2 px-4 py-1 border-l" style={{ borderColor: 'rgba(168,161,150,0.1)' }}
- title={btpWarn ? 'Binaural true-peak is over −1 dBTP — Apple Atmos delivery will reject this.' : 'Binaural true-peak (Atmos)'}>
+ title={btpWarn ? 'ILD-approx binaural headroom is over Apple\'s −1 dBTP guideline. Verify on Apple\'s renderer before delivery — this is not a substitute.' : 'ILD-approx binaural-headroom estimate (no HRTF render). Apple\'s renderer is the authority for delivery sign-off.'}>
  <span className="text-[8px] uppercase tracking-[0.14em]" style={{ color: btpWarn ? '#e07a4f' : '#a855f7' }}>
- Binaural TP
+ Binaural TP <span style={{ color: '#7a7164' }}>(approx)</span>
  </span>
  <span className="font-mono tabular-nums text-[11px]" style={{ color: btpWarn ? '#e07a4f' : '#ebe7e0' }}>
  {btp.toFixed(1)}
@@ -1741,13 +1746,14 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  * One cell of the cockpit strip — label on top, big B value in the middle,
  * gold Δ underneath. Warn state swaps the value colour to warm-orange.
  */
-function CockpitMetric({ label, value, unit, delta, deltaUnit, warn }: {
+function CockpitMetric({ label, value, unit, delta, deltaUnit, warn, title }: {
  label: string
  value: string
  unit: string
  delta: number | null
  deltaUnit: string
  warn?: boolean
+ title?: string
 }) {
  const fmtDelta = (d: number | null) => {
  if (d == null || !isFinite(d)) return ''
@@ -1757,7 +1763,7 @@ function CockpitMetric({ label, value, unit, delta, deltaUnit, warn }: {
  }
  const deltaStr = fmtDelta(delta)
  return (
- <div className="inline-flex items-center gap-2 px-4 py-1 border-l first:border-l-0" style={{ borderColor: 'rgba(168,161,150,0.1)' }}>
+ <div className="inline-flex items-center gap-2 px-4 py-1 border-l first:border-l-0" style={{ borderColor: 'rgba(168,161,150,0.1)' }} title={title}>
  <span className="text-[8px] uppercase tracking-[0.14em]" style={{ color: '#7a7164' }}>{label}</span>
  <span
  className="font-mono tabular-nums text-[11px]"

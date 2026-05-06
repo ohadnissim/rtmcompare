@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useModes } from '../../ModesContext'
 import { useTheme } from '../../ThemeContext'
-import { useShell } from '../../ShellContext'
 
 /**
  * OverflowMenu — the `⋯` dropdown that consolidates secondary v2
@@ -50,7 +49,6 @@ export default function OverflowMenu({ canShowBlind = false, zoom, onOpenShortcu
 
  const { educator, blind, advancedQc, toggleEducator, toggleBlind, toggleAdvancedQc } = useModes()
  const { theme, toggle: toggleTheme } = useTheme()
- const { shellVersion, setShellVersion } = useShell()
 
  // Close on click-outside. Bound only while open to avoid a global
  // listener leaking when the menu's not in use.
@@ -213,21 +211,7 @@ export default function OverflowMenu({ canShowBlind = false, zoom, onOpenShortcu
  />
  }
  />
- <Row
- label="Shell version"
- control={
- <RadioPair
- options={[
- { value: 'v2', label: 'New' },
- { value: 'v1', label: 'Classic' },
- ]}
- value={shellVersion}
- onChange={(v) => setShellVersion(v as 'v1' | 'v2')}
- ariaLabel="Shell version"
- />
- }
- />
- {onOpenShortcuts && (
+          {onOpenShortcuts && (
  <Row
  label="Keyboard shortcuts"
  control={

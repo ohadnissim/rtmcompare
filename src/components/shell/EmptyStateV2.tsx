@@ -1,42 +1,63 @@
 import React, { useState } from 'react'
 import Wordmark from './Wordmark'
 import Colophon from './Colophon'
+import RTMBadge from './RTMBadge'
 import type { HistoryEntry } from '../../types'
 
 /**
- * EmptyStateV2 — the cover-page empty state for the v5.2 shell.
+ * EmptyStateV2 — the cover-page empty state.
  *
- * Wraps the existing dual `<FileDropZone />` instances (passed via
- * `children`) without modifying them. The cover supplies:
- *   - a hero `<Wordmark size="hero" />` ~40% from the top
- *   - a tracked-caps tagline below
- *   - a single quiet frame around the children (the actual drop UI)
- *   - a colophon line pinned to the bottom margin
- *   - a "↘ Recent (n)" link that toggles the `recents` drawer
+ * v5.3 rewrite: stripped from the old 11-control upload UI to a
+ * single editorial moment. Wordmark, italic kicker (the canonical
+ * tagline with "Before" in gold), one drop frame containing the
+ * existing FileDropZones, a Begin button, and a colophon.
  *
- * The philosophy bar to clear here: this empty state should read
- * as a magazine cover, not a SaaS upload page. Re-read
- * `.rtm-design/v5.2-anti-ai-design.md` rules #12 (no centred-stack
- * hero), #15 (no "How it works" banners), #28-32 (no marketing
- * copy) before adding anything.
+ * Secondary affordances (deep scan toggle, profile picker, library
+ * shortcut, educator banner) move to the OverflowMenu and to per-
+ * panel surfaces post-analysis. The cover is the cover.
  *
- * Educator-mode banner and library shortcut strip live OUTSIDE this
- * component (rendered alongside it in App.tsx) — that's intentional.
- * The cover is the cover; secondary affordances stack below.
+ * Read `.rtm-design/v5.2-anti-ai-design.md` before adding anything
+ * back. Particularly rule #12 (no centred-stack hero pages) — the
+ * cover is centred for the wordmark's editorial moment, but the
+ * colophon strip + corner badge break the central axis at the
+ * lower zone, so it reads as a magazine cover rather than a
+ * three-button SaaS hero.
  */
+interface ZoomControls {
+ value: number
+ pct: string
+ in: () => void
+ out: () => void
+ reset: () => void
+ outDisabled?: boolean
+ inDisabled?: boolean
+}
+
 interface Props {
  /** The two FileDropZone instances + swap button — passed verbatim
   * from App.tsx so we don't rebind their state. */
  children: React.ReactNode
- /** Recent analyses list. Renders a small drawer toggle when there
-  * are entries; hidden when empty. */
+ /** Whether the Begin button should be enabled (= at least one
+  * file dropped). */
+ canBegin: boolean
+ /** Click handler for Begin. App.tsx routes to handleCompare or
+  * handleRefOnly based on which files are present. */
+ onBegin: () => void
+ /** Optional secondary action — analyse a folder. */
+ onBatch?: () => void
+ /** Recent analyses count (for the "Recent ↘" link). */
  recents?: HistoryEntry[]
- /** Click handler for the "Recent" drawer toggle. App.tsx owns the
-  * actual drawer rendering; this component just surfaces the link. */
  onOpenRecents?: () => void
 }
 
-export default function EmptyStateV2({ children, recents, onOpenRecents }: Props) {
+export default function EmptyStateV2({
+ children,
+ canBegin,
+ onBegin,
+ onBatch,
+ recents,
+ onOpenRecents,
+}: Props) {
  const [recentsOpen, setRecentsOpen] = useState(false)
  const recentCount = recents?.length ?? 0
 
@@ -44,52 +65,81 @@ export default function EmptyStateV2({ children, recents, onOpenRecents }: Props
  <section
  aria-label="RTMcompare cover"
  style={{
- minHeight: 'calc(100vh - 160px)', // page minus header + main padding
+ minHeight: 'calc(100vh - 160px)',
  display: 'flex',
  flexDirection: 'column',
  position: 'relative',
- // Generous interior margins so the wordmark breathes. The
- // brief calls for ~40% from top — flex-direction column with
- // a grow-spacer above pins it there responsively.
- paddingTop: 'clamp(48px, 12vh, 140px)',
+ paddingTop: 'clamp(48px, 10vh, 120px)',
  paddingBottom: 56,
  }}
  >
- {/* Hero wordmark + tagline */}
+ {/* RTMBadge — quiet brand mark in the upper-right corner.
+   Establishes the suite identity without competing with the
+   wordmark below. */}
+ <div style={{ position: 'absolute', top: 32, right: 32 }}>
+ <RTMBadge subscript="COMPARE" size="md" frame />
+ </div>
+
+ {/* Hero wordmark + italic kicker */}
  <header
  style={{
  display: 'flex',
  flexDirection: 'column',
  alignItems: 'center',
- gap: 12,
- marginBottom: 'clamp(40px, 8vh, 96px)',
+ gap: 18,
+ marginBottom: 'clamp(36px, 6vh, 72px)',
  }}
  >
  <Wordmark size="hero" as="h1" />
- <span
+
+ {/* Canonical tagline. Two lines, italic Didone, centred. The
+   word "Before" carries the single gold gesture. */}
+ <div
  style={{
- fontFamily: 'var(--font-sans)',
- fontWeight: 500,
- fontSize: 'var(--text-metric-eyebrow)',
- letterSpacing: 'var(--tracking-metric-eyebrow)',
- textTransform: 'uppercase',
- color: 'var(--color-text-secondary)',
- opacity: 0.6,
- lineHeight: 1,
+ display: 'flex',
+ flexDirection: 'column',
+ alignItems: 'center',
+ gap: 4,
+ marginTop: 6,
  }}
  >
- Drop two audio files to begin
+ <span
+ style={{
+ fontFamily: 'var(--font-display)',
+ fontStyle: 'italic',
+ fontWeight: 400,
+ fontSize: 'clamp(1.25rem, 2.4vw, 1.75rem)',
+ lineHeight: 1.15,
+ color: 'var(--color-text-secondary)',
+ }}
+ >
+ Hear what Spotify hears.
  </span>
+ <span
+ style={{
+ fontFamily: 'var(--font-display)',
+ fontStyle: 'italic',
+ fontWeight: 400,
+ fontSize: 'clamp(1.25rem, 2.4vw, 1.75rem)',
+ lineHeight: 1.15,
+ color: 'var(--color-text-secondary)',
+ }}
+ >
+ <span style={{ color: 'var(--color-accent)' }}>Before</span>
+ {' '}Spotify hears it.
+ </span>
+ </div>
  </header>
 
- {/* The drop frame. The quiet 1px dashed border is the entire
-  visual treatment; the children (FileDropZones) live inside
-  with their own already-existing styling. */}
+ {/* The drop frame — a single dashed rectangle around the two
+   FileDropZones (passed via children). Sized like a record
+   sleeve — wider than tall, asymmetric tension with the centred
+   wordmark above. */}
  <div
  style={{
  width: 'min(840px, 92%)',
  marginInline: 'auto',
- padding: 24,
+ padding: 28,
  border: '1px dashed var(--rtm-frame-border)',
  borderRadius: 'var(--radius-card)',
  backgroundColor: 'transparent',
@@ -98,12 +148,69 @@ export default function EmptyStateV2({ children, recents, onOpenRecents }: Props
  {children}
  </div>
 
- {/* Spacer pushes colophon to bottom without forcing an absolute
-  position — keeps the layout scroll-friendly when the window
-  is short. */}
- <div style={{ flexGrow: 1 }} />
+ {/* CTA row — Begin (italic display) + tiny "Or analyse a folder" */}
+ <div
+ style={{
+ display: 'flex',
+ flexDirection: 'column',
+ alignItems: 'center',
+ gap: 12,
+ marginTop: 32,
+ }}
+ >
+ <button
+ type="button"
+ onClick={canBegin ? onBegin : undefined}
+ disabled={!canBegin}
+ style={{
+ fontFamily: 'var(--font-display)',
+ fontStyle: 'italic',
+ fontWeight: 400,
+ fontSize: 'clamp(1.5rem, 2.8vw, 2rem)',
+ color: canBegin ? 'var(--color-text-primary)' : 'var(--color-text-dim)',
+ background: 'transparent',
+ border: 'none',
+ cursor: canBegin ? 'pointer' : 'not-allowed',
+ padding: '4px 12px',
+ letterSpacing: '0.005em',
+ transition: 'color 120ms var(--easing-shell)',
+ }}
+ >
+ Begin analysis
+ </button>
 
- {/* Bottom strip — Recent link left of centre, colophon centred. */}
+ {onBatch && (
+ <button
+ type="button"
+ onClick={onBatch}
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontWeight: 500,
+ fontSize: 'var(--text-metric-eyebrow)',
+ letterSpacing: 'var(--tracking-metric-eyebrow)',
+ textTransform: 'uppercase',
+ color: 'var(--color-text-dim)',
+ background: 'transparent',
+ border: 'none',
+ cursor: 'pointer',
+ transition: 'color 120ms var(--easing-shell)',
+ }}
+ onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
+ onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dim)')}
+ >
+ ↘ Or analyse a folder
+ </button>
+ )}
+ </div>
+
+ {/* Spacer pushes the colophon to the bottom without absolute
+   positioning — keeps the page scroll-friendly when the window
+   is short. */}
+ <div style={{ flexGrow: 1, minHeight: 24 }} />
+
+ {/* Bottom strip — colophon centred, Recent link bottom-right.
+   The asymmetric Recent placement breaks the central axis — the
+   composition reads as a magazine cover, not a centred SaaS hero. */}
  <footer
  style={{
  display: 'grid',

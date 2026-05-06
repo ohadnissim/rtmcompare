@@ -60,13 +60,45 @@ def _peaking_eq(y: np.ndarray, sr: int, freq_hz: float, gain_db: float, q: float
 
 
 def _soft_clip(y: np.ndarray, threshold_lin: float = 0.85) -> np.ndarray:
-    """Soft saturation via tanh, scaled so signals below threshold pass linearly
-    and signals above are smoothly compressed. Models a small-speaker driver
-    overload, NOT a mastering limiter."""
-    # Scale so input == threshold → output ≈ threshold, then compress above.
-    # Using y * (1 / threshold) lets tanh squash anything above 1.0.
-    shaped = np.tanh(y / threshold_lin) * threshold_lin
-    return shaped
+    """Soft saturation: linear below threshold, tanh-asymptotic to ±1.0 above.
+    Models a small-speaker driver overload, NOT a mastering limiter.
+
+    5.3.1 fix: pre-5.3 implementation was `tanh(y/threshold) * threshold`,
+    which compresses ALL signal (tanh is non-linear at small inputs too)
+    instead of passing low-level content through cleanly. That manifested
+    as a thin / fizzy overall sound on the Translation Check renders even
+    when the master was nowhere near the threshold. The piecewise form
+    below actually does what the old comment claimed."""
+    sign = np.sign(y)
+    absy = np.abs(y)
+    out = np.empty_like(y)
+    below = absy <= threshold_lin
+    above = ~below
+    out[below] = y[below]
+    knee = max(1e-6, 1.0 - threshold_lin)
+    x = (absy[above] - threshold_lin) / knee
+    out[above] = sign[above] * (threshold_lin + (1.0 - threshold_lin) * np.tanh(x))
+    return out
+
+
+# Per-environment max boost in dB. Used by `apply_playback_env` to pre-
+# attenuate the input so the EQ chain has somewhere to live without
+# slamming through 0 dBFS. A modern master sits at -1 dBFS or hotter;
+# any positive peak EQ would blow it past full-scale.
+_ENV_MAX_BOOST_DB = {
+    "phone_speaker": 4.0,
+    "earbuds":       3.0,
+    "club_pa":       4.0,
+    "car_cabin":     2.5,
+}
+_HEADROOM_SAFETY_DB = 1.5  # extra margin on top of max boost
+
+
+def _final_saturator(y: np.ndarray, threshold_lin: float = 0.95) -> np.ndarray:
+    """Final-stage safety saturator. Passes < threshold linearly, soft-clips
+    above so the chain never produces a literal hard clip. Not a TP limiter;
+    it's a last-resort guard against per-env chain math piling up gain."""
+    return _soft_clip(y, threshold_lin)
 
 
 def _mono_sum_below(y: np.ndarray, sr: int, crossover_hz: float) -> np.ndarray:
@@ -114,13 +146,25 @@ def _earbuds(y: np.ndarray, sr: int) -> np.ndarray:
 def _club_pa(y: np.ndarray, sr: int) -> np.ndarray:
     """House-system PA: 30 Hz HP (subsonic safety), L+R summed mono below
     100 Hz (models the mono sub bus on every club system), +4 dB sub bump
-    at 80 Hz, soft clip on the LF to model sub limiter engaging."""
+    at 80 Hz, soft-clip on the LF band only (models sub-limiter engaging
+    without crushing the full-band mix)."""
     y = _butter_hp(y, sr, 30.0, order=2)
     y = _mono_sum_below(y, sr, 100.0)
     y = _peaking_eq(y, sr, 80.0, gain_db=4.0, q=0.9)
-    # Soft-clip just the LF band so the sub bus engages but the rest of the
-    # mix stays clean. Approximation; real PA limiters are full-band.
-    y = _soft_clip(y, threshold_lin=0.85)
+    # 5.3.1 fix: pre-5.3 the soft-clip ran full-band despite the comment.
+    # Now we band-split: <120 Hz gets the saturator, the rest passes
+    # clean. Matches the documented behaviour and stops upper-mid
+    # content from picking up tanh harmonics it shouldn't.
+    if y.ndim == 1:
+        sos = butter(4, 120.0 / (sr / 2), btype="lowpass", output="sos")
+        lf = sosfilt(sos, y)
+        hf = y - lf
+        y = _soft_clip(lf, threshold_lin=0.85) + hf
+    else:
+        sos = butter(4, 120.0 / (sr / 2), btype="lowpass", output="sos")
+        lf = np.stack([sosfilt(sos, y[:, ch]) for ch in range(y.shape[1])], axis=1)
+        hf = y - lf
+        y = _soft_clip(lf, threshold_lin=0.85) + hf
     return y
 
 
@@ -163,17 +207,57 @@ ENV_DESCRIPTIONS = {
 }
 
 
-def apply_playback_env(y: np.ndarray, sr: int, env_id: str) -> np.ndarray:
+def apply_playback_env(y: np.ndarray, sr: int, env_id: str):
     """Apply the `env_id` transformation to a (samples,) or (samples, ch)
-    float32 buffer. Returns a buffer of the same shape and dtype.
+    float32 buffer. Returns `(out, info)` where `out` is the transformed
+    buffer (same shape) and `info` is a dict the caller can surface.
 
-    Returns the input unchanged if `env_id` is unknown — callers should
-    check `env_id in ENVS` first.
+    5.3.1 fix — pre-5.3 this function did `np.clip(out, -1, 1)` at the
+    end, which produced literal hard digital clipping (square-wave odd
+    harmonics, smeared by the AAC encoder into audible distortion) on
+    any chain whose peak EQ pushed a near-0-dBFS master past full-scale.
+    Fixed three ways:
+      1. Pre-attenuate the input by the env's max-boost + 1.5 dB safety
+         BEFORE the chain. Audition is quieter than the master; it's a
+         simulation, not a final master, so quieter is fine.
+      2. `_soft_clip` math actually passes linearly below threshold now
+         (was tanh-everywhere; thinned the whole signal).
+      3. Final stage is `_final_saturator` (soft-knee), never `np.clip`.
+    `info` reports `peak_dbfs_post_chain`, `headroom_db_applied`,
+    `saturator_engaged` so the UI can warn if the simulation drove the
+    signal hard.
+
+    Returns `(input unchanged, default-info)` if `env_id` is unknown —
+    callers should check `env_id in ENVS` first.
     """
     fn = ENVS.get(env_id)
     if fn is None:
-        return y
-    out = fn(y.astype(np.float32, copy=False), sr)
-    # Hard-cap to ±1 in case a chain piles up gain. Encoders will clip
-    # anything past full-scale; this keeps the audition consistent.
-    return np.clip(out, -1.0, 1.0)
+        return y, {
+            "headroom_db_applied": 0.0,
+            "peak_dbfs_post_chain": float("-inf"),
+            "saturator_engaged": False,
+            "env_id": env_id,
+        }
+    boost_db = _ENV_MAX_BOOST_DB.get(env_id, 6.0)
+    headroom_db = boost_db + _HEADROOM_SAFETY_DB
+    pre_atten = float(10.0 ** (-headroom_db / 20.0))
+
+    y_in = (y.astype(np.float32, copy=False) * pre_atten).astype(np.float32, copy=False)
+    out = fn(y_in, sr)
+
+    peak_lin = float(np.max(np.abs(out))) if out.size else 0.0
+    peak_dbfs = 20.0 * float(np.log10(max(peak_lin, 1e-10)))
+
+    sat_engaged = peak_lin > 0.95
+    if sat_engaged:
+        out = _final_saturator(out, threshold_lin=0.95)
+        peak_lin = float(np.max(np.abs(out))) if out.size else 0.0
+        peak_dbfs = 20.0 * float(np.log10(max(peak_lin, 1e-10)))
+
+    info = {
+        "headroom_db_applied": round(headroom_db, 2),
+        "peak_dbfs_post_chain": round(peak_dbfs, 2),
+        "saturator_engaged": bool(sat_engaged),
+        "env_id": env_id,
+    }
+    return out.astype(np.float32, copy=False), info

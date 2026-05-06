@@ -117,10 +117,13 @@ def compute_lufs_timeline(y: np.ndarray, sr: int, window_sec: float = 3.0) -> li
             except Exception:
                 pass
         if value == -70.0:
-            # Fallback
-            mono = chunk[:, 0] if chunk.ndim > 1 else chunk
-            rms = np.sqrt(np.mean(mono ** 2))
-            value = float(20 * np.log10(max(rms, 1e-10)) - 0.691)
+            # 5.3.1 honesty fix: pre-5.3 the fallback was
+            # `20*log10(rms) - 0.691` which mimics the BS.1770 calibration
+            # offset on a non-K-weighted RMS. That number isn't LUFS;
+            # surfacing it as if it were misled callers. Now we just
+            # leave the cell at -70 (the BS.1770 absolute floor) when
+            # pyloudnorm couldn't integrate that window.
+            pass
         lufs.append(round(value, 1))
 
     return lufs
@@ -427,12 +430,25 @@ def compute_mono_compat(y_a: np.ndarray, y_b: np.ndarray, sr: int) -> dict:
     def calc(y_stereo):
         left = y_stereo[0]
         right = y_stereo[1]
-        denom = np.sqrt(np.sum(left**2) * np.sum(right**2))
-        corr = float(np.sum(left * right) / max(denom, 1e-10))
-        stereo_rms = np.sqrt(np.mean(left**2 + right**2) / 2)
+        # 5.3.1 honesty fix: pre-5.3 we did `corr = num / max(denom, 1e-10)`,
+        # which when both channels are tiny but coherent (e.g. quiet
+        # tonal noise floor) would divide by 1e-10 and produce huge
+        # correlation values like r=2374.5. The right thing is to
+        # treat sub-floor signals as undefined-correlation = 0
+        # (mono-safe by convention; phase isn't meaningful below the
+        # measurement floor anyway).
+        denom = float(np.sqrt(np.sum(left**2) * np.sum(right**2)))
+        if denom < 1e-9:  # below measurement floor — undefined
+            corr = 0.0
+        else:
+            corr = float(np.clip(np.sum(left * right) / denom, -1.0, 1.0))
+        stereo_rms = float(np.sqrt(np.mean(left**2 + right**2) / 2))
         mono = (left + right) / 2
-        mono_rms = np.sqrt(np.mean(mono**2))
-        loss = max(0, (1 - mono_rms / max(stereo_rms, 1e-10))) * 100
+        mono_rms = float(np.sqrt(np.mean(mono**2)))
+        if stereo_rms < 1e-9:
+            loss = 0.0
+        else:
+            loss = max(0.0, (1.0 - mono_rms / stereo_rms)) * 100.0
         return round(corr, 3), round(loss, 1)
 
     corr_a, loss_a = calc(y_a)

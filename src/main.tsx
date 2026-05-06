@@ -9,7 +9,6 @@ import App from './App'
 // `RTM Platform/ARCHITECTURE.md` for the migration plan.
 // import PlatformShell from './shell/PlatformShell'
 import { ThemeProvider } from './ThemeContext'
-import { ShellProvider } from './ShellContext'
 import { ModesProvider } from './ModesContext'
 import { EQProvider } from './EQContext'
 import { SoloProvider } from './SoloContext'
@@ -24,7 +23,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
  whole app and leaks the AudioContext. Added 5.2.0 audit P1-10. */}
  <ErrorBoundary label="the app">
  <ThemeProvider>
- <ShellProvider>
  <ModesProvider>
  <EQProvider>
  <SoloProvider>
@@ -34,7 +32,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
  </SoloProvider>
  </EQProvider>
  </ModesProvider>
- </ShellProvider>
  </ThemeProvider>
  </ErrorBoundary>
  </React.StrictMode>

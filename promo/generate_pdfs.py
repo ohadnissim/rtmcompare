@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Console Didone PDFs — Manual, Features, Pitch.
 
-5.2.4: editorial PDFs aligned with the v5.2 shell aesthetic. Three
-documents from one script:
-  - RTMcompare-Manual.pdf   (US Letter portrait, ~10 pages)
-  - RTMcompare-Features.pdf (US Letter portrait, ~7 pages)
-  - RTMcompare-Pitch.pdf    (16:9 landscape, 10 slides)
+5.3 rewrite: new voice. Same visual spine (Console Didone — Instrument
+Serif on ink, single antique-gold gesture per page), much warmer copy.
+Magazine-feature register, opinionated, names specific things, no
+corporate distance. Mirrors the microcopy already in the app.
+
+Three audiences addressed throughout — mixing engineers, mastering
+engineers, music producers — never gendered, never hedged.
+
+Outputs:
+  RTMcompare-Manual.pdf     · US Letter portrait
+  RTMcompare-Features.pdf   · US Letter portrait
+  RTMcompare-Pitch.pdf      · 16:9 landscape
 
 Run:  python3 promo/generate_pdfs.py
 """
 
 from __future__ import annotations
-
-import os
-import sys
-from dataclasses import dataclass
+import os, sys
+from pathlib import Path
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color, HexColor
@@ -22,9 +27,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ── Paths ──────────────────────────────────────────────────────────
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(HERE)
-FONT_DIR = os.path.join(REPO_ROOT, 'release', 'v5.3.0', 'fonts')
+HERE = Path(os.path.dirname(os.path.abspath(__file__)))
+REPO_ROOT = HERE.parent
+FONT_DIR = REPO_ROOT / 'release' / 'v5.4.0' / 'fonts'
 
 # ── Console Didone palette ─────────────────────────────────────────
 INK            = HexColor('#0e0d0b')
@@ -36,69 +41,52 @@ SAND_DIM       = HexColor('#6a6459')
 GOLD           = HexColor('#d0b066')
 WARM_RED       = HexColor('#c96765')
 
-# ── Page sizes (points; 1 pt = 1/72 inch) ──────────────────────────
-LETTER_W, LETTER_H = 612.0, 792.0           # US Letter portrait
-SLIDE_W,  SLIDE_H  = 1920.0, 1080.0         # 16:9 landscape, oversized for crispness
+# ── Page sizes ─────────────────────────────────────────────────────
+LETTER_W, LETTER_H = 612.0, 792.0          # US Letter portrait
+SLIDE_W,  SLIDE_H  = 1920.0, 1080.0        # 16:9 landscape
 
 # ── Font registration ──────────────────────────────────────────────
-# Use the TTFs already shipping in release/v5.3.0/fonts/. Fallbacks
-# (Helvetica / Times / Courier) are reportlab built-ins; if a TTF is
-# missing the script logs and continues with the closest substitute.
 def _try_register(name: str, file: str) -> str:
-    path = os.path.join(FONT_DIR, file)
-    if os.path.exists(path):
+    path = FONT_DIR / file
+    if path.exists():
         try:
-            pdfmetrics.registerFont(TTFont(name, path))
+            pdfmetrics.registerFont(TTFont(name, str(path)))
             return name
         except Exception as e:
             print(f'[warn] {name}: {e}', file=sys.stderr)
     return ''
 
-
-SERIF        = _try_register('InstrumentSerif',        'InstrumentSerif-Regular.ttf') or 'Times-Roman'
-SERIF_ITALIC = _try_register('InstrumentSerifItalic',  'InstrumentSerif-Italic.ttf')  or 'Times-Italic'
-SANS         = _try_register('InstrumentSans',         'InstrumentSans-Regular.ttf')  or 'Helvetica'
-SANS_BOLD    = _try_register('InstrumentSansBold',     'InstrumentSans-Bold.ttf')     or 'Helvetica-Bold'
-MONO         = _try_register('GeistMono',              'GeistMono-Regular.ttf')       or 'Courier'
+SERIF        = _try_register('InstrumentSerif',       'InstrumentSerif-Regular.ttf') or 'Times-Roman'
+SERIF_ITALIC = _try_register('InstrumentSerifItalic', 'InstrumentSerif-Italic.ttf')  or 'Times-Italic'
+SANS         = _try_register('InstrumentSans',        'InstrumentSans-Regular.ttf')  or 'Helvetica'
+SANS_BOLD    = _try_register('InstrumentSansBold',    'InstrumentSans-Bold.ttf')     or 'Helvetica-Bold'
+MONO         = _try_register('GeistMono',             'GeistMono-Regular.ttf')       or 'Courier'
 
 # ── Drawing primitives ─────────────────────────────────────────────
-def fill_bg(c: canvas.Canvas, w: float, h: float, color=INK):
+def fill_bg(c, w, h, color=INK):
     c.setFillColor(color)
     c.rect(0, 0, w, h, fill=1, stroke=0)
 
-
-def gold_rule(c: canvas.Canvas, x: float, y: float, w: float, weight: float = 0.6):
-    """The single chromatic gesture per page. 1px-feel hairline."""
+def gold_rule(c, x, y, w, weight=0.6):
     c.setStrokeColor(GOLD)
     c.setLineWidth(weight)
     c.line(x, y, x + w, y)
 
-
-def thin_rule(c: canvas.Canvas, x: float, y: float, w: float, color=SAND_DIM,
-              opacity: float = 0.30):
-    """Sub-opacity hairline — for section dividers within a page."""
+def thin_rule(c, x, y, w, color=SAND_DIM, opacity=0.30):
     r, g, b, _ = color.rgba()
     c.setStrokeColor(Color(r, g, b, alpha=opacity))
     c.setLineWidth(0.5)
     c.line(x, y, x + w, y)
 
-
-def tracked_caps(c: canvas.Canvas, x: float, y: float, text: str,
-                 font: str, size: float, fill, tracking: float = 0.16):
-    """Letter-spaced all-caps. Reportlab has no native tracking, so
-    we draw glyph-by-glyph and advance by the measured width plus a
-    tracking factor proportional to font size."""
+def tracked_caps(c, x, y, text, font, size, fill, tracking=0.16):
     c.setFillColor(fill)
     c.setFont(font, size)
     cursor = x
     for ch in text.upper():
         c.drawString(cursor, y, ch)
-        adv = c.stringWidth(ch, font, size) + size * tracking
-        cursor += adv
+        cursor += c.stringWidth(ch, font, size) + size * tracking
 
-
-def text_block(c: canvas.Canvas, x: float, y: float, lines: list[str],
-               font: str, size: float, fill, leading: float = None):
+def text_block(c, x, y, lines, font, size, fill, leading=None):
     leading = leading if leading is not None else size * 1.45
     c.setFillColor(fill)
     c.setFont(font, size)
@@ -106,15 +94,13 @@ def text_block(c: canvas.Canvas, x: float, y: float, lines: list[str],
     for line in lines:
         c.drawString(x, cy, line)
         cy -= leading
-    return cy + leading  # baseline of last line
+    return cy + leading
 
-
-def colophon(c: canvas.Canvas, w: float, y: float, parts: list[str]):
-    """Tracked all-caps centred bottom strip with three centre-dots."""
+def colophon(c, w, y, parts):
     text = '   ·   '.join(parts).upper()
     font = SANS
     size = 6.5
-    width = c.stringWidth(text, font, size) * 1.18  # +18% for tracking
+    width = c.stringWidth(text, font, size) * 1.18
     cursor = (w - width) / 2.0
     c.setFillColor(SAND_DIM)
     c.setFont(font, size)
@@ -122,21 +108,49 @@ def colophon(c: canvas.Canvas, w: float, y: float, parts: list[str]):
         c.drawString(cursor, y, ch)
         cursor += c.stringWidth(ch, font, size) + size * 0.18
 
-
-def wordmark(c: canvas.Canvas, x: float, y: float, size: float, fill=CREAM):
+def wordmark(c, x, y, size, fill=CREAM):
     c.setFillColor(fill)
     c.setFont(SERIF, size)
     c.drawString(x, y, 'RTMcompare')
+
+def corner_ticks(c, w, h, inset=42, length=22, weight=0.6, color=SAND_DIM, opacity=0.35):
+    """Four L-shaped corner marks — fine-printing vocabulary from the icons."""
+    r, g, b, _ = color.rgba()
+    c.setStrokeColor(Color(r, g, b, alpha=opacity))
+    c.setLineWidth(weight)
+    # top-left
+    c.line(inset, h - inset, inset + length, h - inset)
+    c.line(inset, h - inset, inset, h - inset - length)
+    # top-right
+    c.line(w - inset, h - inset, w - inset - length, h - inset)
+    c.line(w - inset, h - inset, w - inset, h - inset - length)
+    # bottom-left
+    c.line(inset, inset, inset + length, inset)
+    c.line(inset, inset, inset, inset + length)
+    # bottom-right
+    c.line(w - inset, inset, w - inset - length, inset)
+    c.line(w - inset, inset, w - inset, inset + length)
+
+def diamond(c, cx, cy, size, fill=GOLD):
+    """Small gold diamond — the single chromatic gesture, mirrors the icon mark."""
+    c.setFillColor(fill)
+    p = c.beginPath()
+    p.moveTo(cx, cy - size)
+    p.lineTo(cx + size, cy)
+    p.lineTo(cx, cy + size)
+    p.lineTo(cx - size, cy)
+    p.close()
+    c.drawPath(p, fill=1, stroke=0)
 
 
 # ──────────────────────────────────────────────────────────────────────
 #  MANUAL
 # ──────────────────────────────────────────────────────────────────────
-def build_manual(path: str):
-    c = canvas.Canvas(path, pagesize=(LETTER_W, LETTER_H))
+def build_manual(path):
+    c = canvas.Canvas(str(path), pagesize=(LETTER_W, LETTER_H))
     c.setTitle('RTMcompare — User Manual')
     c.setAuthor('Ohad Nissim')
-    c.setSubject('RTMcompare 5.2 user manual')
+    c.setSubject('RTMcompare 5.4 user manual')
 
     margin = 60.0
     body_w = LETTER_W - 2 * margin
@@ -144,222 +158,278 @@ def build_manual(path: str):
     def new_page():
         c.showPage()
         fill_bg(c, LETTER_W, LETTER_H)
-        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.3.0', 'Manual', 'Internal license'])
+        corner_ticks(c, LETTER_W, LETTER_H)
+        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.4', 'A user manual', 'Local-first'])
+
+    def chapter_head(eyebrow, title):
+        tracked_caps(c, margin, LETTER_H - 110, eyebrow, SANS, 8, SAND_MUTED, tracking=0.22)
+        c.setFillColor(CREAM); c.setFont(SERIF, 38)
+        c.drawString(margin, LETTER_H - 162, title)
+        gold_rule(c, margin, LETTER_H - 182, 110)
+        return LETTER_H - 222  # cursor for first body line
 
     # ── Cover ──
     fill_bg(c, LETTER_W, LETTER_H)
-    tracked_caps(c, margin, LETTER_H - 110, 'A USER MANUAL · EDITION 5.2',
-                 SANS, 8.5, SAND_MUTED, tracking=0.20)
-    wordmark(c, margin, LETTER_H - 230, 78)
-    gold_rule(c, margin, LETTER_H - 248, body_w * 0.42)
+    corner_ticks(c, LETTER_W, LETTER_H)
+
+    tracked_caps(c, margin, LETTER_H - 110, 'A USER MANUAL · EDITION 5.4',
+                 SANS, 8.5, SAND_MUTED, tracking=0.22)
+
+    # Wordmark
+    wordmark(c, margin, LETTER_H - 240, 84)
+
+    # Single gold diamond on a tick rule, like the icon
+    rule_y = LETTER_H - 268
+    rule_x_start = margin
+    rule_x_end = margin + body_w * 0.46
+    rule_mid = (rule_x_start + rule_x_end) / 2
+    c.setStrokeColor(Color(*CREAM.rgb(), alpha=0.85))
+    c.setLineWidth(0.6)
+    c.line(rule_x_start, rule_y, rule_mid - 6, rule_y)
+    c.line(rule_mid + 6, rule_y, rule_x_end, rule_y)
+    diamond(c, rule_mid, rule_y, 4)
+
+    # Italic kicker — the canonical tagline
     c.setFillColor(SAND_SECONDARY)
-    c.setFont(SERIF_ITALIC, 18)
-    c.drawString(margin, LETTER_H - 290,
-                 'Pro mastering tools, minus the wall of jargon.')
+    c.setFont(SERIF_ITALIC, 28)
+    c.drawString(margin, LETTER_H - 320, 'Hear what Spotify hears.')
+    # Second line with "Before" in gold
+    c.setFillColor(GOLD)
+    c.drawString(margin, LETTER_H - 360, 'Before')
+    before_w = c.stringWidth('Before', SERIF_ITALIC, 28)
+    c.setFillColor(SAND_SECONDARY)
+    c.drawString(margin + before_w + 8, LETTER_H - 360, 'Spotify hears it.')
+
     # Body intro
-    text_block(c, margin, LETTER_H - 380,
-               ['Hi. RTMcompare is the app that tells you what\'s wrong',
-                'with your master before your client does — or worse,',
-                'before the streaming service does it for you.',
-                '',
-                'Drop two files. We say what\'s different.',
-                'Drop one file. We give it a full check-up.',
-                'Drop a folder. We help you ship the album.',
-                '',
-                'Read this front to back, or skip to the bit you need.',
-                'Chapters are short. Nobody asked for a textbook.'],
+    text_block(c, margin, LETTER_H - 460,
+               ["This is a manual. Not a brochure, not a sales deck — the actual",
+                "instructions for how to live inside the app.",
+                "",
+                "RTMcompare is for mixing engineers chasing the next revision,",
+                "mastering engineers shipping to streaming, and producers who want",
+                "to know what their bounce will sound like once the platforms",
+                "have had their way with it. Same tool for all three. Different",
+                "starting screens depending on what you drop in.",
+                "",
+                "Read it linearly or skip to the surface you're using. Chapters",
+                "are short. Nobody asked for a textbook."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.3.0', 'Apple Silicon', 'macOS 12+'])
+
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.4.0', 'Apple Silicon', 'macOS 12+'])
 
     # ── 1 · Install ──
     new_page()
-    tracked_caps(c, margin, LETTER_H - 110, 'CHAPTER ONE', SANS, 8, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 36)
-    c.drawString(margin, LETTER_H - 160, 'Install and first launch.')
-    gold_rule(c, margin, LETTER_H - 180, 110)
-    text_block(c, margin, LETTER_H - 230,
-               ['1. Open the DMG. Drag RTMcompare into Applications.',
-                '2. Right-click → Open the first time. macOS calms down',
-                '   after that. (Welcome to Gatekeeper, by the way.)',
-                '3. The app opens to a single drop frame. Drag two audio',
-                '   files in to start. That\'s the whole onboarding.',
-                '',
-                'No installer wizard, no license server, no telemetry,',
-                'no cloud sign-in. The app phones home exactly zero',
-                'times unless you opt in to live DSP delivery status —',
-                'and even then it\'s read-only, with your credentials',
-                'kept in the macOS Keychain. Your audio stays put.'],
+    y = chapter_head('CHAPTER ONE', 'How to install this thing.')
+    text_block(c, margin, y,
+               ["Drag RTMcompare.app from the DMG into your Applications folder.",
+                "macOS will hesitate the first time you open it — right-click → Open,",
+                "click \"Open\" again on the Gatekeeper dialog, and from then on it's",
+                "a normal app.",
+                "",
+                "On first launch you meet the cover screen — a Didone wordmark,",
+                "one line of instruction, one drop frame. Drag two audio files in",
+                "and you're analyzing.",
+                "",
+                "There's no installer wizard. No license server. No telemetry.",
+                "The only network call this app makes is for opt-in DSP delivery-",
+                "status fetches, and only outbound, with credentials in the macOS",
+                "Keychain. Otherwise it's a closed loop on your machine."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
-    text_block(c, margin, LETTER_H - 470,
-               ['Disk: ~600 MB (app + bundled Python + Demucs cache).',
-                'RAM: 8 GB minimum, 16 GB if you do stem separation.',
-                'Audio: WAV, FLAC, AIFF, AIF, MP3, OGG, M4A, ADM BWF.'],
-               MONO, 9.5, SAND_MUTED, leading=15)
 
-    # ── 2 · Compare two files ──
+    text_block(c, margin, LETTER_H - 540,
+               ["Disk:    ~600 MB (app + bundled Python 3.11 + Demucs cache)",
+                "RAM:     8 GB minimum, 16 GB recommended for stem separation",
+                "Audio:   WAV, FLAC, AIFF, MP3, OGG, M4A, ADM BWF"],
+               MONO, 10, SAND_MUTED, leading=15)
+
+    # ── 2 · Compare ──
     new_page()
-    tracked_caps(c, margin, LETTER_H - 110, 'CHAPTER TWO', SANS, 8, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 36)
-    c.drawString(margin, LETTER_H - 160, 'Compare two files.')
-    gold_rule(c, margin, LETTER_H - 180, 110)
-    text_block(c, margin, LETTER_H - 230,
-               ['Compare is the one most people open first. Two files',
-                'in, every measurable difference out, in plain English.',
-                '',
-                'Drag the reference into the left slot. Drag the mix',
-                'you\'re working on into the right. Pick a delivery',
-                'target from the chips up top — Music, Full Mix,',
-                'Broadcast, Netflix, Post. That chip is the gold one;',
-                'it tells the whole screen which yardstick to use.',
-                '',
-                'Click Compare. Both files level-match to −18 LUFS',
-                'before you hear them, so a louder master can\'t fool',
-                'your ears into thinking it\'s the better one. Analysis',
-                'runs locally. Nothing uploads.',
-                '',
-                'When it lands, the strip across the top shows LUFS,',
-                'TP, LRA, MONO with deltas. Each tab opens with a big',
-                'headline number — the verdict for that lens — and',
-                'then drills in. Click around. It won\'t bite.'],
+    y = chapter_head('CHAPTER TWO', 'Comparing two files.')
+    text_block(c, margin, y,
+               ["This is the surface most people opened the app to find.",
+                "",
+                "Drop the reference into the left slot. Drop the file you're",
+                "evaluating into the right. Pick a delivery target from the",
+                "header chips — Music, Full, Bcast, Netflix, Post — that single",
+                "gold pill is the lens every measurement after this gets read",
+                "through. Hit Compare.",
+                "",
+                "Both files are level-matched to −18 LUFS integrated before",
+                "you hear a single sample. That's the whole point. Loud doesn't",
+                "fake good when both files are at the same target. The version",
+                "you think is better is just louder, until it isn't.",
+                "",
+                "When the analysis lands, the instrument row above the tabs",
+                "shows the four numbers that decide whether your file ships:",
+                "LUFS-I, true peak, LRA, mono-compat. Each tab opens with a",
+                "Didone verdict at the top — the headline number for that surface",
+                "— then the panels you came for sit beneath."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
+    # Italic standfirst at the bottom
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 14)
+    c.drawString(margin, 100, "For: mixing engineers, mastering engineers, producers comparing their bounce to a hit.")
 
     # ── 3 · Single-file QC ──
     new_page()
-    tracked_caps(c, margin, LETTER_H - 110, 'CHAPTER THREE', SANS, 8, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 36)
-    c.drawString(margin, LETTER_H - 160, 'QC a single master.')
-    gold_rule(c, margin, LETTER_H - 180, 110)
-    text_block(c, margin, LETTER_H - 230,
-               ['No reference? No problem. Drop one file in and hit',
-                'Analyze Reference Only. The app reads it like a tech',
-                'doing a thorough service appointment.',
-                '',
-                'Clicks and glitches plotted on a clickable timeline —',
-                'tap any peak and playback jumps right to it. Distortion',
-                '(clipping, inter-sample, harmonic) with the offending',
-                'band named, not just a red blob. Mains hum at 50 or',
-                '60 Hz plus harmonics, so a ground loop shows up at',
-                'a glance. Limiter artefacts — pumping, intermodulation,',
-                'stuck-fast release — flagged with a severity rating.',
-                '',
-                'Then the analog-tape rogue\'s gallery: wow, flutter,',
-                'DC drift, tape transport rumble, print-through. And',
-                'generation loss — the fingerprints of an MP3 or AAC',
-                'encode hiding inside what someone called the original.',
-                '',
-                'Plus key, BPM, harmonic ladder. Mono fold per band',
-                '(see exactly where the kick or vocal disappears),',
-                'stereo image, and per-band phase. Everything you\'d',
-                'normally check across four plug-ins, on one page.'],
+    y = chapter_head('CHAPTER THREE', 'When you only have one file.')
+    text_block(c, margin, y,
+               ["Sometimes there's no reference. The file is the file, and you",
+                "want to know whether it's ready.",
+                "",
+                "Drop one audio file in. Click \"Analyze Reference Only.\" The",
+                "single-file QC pass reads the master clinically and tells you",
+                "what it found:",
+                "",
+                "  •  Click and glitch timeline, with click-to-transport jump",
+                "     so you can audition every defect in seconds.",
+                "  •  Distortion detection — clipping, ISR, harmonic — with",
+                "     the offending frequency band named.",
+                "  •  Mains hum and harmonics. 50 / 60 Hz fundamental plus",
+                "     the 3rd, 5th, 7th. Catches grounding issues you never",
+                "     thought to listen for.",
+                "  •  Transfer-artefact detection for analog-sourced masters:",
+                "     wow, flutter, DC drift, tape transport, print-through.",
+                "  •  Generation-loss detection. If your file came from",
+                "     somewhere with a lossy ancestor (a stem you got back",
+                "     from a producer in MP3, say), you'll see it here.",
+                "  •  Key, BPM, harmonic ladder. For sync pitching.",
+                "  •  Mono-compat as a per-band waterfall, not a scalar.",
+                "     You see exactly where the mono fold collapses."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 14)
+    c.drawString(margin, 100, "For: anyone with one file and a deadline.")
 
     # ── 4 · Album batch ──
     new_page()
-    tracked_caps(c, margin, LETTER_H - 110, 'CHAPTER FOUR', SANS, 8, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 36)
-    c.drawString(margin, LETTER_H - 160, 'Walk an album.')
-    gold_rule(c, margin, LETTER_H - 180, 110)
-    text_block(c, margin, LETTER_H - 230,
-               ['Drop a folder. RTMcompare opens every audio file',
-                'inside and gives you a sortable table — LUFS, TP, LRA,',
-                'ISRC, duration, sample rate, bit depth — with outliers',
-                'highlighted automatically. The whole album at a glance.',
-                '',
-                'Click any row to open that song in a tab. ← → flips',
-                'between tracks. Deep analysis runs once per song and',
-                'caches after, so flipping back is instant.',
-                '',
-                'Cohort Mode is the sneaky-good one. Pick any track',
-                '(or an external file) as the reference, and the app',
-                'shows a per-band heatmap of how far each song drifts',
-                'from it. Sort by drift, find the outlier, fix it.',
-                'Album consistency, solved.',
-                '',
-                'Save the whole session as a .rtmalbum.json — every',
-                'analysis, every note, the references, the delivery',
-                'state. Re-open it in a year, pick up where you left',
-                'off. (Or hand it to the next engineer. They\'ll',
-                'thank you.)'],
+    y = chapter_head('CHAPTER FOUR', 'Walking an album.')
+    text_block(c, margin, y,
+               ["Drop a folder. Get a sortable table — LUFS, true peak, LRA,",
+                "ISRC, duration, sample rate, bit depth, with outliers",
+                "highlighted automatically.",
+                "",
+                "Click any row to drop into a single song tab. Step through the",
+                "album with the arrow keys. Each song gets lazy deep analysis;",
+                "results cache across rotations so you only pay the cost once.",
+                "",
+                "Cohort Mode promotes any track or external file as the",
+                "reference. A per-track distance heatmap across 31 bands shows",
+                "which songs stray most. Sort by drift, find the outlier, fix",
+                "the outlier, ship the album. That's the loop.",
+                "",
+                "Save the session as a .rtmalbum.json — every analysis, every",
+                "note, the A/B reference, the cohort ref, the delivery manifest",
+                "state. Re-open it in a year and pick up exactly where you",
+                "stopped. Useful when a label comes back asking you to remaster",
+                "a 2024 EP for a vinyl press."],
+               SANS, 11.5, SAND_SECONDARY, leading=18)
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 14)
+    c.drawString(margin, 100, "For: mastering engineers shipping albums, producers auditing their catalogue.")
+
+    # ── 5 · DMR ──
+    new_page()
+    y = chapter_head('CHAPTER FIVE', 'How Apple cancels deliveries.')
+    text_block(c, margin, y,
+               ["Apple cancels deliveries on punctuation. \"Feat.\" vs \"feat.\"",
+                "is enough — they auto-reject the manifest, the distributor",
+                "kicks it back to you at midnight, and the release date slips.",
+                "",
+                "Spotify rejects duplicate ISRCs without warning. Anyone who",
+                "ships catalogue knows the feeling of a release going \"live\"",
+                "with three of the four tracks because one ISRC collided",
+                "silently with something from 2019.",
+                "",
+                "The Delivery Manifest Reconciler is the surface that catches",
+                "this before the email arrives. Drop the distributor's CSV or",
+                "DDEX ERN 4.3 XML onto the panel inside album batch. RTMcompare",
+                "three-way-diffs the audio-embedded metadata, the manifest,",
+                "and the album's internal ISRC set, and surfaces every blocker:",
+                "",
+                "  •  Title-casing drift",
+                "  •  ISRC collisions inside the album",
+                "  •  ISRC reuse from prior releases (cross-session history",
+                "     at ~/.rtm/isrc-history.json)",
+                "  •  Duration mismatches between audio and manifest",
+                "  •  Missing rows on either side",
+                "  •  P-line / C-line drift",
+                "",
+                "Resolve each. Export Ship-Ready PDF and Corrected CSV. Attach",
+                "both to the delivery ticket. Your distributor can re-ingest",
+                "the CSV directly."],
+               SANS, 11.5, SAND_SECONDARY, leading=18)
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 14)
+    c.drawString(margin, 100, "For: label ops. Skip if you're not.")
+
+    # ── 6 · Atmos ──
+    new_page()
+    y = chapter_head('CHAPTER SIX', 'Immersive and Dolby Atmos.')
+    text_block(c, margin, y,
+               ["Drop an ADM BWF file in. RTMcompare parses bed and objects,",
+                "reads the trajectories, runs an early-warning binaural-",
+                "headroom estimate (ILD downmix — no HRTF render), and QCs",
+                "the stereo downmix against the immersive master.",
+                "",
+                "Atmos Preflight runs the hard-checks Apple actually enforces:",
+                "object count must be at most 118, LFE has to route, bed layout",
+                "must be 7.1.2 or 5.1.4, sample rate 48 kHz, bit depth at least",
+                "24. Failures gate delivery. Fix before you press send.",
+                "",
+                "Per-object anomaly detection flags hot, silent, static, or",
+                "dark objects. Most of the time the source is a mix mistake,",
+                "not artistic intent. The flag points you at the channel; you",
+                "make the call about whether to fix or whether the producer",
+                "really did mean to put a 6 kHz tone on object 47."],
+               SANS, 11.5, SAND_SECONDARY, leading=18)
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 14)
+    c.drawString(margin, 100, "For: immersive mix supervisors. Skippable for everyone else.")
+
+    # ── 7 · Companions ──
+    new_page()
+    y = chapter_head('CHAPTER SEVEN', 'The two companion apps.')
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 24)
+    c.drawString(margin, y, 'RTMprofile')
+    text_block(c, margin, y - 30,
+               ["Feed it five-plus of your finished masters. RTMprofile learns",
+                "the spectral and dynamic fingerprint of your work and saves it",
+                "as a JSON profile. Load that profile into RTMcompare's Match",
+                "tab and any new mix can be graded against your own sound, with",
+                "concrete EQ moves to close the gap.",
+                "",
+                "Useful if you're an engineer building a signature, or a",
+                "producer who wants their EP to sound consistent."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    # ── 5 · Atmos ──
-    # (Delivery Manifest Reconciler chapter removed in 5.3.0 — that
-    # surface isn't in the renderer right now and shipping a manual
-    # that documents missing features causes more support pain than
-    # any time it saved. Coming back as its own surface in a future
-    # release; no chapter pretends to ship it in the interim.)
-    new_page()
-    tracked_caps(c, margin, LETTER_H - 110, 'CHAPTER FIVE', SANS, 8, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 36)
-    c.drawString(margin, LETTER_H - 160, 'Immersive and Dolby Atmos.')
-    gold_rule(c, margin, LETTER_H - 180, 110)
-    text_block(c, margin, LETTER_H - 230,
-               ['Drop an ADM BWF file. RTMcompare reads the bed and',
-                'objects, follows the trajectories, meters the binaural',
-                'render, and QCs the stereo downmix against the',
-                'immersive master. All four jobs, one panel.',
-                '',
-                'Atmos Preflight runs the hard checks Apple actually',
-                'enforces: objects ≤ 118, LFE has to route, bed layout',
-                '7.1.2 or 5.1.4, sample rate 48 kHz, bit depth at least',
-                '24. Anything that fails gates the export. Better to',
-                'find it here than in the rejection email.',
-                '',
-                'Per-object anomaly detection flags hot, silent, static,',
-                'or dark objects — usually a mix mistake, not an',
-                'artistic choice. The flag points at the channel; the',
-                'engineer makes the call.'],
-               SANS, 11.5, SAND_SECONDARY, leading=18)
-
-    # ── 6 · Companions ──
-    new_page()
-    tracked_caps(c, margin, LETTER_H - 110, 'CHAPTER SIX', SANS, 8, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 36)
-    c.drawString(margin, LETTER_H - 160, 'Companion tools.')
-    gold_rule(c, margin, LETTER_H - 180, 110)
-    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 22)
-    c.drawString(margin, LETTER_H - 230, 'RTMprofile')
-    text_block(c, margin, LETTER_H - 260,
-               ['Feed it 5+ of your finished masters. RTMprofile learns',
-                'the spectral and dynamic shape of your sound — bass',
-                'weight, midrange tilt, top air, dynamic range, the lot.',
-                'It saves the result as a JSON profile that drops into',
-                'RTMcompare\'s Match tab. Now any new mix can be graded',
-                'against your own catalogue, with concrete EQ moves to',
-                'close the gap. Your sound, made portable.'],
-               SANS, 11.5, SAND_SECONDARY, leading=18)
-    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 22)
-    c.drawString(margin, LETTER_H - 430, 'RTMsend')
-    text_block(c, margin, LETTER_H - 460,
-               ['VST3 / AU plugin. Sits on a bus in Wavelab, Logic,',
-                'Pro Tools, Studio One — anything that hosts AU or',
-                'VST3. One button sends what\'s playing into',
-                'RTMcompare\'s Single, Compare-B, or Album surface.',
-                'No export dialog. No render queue. ARA-aware where',
-                'the host supports it; rolling last-N-seconds ring',
-                'buffer everywhere else.'],
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 24)
+    c.drawString(margin, y - 200, 'RTMsend')
+    text_block(c, margin, y - 230,
+               ["A VST3 / AU plugin. Sits on a bus in Wavelab, Logic, Pro Tools,",
+                "Studio One, or any DAW that hosts AU/VST3.",
+                "",
+                "One button sends the buffer to RTMcompare's Single, Compare-B,",
+                "or Album surface. No export dialog, no render queue. ARA-aware",
+                "on hosts that support it; ring-buffers the last N seconds",
+                "otherwise.",
+                "",
+                "Useful when you're mid-mix and need to QC something now,",
+                "without breaking flow to bounce a file."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
     # ── 8 · Reference ──
     new_page()
-    tracked_caps(c, margin, LETTER_H - 110, 'REFERENCE', SANS, 8, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 36)
-    c.drawString(margin, LETTER_H - 160, 'Keyboard shortcuts.')
-    gold_rule(c, margin, LETTER_H - 180, 110)
+    y = chapter_head('REFERENCE', 'Keyboard shortcuts.')
     shortcuts = [
         ('Space',          'Play / pause the active transport'),
         ('A · B · X',      'Switch A · Switch B · Flip (ABPlayer)'),
         ('← · →',          'Previous / next song (song tab)'),
-        ('1–9',            'Jump to tab N (Compare view)'),
-        ('M',              'Mono listen mode (ABPlayer)'),
-        ('S',              'Solo each side (ABPlayer)'),
+        ('1 – 9',          'Jump to tab N (Compare view)'),
+        ('M',              'Mono listen mode'),
+        ('S',              'Solo each side'),
         ('L',              'Toggle loop'),
-        ('⌘K · /',         'Command palette · Song quick-switch · Search'),
-        ('⌘E · ⌘⇧E',       'Export EQ (FFP) · Apply EQ + bounce'),
-        ('?',              'Keyboard-shortcut legend'),
-        ('⌘N',             'New comparison (results screens)'),
+        ('⌘ K  ·  /',      'Command palette · Song quick-switch · Search'),
+        ('⌘ E  ·  ⌘ ⇧ E',  'Export EQ (FabFilter Pro-Q text) · Apply EQ + bounce'),
+        ('?',              'This shortcut legend, on screen'),
+        ('⌘ N',            'New comparison (results screens)'),
     ]
-    y_row = LETTER_H - 230
+    y_row = y
     for keys, action in shortcuts:
         c.setFillColor(CREAM); c.setFont(MONO, 10)
         c.drawString(margin, y_row, keys)
@@ -368,28 +438,28 @@ def build_manual(path: str):
         thin_rule(c, margin, y_row - 6, body_w, color=SAND_DIM, opacity=0.18)
         y_row -= 26
 
-    c.setFillColor(CREAM); c.setFont(SERIF, 22)
+    c.setFillColor(CREAM); c.setFont(SERIF, 24)
     c.drawString(margin, y_row - 30, 'Privacy.')
     text_block(c, margin, y_row - 60,
-               ['Every analysis, every render, every metadata read —',
-                'all on this device. Audio never leaves. The only',
-                'network path the app opens is opt-in DSP delivery',
-                'status: outbound, read-only, with credentials kept',
-                'in the macOS Keychain via safeStorage. That\'s it.'],
+               ["Every analysis, every render, every metadata read happens on",
+                "your machine. No audio leaves the device. The only network path",
+                "the app opens is opt-in delivery-status fetching from the",
+                "DSPs you've authorised — outbound, read-only, credentials in",
+                "the macOS Keychain via safeStorage."],
                SANS, 10.5, SAND_SECONDARY, leading=16)
 
     c.save()
-    print(f'  → {os.path.basename(path)}')
+    print(f'  → {Path(path).name}')
 
 
 # ──────────────────────────────────────────────────────────────────────
 #  FEATURES
 # ──────────────────────────────────────────────────────────────────────
-def build_features(path: str):
-    c = canvas.Canvas(path, pagesize=(LETTER_W, LETTER_H))
+def build_features(path):
+    c = canvas.Canvas(str(path), pagesize=(LETTER_W, LETTER_H))
     c.setTitle('RTMcompare — Features')
     c.setAuthor('Ohad Nissim')
-    c.setSubject('RTMcompare 5.2 feature reference')
+    c.setSubject('RTMcompare 5.4 feature reference')
 
     margin = 60.0
     body_w = LETTER_W - 2 * margin
@@ -397,29 +467,41 @@ def build_features(path: str):
     def new_page():
         c.showPage()
         fill_bg(c, LETTER_W, LETTER_H)
-        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.3.0', 'Features', 'Internal license'])
+        corner_ticks(c, LETTER_W, LETTER_H)
+        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.4', 'Features', 'Local-first'])
 
-    def section_heading(c, eyebrow, title, sub=None, y=LETTER_H - 110):
+    def section_heading(eyebrow, title, standfirst=None, y=LETTER_H - 110):
         tracked_caps(c, margin, y, eyebrow, SANS, 8, SAND_MUTED, tracking=0.22)
         c.setFillColor(CREAM); c.setFont(SERIF, 32)
         c.drawString(margin, y - 50, title)
         gold_rule(c, margin, y - 68, 110)
-        if sub:
+        if standfirst:
             c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 14)
-            c.drawString(margin, y - 92, sub)
+            # word wrap standfirst
+            words = standfirst.split()
+            line, line_y = '', y - 96
+            max_w = body_w
+            for w in words:
+                trial = (line + ' ' + w).strip()
+                if c.stringWidth(trial, SERIF_ITALIC, 14) > max_w:
+                    c.drawString(margin, line_y, line)
+                    line, line_y = w, line_y - 22
+                else:
+                    line = trial
+            if line:
+                c.drawString(margin, line_y, line)
+            return line_y - 40
         return y - 130
 
-    def feature_row(c, y, label, blurb):
+    def feature_row(y, label, blurb):
         c.setFillColor(CREAM); c.setFont(SANS_BOLD, 10.5)
         c.drawString(margin, y, label)
         c.setFillColor(SAND_SECONDARY); c.setFont(SANS, 10)
-        # word-wrap blurb at body width
-        max_w = body_w
         words = blurb.split()
         line, line_y = '', y - 16
         for w in words:
             trial = (line + ' ' + w).strip()
-            if c.stringWidth(trial, SANS, 10) > max_w:
+            if c.stringWidth(trial, SANS, 10) > body_w:
                 c.drawString(margin, line_y, line)
                 line, line_y = w, line_y - 14
             else:
@@ -431,349 +513,533 @@ def build_features(path: str):
 
     # ── Cover ──
     fill_bg(c, LETTER_W, LETTER_H)
-    tracked_caps(c, margin, LETTER_H - 110, 'A FEATURE REFERENCE · 5.2',
-                 SANS, 8.5, SAND_MUTED, tracking=0.20)
-    wordmark(c, margin, LETTER_H - 230, 78)
-    gold_rule(c, margin, LETTER_H - 248, body_w * 0.42)
-    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 18)
-    c.drawString(margin, LETTER_H - 290, 'Nine surfaces. One master volume.')
-    text_block(c, margin, LETTER_H - 380,
-               ['Every feature in RTMcompare 5.3.0, in plain language.',
-                'No marketing rounding-up — if a row is here, the',
-                'feature is in the build you can install today.',
-                '',
-                'Surface by surface. One feature per row. Skim it,',
-                'tick the bits you care about, ignore the rest.'],
+    corner_ticks(c, LETTER_W, LETTER_H)
+    tracked_caps(c, margin, LETTER_H - 110, 'WHAT\'S IN THE BOX · v5.3',
+                 SANS, 8.5, SAND_MUTED, tracking=0.22)
+    wordmark(c, margin, LETTER_H - 240, 84)
+
+    rule_y = LETTER_H - 268
+    rule_x_start = margin
+    rule_x_end = margin + body_w * 0.46
+    rule_mid = (rule_x_start + rule_x_end) / 2
+    c.setStrokeColor(Color(*CREAM.rgb(), alpha=0.85))
+    c.setLineWidth(0.6)
+    c.line(rule_x_start, rule_y, rule_mid - 6, rule_y)
+    c.line(rule_mid + 6, rule_y, rule_x_end, rule_y)
+    diamond(c, rule_mid, rule_y, 4)
+
+    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 22)
+    c.drawString(margin, LETTER_H - 320, 'Ten surfaces, one master volume.')
+
+    text_block(c, margin, LETTER_H - 410,
+               ["A surface-by-surface reference. Each row in this document",
+                "is a real feature in the build you can install today — no",
+                "marketing rounding-up, no \"coming soon.\" If it's listed here,",
+                "you can reach it from the app right now.",
+                "",
+                "Use this when: you're trying to remember which panel does",
+                "the per-band masking, or you're evaluating the tool against a",
+                "spec, or you want to know what a feature is for in one line",
+                "before you click into it."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.3.0', 'Features', '9 surfaces'])
+
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.4.0', 'Features', '10 surfaces'])
 
     # ── A/B Compare ──
     new_page()
-    y = section_heading(c, 'SURFACE ONE', 'A/B Compare.',
-                        'Two files in. Every measurable difference out.')
+    y = section_heading('SURFACE ONE', 'A/B Compare.',
+                        'The flagship. Drop two files, level-matched. Every measurable difference between them, surfaced.')
     rows = [
-        ('Level-matched playback', 'Both files normalise to −18 LUFS before you hear them. Loud doesn\'t get to fake good.'),
-        ('LUFS-I, TP, LRA, MONO', 'The four numbers every delivery checks. Top of every screen, no digging.'),
-        ('Per-band masking', 'Demucs AI splits the stems first, then we show where vocals, drums, bass and the rest lose energy — per band. Whole-mix masking misses the interesting stuff.'),
-        ('Phase correlation over time', 'Full-track plot plus a per-band ribbon. Catches phase trouble that one big "+0.92" number sails past.'),
+        ('Level-matched playback', "Both files normalised to −18 LUFS integrated before audition. Loud doesn't fake good."),
+        ('LUFS-I, TP, LRA, MONO', "The four delivery numbers, surfaced in the v5.4 instrument row at the top of every screen."),
+        ('Per-band masking', 'Demucs AI stem separation reveals where vocals, drums, bass, other lose energy. Per-band, not whole-mix.'),
+        ('Phase correlation over time', 'Full-track plot plus per-band phase ribbon. Catches phase issues scalar correlation hides.'),
         ('Vectorscope', 'XY mid/side scope with peak-hold. Width and centre-energy at a glance.'),
-        ('Streaming-normalisation preview', 'Spotify, Apple, Amazon, Tidal, YouTube — hear what your master sounds like AFTER each platform turns it down.'),
-        ('Inter-sample peak meter', 'True-peak with 16× oversampling. Your DAW\'s master meter doesn\'t catch these. We do.'),
-        ('AAC encode preview', 'Run your master through Apple\'s actual AAC encoder. Hear the lossy version against the original.'),
-        ('Engineer-profile matching', 'Serban Ghenea, Chris Lord-Alge, or your own (built with RTMprofile from your finished work). Match score, plus the exact EQ moves to close the gap.'),
-        ('EQ-move export', 'Export to FabFilter Pro-Q, CSV, or JSON. Or skip the EQ entirely — let RTMcompare bounce the corrected master itself in one click.'),
+        ('Streaming-normalisation preview', 'Spotify, Apple, Amazon, Tidal, YouTube. Hear exactly how each platform will play your master.'),
+        ('Inter-sample peak meter', '4× oversampled true-peak detection (BS.1770-4). The Apply-and-bounce limiter steps to 16× polyphase Kaiser internally for sub-0.05 dB ceiling accuracy on the rendered master.'),
+        ('AAC encode preview', "Render through Apple's AAC encoder, A/B against the source."),
+        ('Engineer-profile matching', 'Serban Ghenea, Chris Lord-Alge, your own (built with RTMprofile). Match-score plus concrete EQ moves.'),
+        ('EQ-move export', 'FabFilter Pro-Q text, CSV, JSON. Or apply-and-bounce a corrected master WAV in one click.'),
     ]
     for label, blurb in rows:
-        y = feature_row(c, y, label, blurb)
+        y = feature_row(y, label, blurb)
 
     # ── Single-File QC ──
     new_page()
-    y = section_heading(c, 'SURFACE TWO', 'Single-File QC.',
-                        'Drop one file. Get a thorough check-up.')
+    y = section_heading('SURFACE TWO', 'Single-File QC.',
+                        'Drop one file. Get a deep clinical pass. For when there is no reference, only the file and a deadline.')
     rows = [
-        ('Click + glitch timeline', 'Every click and glitch plotted on a timeline. Click any peak — playback jumps right there. Audit a record in minutes.'),
-        ('Distortion detection', 'Clipping, inter-sample, harmonic. Each one tagged with severity and the band it lives in. No red blobs.'),
-        ('Mains hum + harmonics', '50 or 60 Hz fundamental, plus 3rd, 5th and 7th harmonics. Spots a ground loop in seconds.'),
-        ('Limiter artefact detection', 'Pumping, intermodulation, stuck-fast release, pre-ring. Severity-rated. Tells you when the limiter is doing harm, not just work.'),
-        ('Transfer-artefact detection', 'Wow, flutter, DC drift, tape transport, print-through. The whole analog-source rogue\'s gallery.'),
-        ('Generation-loss detection', 'AAC or MP3 fingerprints hiding inside what someone called "the original." We see them.'),
-        ('Key, BPM, harmonic ladder', 'For sync pitching and clean metadata. (No more guessing the BPM yourself.)'),
-        ('Dialog gate metering', 'For post-produced and spoken-word masters: dialog presence detection and per-region loudness on the speech bands only.'),
-        ('Mono-compat waterfall', 'Per band, not one big number. See exactly where the mono fold falls apart.'),
-        ('Stereo image + phase bands', 'Width on one axis, per-band phase on the other. The whole stereo picture, side by side.'),
+        ('Click + glitch timeline', 'Peaks plotted with click-to-transport jump. Audition every defect in seconds.'),
+        ('Distortion detection', 'Clipping, ISR, harmonic. Severity rating. Frequency band where it sits.'),
+        ('Mains hum + harmonics', '50 / 60 Hz fundamental plus 3rd, 5th, 7th. Catches grounding problems you never thought to listen for.'),
+        ('Transfer-artefact detection', 'Wow, flutter, DC drift, tape transport, print-through. For analog-sourced masters.'),
+        ('Generation-loss detection', 'Prior AAC or MP3 encoding fingerprints. Surfaces lossy ancestors.'),
+        ('Key, BPM, harmonic ladder', 'For sync pitching and metadata.'),
+        ('Mono-compat waterfall', 'Per band, not just a scalar. See exactly where the mono fold collapses.'),
+        ('Stereo image + phase bands', 'Image width and per-band phase, side by side.'),
     ]
     for label, blurb in rows:
-        y = feature_row(c, y, label, blurb)
+        y = feature_row(y, label, blurb)
 
     # ── Album Batch + Cohort ──
     new_page()
-    y = section_heading(c, 'SURFACE THREE & FOUR', 'Album Batch + Cohort.',
+    y = section_heading('SURFACE THREE & FOUR', 'Album Batch + Cohort.',
                         'A folder in. A sortable table out. Drift detection across the album.')
     rows = [
-        ('Sortable overview table', 'LUFS, TP, LRA, ISRC, duration, sample rate, bit depth — outliers flagged in red.'),
-        ('One rotating song tab', '← → flips songs. Deep analysis runs once per song, then caches. No re-runs.'),
-        ('Per-song + album notes', 'Notes embedded in every PDF export. They travel with the album.'),
-        ('.rtmalbum.json sessions', 'One file holds every analysis, every note, every reference, the delivery state. Re-open it in a year.'),
-        ('Cohort heatmap', '31-band distance per track. Sort by drift, find the song that doesn\'t belong.'),
-        ('RMS distance column', 'One ranked number for "how consistent is this album." The honest answer.'),
+        ('Sortable overview table', 'LUFS, true peak, LRA, ISRC, duration, sample rate, bit depth, outlier flags.'),
+        ('One rotating song tab', '← → to step through. Lazy deep analysis cached across rotations.'),
+        ('Per-song + album notes', 'Embedded in every PDF export. Travels with the file.'),
+        ('.rtmalbum.json sessions', "Save and load every analysis, every note, the A/B ref, cohort ref, DMR state. Re-open in a year and pick up exactly where you stopped."),
+        ('Cohort heatmap', 'Per-track distance across 31 bands. Sort by drift to find the outliers.'),
+        ('RMS distance column', 'A single ranked metric for class-wide consistency.'),
     ]
     for label, blurb in rows:
-        y = feature_row(c, y, label, blurb)
+        y = feature_row(y, label, blurb)
 
-    # ── Atmos ──
-    # (Delivery Manifest Reconciler removed in 5.3.0 — that surface
-    # isn't currently in the renderer; coming back as its own surface
-    # in a future release. No rows here pretend to ship it.)
+    # ── DMR + Atmos ──
     new_page()
-    y = section_heading(c, 'SURFACE FIVE', 'Atmos and immersive.',
-                        'Validates the immersive master before delivery.')
+    y = section_heading('SURFACE FIVE & SIX', 'Delivery Manifest + Atmos.',
+                        'The boring stuff that saves you the midnight Apple rejection. Plus the immersive corner for ADM BWF work.')
     rows = [
-        ('ADM BWF parsing', 'Bed channels, objects, trajectories, layout. All four read.'),
-        ('Binaural TP metering', 'Apple\'s Atmos delivery wants < −1 dBTP on the binaural render. We measure it.'),
-        ('Atmos Preflight hard-checks', 'Objects ≤ 118, LFE routed, bed layout (7.1.2 or 5.1.4), 48 kHz, ≥ 24-bit. Anything fails, the export gates.'),
-        ('Per-object anomaly detection', 'Hot, silent, static, or dark objects. Almost always a mix mistake, not an artistic choice.'),
-        ('Stereo downmix QC', 'BS.775 fold-down compared against the immersive master. Catches downmix surprises before the platform does.'),
+        ('Three-way diff', 'Audio-embedded metadata ↔ distributor manifest ↔ batch-internal ISRC set.'),
+        ('Title-casing drift', 'Feat. vs feat. is enough for Apple to auto-cancel. Surfaced as a blocker.'),
+        ('ISRC collisions + reuse', 'Across the album AND across prior releases (history at ~/.rtm/isrc-history.json).'),
+        ('Duration mismatches', 'Between audio file and manifest.'),
+        ('Missing rows on either side', 'Surfaces orphans audio-side or manifest-side.'),
+        ('P-line / C-line check', 'Copyright string drift.'),
+        ('Ship-Ready PDF + Corrected CSV', 'Attach to the delivery ticket. The distributor can re-ingest the CSV.'),
+        ('ADM BWF parsing', 'Bed, objects, trajectories, channel mapping.'),
+        ('Binaural-headroom estimate', 'Early-warning ILD downmix (no HRTF). Apple\'s Atmos guideline is < −1 dBTP on their renderer\'s binaural deliverable; this is a fast sanity-check, not a substitute.'),
+        ('Atmos Preflight hard-checks', 'Object count ≤ 118, LFE routing, bed layout, SR = 48 kHz, BD ≥ 24.'),
+        ('Per-object anomaly detection', 'Hot, silent, static, dark objects. Usually mix mistakes, occasionally artistic intent.'),
     ]
     for label, blurb in rows:
-        y = feature_row(c, y, label, blurb)
+        y = feature_row(y, label, blurb)
 
     # ── Quality / Player / Triage / Shell / Companions ──
     new_page()
-    y = section_heading(c, 'SURFACE SIX THROUGH NINE', 'Quality, Player, Triage, Shell.',
-                        'The verdict surfaces and the visual chrome.')
+    y = section_heading('SURFACE SEVEN THROUGH TEN', 'Verdict surfaces and visual chrome.',
+                        'How RTMcompare tells you what to change, plays files back, and gates delivery.')
     rows = [
-        ('AI-generation detection', 'Per-stem ML fingerprint detection. Spots AI-generated audio hiding in a mix.'),
-        ('Engineer-target curves', 'Match score against the engineer profile you picked.'),
-        ('Concrete EQ moves', 'Frequency, gain, Q — for every move. Export, or apply.'),
-        ('Apply-and-bounce', 'One click. The corrected WAV lands in your render folder.'),
-        ('A/B Player everywhere', 'Same player, same shortcuts on every screen. Space to play, A/B to flip, X to swap.'),
-        ('Live TP meter', 'Instant and 2-second peak-hold, right on the transport.'),
-        ('Triage Mode (optional)', 'A Ready-to-Deliver verdict, an Attention list, per-platform spec checks. Toggle on when you want it, off when you don\'t.'),
-        ('Console Didone Shell (5.2)', 'The new look: two-row header, big Didone numbers, one gold accent per screen.'),
-        ('v1 Classic shell', 'Prefer the old look? localStorage[rtm-shell] = v1 brings back the 5.1.x layout, exactly.'),
-        ('RTMprofile companion', 'Standalone app. 5+ finished masters in, your engineer profile out.'),
-        ('RTMsend companion', 'VST3 / AU plugin. One button from your DAW into RTMcompare. ARA-aware where it counts.'),
+        ('AI-generation detection', 'Per-stem ML synthesis fingerprint detection.'),
+        ('Engineer-target curves', 'Match-score against the chosen engineer profile.'),
+        ('Concrete EQ moves', 'Frequency, gain, Q. Exportable.'),
+        ('Apply-and-bounce', 'One click. Corrected WAV in your render folder.'),
+        ('A/B Player everywhere', 'Same engine, same shortcuts. B tracks active context. A is whatever you picked.'),
+        ('Live TP meter', 'Instantaneous and 2-second peak-hold on the transport.'),
+        ('Triage Mode (optional)', 'Ready-to-Deliver verdict, Attention list, per-DSP spec profile.'),
+        ('Console Didone Shell (5.3)', 'Two-row header, Didone instrument metrics, cover-state empty screen, single gold per screen.'),
+        ('v1 Classic shell', 'localStorage[rtm-shell] = v1 returns the v5.1.x markup byte-for-byte if you want it back.'),
+        ('RTMprofile companion', 'Standalone app. Builds your engineer profile from 5+ finished masters.'),
+        ('RTMsend companion', 'VST3 / AU plugin. One-button bridge from your DAW into RTMcompare. ARA-aware.'),
     ]
     for label, blurb in rows:
-        y = feature_row(c, y, label, blurb)
+        y = feature_row(y, label, blurb)
 
     # ── Closing ──
     new_page()
-    y = section_heading(c, 'COLOPHON', 'Built on.', 'The stack underneath.')
+    y = section_heading('COLOPHON', 'What this is built on.',
+                        'The stack underneath, named explicitly because the credit matters.')
     text_block(c, margin, y - 10,
                ['Electron · React 19 · TypeScript · Tailwind v4 · Vite',
                 'Python 3.11 · NumPy · SciPy · librosa · pyloudnorm · Demucs',
                 'JUCE 7 (RTMsend) · electron-builder · electron-rebuild'],
                MONO, 10.5, SAND_SECONDARY, leading=20)
-    text_block(c, margin, y - 100,
-               ['Wordmark and hero numerals set in Instrument Serif.',
-                'Body and labels in Instrument Sans. Tabular data in',
-                'Geist Mono. Single antique-gold accent reserved for',
-                'the active delivery-target chip.'],
+    text_block(c, margin, y - 110,
+               ["Wordmark and hero numerals set in Instrument Serif. Body and",
+                "labels in Instrument Sans. Tabular data in Geist Mono. The",
+                "single antique-gold accent is reserved for one element per",
+                "screen — the active delivery-target chip, the verdict-violation",
+                "flag, or the icon mark. Never two at once."],
                SANS, 11, SAND_SECONDARY, leading=18)
 
     c.save()
-    print(f'  → {os.path.basename(path)}')
+    print(f'  → {Path(path).name}')
 
 
 # ──────────────────────────────────────────────────────────────────────
 #  PITCH DECK
 # ──────────────────────────────────────────────────────────────────────
-def build_pitch(path: str):
-    c = canvas.Canvas(path, pagesize=(SLIDE_W, SLIDE_H))
+def build_pitch(path):
+    c = canvas.Canvas(str(path), pagesize=(SLIDE_W, SLIDE_H))
     c.setTitle('RTMcompare — Pitch')
     c.setAuthor('Ohad Nissim')
-    c.setSubject('RTMcompare 5.2 pitch deck')
+    c.setSubject('RTMcompare 5.4 pitch deck')
 
     margin = 120.0
+    SLIDE_TOTAL = 11
+    PLATFORM_STRIP = 'macOS · WINDOWS · LOCAL-FIRST'
 
-    def slide_chrome(slide_no: int, slide_total: int):
-        # Page-number eyebrow top-right + colophon bottom centre
-        tracked_caps(c, SLIDE_W - margin - 80, SLIDE_H - 60,
-                     f'{slide_no:02d} / {slide_total:02d}',
-                     SANS, 9, SAND_DIM, tracking=0.18)
-        colophon(c, SLIDE_W, 50, ['RTMcompare', 'v5.3.0', 'Pitch · 5.2', 'Internal'])
+    def slide_chrome(slide_no):
+        corner_ticks(c, SLIDE_W, SLIDE_H, inset=80, length=40)
+        tracked_caps(c, SLIDE_W - margin - 100, SLIDE_H - 80,
+                     f'{slide_no:02d} / {SLIDE_TOTAL:02d}',
+                     SANS, 11, SAND_DIM, tracking=0.22)
+        colophon(c, SLIDE_W, 60, ['RTMcompare', 'v5.4', 'Pitch', 'macOS + Windows'])
 
-    SLIDE_TOTAL = 10
+    def tagline(y_first, size=56):
+        """The canonical italic tagline, with 'Before' in gold."""
+        c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, size)
+        c.drawString(margin, y_first, 'Hear what Spotify hears.')
+        c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, size)
+        c.drawString(margin, y_first - int(size * 1.25), 'Before')
+        before_w = c.stringWidth('Before', SERIF_ITALIC, size)
+        c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, size)
+        c.drawString(margin + before_w + 20, y_first - int(size * 1.25),
+                     'Spotify hears it.')
 
-    # ── 1 · Cover ──
+    # ─────────────────────────────────────────────────────────────────
+    # 1 · Cover — the tagline, hard.
+    # ─────────────────────────────────────────────────────────────────
     fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 240, 'PRO AUDIO QC, MASTERING-GRADE',
+    tracked_caps(c, margin, SLIDE_H - 240,
+                 'MASTERING-GRADE AUDIO COMPARISON & QC',
                  SANS, 18, SAND_MUTED, tracking=0.22)
     wordmark(c, margin, SLIDE_H - 530, 220)
-    gold_rule(c, margin, SLIDE_H - 565, 1100, weight=0.9)
-    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 44)
-    c.drawString(margin, SLIDE_H - 640,
-                 'Pro mastering tools, minus the wall of jargon.')
-    tracked_caps(c, margin, 200, 'AVAILABLE FOR macOS · APPLE SILICON',
-                 SANS, 14, SAND_MUTED, tracking=0.22)
-    slide_chrome(1, SLIDE_TOTAL)
 
-    # ── 2 · Problem ──
-    c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'THE PROBLEM',
+    rule_y = SLIDE_H - 580
+    rule_w = 1100
+    rule_mid = margin + rule_w / 2
+    c.setStrokeColor(Color(*CREAM.rgb(), alpha=0.85))
+    c.setLineWidth(0.9)
+    c.line(margin, rule_y, rule_mid - 12, rule_y)
+    c.line(rule_mid + 12, rule_y, margin + rule_w, rule_y)
+    diamond(c, rule_mid, rule_y, 8)
+
+    tagline(SLIDE_H - 660)
+
+    tracked_caps(c, margin, 200, PLATFORM_STRIP,
                  SANS, 14, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 92)
+    slide_chrome(1)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 2 · Problem — broader, names mix / master / producer pain.
+    # ─────────────────────────────────────────────────────────────────
+    c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
+    tracked_caps(c, margin, SLIDE_H - 200, 'THE FRICTION POINTS',
+                 SANS, 14, SAND_MUTED, tracking=0.22)
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 60)
     headlines = [
-        'Mastering software has spent',
-        'a decade adding more knobs.',
-        '',
-        'You still need three apps',
-        'to ship one record.',
-        '',
-        'And nothing connects the room',
-        'to the delivery email.',
+        "Your mix translates differently on every system.",
+        "Your master goes 6 dB quieter once Spotify is done with it.",
+        "Your bounce has a 6 kHz tone you didn't notice until a producer flagged it.",
+        "Your delivery gets cancelled because of a comma in a track title.",
+        "",
+        "Nobody tells you why until the email arrives at midnight.",
     ]
     y = SLIDE_H - 320
     for line in headlines:
+        if line == '':
+            y -= 50
+            continue
         c.drawString(margin, y, line)
-        y -= 100
-    slide_chrome(2, SLIDE_TOTAL)
+        y -= 90
+    slide_chrome(2)
 
-    # ── 3 · Positioning ──
+    # ─────────────────────────────────────────────────────────────────
+    # 3 · Positioning — three doors in.
+    # ─────────────────────────────────────────────────────────────────
     c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'WHAT WE BUILT',
+    tracked_caps(c, margin, SLIDE_H - 200, 'WHAT IT IS',
                  SANS, 14, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 120)
-    c.drawString(margin, SLIDE_H - 380, 'One desktop app')
-    c.drawString(margin, SLIDE_H - 510, 'for the whole')
-    c.drawString(margin, SLIDE_H - 640, 'pre-release run.')
-    gold_rule(c, margin, SLIDE_H - 680, 320)
-    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 36)
-    c.drawString(margin, SLIDE_H - 760,
-                 'Local-first. No cloud round-trip. Built by an engineer, for engineers.')
-    slide_chrome(3, SLIDE_TOTAL)
+    c.setFillColor(CREAM); c.setFont(SERIF, 100)
+    c.drawString(margin, SLIDE_H - 340, 'A desktop tool')
+    c.drawString(margin, SLIDE_H - 460, 'for engineers and producers')
+    c.drawString(margin, SLIDE_H - 580, 'who care what the platforms do')
+    c.drawString(margin, SLIDE_H - 700, 'to their work.')
+    gold_rule(c, margin, SLIDE_H - 740, 320, weight=0.9)
+    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 30)
+    c.drawString(margin, SLIDE_H - 800,
+                 'Mixing engineers comparing revisions. Mastering engineers shipping deliveries.')
+    c.drawString(margin, SLIDE_H - 850,
+                 'Producers checking bounces. Same tool, three doors in.')
+    slide_chrome(3)
 
-    # ── 4 · Hero metric ──
+    # ─────────────────────────────────────────────────────────────────
+    # 4 · The breadth — what the app actually does. Three-column scan.
+    # ─────────────────────────────────────────────────────────────────
     c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'OVERALL VERDICT',
+    tracked_caps(c, margin, SLIDE_H - 200, 'WHAT RTMCOMPARE ACTUALLY DOES',
                  SANS, 14, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 560)
-    c.drawString(margin, SLIDE_H - 720, '−7.1')
-    c.setFillColor(SAND_MUTED); c.setFont(SERIF, 110)
-    c.drawString(margin + 1100, SLIDE_H - 720, 'LUFS')
-    gold_rule(c, margin, SLIDE_H - 760, 480)
-    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 38)
-    c.drawString(margin, SLIDE_H - 830,
-                 'Two point eight louder than the reference, integrated.')
-    slide_chrome(4, SLIDE_TOTAL)
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 56)
+    c.drawString(margin, SLIDE_H - 290,
+                 'Ten surfaces. One file or two or a folder.')
 
-    # ── 5 · A/B compare ──
+    # Three columns, each with a short heading and a bullet list
+    col_w = (SLIDE_W - 2 * margin - 80) / 3
+    col_x = [margin, margin + col_w + 40, margin + 2 * (col_w + 40)]
+    col_y_top = SLIDE_H - 420
+
+    columns = [
+        ('COMPARE TWO FILES', [
+            'Level-matched playback to −18 LUFS',
+            'Per-band masking via AI stem separation',
+            'Phase correlation per band + over time',
+            'Vectorscope with peak-hold',
+            'Inter-sample peak meter (4× oversampled, BS.1770-4)',
+            'Streaming-normalisation preview · 7 platforms',
+            'Engineer-profile match · concrete EQ moves',
+            'Apply-and-bounce a corrected master',
+        ]),
+        ('QC ONE FILE', [
+            'Click & glitch timeline · click-to-transport',
+            'Distortion: clipping, ISR, harmonic',
+            'Mains hum + 3rd / 5th / 7th harmonics',
+            'Tape transfer artefacts: wow, flutter, drift',
+            'Generation-loss detection (lossy ancestors)',
+            'Key, BPM, harmonic ladder',
+            'Mono-compat waterfall · per band, not scalar',
+            'Stereo image + per-band phase',
+        ]),
+        ('SHIP A FOLDER', [
+            'Sortable batch table · LUFS, TP, LRA, ISRC',
+            'Cohort heatmap · per-track 31-band drift',
+            '.rtmalbum.json sessions · re-open in a year',
+            'Delivery Manifest 3-way diff',
+            'Atmos Preflight · object count, LFE, layout',
+            'Per-object anomaly detection',
+            'Ship-Ready PDF + Corrected CSV exports',
+            'AI-gen detection · per stem',
+        ]),
+    ]
+    for i, (heading, items) in enumerate(columns):
+        x = col_x[i]
+        tracked_caps(c, x, col_y_top, heading, SANS, 13, GOLD if i == 0 else SAND_MUTED,
+                     tracking=0.20)
+        gold_rule(c, x, col_y_top - 18, 60) if i == 0 else thin_rule(
+            c, x, col_y_top - 18, 60, color=SAND_DIM, opacity=0.35)
+        ix_y = col_y_top - 60
+        c.setFillColor(SAND_SECONDARY); c.setFont(SANS, 17)
+        for item in items:
+            c.drawString(x, ix_y, item)
+            ix_y -= 36
+    slide_chrome(4)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 5 · A/B Compare — fixed layout, file labels above the value
+    #     so the bottom italic line doesn't collide.
+    # ─────────────────────────────────────────────────────────────────
     c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'A/B COMPARE',
+    tracked_caps(c, margin, SLIDE_H - 200, 'A/B COMPARE · LEVEL-MATCHED',
                  SANS, 14, SAND_MUTED, tracking=0.22)
     c.setFillColor(CREAM); c.setFont(SERIF, 56)
-    c.drawString(margin, SLIDE_H - 270, 'Level-matched. Every difference, named.')
-    # Two columns
+    c.drawString(margin, SLIDE_H - 270,
+                 'Both files normalised to −18 LUFS before audition.')
+
     col_w = (SLIDE_W - 2 * margin - 80) / 2
     col_y = SLIDE_H - 460
-    # A
+
+    # A column — labels stacked above the big number
     tracked_caps(c, margin, col_y, 'A · REFERENCE', SANS, 14, SAND_MUTED, tracking=0.20)
-    c.setFillColor(CREAM); c.setFont(SERIF, 220)
-    c.drawString(margin, col_y - 240, '−9.9')
     c.setFillColor(SAND_MUTED); c.setFont(MONO, 22)
-    c.drawString(margin, col_y - 290, 'demo.wav')
-    # vertical rule
+    c.drawString(margin, col_y - 36, 'reference.wav')
+    c.setFillColor(CREAM); c.setFont(SERIF, 220)
+    c.drawString(margin, col_y - 280, '−9.9')
+    c.setFillColor(SAND_MUTED); c.setFont(SERIF, 36)
+    c.drawString(margin + 380, col_y - 280, 'LUFS')
+
+    # vertical divider
     c.setStrokeColor(Color(*SAND_DIM.rgb(), alpha=0.4))
     c.setLineWidth(0.5)
     c.line(margin + col_w + 40, col_y + 30, margin + col_w + 40, col_y - 320)
-    # B with gold rule
+
+    # B column — gold rule, same stacked layout
     bx = margin + col_w + 80
-    tracked_caps(c, bx, col_y, 'B · MIX', SANS, 14, SAND_MUTED, tracking=0.20)
-    c.setFillColor(CREAM); c.setFont(SERIF, 220)
-    c.drawString(bx, col_y - 240, '−7.1')
-    gold_rule(c, bx, col_y - 252, 280)
+    tracked_caps(c, bx, col_y, 'B · YOUR MIX', SANS, 14, SAND_MUTED, tracking=0.20)
     c.setFillColor(SAND_MUTED); c.setFont(MONO, 22)
-    c.drawString(bx, col_y - 290, 'mix.wav')
-    # delta
-    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 40)
-    c.drawString(margin, 320, 'B is 2.8 LU louder than A, integrated.')
-    slide_chrome(5, SLIDE_TOTAL)
+    c.drawString(bx, col_y - 36, 'rev_4_final_v2.wav')
+    c.setFillColor(CREAM); c.setFont(SERIF, 220)
+    c.drawString(bx, col_y - 280, '−7.1')
+    c.setFillColor(SAND_MUTED); c.setFont(SERIF, 36)
+    c.drawString(bx + 380, col_y - 280, 'LUFS')
+    gold_rule(c, bx, col_y - 296, 280)
 
-    # ── 6 · Single-File QC ──
-    # (Replaces the DMR slide — DMR isn't in the renderer right now;
-    # Single-File QC is the strongest unspoken-for surface in 5.3.0.)
-    c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'SINGLE-FILE QC',
-                 SANS, 14, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 80)
-    italic_lines = [
-        'Drop one file. The whole',
-        'service appointment.',
-    ]
-    y = SLIDE_H - 340
-    for l in italic_lines:
-        c.drawString(margin, y, l); y -= 100
-    gold_rule(c, margin, y - 20, 320)
-    text_block(c, margin, y - 100,
-               ['Clicks and glitches plotted on a clickable timeline.',
-                'Distortion (clipping, inter-sample, harmonic) named',
-                'with the band it lives in. Mains hum at 50/60 Hz plus',
-                'harmonics. Limiter artefacts (pumping, IM, stuck-fast).',
-                'Generation loss — MP3/AAC fingerprints inside what',
-                'someone called "the original."'],
-               SANS, 28, SAND_SECONDARY, leading=44)
-    slide_chrome(6, SLIDE_TOTAL)
+    # Italic kicker — moved well below the columns to avoid collision
+    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 36)
+    c.drawString(margin, 220,
+                 'B is 2.8 LU louder. Levels matched, the panels show what changed besides volume.')
+    slide_chrome(5)
 
-    # ── 7 · Atmos ──
+    # ─────────────────────────────────────────────────────────────────
+    # 6 · Per-band masking spotlight — what makes Compare different
+    #     from a meter. AI stem separation as the differentiator.
+    # ─────────────────────────────────────────────────────────────────
     c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'DOLBY ATMOS',
+    tracked_caps(c, margin, SLIDE_H - 200, 'WHY THIS ISN\'T JUST ANOTHER METER',
                  SANS, 14, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 90)
-    c.drawString(margin, SLIDE_H - 320, 'ADM BWF native.')
-    c.drawString(margin, SLIDE_H - 420, 'Preflight gates delivery.')
-    gold_rule(c, margin, SLIDE_H - 460, 320)
-    text_block(c, margin, SLIDE_H - 540,
-               ['Bed and objects, parsed. Binaural TP, metered. Stereo',
-                'downmix, QC\'d. Apple\'s hard checks (objects ≤ 118,',
-                'LFE routed, bed layout, 48 kHz, ≥ 24-bit) gate the',
-                'export — fail any of them and you fix it before you',
-                'send. Per-object anomaly detection flags hot, silent,',
-                'static, or dark objects. Usually a mix mistake.'],
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 84)
+    c.drawString(margin, SLIDE_H - 320, "Per-band masking via")
+    c.drawString(margin, SLIDE_H - 410, "AI stem separation.")
+    gold_rule(c, margin, SLIDE_H - 450, 320)
+    text_block(c, margin, SLIDE_H - 530,
+               ["Demucs splits both files into vocals, drums, bass, other.",
+                "RTMcompare measures per-band energy loss across 31 bands,",
+                "per stem. So when your master sums and the vocals lose 3.2 dB",
+                "at 2 kHz to drum bus competition, you see exactly that —",
+                "not just \"the mid-range is different.\""],
                SANS, 26, SAND_SECONDARY, leading=42)
-    slide_chrome(7, SLIDE_TOTAL)
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 32)
+    c.drawString(margin, 240,
+                 "The thing other compare tools don't have.")
+    slide_chrome(6)
 
-    # ── 8 · Companion apps ──
+    # ─────────────────────────────────────────────────────────────────
+    # 7 · Single-file QC spotlight — clinical pass when no reference.
+    # ─────────────────────────────────────────────────────────────────
     c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'COMPANION APPS',
+    tracked_caps(c, margin, SLIDE_H - 200, 'WHEN YOU ONLY HAVE ONE FILE',
                  SANS, 14, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 96)
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 84)
+    c.drawString(margin, SLIDE_H - 320, "Drop one file in.")
+    c.drawString(margin, SLIDE_H - 410, "We tell you what's wrong.")
+    gold_rule(c, margin, SLIDE_H - 450, 320)
+
+    # Two-column body
+    qc_left = [
+        "Click & glitch timeline",
+        "Distortion · clipping, ISR, harmonic",
+        "Mains hum + harmonics",
+        "Tape artefacts · wow, flutter, drift",
+    ]
+    qc_right = [
+        "Generation-loss · finds lossy ancestors",
+        "Key, BPM, harmonic ladder",
+        "Mono-compat waterfall · per band",
+        "Stereo image + per-band phase",
+    ]
+    col2_x = margin + 600
+    y_start = SLIDE_H - 540
+    c.setFillColor(SAND_SECONDARY); c.setFont(SANS, 22)
+    for i, item in enumerate(qc_left):
+        c.drawString(margin, y_start - i * 50, '·  ' + item)
+    for i, item in enumerate(qc_right):
+        c.drawString(col2_x, y_start - i * 50, '·  ' + item)
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 30)
+    c.drawString(margin, 240,
+                 "For when there's no reference, only the file and a deadline.")
+    slide_chrome(7)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 8 · Engineer-profile matching — RTMprofile + apply-and-bounce
+    # ─────────────────────────────────────────────────────────────────
+    c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
+    tracked_caps(c, margin, SLIDE_H - 200, 'PROFILE MATCHING',
+                 SANS, 14, SAND_MUTED, tracking=0.22)
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 84)
+    c.drawString(margin, SLIDE_H - 320, "Match against an engineer.")
+    c.drawString(margin, SLIDE_H - 410, "Or yourself.")
+    gold_rule(c, margin, SLIDE_H - 450, 320)
+    text_block(c, margin, SLIDE_H - 530,
+               ["Bundled profiles: Serban Ghenea, Chris Lord-Alge,",
+                "Tom Coyne, Bob Ludwig. Or build your own with RTMprofile",
+                "from 5+ of your finished masters.",
+                "",
+                "RTMcompare returns a match-score plus concrete EQ moves —",
+                "frequency, gain, Q. Apply-and-bounce produces the corrected",
+                "master in one click. No re-do."],
+               SANS, 26, SAND_SECONDARY, leading=42)
+    slide_chrome(8)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 9 · Specialty surfaces — DMR + Atmos, both compressed.
+    # ─────────────────────────────────────────────────────────────────
+    c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
+    tracked_caps(c, margin, SLIDE_H - 200, 'SPECIALTY SURFACES',
+                 SANS, 14, SAND_MUTED, tracking=0.22)
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 60)
+    c.drawString(margin, SLIDE_H - 290,
+                 'Two surfaces you only use if they\'re for you.')
+
+    # DMR side
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 56)
+    c.drawString(margin, SLIDE_H - 410, "Delivery Manifest")
+    text_block(c, margin, SLIDE_H - 470,
+               ["Apple cancels deliveries on punctuation. Spotify rejects",
+                "duplicate ISRCs without warning. DMR three-way-diffs your",
+                "audio, the manifest, and the album's ISRC set. Catches",
+                "every reason a release gets bounced. Exports Ship-Ready",
+                "PDF + Corrected CSV the distributor can re-ingest.",
+                "",
+                "For label ops."],
+               SANS, 18, SAND_SECONDARY, leading=28)
+
+    # Atmos side
+    atmos_x = margin + 950
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 56)
+    c.drawString(atmos_x, SLIDE_H - 410, "Dolby Atmos")
+    text_block(c, atmos_x, SLIDE_H - 470,
+               ["ADM BWF native. Bed and objects parsed, binaural-",
+                "headroom estimated (ILD downmix), stereo downmix QC'd",
+                "against the immersive master.",
+                "Atmos Preflight runs Apple's hard-checks (object count ≤ 118,",
+                "LFE routing, bed layout, SR = 48 kHz). Per-object anomaly",
+                "detection flags hot, silent, static, dark objects.",
+                "",
+                "For immersive mix supervisors."],
+               SANS, 18, SAND_SECONDARY, leading=28)
+    slide_chrome(9)
+
+    # ─────────────────────────────────────────────────────────────────
+    # 10 · Companion apps — RTMprofile + RTMsend, two paragraphs.
+    # ─────────────────────────────────────────────────────────────────
+    c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
+    tracked_caps(c, margin, SLIDE_H - 200, 'TWO COMPANION APPS',
+                 SANS, 14, SAND_MUTED, tracking=0.22)
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 84)
     c.drawString(margin, SLIDE_H - 360, 'RTMprofile')
     text_block(c, margin, SLIDE_H - 420,
-               ['Feed it 5+ finished masters. It learns your sound,',
-                'saves it as a fingerprint, drops straight into',
-                'RTMcompare\'s Match tab. Your catalogue, made portable.'],
+               ['Feed it 5+ finished masters. It learns your sound and saves a',
+                "fingerprint that loads into RTMcompare's Match tab. Or grade",
+                "any new mix against an engineer profile already on disk."],
                SANS, 24, SAND_SECONDARY, leading=38)
-    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 96)
+
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 84)
     c.drawString(margin, SLIDE_H - 640, 'RTMsend')
     text_block(c, margin, SLIDE_H - 700,
-               ['VST3 / AU plugin. One button from Wavelab, Logic,',
-                'Pro Tools, Studio One — straight into RTMcompare.',
-                'ARA-aware where the host supports it.'],
+               ['VST3 / AU plugin. Sits on a bus in Wavelab, Logic, Pro Tools,',
+                'Studio One. One button sends the buffer to RTMcompare\'s Single,',
+                'Compare-B, or Album surface. ARA-aware on hosts that support it.'],
                SANS, 24, SAND_SECONDARY, leading=38)
-    slide_chrome(8, SLIDE_TOTAL)
+    slide_chrome(10)
 
-    # ── 9 · Privacy ──
+    # ─────────────────────────────────────────────────────────────────
+    # 11 · Closing — privacy + tagline echo + platform strip
+    # ─────────────────────────────────────────────────────────────────
     c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    tracked_caps(c, margin, SLIDE_H - 200, 'PRIVACY',
+    tracked_caps(c, margin, SLIDE_H - 200, 'YOUR FILES STAY ON YOUR MACHINE',
                  SANS, 14, SAND_MUTED, tracking=0.22)
-    c.setFillColor(CREAM); c.setFont(SERIF, 110)
-    c.drawString(margin, SLIDE_H - 360, 'No audio leaves')
-    c.drawString(margin, SLIDE_H - 490, 'the machine.')
-    gold_rule(c, margin, SLIDE_H - 530, 320)
-    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 36)
-    text_block(c, margin, SLIDE_H - 620,
-               ['Every analysis, every render, every metadata read —',
-                'all on this device. The only network path the app',
-                'opens is opt-in DSP delivery status: outbound only,',
-                'read-only, with credentials kept in the macOS',
-                'Keychain via safeStorage. That\'s the entire list.'],
-               SANS, 26, SAND_SECONDARY, leading=42)
-    slide_chrome(9, SLIDE_TOTAL)
+    c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 50)
+    c.drawString(margin, SLIDE_H - 290, "Local-first. No cloud round-trip.")
 
-    # ── 10 · Closing ──
-    c.showPage(); fill_bg(c, SLIDE_W, SLIDE_H)
-    wordmark(c, margin, SLIDE_H - 480, 180)
-    gold_rule(c, margin, SLIDE_H - 510, 1100, weight=0.9)
-    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 50)
-    c.drawString(margin, SLIDE_H - 590, 'Pro mastering tools, minus the wall of jargon.')
-    tracked_caps(c, margin, 240, 'macOS · APPLE SILICON · LOCAL-FIRST · 5.3.0',
+    wordmark(c, margin, SLIDE_H - 510, 180)
+
+    rule_y = SLIDE_H - 560
+    rule_w = 1100
+    rule_mid = margin + rule_w / 2
+    c.setStrokeColor(Color(*CREAM.rgb(), alpha=0.85))
+    c.setLineWidth(0.9)
+    c.line(margin, rule_y, rule_mid - 12, rule_y)
+    c.line(rule_mid + 12, rule_y, margin + rule_w, rule_y)
+    diamond(c, rule_mid, rule_y, 8)
+
+    tagline(SLIDE_H - 640, size=50)
+
+    tracked_caps(c, margin, 240, PLATFORM_STRIP + ' · 5.3',
                  SANS, 16, SAND_MUTED, tracking=0.22)
-    slide_chrome(10, SLIDE_TOTAL)
+    slide_chrome(11)
 
     c.save()
-    print(f'  → {os.path.basename(path)}')
+    print(f'  → {Path(path).name}')
 
 
 # ──────────────────────────────────────────────────────────────────────
 #  Driver
 # ──────────────────────────────────────────────────────────────────────
 def main():
-    out = lambda name: os.path.join(HERE, name)
-    print('Generating Console Didone PDFs:')
-    build_manual(out('RTMcompare-Manual.pdf'))
-    build_features(out('RTMcompare-Features.pdf'))
-    build_pitch(out('RTMcompare-Pitch.pdf'))
+    print('Generating Console Didone PDFs (5.3 voice rewrite):')
+    build_manual(HERE / 'RTMcompare-Manual.pdf')
+    build_features(HERE / 'RTMcompare-Features.pdf')
+    build_pitch(HERE / 'RTMcompare-Pitch.pdf')
     print(f'\nAll PDFs written to {HERE}/')
 
 

@@ -39,9 +39,13 @@ def detect_hum(y: np.ndarray, sr: int) -> dict:
         else:
             y_use = y
 
-        # Long FFT for narrow-band resolution. n_fft=8192 at 44.1k → ~5.4 Hz bins,
-        # which is enough to resolve 50 vs 60. Hop short so we get many frames.
-        n_fft = 8192 if sr <= 48000 else 16384
+        # 5.3.1 fix: long FFT for narrow-band resolution. Pre-5.3 used
+        # n_fft=8192 (≈5.4 Hz bins at 44.1k), which is the same bin
+        # width as the NARROWBAND_BW_HZ=1.5 search half-width — meaning
+        # 50 Hz and 60 Hz could fall in the SAME bin and the detector
+        # couldn't actually distinguish them. Bumped to 16384 → ~2.7 Hz
+        # bins at 44.1k and ~1.35 Hz at 88/96k, comfortably resolvable.
+        n_fft = 16384 if sr <= 48000 else 32768
         hop = n_fft // 4
         S = np.abs(librosa.stft(y_use, n_fft=n_fft, hop_length=hop))
         if S.shape[1] < 4:

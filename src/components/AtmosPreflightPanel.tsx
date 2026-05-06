@@ -162,19 +162,25 @@ function evaluate(result: AnalysisResult): Check[] {
  }
  }
 
- // 8. Binaural TP — show if available, as an advisory.
+ // 8. Binaural-headroom estimate — show if available, as an advisory.
+ //    5.3.1 honesty fix: this is an ILD downmix approximation (no HRTF
+ //    render). Apple's actual Atmos binaural is rendered by Apple's
+ //    spatial-audio engine; we don't reproduce it. We surface this as
+ //    an early-warning headroom check, never as a delivery gate.
  const binTp = (result as any).atmos_qc?.binaural_tp?.true_peak_db as number | undefined
  if (binTp != null) {
  checks.push({
- name: 'Binaural TP',
- status: binTp > -1 ? 'block' : binTp > -2 ? 'warn' : 'pass',
+ name: 'Binaural TP (approx)',
+ // 5.3.1: never blocks — at worst warns. ILD-approx is too coarse
+ // to make a delivery call on; Apple's renderer is the authority.
+ status: binTp > -1 ? 'warn' : binTp > -2 ? 'warn' : 'pass',
  value: `${binTp.toFixed(1)} dBTP`,
- target: '≤ −1 dBTP',
+ target: '≤ −1 dBTP (Apple guideline)',
  note: binTp > -1
- ? 'Binaural render is over the −1 dBTP streaming ceiling — Apple Spatial Audio playback will clip.'
+ ? 'ILD-approx headroom is over Apple\'s −1 dBTP guideline. Verify on Apple\'s renderer before delivery — this is not a substitute.'
  : binTp > -2
- ? 'Binaural TP is within 1 dB of the streaming ceiling — consider dropping a touch.'
- : 'Binaural TP has sufficient headroom for Apple Spatial Audio playback.',
+ ? 'ILD-approx headroom within 1 dB of the guideline. Verify on Apple\'s renderer.'
+ : 'Approx headroom looks OK; still verify on Apple\'s renderer for delivery.',
  })
  }
 

@@ -68,7 +68,7 @@ export default function StreamingDeltaHeatmap({
  const bg = intensity <= 0.02
  ? 'rgba(110,197,119,0.04)' // faint green = idle
  : `rgba(224,90,90,${0.15 + intensity * 0.65})`
- const tooltip = `${(i * secondsPerBlock).toFixed(1)}s · ${grDb.toFixed(1)} dB GR`
+ const tooltip = `${(i * secondsPerBlock).toFixed(1)}s · ${grDb.toFixed(1)} dB gain reduction (limiter pull-down)`
  return (
  <div
  key={i}

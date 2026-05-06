@@ -76,11 +76,20 @@ if [ ! -f "$VENV_DIR/bin/pip" ]; then
 fi
 
 # Install deps
+# 5.3.x: vendored UAI engine adds audio-separator (BS-RoFormer 4-stem
+# frontend), onnxruntime (every ONNX detector — cnn/ast/lofcz/modspec),
+# soxr (lofcz preprocessing resampler), and xgboost (calibration-head
+# loader; lazy). whisper is intentionally NOT here — its lyrics
+# detector is optional and the engine fail-opens without it.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-"$VENV_DIR/bin/pip" install demucs librosa numpy scipy soundfile >> "$LOG" 2>&1
+"$VENV_DIR/bin/pip" install \
+    demucs librosa numpy scipy soundfile pyloudnorm \
+    "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0" xgboost \
+    >> "$LOG" 2>&1
 
-# Verify
-"$VENV_DIR/bin/python3" -c "import demucs; import librosa; import numpy; import scipy" >> "$LOG" 2>&1
+# Verify the new deps too — silent fallbacks at runtime mean a missing
+# wheel here would cost an hour of debugging downstream.
+"$VENV_DIR/bin/python3" -c "import demucs, librosa, numpy, scipy, onnxruntime, soxr, audio_separator" >> "$LOG" 2>&1
 if [ $? -ne 0 ]; then
     echo "ERROR: Dependencies verification failed. Check $LOG"
     exit 1

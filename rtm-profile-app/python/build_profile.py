@@ -104,35 +104,26 @@ def _lufs_integrated(y: np.ndarray, sr: int) -> float:
 
 
 def _loudness_range(y: np.ndarray, sr: int) -> float:
-    """Loudness range (LRA, in LU) per EBU R128. pyloudnorm provides
-    `loudness_range` separately."""
+    """Loudness range (LRA, in LU) per BS.1770-4 / EBU R128.
+
+    5.3.1 fix: pre-5.3 this hand-rolled p95-p10 of `integrated_loudness`
+    per 3 s window — but `integrated_loudness` is itself the gated
+    integrated metric (BS.1770 §5), NOT short-term. So the percentile
+    range was over the wrong distribution. Now we use pyloudnorm's
+    proper `loudness_range` method (BS.1770-4 §B.2). Returns 0.0 if
+    pyloudnorm is too old to expose it.
+    """
     try:
         meter = pyln.Meter(sr, block_size=3.0)
         if y.ndim == 1:
             data = y.reshape(-1, 1)
         else:
             data = y
-        # pyloudnorm doesn't expose LRA directly in older versions;
-        # approximate via short-term LUFS percentile spread (p95 - p10
-        # in LU, gated for absolute silence). Matches the BS.1770
-        # methodology's spirit close enough for a profile fingerprint.
-        block = int(sr * 3.0)
-        hop = int(sr * 1.0)
-        st_values = []
-        n = len(data)
-        for i in range(0, n - block + 1, hop):
-            seg = data[i:i + block]
-            try:
-                v = meter.integrated_loudness(seg)
-                if np.isfinite(v) and v > -70.0:
-                    st_values.append(v)
-            except Exception:
-                continue
-        if len(st_values) < 4:
-            return 0.0
-        arr = np.array(st_values)
-        return float(np.percentile(arr, 95) - np.percentile(arr, 10))
+        return float(meter.loudness_range(data))
     except Exception:
+        # Older pyloudnorm or pathological input — return 0 rather
+        # than a wrong number. The profile builder will still produce
+        # a valid file; LRA just shows up as 0.
         return 0.0
 
 
@@ -241,9 +232,100 @@ def _load_demucs():
 
 
 def _separate_in_memory(data: np.ndarray, sr: int) -> tuple[dict[str, np.ndarray], int]:
-    """Run Demucs htdemucs on `data` (samples, channels). Returns a
-    (stem_dict, model_sr) pair. Stems are float32 (samples, channels)
-    arrays at the model's native sample rate (typically 44.1 kHz)."""
+    """Separate `data` into 4 stems. Returns `(stem_dict, model_sr)`.
+
+    5.3.x: now defaults to UAI's BS-RoFormer 4-stem (SDR 9.66 on
+    MUSDB18HQ; meaningfully cleaner than htdemucs ~7.0 SDR).
+    Falls back to htdemucs if BS-RoFormer isn't available (no
+    audio-separator wheel, no model file, OOM, etc.) so the profile
+    builder still produces a result on machines that haven't received
+    the new dep yet.
+    """
+    try:
+        return _separate_with_bs_roformer(data, sr)
+    except Exception as err:  # noqa: BLE001
+        sys.stderr.write(
+            f"[build_profile] BS-RoFormer unavailable, falling back to htdemucs: {err}\n"
+        )
+        return _separate_with_demucs(data, sr)
+
+
+def _separate_with_bs_roformer(data: np.ndarray, sr: int) -> tuple[dict[str, np.ndarray], int]:
+    """BS-RoFormer 4-stem separation via the vendored UAI backend.
+
+    Writes the input as a tmp WAV, calls
+    `uai_stems.get_backend("bs_roformer_4stem").separate(...)`, then
+    reads each stem WAV back into a `(samples, channels)` float32 array.
+    """
+    import os as _os
+    import tempfile
+    import soundfile as sf
+    import librosa
+
+    # Make sibling RTMcompare's vendored model-cache discoverable so we
+    # don't redownload 503 MB if it's already on disk. Look in:
+    #   1) RTMprofile's own model-cache/uai_stems/models/  (preferred)
+    #   2) RTMcompare's model-cache/uai_root/models/        (sibling app)
+    #   3) Apple bundle at /Applications/RTMcompare.app/Contents/Resources/model-cache/uai_root/models/
+    here = Path(__file__).resolve().parent.parent
+    candidates = [
+        here / "model-cache" / "uai_stems" / "models",
+        here.parent / "model-cache" / "uai_root" / "models",
+        Path("/Applications/RTMcompare.app/Contents/Resources/model-cache/uai_root/models"),
+    ]
+    model_dir = None
+    for base in candidates:
+        if (base / "bs_roformer_4stem_ep_17_sdr_9.6568.ckpt").exists():
+            model_dir = str(base)
+            break
+    # If we didn't find it, the backend will download into the first
+    # writable candidate (its own cache dir). Avoids redownloading.
+    if model_dir is None:
+        first = candidates[0]
+        first.mkdir(parents=True, exist_ok=True)
+        model_dir = str(first)
+    _os.environ["AIVSHU_MODELS_DIR"] = model_dir
+
+    # Make the vendored slim subset importable.
+    here_python = Path(__file__).resolve().parent
+    if str(here_python) not in sys.path:
+        sys.path.insert(0, str(here_python))
+    from uai_stems import get_backend  # type: ignore
+
+    # The backend takes a file path. Render `data` to a tmp WAV at its
+    # native sr, then read stems back into the (samples, channels)
+    # float32 shape the rest of build_profile expects.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_in = Path(tmpdir) / "input.wav"
+        # data is (samples, channels) float32 — write it through.
+        sf.write(str(tmp_in), data, sr, subtype="FLOAT")
+
+        backend = get_backend("bs_roformer_4stem")
+        stem_paths = backend.separate(str(tmp_in), tmpdir)
+
+        stems: dict[str, np.ndarray] = {}
+        target_sr: int | None = None
+        for name in _STEM_NAMES:
+            wav_path = stem_paths.get(name)
+            if not wav_path:
+                continue
+            stem_data, stem_sr = sf.read(wav_path, dtype="float32", always_2d=True)
+            if target_sr is None:
+                target_sr = int(stem_sr)
+            elif stem_sr != target_sr:
+                stem_data = np.stack([
+                    librosa.resample(stem_data[:, c], orig_sr=stem_sr, target_sr=target_sr)
+                    for c in range(stem_data.shape[1])
+                ], axis=1).astype(np.float32, copy=False)
+            stems[name] = stem_data.astype(np.float32, copy=False)
+
+        if not stems or target_sr is None:
+            raise RuntimeError("BS-RoFormer returned no stems")
+        return stems, int(target_sr)
+
+
+def _separate_with_demucs(data: np.ndarray, sr: int) -> tuple[dict[str, np.ndarray], int]:
+    """Fallback htdemucs path — pre-5.3 implementation, kept verbatim."""
     import torch
     import librosa
     from demucs.apply import apply_model

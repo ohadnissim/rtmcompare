@@ -13,8 +13,11 @@ interface Props {
  singleFile?: boolean
 }
 
+// 5.3.1 honesty fix: pre-5.3 the 31.5 Hz band was labelled "31",
+// silently dropping the .5. The Python emits 31.5 in FREQS and the
+// 1/3-octave ISO 266 standard is "31.5 Hz" — the UI was the lone liar.
 const FREQ_LABELS = [
- '20', '25', '31', '40', '50', '63', '80', '100', '125', '160',
+ '20', '25', '31.5', '40', '50', '63', '80', '100', '125', '160',
  '200', '250', '315', '400', '500', '630', '800', '1k', '1.25k', '1.6k',
  '2k', '2.5k', '3.15k', '4k', '5k', '6.3k', '8k', '10k', '12.5k', '16k', '20k',
 ]
@@ -431,13 +434,18 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  `sr-only` (Tailwind utility) but available to assistive tech.
  5.2.0 a11y baseline (audit P0-6). */}
  <table className="sr-only" aria-label="Spectrum band-by-band values">
- <caption>31 third-octave bands, dB difference (B minus A). Negative = B is quieter at that band.</caption>
+ <caption>
+ 31 third-octave bands (ISO 266 centres). A and B are mean-centred dB values
+ — both curves are shifted so each spectrum's mean across the 31 bands is 0 dB
+ (so absolute level is removed and only tonal SHAPE is compared). Δ = B − A in
+ dB. Negative Δ = B is quieter at that band.
+ </caption>
  <thead>
  <tr>
  <th scope="col">Band</th>
  <th scope="col">Frequency</th>
- <th scope="col">A (dB)</th>
- <th scope="col">B (dB)</th>
+ <th scope="col">A (dB, mean-centred)</th>
+ <th scope="col">B (dB, mean-centred)</th>
  <th scope="col">Δ (dB)</th>
  </tr>
  </thead>

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react'
 import { AppState, FileInfo, AnalysisResult } from './types'
 import { useTheme } from './ThemeContext'
-import { useShell } from './ShellContext'
 import { useModes } from './ModesContext'
 import HeaderV2 from './components/shell/HeaderV2'
 import EmptyStateV2 from './components/shell/EmptyStateV2'
@@ -836,15 +835,6 @@ export default function App() {
  const { educator: educatorMode, blind: blindMode, toggleEducator, toggleBlind, surface, setSurface, advancedQc, toggleAdvancedQc } = useModes()
  const pluginDrop = usePluginDrop()
 
- // ── Shell version (v5.2 Console Didone). v1 = classic header (the
- //    markup immediately below); v2 = HeaderV2 shell (Wordmark +
- //    SurfaceChips + OverflowMenu + MetricStrip). Toggle via the
- //    OverflowMenu → Shell version, or directly with
- //    localStorage['rtm-shell'] = 'v1' | 'v2'. Default is v2.
- //    See `.rtm-design/v5.2-shell-brief.md` and the anti-AI-design
- //    discipline before editing any v2 surface.
- const { shellVersion } = useShell()
-
 
  return (
  <div className="min-h-screen bg-sand-950 transition-colors duration-300">
@@ -879,7 +869,6 @@ export default function App() {
  style={{ height: 28, backgroundColor: 'transparent' }}
  aria-hidden
  />
- {shellVersion === 'v2' && (
  <HeaderV2
  state={state}
  metricCells={buildMetricCells(results, {
@@ -896,590 +885,11 @@ export default function App() {
  inDisabled: zoom >= 1.49,
  }}
  />
- )}
- {shellVersion === 'v1' && (
- <header
- className="app-no-drag px-8 py-5 sticky z-30 backdrop-blur-md"
- style={{
- top: 28,
- backgroundColor: 'rgba(14,13,11,0.85)',
- borderBottom: '1px solid rgba(168,161,150,0.08)',
- }}
- >
- <div className="max-w-5xl mx-auto flex items-center justify-between">
- <div className="flex items-center gap-3 pl-16">
- <span className="text-lg font-light tracking-[0.05em]" style={{ color: '#ebe7e0' }}>RTMcompare</span>
- </div>
- <div className="flex items-center gap-4 app-no-drag">
- {/* Label-mode toggle removed — focusing on the engineer
- side for now. Code + Release Cockpit + LabelTour are
- preserved in the codebase for when Labels ships as its
- own module in the RTM Platform. See RTM Labels/ and
- RTM Platform/ARCHITECTURE.md for the plan. */}
-
- {/* Surface picker — controls which DSP profiles, panels,
- and delivery targets appear. Hobbyists pick `streaming`,
- pros pick `full`, broadcast / post engineers pick those.
- */}
- <div data-tour="surface-picker" className="flex items-center gap-0.5 px-0.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(87,83,78,0.18)' }}>
- {(['streaming', 'full', 'broadcast', 'netflix', 'post'] as const).map(s => (
- <button
- key={s}
- onClick={() => setSurface(s)}
- className="text-[9px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full transition-colors"
- style={{
- backgroundColor: surface === s ? 'rgba(208,176,102,0.18)' : 'transparent',
- color: surface === s ? '#d0b066' : '#8d867b',
- }}
- title={({
- streaming: 'Streaming-only (music / Social). Hides broadcast and Atmos.',
- full: 'Everything — pro music + broadcast + Atmos.',
- broadcast: 'Broadcast-first: R128 / A85 at top, dialog gate prominent.',
- netflix: 'Netflix delivery spec — −27 LKFS dialog anchor, −2 dBTP ceiling, stereo + 5.1 music/effects, strict codec.',
- post: 'Atmos / immersive: ADM validation surfaced, broadcast + music also visible.',
- } as Record<string, string>)[s]}
- >
- {s === 'streaming' ? 'Music' : s === 'full' ? 'Full' : s === 'broadcast' ? 'Bcast' : s === 'netflix' ? 'Netflix' : 'Post'}
- </button>
- ))}
- </div>
-
- {/* Advanced QC — unlocks Masking, Phase Bands, Transient
- Density, Waveform Diff, Tempo Drift. Off by default.
- Hidden in batch view because BatchView has no advanced
- panels wired (codex audit, frontend-gap report). When
- batch grows advanced surfaces, restore `state === 'batch'`. */}
- {(state === 'results' || state === 'ref-only') && (
- <button
- data-tour="advanced-qc"
- onClick={toggleAdvancedQc}
- className="text-[10px] px-2.5 py-1 rounded-full transition-colors"
- style={{
- backgroundColor: advancedQc ? 'rgba(124,164,163,0.15)' : 'rgba(87,83,78,0.18)',
- color: advancedQc ? '#7ca4a3' : '#8d867b',
- border: `1px solid ${advancedQc ? 'rgba(124,164,163,0.40)' : 'transparent'}`,
- }}
- title="Reveal collapsed-by-default diagnostic panels: masking, phase bands, transient density, waveform diff, tempo drift."
- >
- Advanced QC
- </button>
- )}
-
- {/* Educator mode — always available on every surface. The
- upload, batch, ref-only, results, and cockpit views all
- emit `why`-prop copy / educator banners that depend on
- this toggle, so the button must be reachable before the
- first analysis too (previously state-gated → dead educator
- block on upload). */}
- <button
- onClick={toggleEducator}
- className="text-[10px] px-2.5 py-1 rounded-full transition-colors"
- style={{
- backgroundColor: educatorMode ? 'rgba(111,163,126,0.15)' : 'rgba(87,83,78,0.18)',
- color: educatorMode ? '#6fa37e' : '#8d867b',
- border: `1px solid ${educatorMode ? 'rgba(111,163,126,0.40)' : 'transparent'}`,
- }}
- title="Reveal 'Why this matters' explainers on every panel"
- >
- Learn mode
- </button>
-
- {/* Blind test — only meaningful when comparing two DIFFERENT files */}
- {state === 'results' && fileA && fileB && fileA.path !== fileB.path && (
- <button
- onClick={toggleBlind}
- className="text-[10px] px-2.5 py-1 rounded-full transition-colors"
- style={{
- backgroundColor: blindMode ? 'rgba(208,176,102,0.15)' : 'rgba(87,83,78,0.18)',
- color: blindMode ? '#d0b066' : '#8d867b',
- border: `1px solid ${blindMode ? 'rgba(208,176,102,0.40)' : 'transparent'}`,
- }}
- title="Randomly swap which file is A vs B in the player and hide their names. Your pick reveals whether you guessed correctly."
- >
- Blind A/B
- </button>
- )}
-
- {/* Zoom controls */}
- <div className="flex items-center gap-1 px-2 py-1 rounded-full" style={{ backgroundColor: 'rgba(87,83,78,0.18)' }}>
- <button
- onClick={zoomOut}
- disabled={zoom <= 0.86}
- className="w-6 h-6 rounded-full flex items-center justify-center text-[13px] transition-colors disabled:opacity-30"
- style={{ color: '#a8a29e' }}
- title={`Zoom out (${MOD}${MINUS})`}
- >−</button>
- <button
- onClick={zoomReset}
- className="text-[10px] font-mono tabular-nums w-10 text-center transition-colors"
- style={{ color: zoom === 1.0 ? '#8d867b' : '#d0b066' }}
- title={`Reset zoom (${MOD}0)`}
- >{zoomPct}%</button>
- <button
- onClick={zoomIn}
- disabled={zoom >= 1.49}
- className="w-6 h-6 rounded-full flex items-center justify-center text-[13px] transition-colors disabled:opacity-30"
- style={{ color: '#a8a29e' }}
- title={`Zoom in (${MOD}+)`}
- >+</button>
- </div>
-
- {/* Discreet help / tour — a single ? glyph so the header stays
- quiet. Click dispatches to the right tour for the current
- screen (upload onboarding or per-tab analysis walkthrough). */}
- <button
- onClick={onHeaderTourClick}
- className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-white/[0.04]"
- style={{ color: '#8d867b' }}
- title={
- state === 'results' ? 'Replay the analysis walkthrough'
- : state === 'ref-only' ? 'Replay the single-file walkthrough'
- : 'Open the product tour'
- }
- aria-label="Product tour"
- >
- <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
- <circle cx="12" cy="12" r="9" />
- <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 9.5a2.5 2.5 0 115 0c0 1.5-2.5 2-2.5 3.5M12 17h.01" />
- </svg>
- </button>
-
- {/* Theme toggle */}
- <button
- onClick={toggleTheme}
- className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
- style={{ backgroundColor: 'rgba(87,83,78,0.2)' }}
- title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
- >
- {theme === 'dark' ? (
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#a8a29e" strokeWidth={2}>
- <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
- </svg>
- ) : (
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#57534e" strokeWidth={2}>
- <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
- </svg>
- )}
- </button>
- {(state === 'results' || state === 'ref-only' || state === 'batch') && (
- <button
- onClick={handleReset}
- className="inline-flex items-center gap-2 text-xs text-sand-500 hover:text-sand-200 transition-colors tracking-wide"
- title={`Start a new comparison (${MOD}N)`}
- >
- <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
- <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
- </svg>
- New comparison
- <kbd
- className="px-1 py-0.5 text-[9px] rounded"
- style={{ backgroundColor: 'rgba(87,83,78,0.25)', color: '#8d867b' }}
- >
- {MOD}N
- </kbd>
- </button>
- )}
- </div>
- </div>
- </header>
- )}
 
  <main className="max-w-5xl mx-auto px-8 py-6">
  {/* ReleaseCockpit removed — Label mode is shelved while we
  focus on the engineer side. The component + its tour + the
  releases store all remain in the codebase. */}
-
- {/* v5.2: classic upload UI runs only when shellVersion === 'v1'.
-  v2 cover empty-state below routes through EmptyStateV2. */}
- {state === 'upload' && shellVersion === 'v1' && (
- <div className="space-y-6">
- <div className="text-center space-y-2">
- <h2 className="text-xl font-light tracking-[0.15em] uppercase" style={{ color: '#ebe7e0' }}>Analyze your audio</h2>
- <div className="max-w-2xl mx-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px]">
- <span className="text-sand-400"><span className="text-sand-200">One file</span> · QC any track.</span>
- <span className="text-sand-400">·</span>
- <span className="text-sand-400"><span className="text-sand-200">Two files</span> · level-matched A/B.</span>
- <span className="text-sand-400">·</span>
- <span className="text-sand-400"><span className="text-sand-200">Folder</span> · album / batch mode.</span>
- </div>
- </div>
-
- {/* Learn-mode explainer — surfaces on the upload surface when
- the user has Learn mode on. Gives new users the "why three
- workflows" framing before they pick one. */}
- {educatorMode && (
- <div
- className="rounded-lg px-4 py-3 text-[11px] leading-relaxed max-w-3xl mx-auto"
- style={{
- backgroundColor: 'rgba(111,163,126,0.08)',
- border: '1px solid rgba(111,163,126,0.25)',
- color: '#b5afa4',
- }}
- >
- <div className="text-[9px] uppercase tracking-[0.15em] mb-1.5" style={{ color: '#6fa37e' }}>
- Why three workflows
- </div>
- <p className="mb-1.5" style={{ color: '#d9d4c8' }}>
- RTM branches on what you drop. <strong>One file</strong> → single-file surface: verdict, attention list, A/B player, Master Assistant, Sound Check twin. Use it when you already have a mix and want to finish + ship. <strong>Two files</strong> → compare surface: every delta between the two files (spectrum, dynamics, stereo, phase, loudness, masking) on level-matched playback. Use it for mix revisions, ref tracks, or before-vs-after. <strong>Folder</strong> → batch / album surface: cohort consistency across every track. Use it for albums, EPs, label deliveries.
- </p>
- <p className="text-[10px] italic" style={{ color: '#8d867b' }}>
- Everything is level-matched to −18 LUFS integrated before comparison so a louder master doesn't fool your ears into thinking it's better. The RTM Send DAW plugin can also stream a bounce from Wavelab / Logic / Pro Tools / Studio One into the single-file surface; no export dialog.
- </p>
- </div>
- )}
-
- {/* Library shortcut strip — above the dropzones so it's
- discoverable but doesn't crowd them. Opens the modal with
- the picked slot pre-targeted. */}
- <div className="flex items-center justify-center gap-2 text-[11px]" style={{ color: '#8d867b' }}>
- <span>Load from library:</span>
- <button
- onClick={() => setLibraryTargetSlot('A')}
- className="px-3 py-1 rounded-full hover:bg-white/[0.04] transition-colors"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.3)' }}
- title="Pick a previously-analysed reference track for the Reference slot"
- >
- ← Reference
- </button>
- <button
- onClick={() => setLibraryTargetSlot('B')}
- className="px-3 py-1 rounded-full hover:bg-white/[0.04] transition-colors"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.3)' }}
- title="Pick a previously-analysed track for the Compare slot"
- >
- Compare →
- </button>
- </div>
-
- <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" data-tour="dropzone">
- <FileDropZone
- label="Reference"
- hint="Demo, rough or your mix"
- file={fileA}
- onFile={setFileA}
- locked={lockFileA && !!fileA}
- onToggleLock={fileA ? () => setLockFileA(v => !v) : undefined}
- />
- <FileDropZone
- label="Compare"
- hint="Mix, new version, master or atmos file"
- file={fileB}
- onFile={setFileB}
- />
- {/* Mid-column swap button (only when both files loaded) */}
- {fileA && fileB && (
- <button
- onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
- className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110 hidden md:flex"
- style={{ backgroundColor: '#0e0d0b', border: '1px solid rgba(208,176,102,0.4)', color: '#d0b066', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
- aria-label="Swap reference and compare files"
- title="Swap files"
- >
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
- <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
- </svg>
- </button>
- )}
- </div>
-
- {/* Clear-all button — below the dropzones when at least one is loaded.
- When the Reference slot is locked, Clear only wipes Compare so
- the pinned reference survives. */}
- {(fileA || fileB) && (
- <div className="flex items-center justify-center gap-3">
- <button
- onClick={() => {
- if (!lockFileA) setFileA(null)
- setFileB(null)
- }}
- className="text-[11px] px-3 py-1.5 rounded-full transition-colors"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
- title={lockFileA && fileA ? 'Clear Compare (Reference is locked)' : 'Clear both files'}
- >
- {lockFileA && fileA ? 'Clear Compare' : 'Clear all'}
- </button>
- </div>
- )}
-
- {/* ── Saved reference library (starred, persistent) ─────────── */}
- {savedRefs.length > 0 && !fileA && (
- <div className="space-y-2" data-tour="recent">
- <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.15em] text-sand-500">Saved references</span>
- <span className="text-[10px] text-sand-400">{savedRefs.length} starred · click to load into Reference slot</span>
- </div>
- <div className="flex flex-wrap gap-2">
- {savedRefs.map(r => (
- <div key={r.path} className="group flex items-center gap-1 text-[11px] rounded-full"
- style={{ backgroundColor: 'rgba(208,176,102,0.1)', border: '1px solid rgba(208,176,102,0.28)' }}
- >
- <span className="pl-2" style={{ color: '#d0b066' }}>★</span>
- <button
- onClick={() => setFileA({ path: r.path, name: r.name })}
- className="pl-1 py-1 hover:text-sand-100"
- style={{ color: '#e1d4a7' }}
- title={`${r.path}${r.label ? ` — ${r.label}` : ''}`}
- >
- {r.label || r.name.replace(/\.[^/.]+$/, '')}
- </button>
- <button
- onClick={() => {
- const newLabel = window.prompt('Label for this reference (leave blank for filename):', r.label || '')
- if (newLabel !== null) renameSavedRef(r.path, newLabel)
- }}
- className="pl-1 py-1 text-sand-500 opacity-0 group-hover:opacity-100 hover:text-sand-300"
- title="Rename"
- >✎</button>
- <button
- onClick={() => toggleSavedRef({ path: r.path, name: r.name })}
- className="pr-2 pl-1 py-1 text-sand-500 opacity-0 group-hover:opacity-100 hover:text-warm-red"
- title="Unstar"
- >×</button>
- </div>
- ))}
- </div>
- </div>
- )}
-
- {/* ── Recent references (last used) ─────────────────────────── */}
- {recentRefs.length > 0 && !fileA && (
- <div className="space-y-2" data-tour={savedRefs.length === 0 ? 'recent' : undefined}>
- <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.15em] text-sand-500">Recent references</span>
- <span className="text-[10px] text-sand-400">{recentRefs.length} · click ★ to save as go-to</span>
- </div>
- <div className="flex flex-wrap gap-2">
- {recentRefs.map(r => {
- const saved = isSaved(r.path)
- return (
- <div key={r.path} className="group flex items-center gap-1 text-[11px] rounded-full"
- style={{ backgroundColor: 'rgba(87,83,78,0.18)', border: '1px solid rgba(168,161,150,0.1)' }}
- >
- <button
- onClick={() => toggleSavedRef({ path: r.path, name: r.name })}
- className="pl-2 py-1"
- style={{ color: saved ? '#d0b066' : '#8d867b' }}
- title={saved ? 'Unstar' : 'Save as go-to reference'}
- >★</button>
- <button
- onClick={() => setFileA({ path: r.path, name: r.name })}
- className="pl-1 py-1 text-sand-300 hover:text-sand-100"
- title={r.path}
- >
- {r.name.replace(/\.[^/.]+$/, '')}
- </button>
- <button
- onClick={() => removeRecentRef(r.path)}
- className="pr-2 pl-1 py-1 text-sand-500 opacity-0 group-hover:opacity-100 hover:text-warm-red"
- title="Remove from recents"
- >×</button>
- </div>
- )
- })}
- </div>
- </div>
- )}
-
- {/* Version-history sidebar — local log of past analyses.
- Clicking an entry loads it as Reference A (or → B via the
- hover badge). Collapses entirely when the log is empty so
- first-run users don't see it. */}
- <RecentAnalyses
- history={history}
- onPick={(e, slot) => {
- const f: FileInfo = { path: e.path, name: e.name }
- if (slot === 'A') setFileA(f)
- else setFileB(f)
- }}
- onClear={async () => {
- try {
- await window.electronAPI?.historyClear?.()
- setHistoryBump(b => b + 1)
- } catch {}
- }}
- />
-
- {error && (
- <div className="rounded-xl p-4 text-sm text-center" style={{ backgroundColor: 'rgba(196,92,92,0.08)', color: '#c45c5c', border: '1px solid rgba(196,92,92,0.15)' }}>
- {error}
- </div>
- )}
-
- {/* Mode toggle — Deep Scan is disabled when an Atmos file is detected */}
- <div className="flex flex-col items-center gap-2" data-tour="scan-mode">
- <div className="flex items-center justify-center gap-3">
- <button
- onClick={() => setDeepScan(false)}
- className="px-4 py-2 rounded-lg text-xs transition-all"
- style={{
- backgroundColor: !deepScan ? 'rgba(197,165,90,0.15)' : 'transparent',
- color: !deepScan ? '#c5a55a' : '#8d867b',
- border: !deepScan ? '1px solid rgba(197,165,90,0.3)' : '1px solid transparent',
- fontWeight: !deepScan ? 500 : 400,
- }}
- >
- Fast · ~1 min
- </button>
- <button
- onClick={() => !atmosLikely && setDeepScan(true)}
- disabled={atmosLikely}
- className="px-4 py-2 rounded-lg text-xs transition-all"
- style={{
- backgroundColor: deepScan ? 'rgba(197,165,90,0.15)' : 'transparent',
- color: atmosLikely ? '#3e3a33' : (deepScan ? '#c5a55a' : '#8d867b'),
- border: deepScan ? '1px solid rgba(197,165,90,0.3)' : '1px solid transparent',
- fontWeight: deepScan ? 500 : 400,
- cursor: atmosLikely ? 'not-allowed' : 'pointer',
- opacity: atmosLikely ? 0.4 : 1,
- }}
- title={atmosLikely ? 'Deep Scan (stem separation) does not apply to multichannel / Atmos files' : undefined}
- >
- Deep Scan · AI stems · ~3-5 min
- </button>
- </div>
- {atmosLikely && (
- <p className="text-[10px] text-sand-500 italic">
- Deep Scan disabled — Atmos / multichannel analysis runs its own dedicated pipeline.
- </p>
- )}
- </div>
-
- {/* Engineer Profile Selector */}
- <div className="flex flex-col items-center gap-2" data-tour="profile">
- <div className="flex items-center justify-center gap-3">
- <span className="text-[11px] text-sand-400" title="An Engineer Profile is a target tonal curve + loudness + width stats. Picking one tells the Match panel what 'ideal' looks like — RTM then suggests EQ moves to get your track closer to it. You can use the shipped profiles, load a custom JSON, or skip profiles entirely (Match will fall back to the two-file spectrum diff).">Engineer Profile:</span>
- <div className="relative">
- <select
- value={profile}
- onChange={(e) => {
- if (e.target.value === '__load__') {
- handleLoadProfile()
- } else {
- setProfile(e.target.value)
- }
- }}
- className="appearance-none px-4 py-2 pr-8 rounded-lg text-xs bg-transparent cursor-pointer"
- style={{
- color: '#a8a29e',
- border: '1px solid rgba(87,83,78,0.4)',
- backgroundColor: 'rgba(28,26,23,0.8)',
- }}
- >
- {profiles.map(p => (
- <option key={p.id} value={p.id}>
- {/* Show the profile NAME itself for user-created profiles
- (was just "custom" previously — unhelpful). */}
- {p.name || p.id}{p.user_created ? ' ★' : ''}
- </option>
- ))}
- <option disabled>──────────</option>
- <option value="__load__">+ Load custom profile…</option>
- </select>
- <svg className="w-3 h-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="#57534e" strokeWidth={2}>
- <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
- </svg>
- </div>
- {profiles.find(p => p.id === profile)?.user_created && (
- <button
- onClick={() => handleDeleteProfile(profile)}
- className="text-[10px] px-2 py-1 rounded transition-colors"
- style={{ color: '#8d867b', border: '1px solid rgba(87,83,78,0.3)' }}
- title="Remove this custom profile"
- >
- remove
- </button>
- )}
- </div>
- {profiles.find(p => p.id === profile)?.description && (
- <p className="text-[10px] text-sand-500 italic max-w-md text-center">
- {profiles.find(p => p.id === profile)?.description}
- </p>
- )}
- {/* What a profile actually does — plain-language explainer
- that stays visible under the selector. " */}
- <p className="text-[10px] max-w-lg text-center" style={{ color: '#8d867b' }}>
- A profile is a target tonal curve + loudness + width stats.
- RTM's Match panel will propose EQ moves to get your track closer to it.
- Not sure which to pick? Any modern-pop profile works for most genres; swap later to taste.
- </p>
- {profile === 'off' && (
- <p className="text-[10px] text-center" style={{ color: '#8d867b' }}>
- No profile active — Match will use a two-file spectrum diff instead.
- </p>
- )}
- {profileError && (
- <p className="text-[10px]" style={{ color: '#c96765' }}>{profileError}</p>
- )}
- </div>
-
- <div className="flex flex-wrap items-center justify-center gap-3" data-tour="analyze">
- <button
- onMouseDown={dismissNativeTooltip}
- onClick={handleRefOnly}
- disabled={!fileA}
- className="px-5 py-2.5 rounded-xl text-sm transition-all"
- style={{
- backgroundColor: fileA ? 'rgba(107,140,187,0.15)' : 'rgba(51,48,44,0.3)',
- color: fileA ? '#6b8cbb' : '#8d867b',
- border: fileA ? '1px solid rgba(107,140,187,0.25)' : '1px solid transparent',
- opacity: fileA ? 1 : 0.4,
- cursor: fileA ? 'pointer' : 'not-allowed',
- }}
- >
- Analyze Reference Only
- </button>
- <button
- onMouseDown={dismissNativeTooltip}
- onClick={handleCompare}
- disabled={!fileA || !fileB}
- className="btn-primary"
- >
- Compare
- </button>
- {/* Album / batch mode — on the same CTA row so users see it
- without scrolling. Muted styling because comparison is the
- hero action; batch is a power-user shortcut. */}
- {window.electronAPI?.selectFolder && (
- <button
- onMouseDown={dismissNativeTooltip}
- onClick={handleBatch}
- data-tour="analyze-album"
- className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] transition-colors"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.15)' }}
- title="Drop a folder — get a sortable table with LUFS / TP / LRA / length / SR / BD / ISRC and outlier flags across the album."
- >
- <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
- <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h4l2 3h8a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
- </svg>
- Analyse an album
- </button>
- )}
- {/* Load a saved album session — the paired half of BatchView's
- Save button. Sits beside the batch CTA so users who left
- notes yesterday can jump back in without re-analysing. */}
- {window.electronAPI?.openTextFileDialog && (
- <button
- onMouseDown={dismissNativeTooltip}
- onClick={loadSessionFromUpload}
- data-tour="load-session"
- className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] transition-colors"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.15)' }}
- title="Re-open a previously-saved album batch session (.rtmalbum.json) — includes every analysis row, notes, and which song tabs were open."
- >
- <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
- <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h10l4 4v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
- <path strokeLinecap="round" strokeLinejoin="round" d="M14 4v4h4" />
- </svg>
- Load album session
- </button>
- )}
- </div>
-
- <p className="text-center text-[10px] text-sand-400 italic">
- *For best Atmos analysis, use an ADM BWF file
- </p>
- </div>
- )}
 
  {/* v5.2: cover-page empty state — Console Didone treatment.
   Renders only the FileDropZones + primary CTA inside the cover
@@ -1487,86 +897,43 @@ export default function App() {
   workflow hints, and profile picker are intentionally NOT rendered
   here — those secondary affordances are available via the v1
   shell or via the OverflowMenu / future settings panel. */}
- {state === 'upload' && shellVersion === 'v2' && (
- <EmptyStateV2>
- <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" data-tour="dropzone">
- <FileDropZone
- label="Reference"
- hint="Demo, rough or your mix"
- file={fileA}
- onFile={setFileA}
- locked={lockFileA && !!fileA}
- onToggleLock={fileA ? () => setLockFileA(v => !v) : undefined}
- />
- <FileDropZone
- label="Compare"
- hint="Mix, new version, master or atmos file"
- file={fileB}
- onFile={setFileB}
- />
- {fileA && fileB && (
- <button
- onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
- className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full hidden md:flex items-center justify-center transition-all hover:scale-110"
- style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)' }}
- aria-label="Swap reference and compare files"
- title="Swap files"
- >
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
- <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
- </svg>
- </button>
- )}
- </div>
-
- {/* Single CTA row — primary "Begin analysis" routes to the
-  appropriate handler based on what's loaded; album / ref-only
-  available as quiet inline links. No coloured backgrounds, no
-  icons-as-decoration; matches anti-AI-design rule #14. */}
- <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 32 }}>
- <button
- type="button"
- onClick={fileA && fileB ? handleCompare : (fileA ? handleRefOnly : undefined)}
- disabled={!fileA}
- style={{
- fontFamily: 'var(--font-display)',
- fontStyle: 'italic',
- fontSize: 22,
- color: fileA ? 'var(--color-text-primary)' : 'var(--color-text-dim)',
- background: 'transparent',
- border: 'none',
- cursor: fileA ? 'pointer' : 'not-allowed',
- padding: '4px 12px',
- transition: 'color 120ms var(--easing-shell)',
- }}
- >
- Begin analysis
- </button>
- {window.electronAPI?.selectFolder && (
- <button
- type="button"
- onClick={handleBatch}
- style={{
- fontFamily: 'var(--font-sans)',
- fontWeight: 500,
- fontSize: 'var(--text-metric-eyebrow)',
- letterSpacing: 'var(--tracking-metric-eyebrow)',
- textTransform: 'uppercase',
- color: 'var(--color-text-dim)',
- background: 'transparent',
- border: 'none',
- cursor: 'pointer',
- transition: 'color 120ms var(--easing-shell)',
- }}
- onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
- onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dim)')}
- >
- ↘ Or analyse a folder
- </button>
- )}
- </div>
- </EmptyStateV2>
- )}
+  {state === 'upload' && (
+    <EmptyStateV2
+      canBegin={!!fileA}
+      onBegin={fileA && fileB ? handleCompare : handleRefOnly}
+      onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" data-tour="dropzone">
+        <FileDropZone
+          label="Reference"
+          hint="Demo, rough or your mix"
+          file={fileA}
+          onFile={setFileA}
+          locked={lockFileA && !!fileA}
+          onToggleLock={fileA ? () => setLockFileA(v => !v) : undefined}
+        />
+        <FileDropZone
+          label="Compare"
+          hint="Mix, new version, master or atmos file"
+          file={fileB}
+          onFile={setFileB}
+        />
+        {fileA && fileB && (
+          <button
+            onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full hidden md:flex items-center justify-center transition-all hover:scale-110"
+            style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)' }}
+            aria-label="Swap reference and compare files"
+            title="Swap files"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </EmptyStateV2>
+  )}
 
  {state === 'processing' && (
  <ProgressBar message={progress} onCancel={handleCancelScan} />

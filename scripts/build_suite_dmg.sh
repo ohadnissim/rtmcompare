@@ -19,7 +19,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="5.3.0"
+VERSION="5.4.0"
 NAME="RTMcompare-bundle-${VERSION}"
 VOL="RTMcompare bundle ${VERSION}"
 OUT_DIR="${PROJECT}/release"

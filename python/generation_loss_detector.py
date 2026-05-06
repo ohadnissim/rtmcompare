@@ -9,10 +9,14 @@ Three heuristics:
   1. Brick-wall cutoff — lossy codecs usually drop everything above
      16–20 kHz. A master that falls off a cliff near those frequencies
      with no natural roll-off is suspicious.
-  2. MDCT-frame artefacts — lossy codecs operate on 1024-sample MDCT
-     frames. A residual energy pattern that aligns to this grid reveals
-     prior AAC / MP3 encoding. Checked via autocorrelation of the
-     high-frequency envelope at the MDCT period.
+  2. AAC frame-stride artefacts — AAC LC operates with a 1024-sample
+     hop between long-window frames (the MDCT length itself is 2048
+     with 50% overlap). Residual energy patterns that align to that
+     1024-sample stride survive decode and reveal prior AAC encoding.
+     Checked via autocorrelation of the high-frequency envelope at
+     the 1024-sample frame stride. (Pre-5.3.1 docstring called this
+     the "MDCT period" — that was technically wrong; the period in
+     question is the frame stride. The math is unchanged.)
   3. Pre-echo / transient smear — AAC's psychoacoustic model introduces
      a pre-echo before loud transients. We look for this by comparing
      pre-transient RMS against a clean reference window.
@@ -95,11 +99,19 @@ def check_brickwall(mono: "np.ndarray", sr: int) -> GenerationLossCheck:
 
 
 def check_mdct_periodicity(mono: "np.ndarray", sr: int) -> GenerationLossCheck:
-    """Autocorrelation of the high-pass envelope at the 1024-sample MDCT
-    period. Lossy files show a subtle but persistent peak; lossless
-    files decorrelate." """
+    """Autocorrelation of the high-pass envelope at the AAC LC
+    1024-sample frame stride. Lossy files show a subtle but persistent
+    peak; lossless files decorrelate.
+
+    5.3.1 honesty fix: the function name and docstring used to call
+    this an "MDCT period" autocorr, which conflated the AAC LC long-
+    window MDCT length (2048) with the inter-frame stride (1024). The
+    math probes 1024 samples, which is the AAC LC frame stride, not
+    the MDCT length. Detection still works (HF residue does have
+    1024-sample structure post-IMDCT); we just describe it correctly.
+    """
     if np is None:
-        return GenerationLossCheck("mdct_periodicity", 0.0, "numpy unavailable")
+        return GenerationLossCheck("aac_frame_stride_periodicity", 0.0, "numpy unavailable")
     # HPF 8 kHz to isolate where codec artefacts live.
     fft = np.fft.rfft(mono[: sr * 3] if len(mono) >= sr * 3 else mono)
     freqs = np.fft.rfftfreq(len(mono[: sr * 3] if len(mono) >= sr * 3 else mono), d=1.0 / sr)
@@ -109,20 +121,21 @@ def check_mdct_periodicity(mono: "np.ndarray", sr: int) -> GenerationLossCheck:
     env = env - float(np.mean(env))
     n = min(len(env), 8192)
     if n < 4096:
-        return GenerationLossCheck("mdct_periodicity", 0.0, "Too short for MDCT check.")
-    period = 1024
+        return GenerationLossCheck("aac_frame_stride_periodicity", 0.0,
+                                   "Too short for codec-frame check.")
+    period = 1024  # AAC LC frame stride (samples)
     a = env[: n - period]
     b = env[period: n]
     denom = float(np.sqrt(np.dot(a, a) * np.dot(b, b))) + 1e-12
     corr = float(np.dot(a, b)) / denom
     if corr > 0.25:
-        return GenerationLossCheck("mdct_periodicity", 0.6,
-                                   f"High-band envelope correlates at the 1024-sample MDCT period ({corr:.2f}) — lossy codec signature.")
+        return GenerationLossCheck("aac_frame_stride_periodicity", 0.6,
+                                   f"High-band envelope correlates at the AAC LC 1024-sample frame stride ({corr:.2f}) — lossy codec signature.")
     if corr > 0.12:
-        return GenerationLossCheck("mdct_periodicity", 0.3,
-                                   f"Weak periodicity at the MDCT period ({corr:.2f}) — inconclusive.")
-    return GenerationLossCheck("mdct_periodicity", 0.0,
-                               f"No MDCT-period correlation ({corr:.2f}).")
+        return GenerationLossCheck("aac_frame_stride_periodicity", 0.3,
+                                   f"Weak periodicity at the AAC frame stride ({corr:.2f}) — inconclusive.")
+    return GenerationLossCheck("aac_frame_stride_periodicity", 0.0,
+                               f"No AAC-frame-stride correlation ({corr:.2f}).")
 
 
 def analyse_generation_loss(path: str) -> GenerationLossResult:

@@ -96,7 +96,18 @@ def detect_pumping(y_mono: np.ndarray, sr: int) -> tuple[float, list[str]]:
     score = max(0.0, min(1.0, (corr - 0.15) / 0.35))
     evidence = []
     if score > 0.3:
-        evidence.append(f'Envelope pumping — kick transients pulling the full mix down (correlation {corr:.2f}).')
+        # 5.3.1 honesty fix: this metric flags low/mid envelope anti-
+        # correlation, which an artefact-style limiter pump produces —
+        # but kick-anchored EDM / hip-hop / drum-and-bass with creative
+        # sidechain ducking ALSO produces this signature. The detector
+        # cannot tell artefact pumping from intentional sidechain just
+        # from the envelopes. Make that explicit so we don't flag a
+        # House master's signature move as a defect.
+        evidence.append(
+            f'Low/mid envelope anti-correlation ({corr:.2f}) — could be limiter pumping, '
+            f'or could be intentional sidechain on EDM / hip-hop / D&B. A/B in the player '
+            f'against an unlimited reference to tell which.'
+        )
     return score, evidence
 
 
@@ -193,11 +204,21 @@ def analyse(y_mono: np.ndarray, sr: int) -> dict:
             recs.append('Consider true-peak limiting — a few inter-sample overs will clip on D-to-A.')
 
     if pump_score > 0.5:
-        severity = 'problem'
-        recs.append('Pull the limiter threshold back 1-2 dB or lengthen attack. Pumping is audible on dense masters.')
+        # Don't escalate to "problem" without confirming it's an
+        # artefact, not an intentional creative move. Strong anti-
+        # correlation is normal in EDM/trap/D&B.
+        severity = max_severity(severity, 'warning')
+        recs.append(
+            'Strong low/mid envelope ducking detected. If unintentional, '
+            'pull the limiter back 1–2 dB or lengthen attack. If this is '
+            'a sidechain move, ignore.'
+        )
     elif pump_score > 0.3:
         severity = max_severity(severity, 'warning')
-        recs.append('Pumping is borderline — check in the A/B player with EQ bypassed to confirm.')
+        recs.append(
+            'Borderline ducking — check in the A/B player with EQ bypassed. '
+            'Could be limiter pumping or intentional sidechain.'
+        )
 
     if ring_count > 15:
         severity = 'problem'

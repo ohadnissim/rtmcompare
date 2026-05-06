@@ -169,15 +169,24 @@ export function proposeMatchFromSpectra(
  // Positive → cut in source, negative → boost in source.
  const diff = srcS.map((v, i) => v - refS[i])
  const minMag = opts?.minMagnitude ?? 1.5
- const maxGain = opts?.maxGain ?? 6.0
+ // 5.3.1 cap alignment: pre-5.3 this defaulted to ±6 dB, but the
+ // engineer-profile match path uses ±4 dB broadband / ±3 dB sub
+ // (python/engineer_profile.py:499-500). Two paths quoting different
+ // maxima for "match this curve" was a correctness regression waiting
+ // to happen. Default to the same broadband cap; sub-80 Hz bands get
+ // a tighter cap below at apply time.
+ const maxGain = opts?.maxGain ?? 4.0
+ const maxGainSub = 3.0  // <80 Hz cap, mirrors engineer_profile.py
  const clusters = clusterDiff(diff, minMag)
 
  const bands: EQBand[] = clusters.map((c, ci) => {
  const freq = THIRD_OCTAVE_HZ[c.peakIdx]
- // Cap corrective gain at maxGain to avoid the "more is more" trap —
- // beyond ±6 dB the proposal starts reshaping character rather than
- // matching tone. Users can always crank Amount > 100 %.
- const correction = Math.max(-maxGain, Math.min(maxGain, -c.avgDb))
+ // Cap corrective gain at maxGain (or the sub cap below 80 Hz). The
+ // tighter sub cap acknowledges that low-end energy moves are
+ // perceptually amplified by room modes and small-speaker rolloff;
+ // ±3 dB is enough to reshape the bottom without "more is more."
+ const cap = freq < 80 ? maxGainSub : maxGain
+ const correction = Math.max(-cap, Math.min(cap, -c.avgDb))
  const q = qFromSpan(c.startIdx, c.endIdx)
  return {
  id: `match-${ci}-${freq}`,

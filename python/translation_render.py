@@ -99,8 +99,8 @@ def render_translation(src_path: str, out_path: str, env_id: str,
     lf_before  = _band_rms_db(window, sr, 30.0, 200.0)
     pres_before = _band_rms_db(window, sr, 1500.0, 5000.0)
 
-    # Apply the playback-env transform.
-    transformed = apply_playback_env(window, sr, env_id)
+    # Apply the playback-env transform. 5.3.1: returns (samples, info).
+    transformed, env_info = apply_playback_env(window, sr, env_id)
 
     lf_after  = _band_rms_db(transformed, sr, 30.0, 200.0)
     pres_after = _band_rms_db(transformed, sr, 1500.0, 5000.0)
@@ -108,13 +108,14 @@ def render_translation(src_path: str, out_path: str, env_id: str,
     lost_lf_db = round(lf_after - lf_before, 1)        # negative = lost low-end
     presence_change_db = round(pres_after - pres_before, 1)
 
-    # Encode to AAC 256 kbps via the resolved encoder. Same path layout
-    # as encoded_preview's render block — write a tmp PCM_16 wav, run
-    # afconvert / ffmpeg, return the .m4a output path.
+    # Encode to AAC 256 kbps via the resolved encoder.
+    # 5.3.1: write a 32-bit float WAV (PCM_16 was the source of audible
+    # quantization noise on top of the saturated content). The AAC
+    # encoder downconverts internally with proper dither.
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp_wav = tmp.name
     try:
-        sf.write(tmp_wav, transformed, sr, subtype="PCM_16")
+        sf.write(tmp_wav, transformed, sr, subtype="FLOAT")
         kind, binary = encoder
         if kind == "afconvert":
             cmd = [
@@ -151,6 +152,11 @@ def render_translation(src_path: str, out_path: str, env_id: str,
         "presence_change_db": presence_change_db,
         "window_start_sec": int(start / sr),
         "window_duration_sec": int(window_sec),
+        # 5.3.1: surface chain headroom + saturator state so the UI
+        # can warn the user if the simulation pushed signal hard.
+        "headroom_db_applied": env_info.get("headroom_db_applied"),
+        "peak_dbfs_post_chain": env_info.get("peak_dbfs_post_chain"),
+        "saturator_engaged": env_info.get("saturator_engaged"),
     }
 
 

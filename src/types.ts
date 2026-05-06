@@ -552,6 +552,47 @@ export interface AIDetection {
  summary: string
  checks: AIDetectionCheck[]
  stem_verdicts?: AIDetectionStemVerdict[]
+
+ // ─── 5.3.x: vendored UAI ensemble fields. Optional so any v1
+ // heuristic result keeps loading, and the UI can degrade gracefully.
+ // See `python/ai_detector.py` for the schema map.
+
+ /** Provenance of the score: `'uai_v1.4'` (vendored UAI 24-detector
+  *  calibrated ensemble) or `'rtm_v1_heuristic'` (legacy fallback)
+  *  or `'unavailable'` (both engines errored). */
+ method?: 'uai_v1.4' | 'rtm_v1_heuristic' | 'unavailable' | string
+
+ /** Calibration status. `'deployed'` = UAI v1.3 calibration head;
+  *  `'heuristic'` = uncalibrated alias of risk_score_raw. */
+ calibration?: 'deployed' | 'heuristic' | string
+
+ /** UAI's native 4-way label (`'AI Generated'`, `'Hybrid'`,
+  *  `'Human'`, `'Unknown'`). The 3-way `verdict` collapses Hybrid
+  *  onto `likely_ai` for back-compat; the 4-way form is the more
+  *  faithful answer when the panel can show it. */
+ track_verdict_4way?: string
+
+ /** Verdict of the un-separated full mix (separate from the
+  *  per-stem aggregate). Useful when stems don't separate cleanly. */
+ full_mix_verdict?: string
+ full_mix_score?: number
+
+ /** Aggregate over `drums + bass + other` — the canonical
+  *  instrumental risk index UAI's claims/calibration anchor on. */
+ instrumental_aggregate?: number
+
+ /** Identifier + score of the single stem with the highest risk. */
+ max_stem_name?: string
+ max_stem_score?: number
+
+ /** Per-stem 4-way classification map (e.g. {vocals: 'Human', drums: 'AI'}). */
+ stem_4way_classes?: Record<string, string>
+
+ /** Per-stem softmax over the 4-way classes. */
+ stem_4way_probabilities?: Record<string, Record<string, number>>
+
+ /** Set when the engine failed and we degraded to heuristic-or-error. */
+ error?: string
 }
 
 // ─── Engineer Profile types ─────────────────────────────────────────────────

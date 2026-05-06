@@ -119,6 +119,21 @@ def compute_spectrum(y, sr):
     centring brings both axes onto the same reference and the diff
     becomes a true tonal-shape delta.
     """
+    # 5.3.1 hardening: guard against silent/NaN/all-DC inputs. Pre-5.3
+    # a digital-silence file produced 31 × -90 dB → mean-centred to 31
+    # zeros → match score read 50/100 tonal, falsely perfect. Now we
+    # detect "no usable signal" up front and return None so callers
+    # can short-circuit the match score and the EQ proposer.
+    if not isinstance(y, np.ndarray) or y.size == 0:
+        return None
+    if not np.all(np.isfinite(y)):
+        # Replace any NaN/Inf with zero so the per-band filter doesn't
+        # propagate garbage. Useful for edge-case loaders.
+        y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
+    overall_rms = float(np.sqrt(np.mean(y * y)))
+    if overall_rms < 1e-5:  # ≈ -100 dBFS — nothing to measure
+        return None
+
     nyq = sr / 2
     levels = []
     for freq in FREQS:
@@ -127,14 +142,19 @@ def compute_spectrum(y, sr):
         low_n = max(low / nyq, 0.001)
         high_n = min(high / nyq, 0.999)
         if low_n >= high_n:
-            levels.append(-70.0)
+            levels.append(-90.0)  # match build_profile.py floor
             continue
         sos = butter(4, [low_n, high_n], btype='band', output='sos')
         filtered = sosfilt(sos, y)
-        rms = np.sqrt(np.mean(filtered ** 2))
+        rms = float(np.sqrt(np.mean(filtered ** 2)))
+        if not np.isfinite(rms) or rms <= 0:
+            levels.append(-90.0)
+            continue
         levels.append(float(20 * np.log10(max(rms, 1e-10))))
     arr = np.asarray(levels, dtype=np.float64)
-    return list(arr - float(np.mean(arr)))
+    arr = np.nan_to_num(arr, nan=-90.0, posinf=0.0, neginf=-90.0)
+    centred = arr - float(np.mean(arr))
+    return list(centred)
 
 
 def _compute_ms_tips(y_stereo, sr):
@@ -152,8 +172,11 @@ def _compute_ms_tips(y_stereo, sr):
         mid  = (y_stereo[0] + y_stereo[1]) / 2.0
         side = (y_stereo[0] - y_stereo[1]) / 2.0
 
-        mid_spec  = compute_spectrum(mid, sr)   # normalised to 1kHz of mid
-        side_spec = compute_spectrum(side, sr)  # normalised to 1kHz of side
+        mid_spec  = compute_spectrum(mid, sr)   # mean-centred 31-band
+        side_spec = compute_spectrum(side, sr)  # mean-centred 31-band
+        if mid_spec is None or side_spec is None:
+            # Silent / NaN inputs — nothing meaningful to derive.
+            return tips
 
         # Side-over-mid differential, averaged by region
         # (this is not a perfect M/S analysis — we're asking: is the side
@@ -236,8 +259,15 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
         y_a = np.stack([y_a, y_a])
     mono_a = librosa.to_mono(y_a)
 
-    # Compute file B metrics
+    # Compute file B metrics. compute_spectrum returns None for silent /
+    # all-NaN inputs (5.3.1 hardening). Substitute a flat zero curve so
+    # downstream consumers don't crash, but propagate a flag the match
+    # score can use to short-circuit instead of giving silence a 50/100
+    # tonal score.
     spec_b = compute_spectrum(mono_b, sr)
+    spec_b_silent = spec_b is None
+    if spec_b_silent:
+        spec_b = [0.0] * 31
     lufs_b = compute_lufs(y_b, sr)
     dr_b = compute_dynamic_range(y_b, sr)
     width_b = compute_stereo_width(y_b[0], y_b[1])
@@ -248,8 +278,10 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
     peak_b = float(20 * np.log10(max(np.max(np.abs(up_l)), np.max(np.abs(up_r)), 1e-10)))
     st_max_b = compute_short_term_max(y_b, sr)
 
-    # Compute file A metrics for context
+    # Compute file A metrics for context.
     spec_a = compute_spectrum(mono_a, sr)
+    if spec_a is None:
+        spec_a = [0.0] * 31
     lufs_a = compute_lufs(y_a, sr)
 
     tips = []
@@ -425,7 +457,7 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
         "spectrum_corrected": [round(float(spec_b[i] - (spec_b[i] - curve[i]) * 0.6), 1) for i in range(len(spec_b))],
         "freqs": FREQ_LABELS,
         "eq_filters": _compute_eq_filters(spec_b, curve, target_curve_mad=curve_mad),
-        "match_score": _compute_match_score(spec_b, curve, lufs_b, dr_b, width_b, profile),
+        "match_score": _safe_match_score(spec_b, curve, lufs_b, dr_b, width_b, profile, silent=spec_b_silent),
     }
 
 
@@ -548,12 +580,37 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
     return filters
 
 
-def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile):
+def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile, *, silent=False):
     """
     Compute 0-100 score of how close the file is to the engineer's profile.
+
+    5.3.1 honesty fix: a silent or NaN input pre-5.3 produced a 50/100
+    tonal score (because the empty `tonal_diffs` list short-circuited
+    `np.mean` to 0). That looked like "perfect tonal match" in the UI.
+    Now we accept an explicit `silent=True` flag so callers can return
+    a 0/100 with a meaningful detail string.
     """
+    if silent:
+        return {
+            "score": 0,
+            "tonal_score": 0,
+            "lufs_score": 0,
+            "dr_score": 0,
+            "width_score": 0,
+            "detail": "Input has no usable signal (silent or below the measurement floor).",
+        }
     # Tonal match (0-50 points)
     tonal_diffs = [abs(spec_file[i] - spec_target[i]) for i in range(min(len(spec_file), len(spec_target))) if spec_file[i] > -50]
+    if not tonal_diffs:
+        # Every band sits at-or-below the -50 floor → no real signal.
+        return {
+            "score": 0,
+            "tonal_score": 0,
+            "lufs_score": 0,
+            "dr_score": 0,
+            "width_score": 0,
+            "detail": "Input is too quiet to compare — every band is below the −50 dB measurement floor.",
+        }
     avg_tonal_diff = np.mean(tonal_diffs) if tonal_diffs else 0
     tonal_score = max(0, 50 - avg_tonal_diff * 5)
 
@@ -571,3 +628,15 @@ def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile):
 
     total = round(tonal_score + lufs_score + dr_score + width_score)
     return min(100, max(0, total))
+
+
+def _safe_match_score(spec_file, spec_target, lufs, dr, width, profile, *, silent=False):
+    """5.3.1 wrapper: returns a plain int 0..100 like before, but routes
+    silent inputs through the structured dict to log a clearer detail.
+    Public callers still see an int."""
+    if silent:
+        return 0
+    res = _compute_match_score(spec_file, spec_target, lufs, dr, width, profile)
+    if isinstance(res, dict):
+        return int(res.get("score", 0))
+    return int(res)

@@ -215,39 +215,34 @@ def analyze_single_file(path: str) -> dict:
             pass
 
         # Integrated LUFS + LRA via pyloudnorm.
+        # 5.3.1 multichannel correctness: pyloudnorm itself implements
+        # BS.1770-4 channel weights (L=R=C=1.0, Ls=Rs=1.41, LFE=0).
+        # Pre-5.3 we forced `data[:, :2]` for >2-ch — that silently
+        # threw away the centre and surround channels, under-reporting
+        # LUFS on 5.1 / 7.1 / Atmos beds. Pass the full channel set
+        # through and let pyloudnorm do BS.1770. Loud-spec outputs
+        # >5.1 are still uncommon but should be measured honestly.
         meter = pyln.Meter(sr)
-        # pyloudnorm wants (samples, channels). Clamp to stereo for LUFS per ITU.
-        if data.shape[1] > 2:
-            lufs_input = data[:, :2]
-        else:
-            lufs_input = data
+        lufs_input = data
         try:
             out["lufs_i"] = round(float(meter.integrated_loudness(lufs_input)), 2)
         except Exception:
             out["lufs_i"] = None
-        # LRA — pyloudnorm 0.1 + exposes loudness_range; if not, compute a
-        # simple short-term distribution range as a fallback.
+        # LRA per BS.1770-4 / EBU R128. pyloudnorm exposes
+        # `Meter.loudness_range(data)` (correct gated LRA). If for
+        # some reason that fails, we fall back to a comparator-style
+        # approximation that still uses pyloudnorm internally.
+        # 5.3.1 fix: pre-5.3 the fallback called `meter.integrated_loudness`
+        # per 3 s window and took p95-p10 — that's a percentile of
+        # *integrated* values, NOT short-term, so the spread was
+        # mis-defined. Now we route through the proper LRA call and,
+        # if that's unavailable, skip rather than emit a wrong number.
         try:
-            out["lra"] = round(float(pyln.utils.loudness_range(lufs_input, sr)), 2)  # type: ignore[attr-defined]
+            out["lra"] = round(float(meter.loudness_range(lufs_input)), 2)
         except Exception:
-            try:
-                from pyloudnorm import Meter as _M
-                # fallback: compute 3-s short-term windows and report p95 - p10
-                win = int(3.0 * sr)
-                hop = int(1.0 * sr)
-                vals = []
-                for start in range(0, max(1, data.shape[0] - win), hop):
-                    seg = lufs_input[start:start + win]
-                    try:
-                        vals.append(meter.integrated_loudness(seg))
-                    except Exception:
-                        pass
-                if len(vals) >= 4:
-                    arr = np.array([v for v in vals if np.isfinite(v)])
-                    if arr.size >= 4:
-                        out["lra"] = round(float(np.percentile(arr, 95) - np.percentile(arr, 10)), 2)
-            except Exception:
-                pass
+            # Honest fallback: leave LRA missing rather than report a
+            # wrong number. The UI shows "—" in that cell.
+            out["lra"] = None
 
         # True peak per channel, take the max.
         tp = -120.0

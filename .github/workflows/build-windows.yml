@@ -49,7 +49,7 @@ jobs:
           # missing librosa/numba/demucs/julius/openunmix — half the
           # analyser modules failed at import time on Windows. The
           # canonical Mac bundle has all of them; matching here.
-          key: pybundle-win-py3.11.9-full-dsp-stack-v2
+          key: pybundle-win-py3.11.9-full-dsp-stack-v3-uai
 
       - name: Build python-bundle-win (embeddable Python + DSP deps)
         if: steps.cache-pybundle.outputs.cache-hit != 'true'
@@ -86,13 +86,21 @@ jobs:
           # reference_quickscan.py, hum_detector.py) `import librosa`
           # at the top — every Windows analysis crashed with
           # ModuleNotFoundError. Adding the full Mac-equivalent stack.
+          # 5.3.x: vendored UAI engine adds audio-separator (BS-RoFormer
+          # 4-stem frontend), onnxruntime (every ONNX detector — cnn /
+          # ast / lofcz / modspec), and soxr (lofcz preprocessing
+          # resampler). xgboost is the calibration-head loader and is
+          # lazy-imported; ship it so the deployed v1.3 head loads.
+          # whisper is intentionally NOT installed — its lyrics
+          # detector is optional and adds ~150 MB of model download.
           ./python-bundle-win/python/python.exe -m pip install `
             --no-warn-script-location `
             numpy scipy soundfile pyloudnorm `
-            librosa numba demucs julius openunmix
+            librosa numba demucs julius openunmix `
+            "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0" xgboost
 
           # Sanity check the imports work in this exact interpreter.
-          ./python-bundle-win/python/python.exe -c "import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius; print('OK', numpy.__version__, scipy.__version__, librosa.__version__)"
+          ./python-bundle-win/python/python.exe -c "import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius; import onnxruntime, soxr, audio_separator; print('OK', numpy.__version__, scipy.__version__, librosa.__version__, 'onnxruntime', onnxruntime.__version__)"
 
           Remove-Item python-embed.zip, get-pip.py
 

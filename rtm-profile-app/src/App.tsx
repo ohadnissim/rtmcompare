@@ -206,7 +206,13 @@ export default function App() {
         <div className="display-serif" style={{ fontSize: 48, color: SAND_100, lineHeight: 1, marginBottom: 12, letterSpacing: '0.02em' }}>
           RTMprofile
         </div>
-        <div style={{ fontSize: 11, color: SAND_400, letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 14 }}>
+        {/* 5.3: italic kicker pattern — same vocabulary as RTMcompare's
+            EmptyStateV2 cover. The single gold word is the chromatic
+            gesture; everything else in cream-secondary. */}
+        <div className="display-serif italic" style={{ fontSize: 22, color: SAND_300, lineHeight: 1.2, marginBottom: 6 }}>
+          Teach RTM your <span style={{ color: GOLD }}>ear</span>.
+        </div>
+        <div style={{ fontSize: 10, color: SAND_400, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 14 }}>
           Companion to RTMcompare
         </div>
         {/* Plain-English onboarding line — the previous copy went

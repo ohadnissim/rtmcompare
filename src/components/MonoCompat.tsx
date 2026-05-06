@@ -275,13 +275,20 @@ function MonoWaterfall({ bandsA, bandsB, labelA, labelB }: {
  labelA: string
  labelB: string
 }) {
- const maxLoss = Math.max(
- ...bandsA.map(b => b.loss_pct || 0),
- ...bandsB.map(b => b.loss_pct || 0),
- 30, // visual floor so 3% loss doesn't look scary
+ // 5.3.1 honesty fix: render `risk` (post-DEADBAND), not raw
+ // `loss_pct`. Decorrelated-but-mono-safe content (wide stereo
+ // recordings) loses energy on a mono fold but isn't a delivery
+ // problem — the side-panel risk score correctly reads "Excellent"
+ // while the waterfall used to draw tall amber bars on the same
+ // signal. The two surfaces disagreed; engineers complained about
+ // the waterfall lighting up on clean wide masters. Now they agree.
+ const maxRisk = Math.max(
+ ...bandsA.map(b => b.risk || 0),
+ ...bandsB.map(b => b.risk || 0),
+ 30, // visual floor so a 3 % risk doesn't look scary
  )
- const heightFor = (loss: number) => {
- const pct = Math.max(0, Math.min(1, loss / maxLoss))
+ const heightFor = (risk: number) => {
+ const pct = Math.max(0, Math.min(1, risk / maxRisk))
  return `${8 + pct * 36}px` // 8px floor, 44px max
  }
  const isSingleFile = labelA === labelB
@@ -289,10 +296,10 @@ function MonoWaterfall({ bandsA, bandsB, labelA, labelB }: {
  <div className="rounded-xl p-3" style={{ backgroundColor: 'rgba(48,44,39,0.35)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="flex items-center justify-between mb-2">
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>
- Mono-loss waterfall
+ Mono-risk waterfall
  </span>
  <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
- low ← → high · cell = % energy lost on mono fold
+ low ← → high · cell = phase-cancellation risk (decorrelated wide content does not light up)
  </span>
  </div>
  <div className="space-y-1">
@@ -320,11 +327,11 @@ function MonoWaterfallRow({ label, bands, heightFor }: {
  key={i}
  className="flex-1 rounded-sm transition-colors"
  style={{
- height: heightFor(b.loss_pct || 0),
- backgroundColor: lossColor(b.loss_pct || 0),
+ height: heightFor(b.risk || 0),
+ backgroundColor: lossColor(b.risk || 0),
  opacity: 0.85,
  }}
- title={`${b.name} (${b.freq_range}) — ${(b.loss_pct || 0).toFixed(1)}% mono loss · ${b.note || ''}`}
+ title={`${b.name} (${b.freq_range}) — risk ${(b.risk || 0).toFixed(1)} · raw mono loss ${(b.loss_pct || 0).toFixed(1)}% · ${b.note || ''}`}
  />
  ))}
  </div>

@@ -81,12 +81,24 @@ def analyze_masking(stems_dir: str = None, file_path: str = None, sr: int = 4410
                     ("vocal_vs_cymbals", "vocals", "drums",
                         (6000, 10000), "Vocal air fights cymbal shimmer"),
                 ]
-                # Normalise to equal RMS so loud stems don't dominate
-                def norm(y):
-                    rms = np.sqrt(np.mean(y ** 2))
-                    return y / max(rms, 1e-10)
-
-                normed = {k: norm(v) for k, v in stems.items()}
+                # 5.3.1 honesty fix: pre-5.3 we normalised every stem to
+                # the SAME unity RMS before measuring per-band overlap.
+                # That destroyed the very level information masking is
+                # supposed to measure — a quiet pad mostly buried in the
+                # mix would read identically to a loud pad up front,
+                # because both end up at unity RMS post-norm. Now we
+                # measure per-band level relative to the FULL MIX's
+                # overall RMS, so a stem's actual contribution to the
+                # mix is preserved. This makes "vocals fight bass at
+                # 200 Hz" mean what an engineer expects.
+                mix_rms = max(
+                    1e-10,
+                    np.sqrt(np.mean(sum(v.astype(np.float64) ** 2 for v in stems.values()) / max(1, len(stems)))),
+                )
+                normed = {
+                    k: v.astype(np.float64) / mix_rms
+                    for k, v in stems.items()
+                }
 
                 for kind, a, b, (lo, hi), desc in PAIRS:
                     if a not in normed or b not in normed:
@@ -94,7 +106,9 @@ def analyze_masking(stems_dir: str = None, file_path: str = None, sr: int = 4410
                     db_a = _band_rms_db(normed[a], sr, lo, hi)
                     db_b = _band_rms_db(normed[b], sr, lo, hi)
                     # Masking intensity: both loud AND close-level. The closer
-                    # they are in dB, the more they fight (can't duck each other).
+                    # they are in dB, the more they fight (can't duck each
+                    # other). With the new normalisation, "loud" now means
+                    # "loud in the mix," not "loud after per-stem normalise."
                     both_loud = min(db_a, db_b) > -18
                     closeness = 6 - abs(db_a - db_b)  # 6 dB diff → 0 masking
                     severity_score = max(0.0, closeness) * (1 if both_loud else 0.3)

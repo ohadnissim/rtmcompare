@@ -14,7 +14,7 @@ The flagship surface. Two files in. Every difference between them out.
 - **Phase correlation over time** — full-track plot plus per-band phase ribbon. Catches phase issues that scalar correlation hides.
 - **Vectorscope** — XY mid/side scope with peak-hold. Read width and centre-energy at a glance.
 - **Streaming-normalisation preview** — Spotify, Apple, Amazon, Tidal, YouTube. See exactly how each platform will play your master.
-- **Inter-sample peak meter** — 16× oversampled true-peak detection. Catches inter-sample overs that the meter on your DAW master bus misses.
+- **Inter-sample peak meter** — 4× oversampled true-peak detection (BS.1770-4). The Apply-and-bounce limiter steps internally to 16× polyphase Kaiser for sub-0.05 dB ceiling accuracy on the rendered master.
 - **AAC encode preview** — render through Apple's AAC encoder, A/B against the source.
 - **Engineer-profile matching** — Serban Ghenea, Chris Lord-Alge, your own (built with RTMprofile). Match-score plus concrete EQ-move recommendations.
 - **EQ-move export** — FabFilter Pro-Q text, CSV, JSON. Or apply-and-bounce a corrected master WAV in one click.
@@ -59,7 +59,7 @@ For label ops. Catches the small things that cancel a delivery.
 ADM BWF native. Built for immersive mix supervisors.
 
 - **ADM parsing** — bed, objects, trajectories, channel mapping.
-- **Binaural TP metering** — Apple Atmos delivery requires < −1 dBTP on the binaural render.
+- **Binaural TP metering** — early-warning binaural-headroom estimate (ILD downmix, no HRTF). Apple's Atmos guideline is < −1 dBTP on their renderer's binaural deliverable; this is a fast sanity-check, not a substitute for that renderer.
 - **Downmix QC** — vs the stereo master. Surfaces level / spectrum drift.
 - **Atmos Preflight** — hard-checks: object count ≤ 118, LFE routing, bed layout (7.1.2 / 5.1.4), SR = 48 kHz, BD ≥ 24.
 - **Per-object anomaly detection** — hot, silent, static, dark objects. Usually mix mistakes, not artistic intent.

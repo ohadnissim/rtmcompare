@@ -1739,8 +1739,8 @@ function LiveTpMeter({ liveRef, peakRef, isPlaying }: {
  border: '1px solid rgba(168,161,150,0.18)',
  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
  }}
- title="Live true-peak meter. 2× linear estimate off the final bus. PEAK holds for 2 s. Numbers only — no warning colour."
- aria-label="Live true-peak meter"
+ title="Near-TP meter — 2× linear-interpolation estimate off the final bus. Underestimates by ~0.3–0.5 dB vs the BS.1770-4 4× reference. PEAK holds for 2 s. Numbers only — no warning colour. The Apply-and-bounce render uses the mastering-grade 16× polyphase limiter."
+ aria-label="Live near-TP meter (2× linear)"
  >
  <div className="flex items-baseline gap-1.5">
  <span className="text-[8px] uppercase tracking-[0.15em]" style={{ color: '#a8a29e' }}>INST</span>
