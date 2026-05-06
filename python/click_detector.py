@@ -61,12 +61,21 @@ def _detect_v2(path: str, sr: int) -> list:
     if y.size < 2048:
         return []
 
-    # Default sensitivity 1.5 matches FLOW's recommended default — it's
-    # the point at which we catch real clicks at >30× σ residual without
-    # drowning in percussion false positives. The user can override per
-    # file via the DeclickPanel; the analyze-time path picks the
-    # conservative default.
-    raw = _v2_detect(y, sr_load, sensitivity=1.5)
+    # 5.4.1 fix: sensitivity 1.0 is FLOW's intentionally-strict
+    # production default (K = max(6, 12/sens) = 12 at sens=1.0). The
+    # v2 docstring at the top of `detect()` claimed "1.5 = default" but
+    # that contradicted FLOW's own ground-truth handoff
+    # (docs/CLICK_DETECTOR_V2_HANDOFF.md): at sens=1.0 TOO HIGH and
+    # BAYONIKAL DREAMS produce 0 flags; at sens=1.5 the same masters
+    # report 10 flags — the difference is drum FPs. Pre-5.4.1 we had
+    # sens=1.5 baked in here and engineers saw drum hits flagged as
+    # clicks. Production wants the strict default.
+    #
+    # If the user wants to surface borderline events on a track they
+    # KNOW has issues, the DeclickPanel exposes the sensitivity knob
+    # directly — that's the right place for "review mode," not the
+    # analyze-time pass.
+    raw = _v2_detect(y, sr_load, sensitivity=1.0)
 
     # v2 returns a richer schema; normalise to what the UI consumes.
     # v1 fields the UI reads: time, time_formatted, severity, energy_db,
@@ -87,18 +96,30 @@ def _detect_v2(path: str, sr: int) -> list:
             "ratio": ev.get("ratio"),
         })
 
-    # 80 ms dedupe + top-20 cap — same reduction the v1 path applied,
-    # so downstream UI doesn't have to handle hundreds of events.
+    # 5.4.1 fix: dropped the v1-style 80 ms time-first dedupe. v2 already
+    # applies a `MIN_SEPARATION_SEC = 0.25` ratio-first dedupe internally
+    # — the additional adapter pass was time-first and would silently
+    # drop a real click if a drum FP preceded it within 80 ms (drum
+    # cluster wins, real click loses). With the strict sens=1.0 default
+    # the FP rate is low enough that v2's own dedupe is sufficient.
     normalised.sort(key=lambda c: c["time"])
-    deduped: list[dict] = []
-    for ev in normalised:
-        if not deduped or (ev["time"] - deduped[-1]["time"]) > 0.08:
-            deduped.append(ev)
 
-    if len(deduped) > 20:
+    # Soft cap at 20 events for UI sanity. Sort by (severity, -ratio)
+    # so within a severity tier the highest-residual events win the cap
+    # rather than whichever happened to come first — pre-5.4.1 the cap
+    # was severity-only and would amplify drum FPs that all share
+    # severity="high" while pushing genuine "low"-severity real clicks
+    # out of the result.
+    if len(normalised) > 20:
         sev_order = {"high": 0, "medium": 1, "low": 2}
-        deduped = sorted(deduped, key=lambda c: sev_order.get(c.get("severity", "low"), 2))[:20]
+        normalised.sort(
+            key=lambda c: (sev_order.get(c.get("severity", "low"), 2),
+                           -float(c.get("ratio") or 0.0))
+        )
+        deduped = normalised[:20]
         deduped.sort(key=lambda c: c["time"])
+    else:
+        deduped = normalised
 
     # Strip `ratio` from the public list to match v1 (kept above only
     # for ranking). `confidence` is preserved as a bonus.

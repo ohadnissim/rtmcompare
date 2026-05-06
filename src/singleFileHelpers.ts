@@ -254,8 +254,11 @@ export function buildVerdict(m: SingleFileMetrics, full?: Partial<AnalysisResult
  let action: string
  if (level === 'ready') {
  action = 'Ship it.'
- } else if (m.true_peak != null && m.true_peak > streamingTpFloorDbtp()) {
- action = `Pull the limiter ceiling to −1.0 dBTP (you're at ${m.true_peak.toFixed(1)}) and re-render.`
+ // 5.4.2: TP-as-warning swept here too. Streaming platforms turn the
+ // master DOWN on ingest; reference top-40 routinely sits above the
+ // streaming TP floor. The "ceiling" recommendation was crying wolf and
+ // the user explicitly asked for it gone. Numbers stay visible in the
+ // panel; no Hold action driven by TP alone.
  } else if ((m.clipped_samples || 0) > 0) {
  action = `Fix the ${m.clipped_samples} clipped sample${m.clipped_samples === 1 ? '' : 's'} — drop the master-bus output 0.3–0.5 dB and re-render.`
  } else if (m.sample_rate != null && m.sample_rate < 44100) {

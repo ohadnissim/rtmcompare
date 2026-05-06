@@ -262,16 +262,40 @@ def _separate_with_bs_roformer(data: np.ndarray, sr: int) -> tuple[dict[str, np.
     import soundfile as sf
     import librosa
 
-    # Make sibling RTMcompare's vendored model-cache discoverable so we
-    # don't redownload 503 MB if it's already on disk. Look in:
-    #   1) RTMprofile's own model-cache/uai_stems/models/  (preferred)
-    #   2) RTMcompare's model-cache/uai_root/models/        (sibling app)
-    #   3) Apple bundle at /Applications/RTMcompare.app/Contents/Resources/model-cache/uai_root/models/
+    # 5.4.2 audit fix (HIGH): pre-5.4.2 the second candidate was
+    # `here.parent / "model-cache" / "uai_root" / "models"`. In dev
+    # (`Compare App/rtm-profile-app/python/build_profile.py`) `here`
+    # resolves to `Compare App/rtm-profile-app/`, so `here.parent` is
+    # `Compare App/` and the path correctly hits RTMcompare's sibling
+    # cache. But in production, the install layout is
+    # `<app>/Contents/Resources/python/build_profile.py`, so `here`
+    # resolves to `<app>/Contents/Resources/` and `here.parent` is
+    # `<app>/Contents/` — Electron's Frameworks/ directory, NOT a
+    # model dir. Standalone production installs would silently miss
+    # the sibling-cache hit and pay the 503 MB download every time.
+    #
+    # Fix: walk up to 3 levels searching for `model-cache/uai_root/
+    # models/` or `model-cache/uai_stems/models/`. In dev this finds
+    # the sibling cache up at `Compare App/`; in production it
+    # finds nothing (no walking-up matches inside .app bundles), and
+    # we fall through to the canonical `/Applications/RTMcompare.app/
+    # ...` path or the first-run download.
     here = Path(__file__).resolve().parent.parent
+    here_python = Path(__file__).resolve().parent
+    walked_up = []
+    cur = here
+    for _ in range(4):
+        walked_up.append(cur / "model-cache" / "uai_root" / "models")
+        walked_up.append(cur / "model-cache" / "uai_stems" / "models")
+        if cur.parent == cur:
+            break
+        cur = cur.parent
     candidates = [
-        here / "model-cache" / "uai_stems" / "models",
-        here.parent / "model-cache" / "uai_root" / "models",
+        here / "model-cache" / "uai_stems" / "models",  # RTMprofile's own cache
+        *walked_up,                                     # dev sibling-app cache
         Path("/Applications/RTMcompare.app/Contents/Resources/model-cache/uai_root/models"),
+        Path("/Applications/RTMcompare.app/Contents/Resources/model-cache/uai_stems/models"),
+        Path.home() / ".cache" / "audio-separator",     # audio-separator's default
     ]
     model_dir = None
     for base in candidates:
@@ -287,7 +311,6 @@ def _separate_with_bs_roformer(data: np.ndarray, sr: int) -> tuple[dict[str, np.
     _os.environ["AIVSHU_MODELS_DIR"] = model_dir
 
     # Make the vendored slim subset importable.
-    here_python = Path(__file__).resolve().parent
     if str(here_python) not in sys.path:
         sys.path.insert(0, str(here_python))
     from uai_stems import get_backend  # type: ignore
@@ -393,7 +416,7 @@ def measure_file(path: Path, deep: bool = False) -> dict[str, Any] | None:
             # Don't fail the whole profile if Demucs trips on one file —
             # surface it in stderr and skip the per-stem block. The
             # whole-mix measurements above still land.
-            sys.stderr.write(f"[deep-skip] {path}: demucs failed ({e})\n")
+            sys.stderr.write(f"[deep-skip] {path}: stem separation failed ({e})\n")
         else:
             stem_meas: dict[str, Any] = {}
             for name, stem_audio in stems.items():

@@ -38,9 +38,14 @@ interface Props {
  canShowBlind?: boolean
  zoom?: ZoomControls
  onOpenShortcuts?: () => void
+ /** 5.4.1: docked New search affordance. Returns the user to the
+  *  upload cover from any analysis state. Pre-5.4.1 a comment in
+  *  App.tsx claimed this was "docked into the header link" but the
+  *  link itself never existed. */
+ onNewSearch?: () => void
 }
 
-export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpenShortcuts }: Props) {
+export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpenShortcuts, onNewSearch }: Props) {
  // Hide the instrument row on upload (cover screen owns the field)
  // and processing (no analysis to surface yet). Show on results,
  // ref-only, batch — anywhere actual numbers exist to render.
@@ -81,9 +86,63 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  <SurfaceChips />
  </div>
 
- {/* Right: overflow trigger. paddingRight matches v1 visual
-   right margin. */}
- <div style={{ justifySelf: 'end', paddingRight: 16 }}>
+ {/* Right: Search · Shortcuts · New analysis · Overflow.
+   Search jumps you to the ⌘K palette (compare-tabs) or Song
+   Quick-Switcher (batch). Shortcuts opens the keyboard help.
+   New analysis docks here so engineers don't have to know the
+   ⌘N shortcut to start over. */}
+ <div style={{ justifySelf: 'end', paddingRight: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+ {state !== 'upload' && state !== 'processing' && (
+ <button
+ type="button"
+ onClick={() => window.dispatchEvent(new CustomEvent('rtm-open-palette'))}
+ className="w-8 h-8 rounded-md flex items-center justify-center transition-colors"
+ style={{
+ color: 'var(--color-text-muted)',
+ border: '1px solid var(--color-border)',
+ backgroundColor: 'transparent',
+ }}
+ title="Search (⌘K) — find any tab, metric, or panel by name"
+ aria-label="Search"
+ >
+ <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+ <circle cx="11" cy="11" r="7" />
+ <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
+ </svg>
+ </button>
+ )}
+ <button
+ type="button"
+ onClick={() => window.dispatchEvent(new CustomEvent('rtm-toggle-shortcuts'))}
+ className="w-8 h-8 rounded-md flex items-center justify-center transition-colors"
+ style={{
+ color: 'var(--color-text-muted)',
+ border: '1px solid var(--color-border)',
+ backgroundColor: 'transparent',
+ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+ fontSize: 13,
+ }}
+ title="Keyboard shortcuts (?)"
+ aria-label="Keyboard shortcuts"
+ >
+ ?
+ </button>
+ {state !== 'upload' && state !== 'processing' && onNewSearch && (
+ <button
+ type="button"
+ onClick={onNewSearch}
+ className="text-[10px] uppercase tracking-[0.16em] px-3 py-1.5 rounded-md transition-colors"
+ style={{
+ color: 'var(--color-accent)',
+ border: '1px solid color-mix(in srgb, var(--color-accent) 40%, transparent)',
+ backgroundColor: 'transparent',
+ }}
+ title="Drop new files. Current analysis stays in Recent Analyses. (⌘N)"
+ aria-label="Start a new analysis"
+ >
+ + New analysis
+ </button>
+ )}
  <OverflowMenu canShowBlind={canShowBlind} zoom={zoom} onOpenShortcuts={onOpenShortcuts} />
  </div>
  </div>

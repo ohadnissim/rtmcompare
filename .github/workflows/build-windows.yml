@@ -49,7 +49,10 @@ jobs:
           # missing librosa/numba/demucs/julius/openunmix — half the
           # analyser modules failed at import time on Windows. The
           # canonical Mac bundle has all of them; matching here.
-          key: pybundle-win-py3.11.9-full-dsp-stack-v3-uai
+          # 5.5.0 bump → v5-stems-only: AI detector removed; dropping
+          # xgboost / transformers / huggingface_hub from the bundle.
+          # BS-RoFormer separator stays via audio-separator + onnxruntime.
+          key: pybundle-win-py3.11.9-full-dsp-stack-v5-stems-only
 
       - name: Build python-bundle-win (embeddable Python + DSP deps)
         if: steps.cache-pybundle.outputs.cache-hit != 'true'
@@ -78,31 +81,56 @@ jobs:
           # the Mac bundle's pinned set so behaviour is identical across
           # platforms. Anything we add here gets a new cache key (bump
           # the suffix in the cache step above).
-          # 5.2.2 fix: the previous bundle shipped only numpy/scipy/
-          # soundfile/pyloudnorm, but ~half the analyser modules
-          # (analyze.py, ai_detector.py, separator.py, click_detector.py,
-          # tonal_issues.py, masking.py, transient_density.py,
-          # engineer_profile.py deep-scan, atmos_comparator.py,
-          # reference_quickscan.py, hum_detector.py) `import librosa`
-          # at the top — every Windows analysis crashed with
-          # ModuleNotFoundError. Adding the full Mac-equivalent stack.
-          # 5.3.x: vendored UAI engine adds audio-separator (BS-RoFormer
-          # 4-stem frontend), onnxruntime (every ONNX detector — cnn /
-          # ast / lofcz / modspec), and soxr (lofcz preprocessing
-          # resampler). xgboost is the calibration-head loader and is
-          # lazy-imported; ship it so the deployed v1.3 head loads.
-          # whisper is intentionally NOT installed — its lyrics
-          # detector is optional and adds ~150 MB of model download.
+          # 5.2.2 fix: previous bundle shipped only numpy/scipy/
+          # soundfile/pyloudnorm, but most analyser modules import
+          # librosa at module scope — Windows analyses crashed with
+          # ModuleNotFoundError. Added the Mac-equivalent stack.
+          # 5.3.x: added audio-separator + onnxruntime + soxr for the
+          # vendored UAI separator + detector ensemble.
+          # 5.5.0: AI detector removed. Dropping xgboost / transformers
+          # / huggingface_hub. audio-separator + onnxruntime + soxr
+          # remain — they power BS-RoFormer 4-stem separation.
           ./python-bundle-win/python/python.exe -m pip install `
             --no-warn-script-location `
             numpy scipy soundfile pyloudnorm `
             librosa numba demucs julius openunmix `
-            "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0" xgboost
+            "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0"
 
           # Sanity check the imports work in this exact interpreter.
           ./python-bundle-win/python/python.exe -c "import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius; import onnxruntime, soxr, audio_separator; print('OK', numpy.__version__, scipy.__version__, librosa.__version__, 'onnxruntime', onnxruntime.__version__)"
 
           Remove-Item python-embed.zip, get-pip.py
+
+      # ── BS-RoFormer 4-stem checkpoint ─────────────────────────────────
+      # 5.5.0: stage the BS-RoFormer ckpt into model-cache/ so the
+      # Windows bundle ships with separator weights pre-included.
+      # Previous Win bundles relied on first-run auto-download (the
+      # ckpt is 503 MB, served from a public GitHub Release), but
+      # most users lost stems entirely if they were offline at first
+      # launch. The file is hashed-cached separately from the python
+      # bundle so a `pip install` change doesn't redownload it.
+      - name: Cache BS-RoFormer ckpt
+        id: cache-bsroformer
+        uses: actions/cache@v4
+        with:
+          path: model-cache/uai_root/models
+          key: bs-roformer-4stem-sdr-9.6568-v1
+
+      - name: Download BS-RoFormer 4-stem ckpt + config
+        if: steps.cache-bsroformer.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $modelDir = "model-cache/uai_root/models"
+          New-Item -ItemType Directory -Force -Path $modelDir | Out-Null
+          $base = "https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/download/v1.0.12"
+          Write-Host "Downloading BS-RoFormer ckpt (~503 MB)..."
+          Invoke-WebRequest -Uri "$base/model_bs_roformer_ep_17_sdr_9.6568.ckpt" `
+            -OutFile "$modelDir/bs_roformer_4stem_ep_17_sdr_9.6568.ckpt"
+          Write-Host "Downloading BS-RoFormer yaml config..."
+          Invoke-WebRequest -Uri "$base/config_bs_roformer_384_8_2_485100.yaml" `
+            -OutFile "$modelDir/bs_roformer_4stem_ep_17_sdr_9.6568.yaml"
+          Get-ChildItem $modelDir | Format-List Name, Length
 
       # ── RTMcompare build ──────────────────────────────────────────────
       - name: npm install (RTMcompare)
@@ -155,6 +183,7 @@ jobs:
           if (Test-Path "$docDir/MANUAL.pdf")     { Copy-Item "$docDir/MANUAL.pdf"     "$stage/Documentation/Manual.pdf" }
           if (Test-Path "$docDir/FEATURES.pdf")   { Copy-Item "$docDir/FEATURES.pdf"   "$stage/Documentation/Features.pdf" }
           if (Test-Path "$docDir/PITCH-DECK.pdf") { Copy-Item "$docDir/PITCH-DECK.pdf" "$stage/Documentation/Pitch Deck.pdf" }
+          if (Test-Path "$docDir/CHANGELOG.pdf")  { Copy-Item "$docDir/CHANGELOG.pdf"  "$stage/Documentation/Changelog.pdf" }
 
           # README — kept short, mirrors the Mac DMG's README.txt.
           $readme = @"

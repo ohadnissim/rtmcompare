@@ -72,70 +72,38 @@ export function ModesProvider({ children }: { children: React.ReactNode }) {
  })
  // Per-surface manual-override map. Keys are surfaces the user has
  // explicitly toggled AQC on; values are the toggled value. On surface
- // change, if the target surface has an entry here, use it. Otherwise
- // fall back to the surface's default. Persisted to localStorage so
- // overrides survive restarts 
- // Currently it resets. Make the touched-flag surface-scoped."
- const [advancedQcOverrides, setAdvancedQcOverrides] = useState<Partial<Record<UserSurface, boolean>>>(() => {
- try {
- const raw = localStorage.getItem('rtm-advanced-qc-overrides')
- if (!raw) return {}
- const parsed = JSON.parse(raw)
- // Only keep valid surface keys — defensive against localStorage
- // tampering or schema drift from an older build.
- const out: Partial<Record<UserSurface, boolean>> = {}
- for (const key of Object.keys(parsed)) {
- if (key === 'streaming' || key === 'full' || key === 'broadcast' || key === 'post' || key === 'netflix') {
- if (typeof parsed[key] === 'boolean') out[key as UserSurface] = parsed[key]
- }
- }
- return out
- } catch { return {} }
- })
- useEffect(() => {
- try { localStorage.setItem('rtm-advanced-qc-overrides', JSON.stringify(advancedQcOverrides)) } catch {}
- }, [advancedQcOverrides])
-
- // Initialise advancedQc from the override map if one exists for the
- // current surface; otherwise from the surface's hard-coded default.
+ // 5.4.1 simplification: replaced the per-surface override map (which
+ // didn't actually persist reliably — the comment block above used to
+ // read "Currently it resets") with a simpler "once-touched, sticky"
+ // model. Mental model: each surface ships a default (post / broadcast
+ // / netflix → on; music / full → off). The first time the user
+ // toggles, we record the value AND a "touched" flag. From then on
+ // their value sticks across surface switches AND app restarts. To
+ // get back to per-surface defaults the user clears `rtm-advanced-qc-
+ // touched` (no UI for that yet — fine, this is the behaviour engineers
+ // actually expect).
  const [advancedQc, setAdvancedQc] = useState<boolean>(() => {
  try {
+ if (localStorage.getItem('rtm-advanced-qc-touched') === '1') {
+ return localStorage.getItem('rtm-advanced-qc') === '1'
+ }
  const saved = localStorage.getItem('rtm-surface')
  const s: UserSurface = (saved === 'streaming' || saved === 'full' || saved === 'broadcast' || saved === 'post' || saved === 'netflix') ? saved : 'full'
- // Use the same override map we just hydrated. Can't read
- // `advancedQcOverrides` here because it's initialised in parallel;
- // re-hydrate inline from localStorage so the first-paint state is
- // right without a useEffect flicker.
- const rawOv = localStorage.getItem('rtm-advanced-qc-overrides')
- if (rawOv) {
- try {
- const ov = JSON.parse(rawOv)
- if (typeof ov[s] === 'boolean') return ov[s]
- } catch {}
- }
  return defaultAdvancedQcForSurface(s)
  } catch { return false }
  })
 
- // Surface change: if the target surface has a persisted override, use
- // it; otherwise apply the hard-coded default. The user's manual flip
- // within any surface (via toggleAdvancedQc) writes to the override map
- // so it survives round-trips through other surfaces AND across sessions.
+ // Surface change: if the user has already touched the toggle, their
+ // value sticks across all surfaces. Otherwise apply the new surface's
+ // default. This matches what every engineer who's complained about
+ // the toggle "resetting" actually wanted — once you decide, it stays.
  const setSurface = useCallback((next: UserSurface) => {
  setSurfaceState(next)
- setAdvancedQc(prev => {
- // Pull the override map's current value via the setter-callback
- // pattern to avoid stale closure — setAdvancedQcOverrides above is
- // synchronous but we want the most recent ref.
- const raw = localStorage.getItem('rtm-advanced-qc-overrides')
- if (raw) {
  try {
- const ov = JSON.parse(raw)
- if (typeof ov[next] === 'boolean') return ov[next]
- } catch {}
+ if (localStorage.getItem('rtm-advanced-qc-touched') !== '1') {
+ setAdvancedQc(defaultAdvancedQcForSurface(next))
  }
- return defaultAdvancedQcForSurface(next)
- })
+ } catch {}
  }, [])
 
  useEffect(() => {
@@ -160,16 +128,13 @@ export function ModesProvider({ children }: { children: React.ReactNode }) {
 
  const toggleEducator = useCallback(() => setEducator(v => !v), [])
  const toggleBlind = useCallback(() => setBlind(v => !v), [])
- // Manual toggle — writes the new value into the per-surface override
- // map so the choice survives surface round-trips AND process restarts.
- // Uses a ref to read the *current* surface (not a stale closure).
+ // Manual toggle — flips the value and records that the user has
+ // explicitly touched it, so future surface changes / restarts honour
+ // their choice instead of reverting to the per-surface default.
  const toggleAdvancedQc = useCallback(() => {
  setAdvancedQc(v => {
  const next = !v
- setSurfaceState(cur => {
- setAdvancedQcOverrides(ov => ({ ...ov, [cur]: next }))
- return cur
- })
+ try { localStorage.setItem('rtm-advanced-qc-touched', '1') } catch {}
  return next
  })
  }, [])

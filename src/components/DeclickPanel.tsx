@@ -34,9 +34,8 @@ const ALGORITHMS: { value: Algorithm; label: string }[] = [
  { value: 'wideband', label: 'Wide-band (broadband ticks)' },
 ]
 
-// RTM palette — mirrors the values used across the existing panels so
-// this module lives next to AIDetectionPanel without feeling like an
-// import from another app. Kept at module scope so helper components
+// RTM palette — mirrors the values used across the existing panels.
+// Kept at module scope so helper components
 // below (SliderRow / StatCell / BypassToggle) can reach them without
 // prop-drilling.
 const BG = '#0a0a0a'

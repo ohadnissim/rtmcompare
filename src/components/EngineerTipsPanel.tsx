@@ -825,6 +825,30 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  <InfoTooltip text="Toggle bands on the left rail, scrub the loop region on the waveform, adjust Amount, hit Play to loop the selected section until you pause." />
  </div>
  <div className="flex items-center gap-2">
+ {/* 5.4.1: surface level-match as a quick-access pill so the user
+     can A/B EQ-on vs EQ-off at MATCHED loudness without digging
+     into the gear-icon popover. Same state as the popover toggle —
+     toggle either, both update. Keyboard shortcut: L.
+     Why this matters: a +3 dB EQ band makes the program ~1 dB
+     louder. Without level-match, the engineer hears "EQ on" as
+     "louder" and the listening test biases toward "EQ on = better".
+     Level-match closes that loop with auto-RMS makeup so the only
+     audible change is tonal. */}
+ <button
+ onClick={() => setLevelMatch(v => !v)}
+ className="text-[10px] px-2.5 py-1 rounded-md transition-colors"
+ style={{
+ color: levelMatch ? '#6ec577' : '#8d867b',
+ backgroundColor: levelMatch ? 'rgba(110,197,119,0.10)' : 'transparent',
+ border: `1px solid ${levelMatch ? 'rgba(110,197,119,0.40)' : 'rgba(168,161,150,0.20)'}`,
+ }}
+ title={levelMatch
+ ? 'Level-matched A/B is ON. Auto-RMS compensation makes EQ on / off hit the same perceived loudness so you judge tone, not volume. Press L to toggle.'
+ : 'Level-matched A/B is OFF. EQ on / off play at their natural loudness, which biases listening to "louder = better". Press L to enable level-matching.'}
+ aria-pressed={levelMatch}
+ >
+ {levelMatch ? '● Level matched' : 'Level matched'}
+ </button>
  <button
  onClick={() => eq.setEnabled(!eq.enabled)}
  className="text-[10px] px-2.5 py-1 rounded-md transition-colors"

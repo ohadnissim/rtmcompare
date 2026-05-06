@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 # Windows: the bundled embeddable Python uses a `_pth` file that does NOT
 # auto-add the script's directory to sys.path, so neighbour modules
-# (comparator, ai_detector, etc.) won't import. Insert our own dir to
+# (comparator, separator, etc.) won't import. Insert our own dir to
 # make `from comparator import …` work on every platform.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -112,7 +112,6 @@ from tonal_issues import detect_tonal_issues
 from reference_check import check_reference
 from adm_parser import detect_format, validate_adm
 from atmos_comparator import run_atmos_comparison, run_atmos_solo
-from ai_detector import detect_ai
 from engineer_profile import generate_tips, list_profiles
 from metadata_reader import read_metadata
 from hum_detector import detect_hum
@@ -367,34 +366,18 @@ def main():
         progress("Generating visualizations...")
         result.update(generate_all_viz_data(file_a, file_b, deep_scan=not fast_mode))
 
-        # AI detection + masking:
-        #   • Deep Scan (stems available) → both run stem-based
-        #   • Fast mode for STEREO COMPARE → masking falls back to full-mix
-        #     density only; AI detection runs at mix-level on file_a so
-        #     the result schema stays consistent across modes (otherwise
-        #     fast 2-file consumers see no `ai_detection` field at all
-        #     and can't tell "not run by design" from "detector failed").
-        #   • Fast mode for SINGLE FILE → AI on the single file's full mix
-        #     (cheaper, stereo-only AI check) + band-density masking
+        # Masking (deep scan uses stems; fast mode falls back to full-mix
+        # density). AI detection was removed in 5.5.0 — the bundle would
+        # have shipped 1.1 GB of model weights for it.
         try:
             from masking import analyze_masking
             if not fast_mode:
-                progress("Scanning for AI indicators (using stems)...")
-                result["ai_detection"] = detect_ai(file_a, stems_dir=stems_dir)
                 progress("Analysing masking between stems...")
                 result["masking"] = analyze_masking(stems_dir=stems_dir, file_path=file_b)
             else:
                 result["masking"] = analyze_masking(file_path=file_b)
-                # Mix-level AI on file_a for both single-file and two-file
-                # fast paths — the call is cheap (~3-5 s) and ensures
-                # the JSON shape is consistent.
-                progress("Scanning for AI indicators (stereo mix)...")
-                try:
-                    result["ai_detection"] = detect_ai(file_a, stems_dir=None)
-                except Exception as e:
-                    _warn_optional("ai_detection (mix)", e)
         except Exception as e:
-            _warn_optional("masking / ai_detection", e)
+            _warn_optional("masking", e)
 
         # Streaming normalization preview — what A and B will play at on
         # major platforms (Spotify / Apple / YouTube / Tidal / etc.)

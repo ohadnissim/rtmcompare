@@ -396,11 +396,25 @@ def detect(y, sr: int, sensitivity: float = 1.5,
         y: 1-D float array, audio samples (normalised roughly to ±1).
         sr: sample rate in Hz.
         sensitivity: user-facing knob. Higher = more events surfaced.
-            0.5  → very strict (K≈12)  — only screaming-obvious clicks
-            1.5  → default   (K≈4)    — well-aligned with "real clicks"
-            3.0  → permissive (K≈2.5)  — shows softer/borderline events
-            5.0  → floor      (K=2.5)  — no further loosening; noise
-                                          floor would drown real events
+            The K curve is `K = max(6.0, 12.0 / sensitivity)` (line 437),
+            so the floor is K=6.0; sens > 2.0 doesn't loosen further.
+
+            0.5  → very strict (K=24)  — only screaming-obvious clicks
+            1.0  → DEFAULT     (K=12)  — production strict; ground-truth
+                                          shows ~0 false positives on
+                                          tracks like TOO HIGH and
+                                          BAYONIKAL DREAMS where v1
+                                          flagged 20 / 31 drum FPs
+            1.5  → review mode (K=8)   — catches softer clicks (ratio
+                                          > 30) AT THE COST OF more
+                                          percussion-hit FPs. Use only
+                                          when you know there are real
+                                          clicks below the strict floor.
+            2.0+ → floor       (K=6)   — no further loosening
+            (See docs/CLICK_DETECTOR_V2_HANDOFF.md for the ground-truth
+             handoff table — 5.4.1: outer docstring used to claim "1.5 =
+             default" which contradicted the inner comment + handoff.
+             Production callers must use sens=1.0.)
         fmin, fmax: kept for CLI compatibility; currently unused (the
             AR approach is intrinsically broadband, not band-limited).
         isolated_gap_sec: no other detection may sit within this window

@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { AnalysisResult, FileInfo } from '../types'
 import ABPlayer from './ABPlayer'
-import AIDetectionPanel from './AIDetectionPanel'
 import CategoryCard from './CategoryCard'
 import SpectrumOverlay from './SpectrumOverlay'
 import MonoCompat from './MonoCompat'
@@ -154,6 +153,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  // work via App.tsx's own handler). Fans most actions out to the
  // event bus so the right component picks them up.
  useEffect(() => {
+ // 5.4.2: header Search button dispatches `rtm-open-palette` so the
+ // user can open the ⌘K palette without knowing the shortcut.
+ const onCustomOpen = () => setPaletteOpen(true)
+ window.addEventListener('rtm-open-palette', onCustomOpen)
+
  const onKey = (e: KeyboardEvent) => {
  if (isEditableTarget(e)) return
  const mod = e.metaKey || e.ctrlKey
@@ -226,7 +230,10 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  }
  }
  window.addEventListener('keydown', onKey)
- return () => window.removeEventListener('keydown', onKey)
+ return () => {
+ window.removeEventListener('keydown', onKey)
+ window.removeEventListener('rtm-open-palette', onCustomOpen)
+ }
  }, [tabs, toggleBlind])
 
  return (
@@ -402,7 +409,6 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  if ((results.reference_check?.song_info as any)?.tempo_drift) live.push('Tempo Drift')
  else deepOnly.push('Tempo Drift')
  if (results.tonal_issues?.length) live.push('Tonal Issues')
- if (results.ai_detection) live.push('AI Detection')
  const hasAnyLive = live.length > 0
  const hasAnyDeepOnly = deepOnly.length > 0
  return (
@@ -1472,24 +1478,6 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  )}
  </CollapsibleSection>
 
- {/* AI / Synthetic Audio Detection — restored in 5.0.4 per
- codex frontend-gap audit. The previous removal was driven by
- expert panel consensus that mastering engineers don't need it,
- BUT the data was still computed in compare mode and silently
- dropped — a real backend↔frontend gap. Now lives behind
- Advanced QC so it's opt-in for engineers who want it (label
- ops + sync houses do). The data is also surfaced in ref-only
- mode unchanged. */}
- {advancedQc && results.ai_detection && (
- <CollapsibleSection
- title="AI / Synthetic Audio Detection · Advanced"
- tooltip="Statistical fingerprints that separate human-performed audio from AI-generated content. Behind Advanced QC because most mastering workflows don't act on it; surfaced here for label ops, sync houses, and disclosure-required deliveries."
- why="Labels, libraries, and sync houses increasingly require disclosure of AI-generated elements. This panel surfaces the statistical tells (suspiciously clean transient distributions, codec-artefact repeats, micro-pitch quantisation) so you can disclose honestly and catch any accidental AI contamination before delivery."
- defaultOpen={false}
- >
- <AIDetectionPanel detection={results.ai_detection} />
- </CollapsibleSection>
- )}
  </div>
  )}
  {/*

@@ -38,6 +38,13 @@ EXPECTED_4STEM_STEMS = ("drums", "bass", "other", "vocals")
 
 
 def _default_model_dir() -> str:
+    # 5.5.0: honour RTM_UAI_APPLICATION_ROOT so the BS-RoFormer ckpt
+    # resolves under model-cache/uai_root/models/ (the canonical
+    # location used by separator.py + electron-builder extraResources).
+    # Falls back to the in-package layout for upstream-style installs.
+    env_root = os.environ.get("RTM_UAI_APPLICATION_ROOT")
+    if env_root:
+        return str(Path(env_root) / "models")
     return str(Path(__file__).resolve().parents[2] / "models")
 
 

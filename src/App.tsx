@@ -7,6 +7,7 @@ import EmptyStateV2 from './components/shell/EmptyStateV2'
 import { buildMetricCells } from './lib/buildMetricCells'
 import FileDropZone from './components/FileDropZone'
 import ReferenceLibrary from './components/ReferenceLibrary'
+import ReferenceDropdown from './components/ReferenceDropdown'
 import RtmIncomingBanner from './components/RtmIncomingBanner'
 import { usePluginDrop } from './PluginDropContext'
 import ProgressBar from './components/ProgressBar'
@@ -282,7 +283,6 @@ export default function App() {
  waveform_a: result.waveform_a,
  engineer_tips: result.engineer_tips,
  masking: result.masking,
- ai_detection: result.ai_detection,
  hum: result.hum,
  transient_density: result.transient_density,
  streaming_preview: result.streaming_preview,
@@ -582,7 +582,6 @@ export default function App() {
  waveform_a: result.waveform_a,
  engineer_tips: result.engineer_tips,
  masking: (result as any).masking,
- ai_detection: result.ai_detection,
  hum: (result as any).hum,
  transient_density: (result as any).transient_density,
  streaming_preview: (result as any).streaming_preview,
@@ -884,6 +883,7 @@ export default function App() {
  outDisabled: zoom <= 0.86,
  inDisabled: zoom >= 1.49,
  }}
+ onNewSearch={handleReset}
  />
 
  <main className="max-w-5xl mx-auto px-8 py-6">
@@ -903,6 +903,27 @@ export default function App() {
       onBegin={fileA && fileB ? handleCompare : handleRefOnly}
       onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
     >
+      {/* 5.4.1: compact reference-history dropdown above the dropzones.
+        Saved + recent collapse into a single trigger so the cover
+        stays clean. Hides itself when the user has zero history. */}
+      {(savedRefs.length > 0 || recentRefs.length > 0) && (
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <ReferenceDropdown
+            saved={savedRefs}
+            recent={recentRefs}
+            onPick={setFileA}
+            onRemoveRecent={removeRecentRef}
+            slotLabel="Reference"
+          />
+          <ReferenceDropdown
+            saved={savedRefs}
+            recent={recentRefs}
+            onPick={setFileB}
+            onRemoveRecent={removeRecentRef}
+            slotLabel="Compare"
+          />
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" data-tour="dropzone">
         <FileDropZone
           label="Reference"

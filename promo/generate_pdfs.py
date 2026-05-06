@@ -29,7 +29,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 # ── Paths ──────────────────────────────────────────────────────────
 HERE = Path(os.path.dirname(os.path.abspath(__file__)))
 REPO_ROOT = HERE.parent
-FONT_DIR = REPO_ROOT / 'release' / 'v5.4.0' / 'fonts'
+FONT_DIR = REPO_ROOT / 'release' / 'v5.5.0' / 'fonts'
 
 # ── Console Didone palette ─────────────────────────────────────────
 INK            = HexColor('#0e0d0b')
@@ -150,7 +150,7 @@ def build_manual(path):
     c = canvas.Canvas(str(path), pagesize=(LETTER_W, LETTER_H))
     c.setTitle('RTMcompare — User Manual')
     c.setAuthor('Ohad Nissim')
-    c.setSubject('RTMcompare 5.4 user manual')
+    c.setSubject('RTMcompare 5.5 user manual')
 
     margin = 60.0
     body_w = LETTER_W - 2 * margin
@@ -159,7 +159,7 @@ def build_manual(path):
         c.showPage()
         fill_bg(c, LETTER_W, LETTER_H)
         corner_ticks(c, LETTER_W, LETTER_H)
-        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.4', 'A user manual', 'Local-first'])
+        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.5', 'A user manual', 'Local-first'])
 
     def chapter_head(eyebrow, title):
         tracked_caps(c, margin, LETTER_H - 110, eyebrow, SANS, 8, SAND_MUTED, tracking=0.22)
@@ -172,7 +172,7 @@ def build_manual(path):
     fill_bg(c, LETTER_W, LETTER_H)
     corner_ticks(c, LETTER_W, LETTER_H)
 
-    tracked_caps(c, margin, LETTER_H - 110, 'A USER MANUAL · EDITION 5.4',
+    tracked_caps(c, margin, LETTER_H - 110, 'A USER MANUAL · EDITION 5.5',
                  SANS, 8.5, SAND_MUTED, tracking=0.22)
 
     # Wordmark
@@ -215,7 +215,7 @@ def build_manual(path):
                 "are short. Nobody asked for a textbook."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.4.0', 'Apple Silicon', 'macOS 12+'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.0', 'Apple Silicon', 'macOS 12+'])
 
     # ── 1 · Install ──
     new_page()
@@ -237,7 +237,7 @@ def build_manual(path):
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
     text_block(c, margin, LETTER_H - 540,
-               ["Disk:    ~600 MB (app + bundled Python 3.11 + Demucs cache)",
+               ["Disk:    ~1.5 GB (app + bundled Python 3.11 + BS-RoFormer ckpt)",
                 "RAM:     8 GB minimum, 16 GB recommended for stem separation",
                 "Audio:   WAV, FLAC, AIFF, MP3, OGG, M4A, ADM BWF"],
                MONO, 10, SAND_MUTED, leading=15)
@@ -459,7 +459,7 @@ def build_features(path):
     c = canvas.Canvas(str(path), pagesize=(LETTER_W, LETTER_H))
     c.setTitle('RTMcompare — Features')
     c.setAuthor('Ohad Nissim')
-    c.setSubject('RTMcompare 5.4 feature reference')
+    c.setSubject('RTMcompare 5.5 feature reference')
 
     margin = 60.0
     body_w = LETTER_W - 2 * margin
@@ -468,7 +468,7 @@ def build_features(path):
         c.showPage()
         fill_bg(c, LETTER_W, LETTER_H)
         corner_ticks(c, LETTER_W, LETTER_H)
-        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.4', 'Features', 'Local-first'])
+        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.5', 'Features', 'Local-first'])
 
     def section_heading(eyebrow, title, standfirst=None, y=LETTER_H - 110):
         tracked_caps(c, margin, y, eyebrow, SANS, 8, SAND_MUTED, tracking=0.22)
@@ -514,7 +514,7 @@ def build_features(path):
     # ── Cover ──
     fill_bg(c, LETTER_W, LETTER_H)
     corner_ticks(c, LETTER_W, LETTER_H)
-    tracked_caps(c, margin, LETTER_H - 110, 'WHAT\'S IN THE BOX · v5.3',
+    tracked_caps(c, margin, LETTER_H - 110, 'WHAT\'S IN THE BOX · v5.5',
                  SANS, 8.5, SAND_MUTED, tracking=0.22)
     wordmark(c, margin, LETTER_H - 240, 84)
 
@@ -543,7 +543,7 @@ def build_features(path):
                 "before you click into it."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.4.0', 'Features', '10 surfaces'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.0', 'Features', '10 surfaces'])
 
     # ── A/B Compare ──
     new_page()
@@ -551,8 +551,8 @@ def build_features(path):
                         'The flagship. Drop two files, level-matched. Every measurable difference between them, surfaced.')
     rows = [
         ('Level-matched playback', "Both files normalised to −18 LUFS integrated before audition. Loud doesn't fake good."),
-        ('LUFS-I, TP, LRA, MONO', "The four delivery numbers, surfaced in the v5.4 instrument row at the top of every screen."),
-        ('Per-band masking', 'Demucs AI stem separation reveals where vocals, drums, bass, other lose energy. Per-band, not whole-mix.'),
+        ('LUFS-I, TP, LRA, MONO', "The four delivery numbers, surfaced in the instrument row at the top of every screen."),
+        ('Per-band masking', 'BS-RoFormer 4-stem separation (SDR 9.66) reveals where vocals, drums, bass, other lose energy. Per-band, not whole-mix.'),
         ('Phase correlation over time', 'Full-track plot plus per-band phase ribbon. Catches phase issues scalar correlation hides.'),
         ('Vectorscope', 'XY mid/side scope with peak-hold. Width and centre-energy at a glance.'),
         ('Streaming-normalisation preview', 'Spotify, Apple, Amazon, Tidal, YouTube. Hear exactly how each platform will play your master.'),
@@ -569,7 +569,7 @@ def build_features(path):
     y = section_heading('SURFACE TWO', 'Single-File QC.',
                         'Drop one file. Get a deep clinical pass. For when there is no reference, only the file and a deadline.')
     rows = [
-        ('Click + glitch timeline', 'Peaks plotted with click-to-transport jump. Audition every defect in seconds.'),
+        ('Click + glitch timeline', 'FLOW v2 LPC-residual detector. Peaks plotted with click-to-transport jump. Drum-friendly — no more snare false positives.'),
         ('Distortion detection', 'Clipping, ISR, harmonic. Severity rating. Frequency band where it sits.'),
         ('Mains hum + harmonics', '50 / 60 Hz fundamental plus 3rd, 5th, 7th. Catches grounding problems you never thought to listen for.'),
         ('Transfer-artefact detection', 'Wow, flutter, DC drift, tape transport, print-through. For analog-sourced masters.'),
@@ -621,14 +621,15 @@ def build_features(path):
     y = section_heading('SURFACE SEVEN THROUGH TEN', 'Verdict surfaces and visual chrome.',
                         'How RTMcompare tells you what to change, plays files back, and gates delivery.')
     rows = [
-        ('AI-generation detection', 'Per-stem ML synthesis fingerprint detection.'),
         ('Engineer-target curves', 'Match-score against the chosen engineer profile.'),
         ('Concrete EQ moves', 'Frequency, gain, Q. Exportable.'),
         ('Apply-and-bounce', 'One click. Corrected WAV in your render folder.'),
         ('A/B Player everywhere', 'Same engine, same shortcuts. B tracks active context. A is whatever you picked.'),
         ('Live TP meter', 'Instantaneous and 2-second peak-hold on the transport.'),
         ('Triage Mode (optional)', 'Ready-to-Deliver verdict, Attention list, per-DSP spec profile.'),
-        ('Console Didone Shell (5.3)', 'Two-row header, Didone instrument metrics, cover-state empty screen, single gold per screen.'),
+        ('Header palette + shortcuts (5.5)', 'Reference dropdown · "+ New analysis" · Search palette (⌘K) · keyboard-shortcut sheet (?) — all in the header. Sticky Advanced QC across sessions.'),
+        ('EQ Preview level-match pill', 'A/B the EQ tweak with and without level-matching in one click. The pill is on the panel, not buried in the gear-icon menu.'),
+        ('Console Didone Shell', 'Two-row header, Didone instrument metrics, cover-state empty screen, single gold per screen.'),
         ('v1 Classic shell', 'localStorage[rtm-shell] = v1 returns the v5.1.x markup byte-for-byte if you want it back.'),
         ('RTMprofile companion', 'Standalone app. Builds your engineer profile from 5+ finished masters.'),
         ('RTMsend companion', 'VST3 / AU plugin. One-button bridge from your DAW into RTMcompare. ARA-aware.'),
@@ -642,7 +643,8 @@ def build_features(path):
                         'The stack underneath, named explicitly because the credit matters.')
     text_block(c, margin, y - 10,
                ['Electron · React 19 · TypeScript · Tailwind v4 · Vite',
-                'Python 3.11 · NumPy · SciPy · librosa · pyloudnorm · Demucs',
+                'Python 3.11 · NumPy · SciPy · librosa · pyloudnorm',
+                'BS-RoFormer 4-stem (audio-separator) · Demucs (fallback)',
                 'JUCE 7 (RTMsend) · electron-builder · electron-rebuild'],
                MONO, 10.5, SAND_SECONDARY, leading=20)
     text_block(c, margin, y - 110,
@@ -664,7 +666,7 @@ def build_pitch(path):
     c = canvas.Canvas(str(path), pagesize=(SLIDE_W, SLIDE_H))
     c.setTitle('RTMcompare — Pitch')
     c.setAuthor('Ohad Nissim')
-    c.setSubject('RTMcompare 5.4 pitch deck')
+    c.setSubject('RTMcompare 5.5 pitch deck')
 
     margin = 120.0
     SLIDE_TOTAL = 11
@@ -675,7 +677,7 @@ def build_pitch(path):
         tracked_caps(c, SLIDE_W - margin - 100, SLIDE_H - 80,
                      f'{slide_no:02d} / {SLIDE_TOTAL:02d}',
                      SANS, 11, SAND_DIM, tracking=0.22)
-        colophon(c, SLIDE_W, 60, ['RTMcompare', 'v5.4', 'Pitch', 'macOS + Windows'])
+        colophon(c, SLIDE_W, 60, ['RTMcompare', 'v5.5', 'Pitch', 'macOS + Windows'])
 
     def tagline(y_first, size=56):
         """The canonical italic tagline, with 'Before' in gold."""
@@ -773,7 +775,7 @@ def build_pitch(path):
     columns = [
         ('COMPARE TWO FILES', [
             'Level-matched playback to −18 LUFS',
-            'Per-band masking via AI stem separation',
+            'Per-band masking via BS-RoFormer 4-stem',
             'Phase correlation per band + over time',
             'Vectorscope with peak-hold',
             'Inter-sample peak meter (4× oversampled, BS.1770-4)',
@@ -782,7 +784,7 @@ def build_pitch(path):
             'Apply-and-bounce a corrected master',
         ]),
         ('QC ONE FILE', [
-            'Click & glitch timeline · click-to-transport',
+            'FLOW v2 click + glitch timeline · drum-friendly',
             'Distortion: clipping, ISR, harmonic',
             'Mains hum + 3rd / 5th / 7th harmonics',
             'Tape transfer artefacts: wow, flutter, drift',
@@ -799,7 +801,7 @@ def build_pitch(path):
             'Atmos Preflight · object count, LFE, layout',
             'Per-object anomaly detection',
             'Ship-Ready PDF + Corrected CSV exports',
-            'AI-gen detection · per stem',
+            'Translation Check · phone, earbuds, club, car',
         ]),
     ]
     for i, (heading, items) in enumerate(columns):
@@ -869,14 +871,14 @@ def build_pitch(path):
                  SANS, 14, SAND_MUTED, tracking=0.22)
     c.setFillColor(CREAM); c.setFont(SERIF_ITALIC, 84)
     c.drawString(margin, SLIDE_H - 320, "Per-band masking via")
-    c.drawString(margin, SLIDE_H - 410, "AI stem separation.")
+    c.drawString(margin, SLIDE_H - 410, "BS-RoFormer 4-stem.")
     gold_rule(c, margin, SLIDE_H - 450, 320)
     text_block(c, margin, SLIDE_H - 530,
-               ["Demucs splits both files into vocals, drums, bass, other.",
-                "RTMcompare measures per-band energy loss across 31 bands,",
-                "per stem. So when your master sums and the vocals lose 3.2 dB",
-                "at 2 kHz to drum bus competition, you see exactly that —",
-                "not just \"the mid-range is different.\""],
+               ["BS-RoFormer splits both files into vocals, drums, bass, other —",
+                "SDR 9.66, up from ~7.5 with Demucs. RTMcompare measures",
+                "per-band energy loss across 31 bands, per stem. So when your",
+                "master sums and the vocals lose 3.2 dB at 2 kHz to drum bus",
+                "competition, you see exactly that — not just \"the mid is different.\""],
                SANS, 26, SAND_SECONDARY, leading=42)
     c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 32)
     c.drawString(margin, 240,
@@ -1024,7 +1026,7 @@ def build_pitch(path):
 
     tagline(SLIDE_H - 640, size=50)
 
-    tracked_caps(c, margin, 240, PLATFORM_STRIP + ' · 5.3',
+    tracked_caps(c, margin, 240, PLATFORM_STRIP + ' · 5.5',
                  SANS, 16, SAND_MUTED, tracking=0.22)
     slide_chrome(11)
 
@@ -1033,14 +1035,228 @@ def build_pitch(path):
 
 
 # ──────────────────────────────────────────────────────────────────────
+#  CHANGELOG
+# ──────────────────────────────────────────────────────────────────────
+def build_changelog(path):
+    c = canvas.Canvas(str(path), pagesize=(LETTER_W, LETTER_H))
+    c.setTitle('RTMcompare — Changelog')
+    c.setAuthor('Ohad Nissim')
+    c.setSubject('RTMcompare 5.5 changelog')
+
+    margin = 60.0
+    body_w = LETTER_W - 2 * margin
+
+    def new_page():
+        c.showPage()
+        fill_bg(c, LETTER_W, LETTER_H)
+        corner_ticks(c, LETTER_W, LETTER_H)
+        colophon(c, LETTER_W, 28, ['RTMcompare', 'v5.5', 'Changelog', 'Local-first'])
+
+    def section_heading(eyebrow, title, standfirst=None, y=LETTER_H - 110):
+        tracked_caps(c, margin, y, eyebrow, SANS, 8, SAND_MUTED, tracking=0.22)
+        c.setFillColor(CREAM); c.setFont(SERIF, 32)
+        c.drawString(margin, y - 50, title)
+        gold_rule(c, margin, y - 68, 110)
+        if standfirst:
+            c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 14)
+            words = standfirst.split()
+            line, line_y = '', y - 96
+            for w in words:
+                trial = (line + ' ' + w).strip()
+                if c.stringWidth(trial, SERIF_ITALIC, 14) > body_w:
+                    c.drawString(margin, line_y, line)
+                    line, line_y = w, line_y - 22
+                else:
+                    line = trial
+            if line:
+                c.drawString(margin, line_y, line)
+            return line_y - 40
+        return y - 130
+
+    def change_row(y, label, blurb):
+        c.setFillColor(CREAM); c.setFont(SANS_BOLD, 10.5)
+        c.drawString(margin, y, label)
+        c.setFillColor(SAND_SECONDARY); c.setFont(SANS, 10)
+        words = blurb.split()
+        line, line_y = '', y - 16
+        for w in words:
+            trial = (line + ' ' + w).strip()
+            if c.stringWidth(trial, SANS, 10) > body_w:
+                c.drawString(margin, line_y, line)
+                line, line_y = w, line_y - 14
+            else:
+                line = trial
+        if line:
+            c.drawString(margin, line_y, line)
+        thin_rule(c, margin, line_y - 10, body_w, color=SAND_DIM, opacity=0.16)
+        return line_y - 28
+
+    # ── Cover ──
+    fill_bg(c, LETTER_W, LETTER_H)
+    corner_ticks(c, LETTER_W, LETTER_H)
+    tracked_caps(c, margin, LETTER_H - 110, 'A CHANGELOG · EDITION 5.5',
+                 SANS, 8.5, SAND_MUTED, tracking=0.22)
+    wordmark(c, margin, LETTER_H - 240, 84)
+
+    rule_y = LETTER_H - 268
+    rule_x_end = margin + body_w * 0.46
+    rule_mid = (margin + rule_x_end) / 2
+    c.setStrokeColor(Color(*CREAM.rgb(), alpha=0.85))
+    c.setLineWidth(0.6)
+    c.line(margin, rule_y, rule_mid - 6, rule_y)
+    c.line(rule_mid + 6, rule_y, rule_x_end, rule_y)
+    diamond(c, rule_mid, rule_y, 4)
+
+    c.setFillColor(SAND_SECONDARY); c.setFont(SERIF_ITALIC, 22)
+    c.drawString(margin, LETTER_H - 320, 'Every change worth telling you about.')
+    c.setFillColor(GOLD); c.setFont(SERIF_ITALIC, 22)
+    c.drawString(margin, LETTER_H - 352, 'Newest')
+    c.setFillColor(SAND_SECONDARY)
+    nw = c.stringWidth('Newest', SERIF_ITALIC, 22)
+    c.drawString(margin + nw + 8, LETTER_H - 352, 'first.')
+
+    text_block(c, margin, LETTER_H - 450,
+               ["This is the receipt. Not a press release — the actual list of",
+                "what changed and why. If you skipped a few releases and want",
+                "to know what's different now, start here.",
+                "",
+                "5.5.0 is the big one: a fresh coat of paint on the UI, a",
+                "rewritten click detector, a state-of-the-art stem separator,",
+                "and one big subtraction (the AI panel)."],
+               SANS, 11.5, SAND_SECONDARY, leading=18)
+
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.0', 'Changelog', 'May 2026'])
+
+    # ── 5.5.0 — Design bump ──
+    new_page()
+    y = section_heading('5.5.0 — RELEASE NOTES', 'Design bump.',
+                        'A hard look at the UI. The bits that got in your way are gone.')
+    rows = [
+        ('Reference history dropdown',
+         'Starred refs and recent picks live in a compact menu on the main page instead of a wall of names. Click, scroll, pick, go.'),
+        ('"+ New analysis" in the header',
+         'Reset and start fresh from anywhere — no more hunting through the menu.'),
+        ('Search palette (⌘K)',
+         'Jump to anything, fast. New header button to summon it.'),
+        ('Keyboard-shortcut sheet (?)',
+         'All the hotkeys, one tap away. Header button.'),
+        ('"Level matched" pill on EQ Preview',
+         'A/B-ing the EQ tweak with and without level-matching used to take three clicks. Now it\'s one. Pill on the panel, not buried in a gear-icon menu.'),
+        ('Sticky Advanced QC',
+         'Open it once, it stays open across sessions. No more re-toggling every time you launch the app.'),
+        ('Quieter single-file & folder scans',
+         'Removed the Ceiling and ADM warnings that fired on every non-Atmos file — they were noise, not signal.'),
+    ]
+    for label, blurb in rows:
+        y = change_row(y, label, blurb)
+
+    # ── 5.5.0 — Click detector ──
+    new_page()
+    y = section_heading('5.5.0 — UNDER THE HOOD', 'Click & glitch detector — drum-friendly.',
+                        'The v1 click detector flagged every snare hit. Replaced it with FLOW v2 (LPC residual, Godsill & Rayner 1998).')
+    rows = [
+        ('No more drum false positives',
+         'Tuned to FLOW\'s strict production default (sensitivity 1.0, K = max(6, 12/sens) = 12). The drums you put there on purpose stay un-flagged.'),
+        ('Better severity ranking',
+         'The top-20 list now sorts by severity then ratio, so the worst offenders surface first.'),
+        ('Cleaner deduplication',
+         'Removed the redundant 80 ms double-dedupe that was hiding adjacent real clicks.'),
+    ]
+    for label, blurb in rows:
+        y = change_row(y, label, blurb)
+
+    # ── 5.5.0 — Stem separator ──
+    new_page()
+    y = section_heading('5.5.0 — UNDER THE HOOD', 'Stem separator — BS-RoFormer.',
+                        'Quiet but big. The Demucs-only separator from earlier 5.x has been replaced with BS-RoFormer 4-stem.')
+    rows = [
+        ('SDR 9.66 on MUSDB18HQ',
+         'Up from ~7.5 with Demucs. Cleaner stems = more reliable downstream analysis (Match tab, EQ Preview level-match, masking).'),
+        ('Auto-falls-back to Demucs',
+         'If BS-RoFormer can\'t load on a given machine, the pipeline drops back to Demucs. Older bundles and edge cases keep working.'),
+    ]
+    for label, blurb in rows:
+        y = change_row(y, label, blurb)
+
+    # ── 5.5.0 — AI removal ──
+    new_page()
+    y = section_heading('5.5.0 — REMOVED', 'AI detection.',
+                        'We were going to ship UAI\'s 24-detector calibrated ensemble (F1 0.998 on Lambda validation). It works beautifully — but we pulled it.')
+    text_block(c, margin, y,
+               ["The full strict engine would have added ~1.1 GB of model weights",
+                "to the bundle (BS-RoFormer ckpt + CLAP audio embeddings + ONNX",
+                "detectors + calibration heads) for one optional feature most",
+                "engineers don't act on day-to-day. The math:",
+                "",
+                "  • CLAP weights — 589 MB",
+                "  • UAI ONNX detectors — 46 MB",
+                "  • BS-RoFormer ckpt (also used by separator) — 503 MB",
+                "  • Calibration heads — < 1 MB",
+                "",
+                "We're keeping BS-RoFormer (it powers stem separation everywhere",
+                "in the app) and dropping the rest. The bundle gets ~840 MB",
+                "lighter. May revisit AI detection as a separate opt-in download.",
+                "",
+                "If you relied on the AI panel, sit on 5.4.0 for now or shout."],
+               SANS, 11.5, SAND_SECONDARY, leading=18)
+
+    # ── 5.5.0 — Build & deploy ──
+    new_page()
+    y = section_heading('5.5.0 — BUILD & DEPLOY', 'Smaller, cleaner bundle.',
+                        'The Mac DMG drops nearly a gigabyte. The Windows zip finally ships with the separator weights it was missing in 5.4.0.')
+    rows = [
+        ('Mac DMG: −836 MB',
+         'python-bundle dropped 200 MB (xgboost / transformers / huggingface_hub / libomp out). model-cache dropped 636 MB (CLAP + UAI ONNX + calibration heads out).'),
+        ('Windows zip — finally complete',
+         '5.4.0\'s Win bundle silently shipped without the BS-RoFormer ckpt — stem separation didn\'t work at all on Windows. The Win CI now pre-downloads the 503 MB ckpt + yaml into model-cache before electron-builder runs.'),
+        ('Win CI cache key v3-uai → v5-stems-only',
+         'Forces a clean rebuild without the AI deps. Saves ~3 min on cache hits going forward.'),
+        ('RTMprofile production model-cache discovery',
+         'Standalone RTMprofile.app now walks up the bundle to find model-cache/ correctly — no more "model not found" on first launch from /Applications.'),
+        ('24 audit fixes',
+         'Mostly cosmetics, a couple of real wiring bugs caught during the pre-flight pass.'),
+    ]
+    for label, blurb in rows:
+        y = change_row(y, label, blurb)
+
+    # ── Older versions ──
+    new_page()
+    y = section_heading('OLDER RELEASES', 'How we got here.',
+                        'The shorter version of every release before this one.')
+    rows = [
+        ('5.4.0', 'UAI integration kickoff. BS-RoFormer 4-stem + 24-detector ensemble landed, but shipped without the strict engine deps so the panel ran in validation mode in production. Click detector v2 first cut. 24 audit fixes.'),
+        ('5.3.0', 'Vendored the UAI detector runtime (modspec, lofcz, CNN, AST). First pass at the calibrated ensemble. Mac signing/notarization automation.'),
+        ('5.2.x', 'Windows bundle reached parity with Mac (added librosa/numba/demucs/julius/openunmix). Atmos pipeline polish. Pitch deck refresh.'),
+        ('5.1.x', 'First Windows release. EBU R128 fixes. Album batch view.'),
+        ('5.0.x', 'Initial 5.x line — A/B compare, single-file QC, Atmos, the whole bundle structure.'),
+    ]
+    for label, blurb in rows:
+        y = change_row(y, label, blurb)
+
+    c.save()
+    print(f'  → {path}')
+
+
+# ──────────────────────────────────────────────────────────────────────
 #  Driver
 # ──────────────────────────────────────────────────────────────────────
 def main():
-    print('Generating Console Didone PDFs (5.3 voice rewrite):')
+    # 5.5.0: route output to the canonical release/v5.5.0/ folder so
+    # build_suite_dmg.sh + the Win CI doc-copy step pick the new-look
+    # PDFs up directly. Names match what those scripts already expect.
+    out = REPO_ROOT / 'release' / 'v5.5.0'
+    out.mkdir(parents=True, exist_ok=True)
+    print(f'Generating Console Didone PDFs (5.5 voice) into {out}/')
+    build_manual(out / 'MANUAL.pdf')
+    build_features(out / 'FEATURES.pdf')
+    build_pitch(out / 'PITCH-DECK.pdf')
+    build_changelog(out / 'CHANGELOG.pdf')
+    # Refresh the promo/ copies too so the website + reels stay in sync.
     build_manual(HERE / 'RTMcompare-Manual.pdf')
     build_features(HERE / 'RTMcompare-Features.pdf')
     build_pitch(HERE / 'RTMcompare-Pitch.pdf')
-    print(f'\nAll PDFs written to {HERE}/')
+    build_changelog(HERE / 'RTMcompare-Changelog.pdf')
+    print('Done.')
 
 
 if __name__ == '__main__':

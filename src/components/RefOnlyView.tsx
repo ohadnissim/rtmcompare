@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react'
-import { ReferenceCheck, ClickArtifact, DistortionResult, TonalIssue, MonoCompatibility, EngineerTips, AIDetection, AnalysisResult } from '../types'
+import { ReferenceCheck, ClickArtifact, DistortionResult, TonalIssue, MonoCompatibility, EngineerTips, AnalysisResult } from '../types'
 import InfoTooltip from './InfoTooltip'
 import { TeachTerm } from '../teachMe'
 import DurationPill, { formatDuration } from './DurationPill'
@@ -16,7 +16,6 @@ import WaveformCompare from './WaveformCompare'
 import PhaseBandsPanel from './PhaseBandsPanel'
 import TempoDriftPanel from './TempoDriftPanel'
 import MaskingPanel from './MaskingPanel'
-import AIDetectionPanel from './AIDetectionPanel'
 import HumPanel from './HumPanel'
 import DeclickPanel from './DeclickPanel'
 import TransientDensityPanel from './TransientDensityPanel'
@@ -57,7 +56,6 @@ interface Props {
  waveform_a?: number[]
  engineer_tips?: EngineerTips
  masking?: { overlaps: any[]; stem_based: boolean }
- ai_detection?: AIDetection
  hum?: any
  transient_density?: any
  streaming_preview?: AnalysisResult['streaming_preview']
@@ -551,13 +549,14 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </div>
 
  {/* ── 5b. Apple Digital Masters ready stamp ──────────────────
- Bundles all five
- ADM requirements (24-bit / ≥44.1 kHz / ≤ −1 dBTP / no
- clipping / lossless source chain) into a single badge so
- engineers see one green stamp instead of auditing five
- panels. Hidden when no metric is present (e.g. atmos
- solo, where ADM doesn't apply). */}
- {(singleFileMetrics.bit_depth != null || singleFileMetrics.sample_rate != null || singleFileMetrics.true_peak != null) && (() => {
+ Bundles all five ADM requirements into a single badge.
+ 5.4.2: hidden on single-file + folder scan per user direction.
+ ADM is an Atmos/Apple-Music-specific spec; flagging a regular
+ stereo master against it for "ADM hold — 24-bit or higher,
+ 44.1 kHz or higher" was crying wolf. Re-enable only when the
+ file is explicitly opened from an Atmos route (atmos solo
+ path) or when the user opts in via a future toggle. */}
+ {false && (singleFileMetrics.bit_depth != null || singleFileMetrics.sample_rate != null || singleFileMetrics.true_peak != null) && (() => {
  const adm = computeAdmReadiness({
  bitDepth: singleFileMetrics.bit_depth,
  sampleRate: singleFileMetrics.sample_rate,
@@ -1166,17 +1165,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
 
  {/* Mood & Emotion panel removed — */}
 
- {/* AI Detection */}
- {data.ai_detection && (
- <CollapsibleSection
- title="AI / Synthetic Audio Detection"
- tooltip="Statistical fingerprints that separate human-performed audio from AI-generated content."
- why="Labels, libraries, and sync houses increasingly require disclosure of AI-generated elements. This panel surfaces the statistical tells (suspiciously clean transient distributions, codec-artefact repeats, micro-pitch quantisation) so you can disclose honestly and catch any accidental AI contamination before delivery."
- defaultOpen={false}
- >
- <AIDetectionPanel detection={data.ai_detection} />
- </CollapsibleSection>
- )}
+ {/* AI Detection panel removed in 5.5.0 — see CHANGELOG. */}
 
  {/* Vectorscope — rendered via a memoised sub-component so the
  2000+ SVG nodes aren't rebuilt on every tab-strip switch.

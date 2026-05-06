@@ -19,7 +19,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="5.4.0"
+VERSION="5.5.0"
 NAME="RTMcompare-bundle-${VERSION}"
 VOL="RTMcompare bundle ${VERSION}"
 OUT_DIR="${PROJECT}/release"
@@ -33,13 +33,14 @@ RTMCOMPARE_APP="${PROJECT}/release-build/mac-arm64/RTMcompare.app"
 RTMPROFILE_APP="${PROJECT}/rtm-profile-app/release-build/mac-arm64/RTMprofile.app"
 PLUGIN_PKG="${PROJECT}/rtm-send-plugin/release/RTM-Send-1.0.0.pkg"
 PLUGIN_DMG="${PROJECT}/rtm-send-plugin/release/RTM-Send-1.0.0.dmg"
-DOC_MANUAL="${PROJECT}/release/v5.2.4/MANUAL.pdf"
-DOC_FEATURES="${PROJECT}/release/v5.2.4/FEATURES.pdf"
-DOC_PITCH="${PROJECT}/release/v5.2.4/PITCH-DECK.pdf"
+DOC_MANUAL="${PROJECT}/release/v5.5.0/MANUAL.pdf"
+DOC_FEATURES="${PROJECT}/release/v5.5.0/FEATURES.pdf"
+DOC_PITCH="${PROJECT}/release/v5.5.0/PITCH-DECK.pdf"
+DOC_CHANGELOG="${PROJECT}/release/v5.5.0/CHANGELOG.pdf"
 
 # Sanity-check sources exist.
 for path in "$RTMCOMPARE_APP" "$RTMPROFILE_APP" "$PLUGIN_PKG" \
-            "$DOC_MANUAL" "$DOC_FEATURES" "$DOC_PITCH"; do
+            "$DOC_MANUAL" "$DOC_FEATURES" "$DOC_PITCH" "$DOC_CHANGELOG"; do
   [[ -e "$path" ]] || { echo "Missing source: $path" >&2; exit 1; }
 done
 
@@ -55,6 +56,7 @@ cp    "$PLUGIN_PKG"    "$STAGE/RTM Send installer.pkg"
 cp    "$DOC_MANUAL"     "$STAGE/Documentation/Manual.pdf"
 cp    "$DOC_FEATURES"   "$STAGE/Documentation/Features.pdf"
 cp    "$DOC_PITCH"      "$STAGE/Documentation/Pitch Deck.pdf"
+cp    "$DOC_CHANGELOG"  "$STAGE/Documentation/Changelog.pdf"
 ln -s /Applications "$STAGE/Applications"
 
 cat >"$STAGE/README.txt" <<EOF

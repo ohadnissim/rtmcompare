@@ -301,9 +301,12 @@ export default function App() {
             </span>
           </div>
           <div style={{ fontSize: 12, color: SAND_400, marginTop: 4, lineHeight: 1.45 }}>
-            Run each track through Demucs separation and build per-stem profiles
-            (vocals · drums · bass · other) on top of the whole-mix one. Adds
-            ~30 seconds to two minutes per track on Apple Silicon.
+            Run each track through BS-RoFormer 4-stem separation (SDR 9.66
+            on MUSDB18HQ — meaningfully cleaner than the older htdemucs path)
+            and build per-stem profiles (vocals · drums · bass · other) on
+            top of the whole-mix one. Adds ~30 seconds to two minutes per
+            track on Apple Silicon. First run downloads the 503 MB checkpoint
+            if it isn't already on disk from a sibling RTMcompare install.
           </div>
         </div>
       </label>

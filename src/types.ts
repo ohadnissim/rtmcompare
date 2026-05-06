@@ -280,7 +280,6 @@ export interface AnalysisResult {
  atmos_qc?: AtmosQC
  atmos_channels?: { channel: string; label: string; role: string; level_db: number; centroid_hz: number; dynamic_range_db: number; is_active: boolean; description: string }[]
  atmos_downmix_path?: string
- ai_detection?: AIDetection
  engineer_tips?: EngineerTips
  level_matched: boolean
  gain_applied_db: number
@@ -524,76 +523,7 @@ export interface AtmosQC {
  }
 }
 
-// ─── AI Detection types ─────────────────────────────────────────────────────
-
-export interface AIDetectionCheck {
- name: string
- score: number
- weight: number
- detail: string
- // New in 4.0.1 — the backend's vocal-naturalness probe surfaces how
- // many of its 8 sub-tests actually completed. A score built on 3/8
- // probes is much less trustworthy than one built on 8/8, so the UI
- // downgrades confidence when these are present and low.
- probes_run?: number
- probes_total?: number
-}
-
-export interface AIDetectionStemVerdict {
- stem: string
- verdict: 'likely_human' | 'uncertain' | 'likely_ai'
- score: number
- detail: string
-}
-
-export interface AIDetection {
- probability: number
- verdict: 'likely_human' | 'uncertain' | 'likely_ai'
- summary: string
- checks: AIDetectionCheck[]
- stem_verdicts?: AIDetectionStemVerdict[]
-
- // ─── 5.3.x: vendored UAI ensemble fields. Optional so any v1
- // heuristic result keeps loading, and the UI can degrade gracefully.
- // See `python/ai_detector.py` for the schema map.
-
- /** Provenance of the score: `'uai_v1.4'` (vendored UAI 24-detector
-  *  calibrated ensemble) or `'rtm_v1_heuristic'` (legacy fallback)
-  *  or `'unavailable'` (both engines errored). */
- method?: 'uai_v1.4' | 'rtm_v1_heuristic' | 'unavailable' | string
-
- /** Calibration status. `'deployed'` = UAI v1.3 calibration head;
-  *  `'heuristic'` = uncalibrated alias of risk_score_raw. */
- calibration?: 'deployed' | 'heuristic' | string
-
- /** UAI's native 4-way label (`'AI Generated'`, `'Hybrid'`,
-  *  `'Human'`, `'Unknown'`). The 3-way `verdict` collapses Hybrid
-  *  onto `likely_ai` for back-compat; the 4-way form is the more
-  *  faithful answer when the panel can show it. */
- track_verdict_4way?: string
-
- /** Verdict of the un-separated full mix (separate from the
-  *  per-stem aggregate). Useful when stems don't separate cleanly. */
- full_mix_verdict?: string
- full_mix_score?: number
-
- /** Aggregate over `drums + bass + other` — the canonical
-  *  instrumental risk index UAI's claims/calibration anchor on. */
- instrumental_aggregate?: number
-
- /** Identifier + score of the single stem with the highest risk. */
- max_stem_name?: string
- max_stem_score?: number
-
- /** Per-stem 4-way classification map (e.g. {vocals: 'Human', drums: 'AI'}). */
- stem_4way_classes?: Record<string, string>
-
- /** Per-stem softmax over the 4-way classes. */
- stem_4way_probabilities?: Record<string, Record<string, number>>
-
- /** Set when the engine failed and we degraded to heuristic-or-error. */
- error?: string
-}
+// AI Detection types removed in 5.5.0 — see CHANGELOG.
 
 // ─── Engineer Profile types ─────────────────────────────────────────────────
 
