@@ -34,8 +34,16 @@ export default function ShortcutHelp() {
  }
  if (e.key === 'Escape') setShow(false)
  }
+ // 5.5.0: HeaderV2's "?" button dispatches `rtm-toggle-shortcuts`
+ // when clicked. Listen so the click route works end-to-end (the
+ // keyboard handler alone leaves the button silent).
+ const customToggle = () => setShow(s => !s)
  window.addEventListener('keydown', handler)
- return () => window.removeEventListener('keydown', handler)
+ window.addEventListener('rtm-toggle-shortcuts', customToggle)
+ return () => {
+ window.removeEventListener('keydown', handler)
+ window.removeEventListener('rtm-toggle-shortcuts', customToggle)
+ }
  }, [])
 
  if (!show) return null

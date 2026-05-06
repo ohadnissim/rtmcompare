@@ -215,7 +215,7 @@ def build_manual(path):
                 "are short. Nobody asked for a textbook."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.0', 'Apple Silicon', 'macOS 12+'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.1', 'Apple Silicon', 'macOS 12+'])
 
     # ── 1 · Install ──
     new_page()
@@ -543,7 +543,7 @@ def build_features(path):
                 "before you click into it."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.0', 'Features', '10 surfaces'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.1', 'Features', '10 surfaces'])
 
     # ── A/B Compare ──
     new_page()
@@ -1125,7 +1125,24 @@ def build_changelog(path):
                 "and one big subtraction (the AI panel)."],
                SANS, 11.5, SAND_SECONDARY, leading=18)
 
-    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.0', 'Changelog', 'May 2026'])
+    colophon(c, LETTER_W, 60, ['RTMcompare', 'v5.5.1', 'Changelog', 'May 2026'])
+
+    # ── 5.5.1 — point fix ──
+    new_page()
+    y = section_heading('5.5.1 — POINT FIX', 'The "?" button works now.',
+                        'A one-liner shipped on top of 5.5.0 to fix the click route on the new shortcut-help button.')
+    text_block(c, margin, y,
+               ["The `?` button in the header dispatched a custom event",
+                "(`rtm-toggle-shortcuts`) that nothing was listening for, so",
+                "clicking it did nothing. Pressing the `?` key still toggled",
+                "the shortcuts panel correctly — only the click route was broken.",
+                "",
+                "ShortcutHelp.tsx now subscribes to the custom event in addition",
+                "to its keyboard handler. Both routes work.",
+                "",
+                "If you're on 5.5.0 and only ever press `?` instead of clicking,",
+                "you don't need this update."],
+               SANS, 11.5, SAND_SECONDARY, leading=18)
 
     # ── 5.5.0 — Design bump ──
     new_page()
@@ -1241,9 +1258,10 @@ def build_changelog(path):
 #  Driver
 # ──────────────────────────────────────────────────────────────────────
 def main():
-    # 5.5.0: route output to the canonical release/v5.5.0/ folder so
+    # 5.5.x: route output to the canonical release/v5.5.0/ folder so
     # build_suite_dmg.sh + the Win CI doc-copy step pick the new-look
     # PDFs up directly. Names match what those scripts already expect.
+    # Point fixes (5.5.1+) refresh in place — fonts + heroes are shared.
     out = REPO_ROOT / 'release' / 'v5.5.0'
     out.mkdir(parents=True, exist_ok=True)
     print(f'Generating Console Didone PDFs (5.5 voice) into {out}/')

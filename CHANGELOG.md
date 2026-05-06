@@ -4,6 +4,14 @@ All the changes worth telling you about, newest first.
 
 ---
 
+## 5.5.1 — the "?" button works now
+
+A one-liner. The `?` button in the header dispatched a custom event that nothing was listening for, so clicking it did nothing. Pressing the `?` key worked fine; only the click route was broken. Fixed.
+
+If you're already on 5.5.0 and only ever press `?` instead of clicking, you don't need this update.
+
+---
+
 ## 5.5.0 — the big one
 
 This release rebuilds the click detector, gives the whole app a fresh coat of paint, and upgrades the stem separator to something genuinely state-of-the-art. The 24-detector AI ensemble we'd been working on doesn't ship in this version — read on.
