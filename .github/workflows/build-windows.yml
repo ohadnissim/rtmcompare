@@ -64,11 +64,19 @@ jobs:
         run: git clone --depth 1 https://github.com/Celemony/ARA_SDK.git C:\ARA_SDK
 
       # ── RTMsend VST3 build ────────────────────────────────────────
+      # Set up MSVC x64 environment so cmake's Ninja generator can find
+      # cl.exe + link.exe on PATH. The VS generator is unreliable under
+      # pwsh on hosted runners (especially windows-2025).
+      - name: Set up MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure RTMsend
         shell: pwsh
         run: |
           cmake -S rtm-send-plugin -B rtm-send-plugin/build-win `
-            -G "Visual Studio 17 2022" -A x64 `
+            -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DJUCE_DIR=C:\JUCE `
             -DARA_SDK_PATH=C:\ARA_SDK `

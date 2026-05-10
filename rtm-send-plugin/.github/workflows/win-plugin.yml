@@ -54,14 +54,19 @@ jobs:
         run: git clone --depth 1 https://github.com/Celemony/ARA_SDK.git C:\ARA_SDK
         shell: pwsh
 
+      - name: Set up MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure
+        shell: pwsh
         run: |
-          cmake -S . -B build -G "Visual Studio 17 2022" -A x64 `
+          cmake -S . -B build -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DJUCE_DIR=C:\JUCE `
             -DARA_SDK_PATH=C:\ARA_SDK `
             -DJUCE_COPY_PLUGIN_AFTER_BUILD=OFF
-        shell: pwsh
 
       - name: Build VST3 + Standalone
         run: cmake --build build --config Release --parallel
