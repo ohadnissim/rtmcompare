@@ -1,6 +1,6 @@
 {
   "name": "rtm",
-  "version": "5.5.2",
+  "version": "5.7.1",
   "description": "RTMcompare — Industry-standard A/B compare · Single-file QC · Album batch · Atmos",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -85,9 +85,8 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowElevation": false,
-      "allowToChangeInstallationDirectory": true,
       "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "RTMcompare",
@@ -180,6 +179,7 @@
     "electron-builder": "^26.8.1",
     "esbuild": "^0.28.0",
     "postcss": "^8.5.9",
+    "skillfish": "^1.0.37",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.8"

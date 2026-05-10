@@ -1,6 +1,6 @@
 {
   "name": "rtmprofile",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Build a custom engineer profile from a corpus of audio. Loads into RTMcompare's Match tab.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -18,7 +18,14 @@
     "mac": {
       "category": "public.app-category.music",
       "icon": "build/icon.icns",
-      "target": [{ "target": "dmg", "arch": ["arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
@@ -44,8 +51,18 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "extraResources": [
         {
@@ -71,9 +88,18 @@
       "createStartMenuShortcut": true,
       "shortcutName": "RTMprofile"
     },
-    "files": ["dist/**/*", "dist-electron/**/*"],
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
     "extraResources": [
-      { "from": "python", "to": "python", "filter": ["**/*.py"] }
+      {
+        "from": "python",
+        "to": "python",
+        "filter": [
+          "**/*.py"
+        ]
+      }
     ],
     "asar": true
   },
