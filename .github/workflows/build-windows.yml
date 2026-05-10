@@ -283,34 +283,41 @@ jobs:
                        Sort-Object Name -Descending |
                        Select-Object -First 1).FullName
           }
-          foreach ($pdf in @('MANUAL.pdf','FEATURES.pdf','PITCH-DECK.pdf','CHANGELOG.pdf')) {
-            $dest = $pdf -replace 'PITCH-DECK','Pitch Deck' -replace '-',' ' -replace '\b(\w)', { $_.Groups[1].Value.ToUpper() }
-            if (Test-Path "$docDir\$pdf") { Copy-Item "$docDir\$pdf" "$stage\Documentation\$dest" }
+          $pdfMap = @{
+            'MANUAL.pdf'     = 'Manual.pdf'
+            'FEATURES.pdf'   = 'Features.pdf'
+            'PITCH-DECK.pdf' = 'Pitch Deck.pdf'
+            'CHANGELOG.pdf'  = 'Changelog.pdf'
+          }
+          foreach ($src in $pdfMap.Keys) {
+            $dst = $pdfMap[$src]
+            if (Test-Path "$docDir\$src") { Copy-Item "$docDir\$src" "$stage\Documentation\$dst" }
           }
 
-          # README
-          $readme = @"
-RTMcompare bundle $version (Windows)
-
-Three apps. One toolkit.
-
-  RTMcompare Setup $version.exe    - the analyser. Run to install.
-  RTMcompare $version.exe          - portable build, no install.
-  RTMprofile Setup $profileVer.exe - profile builder. Run to install.
-  RTMprofile $profileVer.exe       - portable build, no install.
-  RTM-Send-1.2.0-Setup.exe         - VST3 + Standalone plugin installer.
-
-Documentation\                     - Manual, Features, Pitch Deck (PDFs)
-
-Notes:
-- Everything runs locally. No telemetry, no cloud, no upload.
-- Windows Defender SmartScreen may warn on first run of unsigned EXEs.
-  Click "More info" then "Run anyway". EV code-signing is on the roadmap.
-
-RTMcompare $version - (c) 2026 Ohad Nissim
-"@
+          # README — built line by line to avoid YAML block-scalar conflicts
+          # with PowerShell @"..."@ heredocs that require column-0 content.
+          $lines = @(
+            "RTMcompare bundle $version (Windows)",
+            "",
+            "Three apps. One toolkit.",
+            "",
+            "  RTMcompare Setup $version.exe    - the analyser. Run to install.",
+            "  RTMcompare $version.exe          - portable build, no install.",
+            "  RTMprofile Setup $profileVer.exe - profile builder. Run to install.",
+            "  RTMprofile $profileVer.exe       - portable build, no install.",
+            "  RTM-Send-1.2.0-Setup.exe         - VST3 + Standalone plugin installer.",
+            "",
+            "  Documentation\                   - Manual, Features, Pitch Deck (PDFs)",
+            "",
+            "Notes:",
+            "- Everything runs locally. No telemetry, no cloud, no upload.",
+            "- Windows Defender SmartScreen may warn on first run of unsigned EXEs.",
+            "  Click 'More info' then 'Run anyway'. EV code-signing is on the roadmap.",
+            "",
+            "RTMcompare $version - (c) 2026 Ohad Nissim"
+          )
           [System.IO.File]::WriteAllText("$stage\README.txt",
-            $readme.Replace("`r`n", "`n"),
+            ($lines -join "`n") + "`n",
             [System.Text.UTF8Encoding]::new($false))
 
           # ZIP
