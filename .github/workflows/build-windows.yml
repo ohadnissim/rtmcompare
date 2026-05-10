@@ -344,12 +344,13 @@ jobs:
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
+        continue-on-error: true   # quota may be exhausted; Release upload below is the primary path
         with:
           name: ${{ steps.bundle.outputs.zip }}
           path: |
             ${{ steps.bundle.outputs.zip }}
             ${{ steps.bundle.outputs.zip }}.sha256
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Attach to Release (tag triggers only)
