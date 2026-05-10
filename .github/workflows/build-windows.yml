@@ -1,9 +1,14 @@
 name: Build Windows bundle
 
 # Two ways to trigger:
-#   1. Push a tag like v5.1.2 — produces a versioned artifact + Release asset.
-#   2. Click "Run workflow" in the Actions tab — uses the version from
-#      package.json. Useful for testing the pipeline before tagging.
+#   1. Push a tag like v5.7.1 — produces a versioned artifact + Release asset.
+#   2. Click "Run workflow" in the Actions tab — uses the version from package.json.
+#
+# What it builds (all on one windows-latest runner):
+#   - RTMsend VST3 plugin (cmake/MSVC) + NSIS plugin installer
+#   - RTMcompare Electron app (nsis + portable)
+#   - RTMprofile Electron app (nsis + portable)
+#   - ZIP bundle with all of the above + Documentation PDFs
 on:
   push:
     tags:
@@ -16,99 +21,158 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
+      # ── Versions ───────────────────────────────────────────────────
       - name: Read versions
         id: versions
         shell: pwsh
         run: |
-          $rtm = (Get-Content package.json | ConvertFrom-Json).version
+          $rtm     = (Get-Content package.json | ConvertFrom-Json).version
           $profile = (Get-Content rtm-profile-app/package.json | ConvertFrom-Json).version
-          echo "rtm=$rtm" >> $env:GITHUB_OUTPUT
+          echo "rtm=$rtm"         >> $env:GITHUB_OUTPUT
           echo "profile=$profile" >> $env:GITHUB_OUTPUT
           Write-Host "RTMcompare $rtm  /  RTMprofile $profile"
 
-      # ── python-bundle-win ─────────────────────────────────────────────
-      # Cache by hash of this workflow file so the bundle gets rebuilt
-      # whenever we change the package list. Saves ~3 min per run on hits.
+      # ── JUCE ───────────────────────────────────────────────────────
+      - name: Cache JUCE
+        id: cache-juce
+        uses: actions/cache@v4
+        with:
+          path: C:\JUCE
+          key: juce-8.0.12
+
+      - name: Clone JUCE 8.0.12
+        if: steps.cache-juce.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git C:\JUCE
+
+      # ── ARA SDK (optional — plugin builds without it too) ──────────
+      - name: Cache ARA SDK
+        id: cache-ara
+        uses: actions/cache@v4
+        with:
+          path: C:\ARA_SDK
+          key: ara-sdk-main-2024
+
+      - name: Clone ARA SDK
+        if: steps.cache-ara.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: git clone --depth 1 https://github.com/Celemony/ARA_SDK.git C:\ARA_SDK
+
+      # ── RTMsend VST3 build ────────────────────────────────────────
+      - name: Configure RTMsend
+        shell: pwsh
+        run: |
+          cmake -S rtm-send-plugin -B rtm-send-plugin/build-win `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DJUCE_DIR=C:\JUCE `
+            -DARA_SDK_PATH=C:\ARA_SDK `
+            -DJUCE_COPY_PLUGIN_AFTER_BUILD=OFF
+
+      - name: Build RTMsend VST3
+        shell: pwsh
+        run: cmake --build rtm-send-plugin/build-win --config Release --parallel
+
+      - name: Resolve RTMsend artefact path
+        id: plugin-paths
+        shell: pwsh
+        run: |
+          $artefacts = "rtm-send-plugin\build-win\RtmSend_artefacts\Release"
+          $resolved = (Resolve-Path $artefacts).Path
+          echo "release_dir=$resolved" >> $env:GITHUB_OUTPUT
+
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      - name: Build RTMsend NSIS installer
+        shell: pwsh
+        env:
+          PLUGIN_DIR: ${{ steps.plugin-paths.outputs.release_dir }}
+        run: |
+          $makensis = "C:\Program Files (x86)\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) { Write-Error "makensis.exe not found"; exit 1 }
+          & $makensis /DPLUGIN_DIR="$env:PLUGIN_DIR" `
+            rtm-send-plugin\scripts\build_win_installer.nsi
+
+      # Optional Authenticode signing ───────────────────────────────
+      - name: Decode signing cert
+        id: cert
+        if: env.WIN_PFX_BASE64 != ''
+        env:
+          WIN_PFX_BASE64: ${{ secrets.WIN_PFX_BASE64 }}
+        shell: pwsh
+        run: |
+          $bytes = [System.Convert]::FromBase64String($env:WIN_PFX_BASE64)
+          $path = Join-Path $env:RUNNER_TEMP "rtm.pfx"
+          [System.IO.File]::WriteAllBytes($path, $bytes)
+          "cert_path=$path" >> $env:GITHUB_OUTPUT
+
+      - name: Sign RTMsend installer
+        if: steps.cert.outputs.cert_path != ''
+        shell: pwsh
+        env:
+          PFX_PATH:     ${{ steps.cert.outputs.cert_path }}
+          PFX_PASSWORD: ${{ secrets.WIN_PFX_PASSWORD }}
+        run: |
+          $signtool = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+                       Where-Object { $_.Directory.Name -eq 'x64' } |
+                       Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          & $signtool sign /f $env:PFX_PATH /p $env:PFX_PASSWORD `
+            /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
+            rtm-send-plugin\scripts\RTM-Send-1.2.0-Setup.exe
+
+      # ── Python bundle ────────────────────────────────────────────
       - name: Cache python-bundle-win
         id: cache-pybundle
         uses: actions/cache@v4
         with:
           path: python-bundle-win
-          # Cache key bumped to v2 in 5.2.2: previous Windows bundles were
-          # missing librosa/numba/demucs/julius/openunmix — half the
-          # analyser modules failed at import time on Windows. The
-          # canonical Mac bundle has all of them; matching here.
-          # 5.5.0 bump → v5-stems-only: AI detector removed; dropping
-          # xgboost / transformers / huggingface_hub from the bundle.
-          # BS-RoFormer separator stays via audio-separator + onnxruntime.
           key: pybundle-win-py3.11.9-full-dsp-stack-v5-stems-only
 
-      - name: Build python-bundle-win (embeddable Python + DSP deps)
+      - name: Build python-bundle-win
         if: steps.cache-pybundle.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $pyVersion = '3.11.9'
           $url = "https://www.python.org/ftp/python/$pyVersion/python-$pyVersion-embed-amd64.zip"
-          Write-Host "Downloading $url"
+          Write-Host "Downloading Python $pyVersion embeddable..."
           Invoke-WebRequest -Uri $url -OutFile python-embed.zip
 
           New-Item -ItemType Directory -Force -Path python-bundle-win/python | Out-Null
           Expand-Archive -Path python-embed.zip -DestinationPath python-bundle-win/python -Force
 
           # Enable site-packages so pip-installed packages are importable.
-          # The embeddable distribution ships with `import site` commented
-          # out in python311._pth — we uncomment it.
           $pthFile = Get-ChildItem python-bundle-win/python -Filter 'python*._pth' | Select-Object -First 1
           (Get-Content $pthFile.FullName) -replace '^#import site', 'import site' | Set-Content $pthFile.FullName
 
-          # Bootstrap pip into the embeddable interpreter.
+          # Bootstrap pip.
           Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile get-pip.py
-          ./python-bundle-win/python/python.exe get-pip.py --no-warn-script-location
+          .\python-bundle-win\python\python.exe get-pip.py --no-warn-script-location
 
-          # Install the DSP stack the analysis Python needs. These match
-          # the Mac bundle's pinned set so behaviour is identical across
-          # platforms. Anything we add here gets a new cache key (bump
-          # the suffix in the cache step above).
-          # 5.2.2 fix: previous bundle shipped only numpy/scipy/
-          # soundfile/pyloudnorm, but most analyser modules import
-          # librosa at module scope — Windows analyses crashed with
-          # ModuleNotFoundError. Added the Mac-equivalent stack.
-          # 5.3.x: added audio-separator + onnxruntime + soxr for the
-          # vendored UAI separator + detector ensemble.
-          # 5.5.0: AI detector removed. Dropping xgboost / transformers
-          # / huggingface_hub. audio-separator + onnxruntime + soxr
-          # remain — they power BS-RoFormer 4-stem separation.
-          ./python-bundle-win/python/python.exe -m pip install `
+          # DSP stack — mirrors the Mac bundle exactly.
+          .\python-bundle-win\python\python.exe -m pip install `
             --no-warn-script-location `
             numpy scipy soundfile pyloudnorm `
             librosa numba demucs julius openunmix `
             "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0"
 
-          # Sanity check the imports work in this exact interpreter.
-          ./python-bundle-win/python/python.exe -c "import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius; import onnxruntime, soxr, audio_separator; print('OK', numpy.__version__, scipy.__version__, librosa.__version__, 'onnxruntime', onnxruntime.__version__)"
+          # Smoke test.
+          .\python-bundle-win\python\python.exe -c "
+          import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius
+          import onnxruntime, soxr, audio_separator
+          print('OK', numpy.__version__, 'onnxruntime', onnxruntime.__version__)
+          "
 
           Remove-Item python-embed.zip, get-pip.py
 
-      # ── BS-RoFormer 4-stem checkpoint ─────────────────────────────────
-      # 5.5.0: stage the BS-RoFormer ckpt into model-cache/ so the
-      # Windows bundle ships with separator weights pre-included.
-      # Previous Win bundles relied on first-run auto-download (the
-      # ckpt is 503 MB, served from a public GitHub Release), but
-      # most users lost stems entirely if they were offline at first
-      # launch. The file is hashed-cached separately from the python
-      # bundle so a `pip install` change doesn't redownload it.
+      # ── BS-RoFormer model weights ─────────────────────────────────
       - name: Cache BS-RoFormer ckpt
         id: cache-bsroformer
         uses: actions/cache@v4
@@ -116,7 +180,7 @@ jobs:
           path: model-cache/uai_root/models
           key: bs-roformer-4stem-sdr-9.6568-v1
 
-      - name: Download BS-RoFormer 4-stem ckpt + config
+      - name: Download BS-RoFormer ckpt
         if: steps.cache-bsroformer.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
@@ -127,19 +191,25 @@ jobs:
           Write-Host "Downloading BS-RoFormer ckpt (~503 MB)..."
           Invoke-WebRequest -Uri "$base/model_bs_roformer_ep_17_sdr_9.6568.ckpt" `
             -OutFile "$modelDir/bs_roformer_4stem_ep_17_sdr_9.6568.ckpt"
-          Write-Host "Downloading BS-RoFormer yaml config..."
           Invoke-WebRequest -Uri "$base/config_bs_roformer_384_8_2_485100.yaml" `
             -OutFile "$modelDir/bs_roformer_4stem_ep_17_sdr_9.6568.yaml"
           Get-ChildItem $modelDir | Format-List Name, Length
 
-      # ── RTMcompare build ──────────────────────────────────────────────
+      # ── Node.js ───────────────────────────────────────────────────
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── RTMcompare Electron build ─────────────────────────────────
       - name: npm install (RTMcompare)
         run: npm install --no-audit --no-fund
 
       - name: Build RTMcompare for Windows
         run: npm run pack:win
 
-      # ── RTMprofile build ──────────────────────────────────────────────
+      # ── RTMprofile Electron build ─────────────────────────────────
       - name: npm install (RTMprofile)
         working-directory: rtm-profile-app
         run: npm install --no-audit --no-fund
@@ -148,84 +218,115 @@ jobs:
         working-directory: rtm-profile-app
         run: npm run pack:win
 
-      # ── Assemble bundle ZIP ───────────────────────────────────────────
+      # ── Sign Electron apps (optional) ────────────────────────────
+      - name: Sign RTMcompare + RTMprofile installers
+        if: steps.cert.outputs.cert_path != ''
+        shell: pwsh
+        env:
+          PFX_PATH:     ${{ steps.cert.outputs.cert_path }}
+          PFX_PASSWORD: ${{ secrets.WIN_PFX_PASSWORD }}
+          RTM_VERSION:  ${{ steps.versions.outputs.rtm }}
+          PROF_VERSION: ${{ steps.versions.outputs.profile }}
+        run: |
+          $signtool = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+                       Where-Object { $_.Directory.Name -eq 'x64' } |
+                       Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          $targets = @(
+            "release-build\RTMcompare Setup $env:RTM_VERSION.exe"
+            "rtm-profile-app\release-build\RTMprofile Setup $env:PROF_VERSION.exe"
+          )
+          foreach ($t in $targets) {
+            if (Test-Path $t) {
+              & $signtool sign /f $env:PFX_PATH /p $env:PFX_PASSWORD `
+                /tr http://timestamp.digicert.com /td sha256 /fd sha256 $t
+            }
+          }
+
+      # ── Bundle ZIP ───────────────────────────────────────────────
       - name: Assemble Windows bundle
         id: bundle
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $version = '${{ steps.versions.outputs.rtm }}'
+          $version    = '${{ steps.versions.outputs.rtm }}'
           $profileVer = '${{ steps.versions.outputs.profile }}'
           $stage = "RTMcompare-bundle-$version-windows"
 
           New-Item -ItemType Directory -Force -Path "$stage/Documentation" | Out-Null
 
-          # RTMcompare installer + portable
-          Copy-Item "release-build/RTMcompare Setup $version.exe" "$stage/"
-          Copy-Item "release-build/RTMcompare $version.exe" "$stage/" -ErrorAction SilentlyContinue
+          # RTMcompare (installer + portable)
+          $rtmSetup = "release-build\RTMcompare Setup $version.exe"
+          if (Test-Path $rtmSetup) { Copy-Item $rtmSetup "$stage/" }
+          $rtmPortable = "release-build\RTMcompare $version.exe"
+          if (Test-Path $rtmPortable) { Copy-Item $rtmPortable "$stage/" }
 
-          # RTMprofile installer + portable
-          Get-ChildItem "rtm-profile-app/release-build/" -Filter "RTMprofile Setup *.exe" | Copy-Item -Destination "$stage/"
-          Get-ChildItem "rtm-profile-app/release-build/" -Filter "RTMprofile *.exe" | Where-Object { $_.Name -notlike '* Setup *' } | Copy-Item -Destination "$stage/"
+          # RTMprofile (installer + portable)
+          Get-ChildItem "rtm-profile-app\release-build\" -Filter "RTMprofile Setup *.exe" |
+            Copy-Item -Destination "$stage/"
+          Get-ChildItem "rtm-profile-app\release-build\" -Filter "RTMprofile *.exe" |
+            Where-Object { $_.Name -notlike '* Setup *' } |
+            Copy-Item -Destination "$stage/"
 
-          # RTM Send VST3 + Standalone installer (pre-built + signed,
-          # committed to the repo).
-          if (Test-Path "rtm-send-plugin/release/RTM-Send-1.0.0-Setup.exe") {
-            Copy-Item "rtm-send-plugin/release/RTM-Send-1.0.0-Setup.exe" "$stage/"
+          # RTMsend plugin installer (built in this same job above)
+          $pluginInstaller = "rtm-send-plugin\scripts\RTM-Send-1.2.0-Setup.exe"
+          if (Test-Path $pluginInstaller) {
+            Copy-Item $pluginInstaller "$stage/"
+          } else {
+            Write-Warning "RTM Send installer not found at $pluginInstaller — bundle will be incomplete"
           }
 
-          # Documentation — copy from release/v$version/ if it exists,
-          # otherwise fall back to whatever's the latest doc dir.
+          # Documentation PDFs
           $docDir = "release/v$version"
           if (-not (Test-Path $docDir)) {
-            $docDir = (Get-ChildItem release -Directory | Where-Object Name -like 'v*' | Sort-Object Name -Descending | Select-Object -First 1).FullName
+            $docDir = (Get-ChildItem release -Directory |
+                       Where-Object Name -like 'v*' |
+                       Sort-Object Name -Descending |
+                       Select-Object -First 1).FullName
           }
-          if (Test-Path "$docDir/MANUAL.pdf")     { Copy-Item "$docDir/MANUAL.pdf"     "$stage/Documentation/Manual.pdf" }
-          if (Test-Path "$docDir/FEATURES.pdf")   { Copy-Item "$docDir/FEATURES.pdf"   "$stage/Documentation/Features.pdf" }
-          if (Test-Path "$docDir/PITCH-DECK.pdf") { Copy-Item "$docDir/PITCH-DECK.pdf" "$stage/Documentation/Pitch Deck.pdf" }
-          if (Test-Path "$docDir/CHANGELOG.pdf")  { Copy-Item "$docDir/CHANGELOG.pdf"  "$stage/Documentation/Changelog.pdf" }
+          foreach ($pdf in @('MANUAL.pdf','FEATURES.pdf','PITCH-DECK.pdf','CHANGELOG.pdf')) {
+            $dest = $pdf -replace 'PITCH-DECK','Pitch Deck' -replace '-',' ' -replace '\b(\w)', { $_.Groups[1].Value.ToUpper() }
+            if (Test-Path "$docDir\$pdf") { Copy-Item "$docDir\$pdf" "$stage\Documentation\$dest" }
+          }
 
-          # README — kept short, mirrors the Mac DMG's README.txt.
+          # README
           $readme = @"
-          RTMcompare bundle $version (Windows)
+RTMcompare bundle $version (Windows)
 
-          Three apps. One toolkit.
+Three apps. One toolkit.
 
-            RTMcompare Setup $version.exe   - the analyser. Run to install.
-            RTMcompare $version.exe         - portable build, no install.
-            RTMprofile Setup $profileVer.exe          - profile builder. Run to install.
-            RTMprofile $profileVer.exe                - portable build, no install.
-            RTM-Send-1.0.0-Setup.exe        - VST3 + Standalone plugin installer.
+  RTMcompare Setup $version.exe    - the analyser. Run to install.
+  RTMcompare $version.exe          - portable build, no install.
+  RTMprofile Setup $profileVer.exe - profile builder. Run to install.
+  RTMprofile $profileVer.exe       - portable build, no install.
+  RTM-Send-1.2.0-Setup.exe         - VST3 + Standalone plugin installer.
 
-          Documentation\                    - Manual, Features, Pitch Deck (PDFs)
+Documentation\                     - Manual, Features, Pitch Deck (PDFs)
 
-          Notes:
-          - Everything runs locally. No telemetry, no cloud, no upload.
-          - Windows Defender SmartScreen may show a warning the first time
-            you run any unsigned EXE. Click "More info" then "Run anyway".
-            EV code-signing is on the roadmap.
+Notes:
+- Everything runs locally. No telemetry, no cloud, no upload.
+- Windows Defender SmartScreen may warn on first run of unsigned EXEs.
+  Click "More info" then "Run anyway". EV code-signing is on the roadmap.
 
-          RTMcompare $version - (c) 2026 Ohad Nissim
-          "@
-          # Write README with explicit LF endings (Set-Content forces CRLF
-          # on Windows; LF reads cleanly in any tool, including macOS.)
-          [System.IO.File]::WriteAllText("$stage/README.txt", $readme.Replace("`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
+RTMcompare $version - (c) 2026 Ohad Nissim
+"@
+          [System.IO.File]::WriteAllText("$stage\README.txt",
+            $readme.Replace("`r`n", "`n"),
+            [System.Text.UTF8Encoding]::new($false))
 
-          # ZIP the staging dir.
+          # ZIP
           $zipName = "$stage.zip"
           if (Test-Path $zipName) { Remove-Item $zipName }
-          Compress-Archive -Path "$stage/*" -DestinationPath $zipName -CompressionLevel Optimal
+          Compress-Archive -Path "$stage\*" -DestinationPath $zipName -CompressionLevel Optimal
 
-          # SHA-256 alongside, written with LF so `shasum -c` works on
-          # macOS / Linux without `dos2unix`. Set-Content adds CRLF which
-          # tripped verification in 5.1.2's first download.
-          $line = (Get-FileHash $zipName -Algorithm SHA256).Hash + "  $zipName`n"
-          [System.IO.File]::WriteAllText("$zipName.sha256", $line, [System.Text.ASCIIEncoding]::new())
+          # SHA-256 (LF line endings so `shasum -c` works on macOS/Linux)
+          $hash = (Get-FileHash $zipName -Algorithm SHA256).Hash
+          [System.IO.File]::WriteAllText("$zipName.sha256",
+            "$hash  $zipName`n",
+            [System.Text.ASCIIEncoding]::new())
 
           echo "zip=$zipName" >> $env:GITHUB_OUTPUT
           Get-Item $zipName | Format-List Name, Length
 
-      # Upload as a workflow artifact (always — easy download from Actions UI).
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -236,7 +337,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # When triggered by a tag, also publish to the GitHub Release.
       - name: Attach to Release (tag triggers only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2

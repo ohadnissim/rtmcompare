@@ -63,18 +63,18 @@ release/v5.0.*
 release/v5.1.0/
 release/v5.1.1/
 
-# ── RTM Send plugin source (only the signed Win installer is needed) ─
-# The plugin is its own JUCE/CMake project — kept locally, not in this
-# repo. CI only consumes the pre-built RTM-Send-1.0.0-Setup.exe.
-rtm-send-plugin/Source/
-rtm-send-plugin/scripts/
+# ── RTM Send plugin — source is tracked so CI can build it inline ────
+# The plugin is a JUCE/CMake project. CI clones JUCE + ARA SDK on the
+# runner, configures with cmake, and builds VST3 + NSIS installer.
+# Only the local cmake build dirs and large binary artefacts are ignored.
 rtm-send-plugin/build/
-rtm-send-plugin/CMakeLists.txt
-rtm-send-plugin/README.md
+rtm-send-plugin/build-aax/
+rtm-send-plugin/build-win/
 rtm-send-plugin/.git/
 rtm-send-plugin/release/*.dmg
 rtm-send-plugin/release/*.pkg
 rtm-send-plugin/release/*.sha256
+rtm-send-plugin/release/*.aaxplugin
 
 # ── Other historical asset dirs not used by CI ───────────────────────
 RTM\ Engineers/
