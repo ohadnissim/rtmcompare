@@ -8,6 +8,7 @@
 // today (notarised macOS bundle from CMakeLists.txt). The Windows port
 // can swap this header behind a JUCE_WINDOWS guard.
 #if JUCE_WINDOWS
+  #define NOMINMAX          // prevent windows.h from defining min/max macros
   #include <windows.h>
 #else
   #include <unistd.h>
