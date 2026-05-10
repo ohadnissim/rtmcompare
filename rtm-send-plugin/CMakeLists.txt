@@ -78,7 +78,7 @@ add_subdirectory(${JUCE_DIR} JUCE_BUILD)
 # Windows but the configure log gets noisy and the build is slower.
 # AAX: added when AAX SDK 2.9.0 is present (see above). Distribution
 # builds additionally require wraptool/PACE signing.
-set(_rtm_formats VST3)
+set(_rtm_formats VST3 Standalone)
 if(APPLE)
     list(APPEND _rtm_formats AU)
 endif()
