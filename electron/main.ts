@@ -2,6 +2,18 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
 import { analyzePython, ensureDeps, cancelActiveAnalysis, getPythonPaths, pythonSpawnEnv } from './python-bridge'
+import * as rtmsend from './rtmsend-bridge'
+import {
+  findProfile, listSupportedPlugins, bandsToUpdates, type Profile,
+  resolveGraphicIndices, RtmBand,
+} from './rtmsend-profiles'
+import { autoDetectProfile, captureReference } from './rtmsend-autoprofile'
+import {
+  ReferenceProfile, listAllReferences, getKnowledgeDir, ArchetypeTag,
+} from './rtmsend-knowledge'
+import {
+  rankPluginsForMove, rankPluginsForBands, bestOverallPlugin,
+} from './rtmsend-recommendations'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -256,9 +268,19 @@ ipcMain.handle('history-append', async (_event, entry: any) => {
   // Dedupe: if the same sha256 was logged within the last 60 s keep only
   // the latest — prevents double-entries on tab-bounce.
   const now = Date.now()
-  const sha = entry?.sha256
+  const sanitized = {
+    sha256:   typeof entry?.sha256   === 'string'  ? entry.sha256   : '',
+    filename: typeof entry?.filename === 'string'  ? entry.filename : '',
+    path:     typeof entry?.path     === 'string'  ? entry.path     : '',
+    lufs:     typeof entry?.lufs     === 'number'  ? entry.lufs     : null,
+    bpm:      typeof entry?.bpm      === 'number'  ? entry.bpm      : null,
+    key:      typeof entry?.key      === 'string'  ? entry.key      : null,
+    mode:     typeof entry?.mode     === 'string'  ? entry.mode     : null,
+    ts:       now,
+  }
+  const sha = sanitized.sha256
   const filtered = list.filter(e => !(e.sha256 === sha && (now - (e.ts || 0)) < 60 * 1000))
-  filtered.push({ ...entry, ts: now })
+  filtered.push(sanitized)
   // Cap: keep the last 2000 total, and per-sha cap at 200.
   const perSha = new Map<string, number>()
   for (let i = filtered.length - 1; i >= 0; i--) {
@@ -342,7 +364,7 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
     // for every tab being instant in the batch view.
     const args = [scriptPath, ...filePaths]
     if (options?.deep) args.push('--deep')
-    if (options?.deepWorkers && options.deepWorkers > 0) args.push(`--deep-workers=${options.deepWorkers}`)
+    if (options?.deepWorkers && Number.isInteger(options.deepWorkers) && options.deepWorkers > 0 && options.deepWorkers <= 32) args.push(`--deep-workers=${options.deepWorkers}`)
     const proc = spawn(pythonCmd, args, {
       cwd: pythonDir,
       env: pythonSpawnEnv(),
@@ -718,6 +740,7 @@ ipcMain.handle('open-text-file-dialog', async (_e, filters: any[]) => {
 ipcMain.handle('reveal-in-finder', async (_e, filePath: string) => {
   const { shell } = require('electron') as typeof import('electron')
   try {
+    assertSafeAudioPath(filePath, 'reveal-in-finder')
     shell.showItemInFolder(filePath)
     return true
   } catch { return false }
@@ -790,6 +813,7 @@ function runDeclick(args: DeclickArgs, previewHead: boolean): Promise<any> {
     let spawnArgs: string[]
     let spawnScriptPath: string
     let tmpSlicePath: string | null = null
+    let previewStdinPayload: string | null = null
 
     if (previewHead) {
       // Build a tiny inline shim that:
@@ -842,8 +866,8 @@ print(json.dumps(d))
 `
       spawnScriptPath = '-c'
       spawnArgs = [spawnScriptPath, shim]
-      // Stash the JSON-stdin payload for the spawn block below to write.
-      ;(globalThis as any).__declick_preview_payload__ = JSON.stringify({
+      // Build the stdin payload here, while previewOut is in scope.
+      previewStdinPayload = JSON.stringify({
         inPath: String(args.inPath),
         tmpSlicePath: String(tmpSlicePath),
         previewOut: String(previewOut),
@@ -864,10 +888,8 @@ print(json.dumps(d))
     // Stream the JSON payload to stdin for the preview shim — this is
     // how user-supplied params reach the Python script SAFELY (never
     // interpolated into source).
-    const previewPayload = (globalThis as any).__declick_preview_payload__ as string | undefined
-    if (previewPayload && spawnScriptPath === '-c') {
-      proc.stdin.end(previewPayload)
-      ;(globalThis as any).__declick_preview_payload__ = undefined
+    if (previewStdinPayload !== null) {
+      proc.stdin.end(previewStdinPayload)
     }
     let stdout = ''
     let stderr = ''
@@ -904,6 +926,211 @@ ipcMain.handle('declick-preview', async (_e, args: DeclickArgs) => {
   if (!args?.inPath) throw new Error('declick-preview: missing inPath')
   return await runDeclick(args, true)
 })
+
+// ── RTMsend bridge — push EQ moves into the user's hosted plugin ───
+//
+// 1.1.0 RTMsend ships a localhost JSON-RPC server. When loaded in a
+// DAW with a third-party plugin (FabFilter Pro-Q etc.) in its slot,
+// it lets us push parameter values into that plugin without leaving
+// RTMcompare. Profile system in rtmsend-profiles.ts handles the
+// plugin-specific math (which param is "Band 3 Frequency", how does
+// 0..1 map to Hz, etc.). Adding a new plugin is one entry in that
+// file; no rebuild of RTMsend itself.
+
+ipcMain.handle('rtmsend-status', async () => {
+  if (!rtmsend.isRunning()) return { running: false }
+  try {
+    const loaded = await rtmsend.getLoadedPlugin()
+    if (!loaded) return { running: true, loaded: null, supported_plugins: listSupportedPlugins() }
+    const profile = await resolveProfile(loaded.name)
+    // Fire-and-forget: capture full reference profile in the background
+    // the first time we see this plugin in this session. Result lands
+    // in ~/.rtm/plugin-knowledge/ and feeds the recommendation engine.
+    maybeAutoCapture(loaded.name, loaded.parameter_count)
+    return {
+      running: true,
+      loaded,
+      profile: profile ? { name: profile.name, kind: profile.kind, auto: profile.name.endsWith('(auto)') } : null,
+      supported_plugins: listSupportedPlugins(),
+    }
+  } catch (e: any) {
+    return { running: false, error: e?.message ?? String(e) }
+  }
+})
+
+/**
+ * Resolve a Profile for the loaded plugin. Hand-coded profiles in the
+ * registry win; if none matches, we fall through to autoDetectProfile
+ * which probes the plugin's parameters live and synthesises a profile
+ * (cached per session). This is what lets users hit Send to plugin on
+ * an EQ we've never seen before and have it just work.
+ */
+async function resolveProfile (pluginName: string) {
+  const handCoded = findProfile(pluginName)
+  if (handCoded) return handCoded
+  return await autoDetectProfile(pluginName)
+}
+
+ipcMain.handle('rtmsend-send-eq', async (_e, bands: RtmBand[]) => {
+  if (!Array.isArray(bands) || bands.length === 0)
+    throw new Error('rtmsend-send-eq: bands array is empty')
+
+  const loaded = await rtmsend.getLoadedPlugin()
+  if (!loaded) throw new Error('No plugin loaded in RTMsend. Pick a plugin first.')
+
+  const profile = await resolveProfile(loaded.name)
+  if (!profile)
+    throw new Error(
+      `Could not detect a profile for "${loaded.name}" automatically, and no hand-coded profile exists. ` +
+      `Supported plugins: ${listSupportedPlugins().join(', ')}.`,
+    )
+
+  // Build the parameter writes from the RTM band list. For graphic
+  // EQs the initial pass returns marker indices (negative numbers
+  // standing for "plugin band slot N") that we resolve into real
+  // VST3 indices below using a one-shot list_parameters round-trip.
+  let updates = bandsToUpdates(profile, bands)
+  if (profile.kind === 'graphic') {
+    const params = await rtmsend.listParameters()
+    const byName = new Map(params.map(p => [p.name, p.index] as const))
+    updates = resolveGraphicIndices(profile, byName, updates)
+  }
+
+  if (updates.length === 0)
+    throw new Error('Profile produced no parameter writes (check band ranges)')
+
+  const result = await rtmsend.setParameters(updates)
+  return {
+    plugin: loaded.name,
+    profile: profile.name,
+    applied: result.applied.length,
+    rejected: result.rejected.length,
+    rejected_detail: result.rejected,
+  }
+})
+
+// ── Plugin Knowledge Base ──────────────────────────────────────────────
+// Long-term store of every EQ plugin RTMsend has seen, indexed by name.
+// Two-tier: ACTIVE profiles (in rtmsend-profiles.ts registry) drive
+// Send-to-plugin; REFERENCE profiles (this section, ~/.rtm/plugin-
+// knowledge/*.json) drive tool-aware recommendations and the "best
+// plugin for this move" feature. Reference entries are saved
+// automatically the first time a plugin is loaded in RTMsend during
+// a session.
+
+/** List every plugin RTMcompare knows about (active + reference). Used
+ *  by the recommendation engine to score against the user's tool set. */
+ipcMain.handle('rtmsend-knowledge-list', async () => {
+  return listAllReferences()
+})
+
+/** Trigger a fresh probe of the currently-loaded plugin and persist
+ *  its full reference profile. Returns the saved entry. Skipped if
+ *  an entry already exists with the same parameter count. */
+ipcMain.handle('rtmsend-knowledge-capture', async () => {
+  if (!rtmsend.isRunning()) throw new Error('RTMsend not running')
+  const loaded = await rtmsend.getLoadedPlugin()
+  if (!loaded) throw new Error('No plugin loaded in RTMsend')
+  const entry = await captureReference(loaded.name, loaded.parameter_count, '1.1.1')
+  if (!entry) throw new Error('Capture failed')
+  return entry
+})
+
+/** Force a re-probe even if a cached entry exists. */
+ipcMain.handle('rtmsend-knowledge-recapture', async () => {
+  if (!rtmsend.isRunning()) throw new Error('RTMsend not running')
+  const loaded = await rtmsend.getLoadedPlugin()
+  if (!loaded) throw new Error('No plugin loaded in RTMsend')
+  // Delete any existing cache entry first so captureReference re-probes.
+  const existingPath = path.join(getKnowledgeDir(), '_cache_invalidate.flag')
+  try { fs.writeFileSync(existingPath, '') } catch { /* non-fatal */ }
+  // Note: captureReference's skip is "if existing && param count matches".
+  // We invalidate by deleting the file directly.
+  const fileName = loaded.name.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80) + '.json'
+  const filePath = path.join(getKnowledgeDir(), fileName)
+  try { fs.unlinkSync(filePath) } catch { /* ok if not there */ }
+  return await captureReference(loaded.name, loaded.parameter_count, '1.1.1')
+})
+
+/** Generate a markdown summary of every plugin we know about. Useful
+ *  for shipping documentation. Writes to ~/.rtm/plugin-knowledge/README.md. */
+ipcMain.handle('rtmsend-knowledge-readme', async () => {
+  const entries = listAllReferences()
+  const md = generateKnowledgeReadme(entries)
+  const p = path.join(getKnowledgeDir(), 'README.md')
+  fs.writeFileSync(p, md, 'utf8')
+  return { path: p, plugins: entries.length }
+})
+
+/** Rank the user's available plugins for a single EQ move. */
+// 5.7.x: filter the recommendation candidate set to plugins where
+// Send-to-Plugin actually works (i.e., the plugin has an entry in the
+// active PROFILES registry). Reference-only entries stay in the
+// knowledge base — we keep their data for archetype heuristics, future
+// profile backfill, and the "what plugins does this engineer have?"
+// audit — but they no longer surface as recommendations. Resolves the
+// "RTMcompare suggests AMEK 200 but Send-to-Plugin can't write to it"
+// UX bug Mike flagged: the suggestion and the action now agree.
+function activeProfileFilter (entries: ReturnType<typeof listAllReferences>) {
+  const supported = new Set(listSupportedPlugins())
+  return entries.filter(e => supported.has(e.name))
+}
+
+ipcMain.handle('rtmsend-best-plugin-for-move', async (_e, band: RtmBand) => {
+  const all = activeProfileFilter(listAllReferences())
+  const available = all.map(e => ({ name: e.name, archetype_tags: e.archetype_tags }))
+  return rankPluginsForMove(band, available)
+})
+
+/** Rank plugins per band across a full RTMcompare recommendation set,
+ *  AND return the single best overall plugin. */
+ipcMain.handle('rtmsend-best-plugins-for-bands', async (_e, bands: RtmBand[]) => {
+  const all = activeProfileFilter(listAllReferences())
+  const available = all.map(e => ({ name: e.name, archetype_tags: e.archetype_tags }))
+  return {
+    per_band: rankPluginsForBands(bands, available),
+    best_overall: bestOverallPlugin(bands, available),
+  }
+})
+
+/**
+ * Auto-capture: when the user picks a plugin in RTMsend, transparently
+ * save its reference profile in the background. Triggered from the
+ * status poll path. Fire-and-forget, don't block status responses on it.
+ */
+const autoCapturedThisSession = new Set<string>()
+function maybeAutoCapture (pluginName: string, paramCount: number): void {
+  if (autoCapturedThisSession.has(pluginName)) return
+  autoCapturedThisSession.add(pluginName)
+  captureReference(pluginName, paramCount, '1.1.1').catch(() => { /* non-fatal */ })
+}
+
+function generateKnowledgeReadme (entries: ReferenceProfile[]): string {
+  const sorted = [...entries].sort((a, b) => a.name.localeCompare(b.name))
+  const lines: string[] = []
+  lines.push(`# RTMsend Plugin Knowledge Base`)
+  lines.push('')
+  lines.push(`Auto-generated reference of every EQ plugin RTMsend has profiled.`)
+  lines.push(`${sorted.length} plugin(s) known. Last updated: ${new Date().toISOString()}`)
+  lines.push('')
+  lines.push(`## Plugins`)
+  lines.push('')
+  for (const e of sorted) {
+    const tags = e.archetype_tags.join(', ') || '(none)'
+    const profileKind = e.active_profile?.kind ?? '(no Send profile)'
+    lines.push(`### ${e.name}`)
+    lines.push('')
+    lines.push(`- **Archetype tags:** ${tags}`)
+    lines.push(`- **Send profile:** ${profileKind}`)
+    lines.push(`- **Parameter count:** ${e.parameter_count}`)
+    lines.push(`- **Scanned:** ${e.scanned_at}`)
+    if (e.notes) {
+      lines.push(`- **Notes:** ${e.notes}`)
+    }
+    lines.push('')
+  }
+  return lines.join('\n')
+}
 
 // ── ISRC history / Releases store / Audit log — REMOVED (FLOW territory)
 // These features migrated to FLOW. Only RTM's analyser-side BWF metadata
@@ -1258,6 +1485,7 @@ app.whenReady().then(() => {
   setTimeout(startIncomingWatcher, 150)
 })
 app.on('will-quit', () => {
+  cancelActiveAnalysis()
   try { incomingWatcher?.close() } catch {}
   incomingWatcher = null
 })
