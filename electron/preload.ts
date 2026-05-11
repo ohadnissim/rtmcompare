@@ -9,7 +9,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   analyzeBatch: (filePaths: string[], options?: { deep?: boolean; deepWorkers?: number }) =>
     ipcRenderer.invoke('analyze-batch', filePaths, options),
   onBatchProgress: (callback: (msg: { message: string; index: number; total: number }) => void) => {
-    ipcRenderer.on('batch-progress', (_event, msg) => callback(msg))
+    const handler = (_event: any, msg: any) => callback(msg)
+    ipcRenderer.on('batch-progress', handler)
+    return () => { ipcRenderer.removeListener('batch-progress', handler) }
   },
   readAudioFile: (filePath: string) => ipcRenderer.invoke('read-audio-file', filePath),
   getFileIdentity: (filePath: string) => ipcRenderer.invoke('get-file-identity', filePath),

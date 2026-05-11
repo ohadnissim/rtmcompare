@@ -192,6 +192,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  const loadCohortReference = useCallback(async () => {
  if (!window.electronAPI?.selectFile || !window.electronAPI?.analyzeBatch) return
  setCohortRefError(null)
+ let unsubBatchProgress: (() => void) | undefined
  try {
  const path = await window.electronAPI.selectFile()
  if (!path) return
@@ -199,7 +200,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  setCohortRefMsg('Analysing reference…')
  // Tap into the batch progress stream so "Analysing 1/1 · file.wav"
  // surfaces on the button label instead of a generic spinner.
- window.electronAPI.onBatchProgress?.((m) => setCohortRefMsg(m.message || 'Analysing…'))
+ unsubBatchProgress = window.electronAPI.onBatchProgress?.((m) => setCohortRefMsg(m.message || 'Analysing…'))
  const res = await window.electronAPI.analyzeBatch([path])
  const row = res?.results?.[0]
  if (!row) {
@@ -214,6 +215,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  } catch (err: any) {
  setCohortRefError(err?.message || 'Could not load reference file.')
  } finally {
+ unsubBatchProgress?.()
  setCohortRefLoading(false)
  setCohortRefMsg('')
  }

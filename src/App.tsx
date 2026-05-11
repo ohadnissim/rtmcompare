@@ -76,7 +76,7 @@ declare global {
  deep?: Record<string, any>
  spec_versions?: import('./types').SpecVersions
  }>
- onBatchProgress?: (callback: (msg: { message: string; index: number; total: number }) => void) => void
+ onBatchProgress?: (callback: (msg: { message: string; index: number; total: number }) => void) => (() => void)
  listProfiles?: () => Promise<ProfileInfo[]>
  loadCustomProfile?: () => Promise<ProfileInfo | null>
  deleteCustomProfile?: (id: string) => Promise<boolean>
@@ -714,6 +714,7 @@ export default function App() {
  setError('Batch mode requires the Electron host')
  return
  }
+ let unsubBatchProgress: (() => void) | undefined
  try {
  const folder = await window.electronAPI.selectFolder()
  if (!folder) return
@@ -725,7 +726,7 @@ export default function App() {
  setState('processing')
  setError(null)
  setProgress(`Batch · preparing ${files.length} track${files.length === 1 ? '' : 's'}…`)
- window.electronAPI.onBatchProgress?.((msg) => setProgress(msg.message))
+ unsubBatchProgress = window.electronAPI.onBatchProgress?.((msg) => setProgress(msg.message))
  // Fast measurement-only batch — LUFS / TP / LRA / spectrum / ISRC for
  // every track. Deep single-file analyses (clicks, hum, distortion,
  // phase bands, BPM/key, streaming preview) run lazily on demand when
@@ -736,6 +737,7 @@ export default function App() {
  // stays in place (dormant) so we can re-enable pre-scanning later if
  // a different workflow needs it.
  const res = await window.electronAPI.analyzeBatch(files.map(f => f.path))
+ unsubBatchProgress?.()
  setBatchResults(res.results)
  setBatchFolderName(folder.split(/[\\/]/).pop() || folder)
  // Fresh analysis — drop any previously-loaded session so the new
@@ -752,6 +754,7 @@ export default function App() {
  ;(window as any).__rtmCurrentFolderPath = folder
  setState('batch')
  } catch (err: any) {
+ unsubBatchProgress?.()
  setError(err?.message || 'Batch analysis failed')
  setState('upload')
  }
