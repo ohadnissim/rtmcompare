@@ -5,7 +5,7 @@
 #   RTMcompare bundle 5.0.8/
 #   ├── RTMcompare.app
 #   ├── RTMprofile.app
-#   ├── RTM Send installer.pkg
+#   ├── RTM Send installer.dmg
 #   ├── Documentation/
 #   │   ├── Manual.pdf
 #   │   ├── Features.pdf
@@ -19,7 +19,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="5.5.2"
+VERSION="5.7.2"
 NAME="RTMcompare-bundle-${VERSION}"
 VOL="RTMcompare bundle ${VERSION}"
 OUT_DIR="${PROJECT}/release"
@@ -31,15 +31,18 @@ NOTARY_PROFILE="rtm-notary"
 # Sources (every signed/notarized artifact already on disk).
 RTMCOMPARE_APP="${PROJECT}/release-build/mac-arm64/RTMcompare.app"
 RTMPROFILE_APP="${PROJECT}/rtm-profile-app/release-build/mac-arm64/RTMprofile.app"
-PLUGIN_PKG="${PROJECT}/rtm-send-plugin/release/RTM-Send-1.0.0.pkg"
-PLUGIN_DMG="${PROJECT}/rtm-send-plugin/release/RTM-Send-1.0.0.dmg"
-DOC_MANUAL="${PROJECT}/release/v5.5.0/MANUAL.pdf"
-DOC_FEATURES="${PROJECT}/release/v5.5.0/FEATURES.pdf"
-DOC_PITCH="${PROJECT}/release/v5.5.0/PITCH-DECK.pdf"
-DOC_CHANGELOG="${PROJECT}/release/v5.5.0/CHANGELOG.pdf"
+# 5.7.x: Developer ID Installer cert isn't in the build keychain right
+# now, so productbuild can't sign a PKG. We ship the notarized DMG
+# instead — same end-user experience (double-click to install), works
+# with the Developer ID Application cert we DO have. Drop PKG entirely.
+PLUGIN_DMG="${PROJECT}/rtm-send-plugin/release/RTM-Send-1.2.0.dmg"
+DOC_MANUAL="${PROJECT}/release/v5.7.0/MANUAL.pdf"
+DOC_FEATURES="${PROJECT}/release/v5.7.0/FEATURES.pdf"
+DOC_PITCH="${PROJECT}/release/v5.7.0/PITCH-DECK.pdf"
+DOC_CHANGELOG="${PROJECT}/release/v5.7.0/CHANGELOG.pdf"
 
 # Sanity-check sources exist.
-for path in "$RTMCOMPARE_APP" "$RTMPROFILE_APP" "$PLUGIN_PKG" \
+for path in "$RTMCOMPARE_APP" "$RTMPROFILE_APP" "$PLUGIN_DMG" \
             "$DOC_MANUAL" "$DOC_FEATURES" "$DOC_PITCH" "$DOC_CHANGELOG"; do
   [[ -e "$path" ]] || { echo "Missing source: $path" >&2; exit 1; }
 done
@@ -51,8 +54,11 @@ mkdir -p "$STAGE/Documentation"
 echo "==> Staging artifacts"
 cp -R "$RTMCOMPARE_APP" "$STAGE/"
 cp -R "$RTMPROFILE_APP" "$STAGE/"
-cp    "$PLUGIN_PKG"    "$STAGE/RTM Send installer.pkg"
-[[ -f "$PLUGIN_DMG" ]] && cp "$PLUGIN_DMG" "$STAGE/RTM Send installer.dmg"
+# 5.7.x: ship the RTM Send installer as a DMG (signed + notarized +
+# stapled with Developer ID Application). Same end-user experience —
+# user opens the DMG, drags the .vst3/.component/.app into the matching
+# /Library folder. No PKG cert needed.
+cp "$PLUGIN_DMG" "$STAGE/RTM Send installer.dmg"
 cp    "$DOC_MANUAL"     "$STAGE/Documentation/Manual.pdf"
 cp    "$DOC_FEATURES"   "$STAGE/Documentation/Features.pdf"
 cp    "$DOC_PITCH"      "$STAGE/Documentation/Pitch Deck.pdf"
@@ -69,9 +75,12 @@ Three apps. One toolkit.
                       master-chain render. Drag onto Applications.
   RTMprofile.app    — turn your back catalogue into a target reference.
                       Drag onto Applications.
-  RTM Send installer.pkg — installs the AU + VST3 + Standalone plugin
-                      bundle to the canonical macOS plugin folders.
-                      Double-click to run.
+  RTM Send installer.dmg — open it, drag the AU / VST3 / Standalone
+                      bundles into the matching /Library/Audio/Plug-Ins
+                      folder (the DMG window shows them all in one
+                      place). New in 1.2.0: hosts your favourite EQ
+                      and lets RTMcompare write recommended moves
+                      directly into the live plugin in your DAW.
 
 Documentation/      — Manual, Features, Pitch Deck (PDFs)
 
@@ -80,16 +89,34 @@ Notes:
   macOS App Translocation will refuse to launch them otherwise.
 - Everything is signed (Developer ID Application) and notarized.
 
-Beta-known issues (tracked for the next release):
-- RTM Send "Loop" and "Last-N seconds" captures may land ±1 audio
-  buffer (~10 ms at 48 kHz / 512-sample buffers) off the host loop
-  boundary. For sample-accurate, phase-cancellable captures, use the
-  ARA region-selection path instead.
-- RTM Send 5.2.4 supports stereo and mono only. Surround / Atmos
-  channel layouts are tracked for a future release.
-- RTM Send capture identity is not yet cryptographically bound between
-  the .wav, .json, and .ready files (safe on a single-user box;
-  hardening tracked).
+What's new in 5.7.1 (patch):
+- Bullet-proofed RTMsend's third-party plugin hosting: callback-lock
+  serialisation around prepareToPlay / releaseResources / load / unload
+  (was racy on Reaper, Bitwig, Studio One project recall).
+- Hosted-plugin fault state separated from user-toggle state — a plugin
+  that throws on processBlock now surfaces as "faulted, reload it"
+  instead of silently looking disabled.
+- Worker-thread setStateInformation no longer hangs the host if the
+  message thread is blocked elsewhere.
+- All juce::String fields locked against torn-pointer concurrent reads.
+- Connection indicator polls every 4s; recommendation chips disabled
+  unless RTMsend is actually reachable.
+
+What's new in 5.7.0:
+- Send-to-Plugin: RTMcompare pushes EQ recommendations into a hosted
+  EQ inside RTMsend, live in your DAW. 16 EQs profiled out of the box
+  (Pro-Q 4/3, Kirchhoff, bx_digital V3, SSL 4000 E/G/J, Maag EQ4,
+  elysia museq, SPL PQ, Lindell EQ825, Sontec MES432D9D, MixWave
+  Pultec EQP-1S3, Ozone 12 EQ, MixWave DW Fearn VT-5).
+- Smoothed tonal recommender: tuned-kick fundamentals stop reading as
+  broad-band imbalances. Tonal Curve chart, region bars, EQ chips,
+  and EQ moves all live in the same number-space now.
+- Loudness tip: fires when the master is off-target vs the engineer's
+  cohort average (±0.5 / ±1.0 / ±1.5 LU bands).
+- Per-Element Breakdown moved to top of Breakdown tab. All 7 cards
+  visible by default. Powered by BS-RoFormer 4-stem.
+- ARA-aware in Studio One, Cubase/Nuendo, Reaper, Bitwig. Wavelab
+  Pro 13 falls back to the 30-second ring buffer (host limitation).
 
 RTMcompare ${VERSION} — © 2026 Ohad Nissim — all features run locally
 EOF
