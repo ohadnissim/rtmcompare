@@ -17,9 +17,10 @@ const COLOR_MAP: Record<NonNullable<LearnAnnotation['color']>, string> = {
 const COLORS: Array<LearnAnnotation['color']> = ['gold', 'red', 'teal', 'sand']
 
 export function AnnotationLayer({ tabId }: Props) {
-  const { enabled, annotations, addAnnotation, removeAnnotation } = useLearnMode()
+  const { enabled, annotations, addAnnotation, removeAnnotation, clearAnnotations } = useLearnMode()
 
   const [popoverOpen, setPopoverOpen] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = React.useState(false)
   const [noteText, setNoteText] = useState('')
   const [selectedColor, setSelectedColor] = useState<LearnAnnotation['color']>('gold')
 
@@ -154,6 +155,31 @@ export function AnnotationLayer({ tabId }: Props) {
         Add Note
       </button>
 
+      {/* Clear All button — only shown when annotations exist */}
+      {annotations.filter(a => a.tabId === tabId).length > 0 && (
+        <button
+          onClick={() => setShowClearConfirm(true)}
+          style={{
+            position: 'fixed',
+            bottom: 46,
+            right: 16,
+            zIndex: 210,
+            padding: '5px 12px',
+            background: 'rgba(14,13,11,0.95)',
+            border: '1px solid rgba(220,80,60,0.35)',
+            borderRadius: '2px',
+            color: 'rgba(220,80,60,0.7)',
+            fontSize: 10,
+            cursor: 'pointer',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}
+          aria-label="Clear all annotations on this tab"
+        >
+          Clear All
+        </button>
+      )}
+
       {/* Input popover */}
       {popoverOpen && (
         <div
@@ -249,6 +275,78 @@ export function AnnotationLayer({ tabId }: Props) {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+      {/* Clear All confirmation dialog */}
+      {showClearConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.6)',
+          }}
+          onClick={e => { if (e.target === e.currentTarget) setShowClearConfirm(false) }}
+        >
+          <div style={{
+            background: 'rgba(21,20,17,0.99)',
+            border: '1px solid rgba(220,80,60,0.4)',
+            borderRadius: '2px',
+            padding: '24px 28px',
+            maxWidth: 320,
+            width: '90%',
+          }}>
+            <div style={{ fontSize: 13, color: 'var(--color-text-primary)', marginBottom: 8, fontWeight: 600 }}>
+              Clear all notes?
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-sand-400)', marginBottom: 20, lineHeight: 1.5 }}>
+              This will permanently delete all {annotations.filter(a => a.tabId === tabId).length} annotation{annotations.filter(a => a.tabId === tabId).length !== 1 ? 's' : ''} on this tab. This cannot be undone.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => {
+                  clearAnnotations()
+                  setShowClearConfirm(false)
+                }}
+                style={{
+                  flex: 1,
+                  padding: '7px 0',
+                  background: 'rgba(220,80,60,0.08)',
+                  border: '1px solid rgba(220,80,60,0.5)',
+                  borderRadius: '2px',
+                  color: 'rgba(220,80,60,0.9)',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Clear All
+              </button>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                style={{
+                  flex: 1,
+                  padding: '7px 0',
+                  background: 'transparent',
+                  border: '1px solid rgba(168,161,150,0.2)',
+                  borderRadius: '2px',
+                  color: 'var(--color-sand-400)',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@
  * GuidedFlowBar — step-by-step guided progress bar for Learn Mode.
  *
  * Renders sticky just below the header (top: 92px = 28px drag + 64px header).
- * Only visible when learn mode is enabled. Shows 7 step pills in a scrollable
+ * Only visible when learn mode is enabled. Shows 9 step pills in a scrollable
  * row, the current step question, and Prev / Next navigation.
  */
 
@@ -17,9 +17,31 @@ interface Props {
   referenceFilePath?: string | null
 }
 
+function StudentReportExportTrigger() {
+  return (
+    <button
+      onClick={() => window.dispatchEvent(new CustomEvent('rtm-learn-export-report'))}
+      style={{
+        background: 'rgba(208,176,102,0.1)',
+        border: '1px solid rgba(208,176,102,0.5)',
+        borderRadius: '2px',
+        color: 'var(--color-text-primary)',
+        fontSize: 10,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        padding: '5px 12px',
+        cursor: 'pointer',
+      }}
+    >
+      Export Report →
+    </button>
+  )
+}
+
 export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) {
   const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment } = useLearnMode()
   const [showAssignmentPanel, setShowAssignmentPanel] = React.useState(false)
+  const [completed, setCompleted] = React.useState(false)
 
   if (!enabled) return null
 
@@ -44,6 +66,24 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
       onNavigate(GUIDED_STEPS[step - 1].tabId)
     }
   }
+
+  const stepQuestion = React.useMemo(() => {
+    if (currentStep?.id === 'dynamics' && (assignment as any)?.genre) {
+      const genreLraGuide: Record<string, string> = {
+        'Pop': '4–7 LU',
+        'EDM / Electronic': '4–6 LU',
+        'Rock': '8–12 LU',
+        'Hip-Hop / R&B': '6–9 LU',
+        'Jazz': '10–14 LU',
+        'Classical / Orchestral': '14–20 LU',
+        'Folk / Acoustic': '10–16 LU',
+        'Podcast / Spoken Word': '6–12 LU',
+      }
+      const target = genreLraGuide[(assignment as any).genre] ?? '6–12 LU'
+      return `What is the LRA and PLR of your mix? For ${(assignment as any).genre}, a typical LRA is ${target}. Is your mix within that range, or has limiting eroded the punch?`
+    }
+    return currentStep?.question ?? ''
+  }, [currentStep, (assignment as any)?.genre])
 
   return (
     <>
@@ -191,8 +231,14 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
               ← Prev
             </button>
             <button
-              onClick={handleNext}
-              disabled={isLastStep}
+              onClick={() => {
+                if (isLastStep) {
+                  setCompleted(true)
+                } else {
+                  handleNext()
+                }
+              }}
+              disabled={false}
               style={{
                 background: 'transparent',
                 border: `1px solid ${isLastStep ? 'rgba(208,176,102,0.7)' : 'rgba(208,176,102,0.4)'}`,
@@ -200,8 +246,7 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
                 color: 'var(--color-text-primary)',
                 fontSize: 11,
                 padding: '5px 12px',
-                cursor: isLastStep ? 'default' : 'pointer',
-                opacity: isLastStep ? 0.6 : 1,
+                cursor: 'pointer',
                 transition: 'opacity 0.15s',
               }}
             >
@@ -210,41 +255,83 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
           </div>
         </div>
 
-        {/* Current step question box */}
-        {currentStep && (
-          <div
-            style={{
-              background: 'rgba(208,176,102,0.04)',
-              border: '1px solid rgba(208,176,102,0.12)',
-              borderRadius: '2px',
-              padding: '10px 14px',
-              margin: '8px 0',
-            }}
-          >
+        {/* Completion banner or current step question box */}
+        {completed ? (
+          <div style={{
+            background: 'rgba(208,176,102,0.06)',
+            border: '1px solid rgba(208,176,102,0.3)',
+            borderRadius: '2px',
+            padding: '14px 18px',
+            margin: '8px 0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--color-accent)', fontWeight: 600, marginBottom: 3 }}>
+                ✓ Analysis Complete
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-sand-400)' }}>
+                You've worked through all {GUIDED_STEPS.length} steps. Export your report to document your findings.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button
+                onClick={() => setCompleted(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(168,161,150,0.2)',
+                  borderRadius: '2px',
+                  color: 'var(--color-sand-400)',
+                  fontSize: 10,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '5px 10px',
+                  cursor: 'pointer',
+                }}
+              >
+                Review Steps
+              </button>
+              <StudentReportExportTrigger />
+            </div>
+          </div>
+        ) : (
+          currentStep && (
             <div
               style={{
-                fontSize: 10,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--color-accent)',
-                marginBottom: 5,
+                background: 'rgba(208,176,102,0.04)',
+                border: '1px solid rgba(208,176,102,0.12)',
+                borderRadius: '2px',
+                padding: '10px 14px',
+                margin: '8px 0',
               }}
             >
-              Step {step + 1} of {GUIDED_STEPS.length} — {currentStep.label}
+              <div
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-accent)',
+                  marginBottom: 5,
+                }}
+              >
+                Step {step + 1} of {GUIDED_STEPS.length} — {currentStep.label}
+              </div>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: 'var(--color-text-primary)',
+                  fontStyle: 'italic',
+                  fontFamily: 'var(--font-display, serif)',
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                {stepQuestion}
+              </p>
             </div>
-            <p
-              style={{
-                fontSize: 13,
-                color: 'var(--color-text-primary)',
-                fontStyle: 'italic',
-                fontFamily: 'var(--font-display, serif)',
-                margin: 0,
-                lineHeight: 1.5,
-              }}
-            >
-              {currentStep.question}
-            </p>
-          </div>
+          )
         )}
       </div>
 

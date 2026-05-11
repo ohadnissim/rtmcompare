@@ -97,15 +97,27 @@ export const METRIC_EXPLAINERS: Record<string, MetricExplainerContent> = {
     proTip: 'Phase cancellation in mono is frequency-specific. Use a frequency-dependent correlation meter (e.g., SPAN+ or Correlation Meter in DMG Equilibrium) to pinpoint which frequency band causes the most cancellation rather than relying on a single broadband figure.',
   },
 
+  mono_compat_pct: {
+    metric: 'MONO',
+    fullName: 'Mono Compatibility Loss (%)',
+    oneLiner: 'Percentage of stereo signal lost or reduced when summed to mono.',
+    why: 'Despite stereo streaming being standard, mono playback remains critical: Bluetooth speakers, earphones with one earbud, club PA systems with center fills, and phone speakers all sum to mono. A track that sounds full in stereo but loses low end, vocals, or entire instruments in mono has a fundamental mix problem.',
+    range: '0–5% loss (excellent) · 5–15% loss (acceptable) · 15–30% (moderate concern) · 30%+ (serious phase issue)',
+    tooHigh: 'Significant out-of-phase content is present — likely from excessively wide effects (stereo wideners, M/S processing, modulation on low frequencies). Check low-frequency phase correlation and high-pass any stereo widening below 250 Hz.',
+    tooLow: 'Near-zero mono loss simply means the mix is largely mono-compatible, which is ideal. A loss of exactly 0% means the mix is fully mono — check that stereo effects are actually active.',
+    unit: '%',
+    proTip: 'Phase cancellation in mono is frequency-specific. Use a frequency-dependent correlation meter to pinpoint which frequency band causes the most cancellation.',
+  },
+
   stereo_width: {
     metric: 'WIDTH',
     fullName: 'Stereo Width',
     oneLiner: 'Overall breadth of the stereo image from narrow to wide.',
     why: 'Stereo width shapes the listener\'s sense of space and separation. Too narrow and the mix feels claustrophobic; too wide and it loses mono compatibility, sounds artificial, and can confuse imaging on speaker systems. Mastering adjustments (M/S compression, stereo wideners) are often used to fine-tune width before delivery.',
-    range: '0.3–0.6 normalized width (moderate) · 0.6–0.85 (wide, commercial pop/EDM) · 0.85+ (very wide — check mono compat)',
+    range: '0.0–0.3 (narrow / near-mono) · 0.3–0.6 (moderate) · 0.6–0.85 (wide, commercial pop/EDM) · 0.85–1.0 (very wide — check mono compat)',
     tooHigh: 'The stereo field is very wide, which risks phase issues in mono and may sound exaggerated on non-stereo playback. Apply M/S processing to reduce the Side channel, or use a correlation-aware stereo width plugin.',
     tooLow: 'The mix sounds narrow or almost mono, reducing the sense of space and envelopment. Add stereo widening selectively (Mid/Side processing, stereo chorus on pads, room reverb returns in stereo) rather than broadband widening.',
-    unit: 'ratio',
+    unit: 'ratio (0–1)',
     proTip: 'Width alone does not capture image quality — a track can have high width but poor imaging if all elements are panned hard left/right with nothing in the center. Combine width with Vectorscope and correlation meter readings for a full picture.',
   },
 
@@ -191,7 +203,7 @@ export const METRIC_EXPLAINERS: Record<string, MetricExplainerContent> = {
     tooLow: 'Dialog is too quiet relative to the target. It will be turned up by the broadcast processor, potentially exposing noise and making music beds feel overpowering. Raise dialog faders, reduce music bed levels, or use upward compression on the dialog stem.',
     unit: 'LUFS',
     standard: 'ITU-R BS.1770-4 / EBU R128 S1',
-    proTip: 'Dialog-gated loudness is only meaningful when a reliable voice activity detection (VAD) gate can identify speech. For music-only content without vocals or narration, this metric should be considered not applicable.',
+    proTip: '⚠ Not applicable for music mixing — dialog-gated measurement only makes sense for content with speech (podcasts, film/TV, audiobooks). For pure music, ignore this metric or check if your DAW has a vocal-gate mode active that may be affecting loudness reads.',
   },
 
   plr: {

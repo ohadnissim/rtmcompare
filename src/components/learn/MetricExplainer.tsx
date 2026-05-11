@@ -47,6 +47,29 @@ export default function MetricExplainer({ metricKey, children, value, violation 
     >
       {children}
 
+      {/* ⓘ badge — always visible when learn mode is on */}
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'inline-block',
+          fontSize: 9,
+          lineHeight: '12px',
+          width: 12,
+          height: 12,
+          textAlign: 'center',
+          borderRadius: '50%',
+          border: '1px solid rgba(208,176,102,0.5)',
+          color: 'rgba(208,176,102,0.6)',
+          cursor: 'default',
+          marginLeft: 3,
+          verticalAlign: 'middle',
+          flexShrink: 0,
+          userSelect: 'none',
+        }}
+      >
+        ⓘ
+      </span>
+
       {visible && (
         <div
           role="tooltip"

@@ -2,11 +2,11 @@
  * AssignmentPanel — teacher-facing slide-in panel for configuring an assignment.
  *
  * Slides in from the right. Contains:
- * - Assignment metadata (title, course, instructor, due date)
+ * - Assignment metadata (title, course, instructor, due date, genre)
  * - Reference file lock toggle
  * - Target spec lock toggle + dropdown
- * - Rubric builder with per-metric target / tolerance / weight rows
- * - Save / Clear buttons
+ * - Rubric builder with per-metric target / tolerance / weight rows (add/remove)
+ * - Save / Clear / Export / Import buttons
  */
 
 import React, { useState, useEffect } from 'react'
@@ -27,6 +27,24 @@ const SPEC_OPTIONS = [
   { id: 'youtube',   label: 'YouTube (−14 LUFS-I, −1 dBTP)' },
   { id: 'tidal',     label: 'Tidal (−14 LUFS-I, −1 dBTP)' },
   { id: 'broadcast', label: 'Broadcast EBU R128 (−23 LUFS-I)' },
+]
+
+const GENRE_OPTIONS = [
+  'Pop', 'EDM / Electronic', 'Rock', 'Hip-Hop / R&B',
+  'Jazz', 'Classical / Orchestral', 'Folk / Acoustic', 'Podcast / Spoken Word', 'Other'
+]
+
+const METRIC_OPTIONS = [
+  { key: 'lufs_i',            label: 'Integrated Loudness' },
+  { key: 'lra',               label: 'Dynamic Range (LRA)' },
+  { key: 'true_peak_dbtp',    label: 'True Peak' },
+  { key: 'mono_compat_pct',   label: 'Mono Compat Loss %' },
+  { key: 'stereo_width',      label: 'Stereo Width' },
+  { key: 'plr',               label: 'Peak-to-Loudness Ratio (PLR)' },
+  { key: 'tonal_deviation',   label: 'Tonal Balance Deviation' },
+  { key: 'distortion',        label: 'Distortion / Clipping' },
+  { key: 'masking_overlap',   label: 'Frequency Masking' },
+  { key: 'click_count',       label: 'Click / Artifact Count' },
 ]
 
 // ─── Sub-components / style helpers ─────────────────────────────────────────
@@ -82,6 +100,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   const [course, setCourse]             = useState(current?.course ?? '')
   const [instructor, setInstructor]     = useState(current?.instructor ?? '')
   const [dueDate, setDueDate]           = useState(current?.dueDate ?? '')
+  const [genre, setGenre]               = useState(current?.genre ?? '')
   const [lockRef, setLockRef]           = useState(!!current?.lockedReferenceFile)
   const [lockSpec, setLockSpec]         = useState(!!current?.lockedTargetSpec)
   const [selectedSpec, setSelectedSpec] = useState(current?.lockedTargetSpec ?? SPEC_OPTIONS[0].id)
@@ -96,6 +115,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       setCourse(current.course ?? '')
       setInstructor(current.instructor ?? '')
       setDueDate(current.dueDate ?? '')
+      setGenre(current.genre ?? '')
       setLockRef(!!current.lockedReferenceFile)
       setLockSpec(!!current.lockedTargetSpec)
       setSelectedSpec(current.lockedTargetSpec ?? SPEC_OPTIONS[0].id)
@@ -124,6 +144,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       instructor,
       studentName: '',
       dueDate: dueDate || undefined,
+      genre: genre || undefined,
       lockedReferenceFile: lockRef ? (referenceFilePath ?? current?.lockedReferenceFile ?? null) : null,
       lockedTargetSpec: lockSpec ? selectedSpec : null,
       rubric,
@@ -222,6 +243,13 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           onChange={e => setDueDate(e.target.value)}
           style={inputStyle}
         />
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <label style={labelStyle}>Genre</label>
+        <select value={genre} onChange={e => setGenre(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+          <option value="">— Select genre —</option>
+          {GENRE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
       </div>
 
       {/* ── Locks ────────────────────────────────────────────────────── */}
@@ -344,30 +372,18 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         </button>
       </div>
 
-      {/* Weight total indicator */}
-      <div
-        style={{
-          fontSize: 10,
-          color: weightOk ? 'var(--color-accent)' : '#e05a5a',
-          marginBottom: 8,
-        }}
-      >
-        Total weight: {Math.round(totalWeight * 100)}%
-        {!weightOk && ' (must equal 100%)'}
-      </div>
-
       {/* Table header */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 56px 56px 52px',
+          gridTemplateColumns: '1fr 52px 52px 44px 28px',
           gap: 4,
           marginBottom: 4,
         }}
       >
-        {(['Metric', 'Target', '±', 'Wt%'] as const).map(h => (
+        {(['Metric', 'Target', '±', 'Wt%', ''] as const).map((h, i) => (
           <span
-            key={h}
+            key={i}
             style={{
               fontSize: 9,
               letterSpacing: '0.08em',
@@ -385,18 +401,30 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           key={row.id}
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 56px 56px 52px',
+            gridTemplateColumns: '1fr 52px 52px 44px 28px',
             gap: 4,
             marginBottom: 5,
             alignItems: 'center',
           }}
         >
-          <input
-            type="text"
-            value={row.label}
-            onChange={e => updateRubricRow(row.id, 'label', e.target.value)}
-            style={{ ...inputStyle, fontSize: 11, padding: '4px 7px' }}
-          />
+          <select
+            value={row.metric}
+            onChange={e => {
+              const selectedMetric = METRIC_OPTIONS.find(m => m.key === e.target.value)
+              setRubric(prev => prev.map(r =>
+                r.id !== row.id ? r : {
+                  ...r,
+                  metric: e.target.value,
+                  label: selectedMetric?.label ?? e.target.value,
+                }
+              ))
+            }}
+            style={{ ...inputStyle, fontSize: 11, padding: '4px 7px', cursor: 'pointer' }}
+          >
+            {METRIC_OPTIONS.map(m => (
+              <option key={m.key} value={m.key}>{m.label}</option>
+            ))}
+          </select>
           <input
             type="number"
             value={row.target}
@@ -417,8 +445,50 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             max={100}
             style={{ ...inputStyle, fontSize: 11, padding: '4px 6px', textAlign: 'right' }}
           />
+          <button
+            onClick={() => setRubric(prev => prev.filter(r => r.id !== row.id))}
+            style={{ background: 'none', border: 'none', color: 'rgba(220,80,60,0.7)', fontSize: 14, cursor: 'pointer', padding: 0, lineHeight: 1 }}
+            aria-label="Remove row"
+          >
+            −
+          </button>
         </div>
       ))}
+
+      {/* Add Criterion button */}
+      <button
+        onClick={() => {
+          const newId = `row-${Date.now()}`
+          setRubric(prev => [...prev, { id: newId, metric: 'lufs_i', label: 'Integrated Loudness', target: -14, tolerance: 1.5, weight: 0.10 }])
+        }}
+        style={{
+          background: 'none',
+          border: '1px solid rgba(208,176,102,0.2)',
+          borderRadius: '2px',
+          color: 'var(--color-sand-400)',
+          fontSize: 10,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          padding: '4px 10px',
+          cursor: 'pointer',
+          marginBottom: 8,
+          width: '100%',
+        }}
+      >
+        + Add Criterion
+      </button>
+
+      {/* Weight total indicator */}
+      <div
+        style={{
+          fontSize: 10,
+          color: weightOk ? 'var(--color-accent)' : '#e05a5a',
+          marginBottom: 8,
+        }}
+      >
+        Total weight: {Math.round(totalWeight * 100)}%
+        {!weightOk && ' (must equal 100%)'}
+      </div>
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -455,6 +525,63 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           }}
         >
           Clear Assignment
+        </button>
+        <button
+          onClick={async () => {
+            const cfg: AssignmentConfig = { title, course, instructor, studentName: '', dueDate: dueDate || undefined, genre: genre || undefined, lockedReferenceFile: lockRef ? (referenceFilePath ?? current?.lockedReferenceFile ?? null) : null, lockedTargetSpec: lockSpec ? selectedSpec : null, rubric }
+            const json = JSON.stringify(cfg, null, 2)
+            await (window as any).electronAPI?.saveFileDialog(
+              `${title || 'assignment'}.rtm-assignment.json`,
+              json,
+              [{ name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json'] }]
+            )
+          }}
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(168,161,150,0.2)',
+            borderRadius: '2px',
+            color: 'var(--color-sand-400)',
+            fontSize: 11,
+            letterSpacing: '0.06em',
+            padding: '7px 14px',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+          }}
+        >
+          Export (.json)
+        </button>
+        <button
+          onClick={async () => {
+            const text = await (window as any).electronAPI?.openTextFileDialog([
+              { name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json', 'json'] }
+            ])
+            if (!text) return
+            try {
+              const cfg = JSON.parse(text) as AssignmentConfig
+              setTitle(cfg.title ?? '')
+              setCourse(cfg.course ?? '')
+              setInstructor(cfg.instructor ?? '')
+              setDueDate(cfg.dueDate ?? '')
+              setGenre(cfg.genre ?? '')
+              setLockRef(!!cfg.lockedReferenceFile)
+              setLockSpec(!!cfg.lockedTargetSpec)
+              if (cfg.lockedTargetSpec) setSelectedSpec(cfg.lockedTargetSpec)
+              if (cfg.rubric?.length) setRubric(cfg.rubric)
+            } catch { /* invalid JSON — silently ignore */ }
+          }}
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(168,161,150,0.2)',
+            borderRadius: '2px',
+            color: 'var(--color-sand-400)',
+            fontSize: 11,
+            letterSpacing: '0.06em',
+            padding: '7px 14px',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+          }}
+        >
+          Import (.json)
         </button>
       </div>
     </div>

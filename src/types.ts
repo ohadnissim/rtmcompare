@@ -686,6 +686,7 @@ export interface AssignmentConfig {
  studentName: string
  studentId?: string
  dueDate?: string
+ genre?: string   // e.g. 'Pop', 'EDM', 'Rock', 'Hip-Hop', 'Jazz', 'Classical', 'Podcast'
  lockedReferenceFile?: string | null   // absolute path or null
  lockedTargetSpec?: string | null      // spec ID string or null
  rubric: RubricCriteria[]

@@ -60,6 +60,51 @@ def get_actual(metric, result):
         return mono.get('mono_loss_b_pct') or mono.get('mono_loss_pct')
     if metric == 'stereo_width':
         return overall.get('width_b') or overall.get('width')
+
+    if metric == 'plr':
+        # PLR = true_peak_dbtp - lufs_i (approximate)
+        lufs = overall.get('lufs_b') or overall.get('lufs_a')
+        tp = overall.get('headroom_b') or overall.get('headroom_a') or overall.get('true_peak_b') or overall.get('true_peak')
+        if lufs is not None and tp is not None:
+            try:
+                return float(tp) - float(lufs)
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    if metric == 'tonal_deviation':
+        tonal = result.get('tonal', {}) if result else {}
+        return tonal.get('deviation_b') or tonal.get('rms_deviation_b') or tonal.get('deviation')
+
+    if metric == 'distortion':
+        distortion = result.get('distortion', {}) if result else {}
+        # Try distortion_severity as a 0-1 float or as named levels
+        val = distortion.get('severity_b') or distortion.get('severity') or distortion.get('distortion_severity_b')
+        if val is not None:
+            return val
+        # Fall back to a boolean-style field
+        has_clipping = distortion.get('has_clipping_b') or distortion.get('has_clipping')
+        if has_clipping is True:
+            return 1.0
+        if has_clipping is False:
+            return 0.0
+        return None
+
+    if metric == 'masking_overlap':
+        masking = result.get('masking', {}) if result else {}
+        return masking.get('overlap_pct') or masking.get('masking_pct') or masking.get('masking_overlap_b')
+
+    if metric == 'click_count':
+        clicks = result.get('clicks', {}) if result else {}
+        count = clicks.get('count_b') or clicks.get('click_count_b') or clicks.get('count')
+        if count is not None:
+            return count
+        # Some payloads have click_events as an array
+        events = clicks.get('click_events') or clicks.get('events') or []
+        if isinstance(events, list):
+            return len(events)
+        return None
+
     return None
 
 
@@ -89,19 +134,41 @@ def score_criterion(actual, target, tolerance, max_points):
 
 
 METRIC_LABELS = {
-    'lufs_i': 'Integrated Loudness',
-    'lra': 'Loudness Range (LRA)',
-    'true_peak_dbtp': 'True Peak',
-    'mono_compat': 'Mono Compatibility',
-    'stereo_width': 'Stereo Width',
+    'lufs_i':           'Integrated Loudness',
+    'lra':              'Loudness Range (LRA)',
+    'true_peak_dbtp':   'True Peak',
+    'mono_compat':      'Mono Compatibility',
+    'stereo_width':     'Stereo Width',
+    'plr':              'Peak-to-Loudness Ratio',
+    'tonal_deviation':  'Tonal Balance Deviation',
+    'distortion':       'Distortion / Clipping',
+    'masking_overlap':  'Frequency Masking',
+    'click_count':      'Click / Artifact Count',
 }
 
 METRIC_UNITS = {
-    'lufs_i': ' LUFS',
-    'lra': ' LU',
-    'true_peak_dbtp': ' dBTP',
-    'mono_compat': '%',
-    'stereo_width': '',
+    'lufs_i':           ' LUFS',
+    'lra':              ' LU',
+    'true_peak_dbtp':   ' dBTP',
+    'mono_compat':      '%',
+    'stereo_width':     '',
+    'plr':              ' LU',
+    'tonal_deviation':  ' dB',
+    'distortion':       '',      # unitless severity
+    'masking_overlap':  '%',
+    'click_count':      '',      # count
+}
+
+
+GENRE_LRA_TARGETS = {
+    'Pop':                    (4, 7),
+    'EDM / Electronic':       (4, 6),
+    'Rock':                   (8, 12),
+    'Hip-Hop / R&B':          (6, 9),
+    'Jazz':                   (10, 14),
+    'Classical / Orchestral': (14, 20),
+    'Folk / Acoustic':        (10, 16),
+    'Podcast / Spoken Word':  (6, 12),
 }
 
 
@@ -123,6 +190,7 @@ def build_html(payload):
     student_id   = esc(assignment.get('studentId') or '')
     due_date     = esc(assignment.get('dueDate') or '—')
     rubric       = assignment.get('rubric') or []
+    genre        = assignment.get('genre') or ''
 
     try:
         date_str = datetime.fromisoformat(exported_at.replace('Z', '+00:00')).strftime('%B %d, %Y  %H:%M UTC')
@@ -224,6 +292,60 @@ def build_html(payload):
       </table>
     </section>"""
 
+    # ── Genre context note ───────────────────────────────────────────
+    genre_note_html = ''
+    if genre and genre in GENRE_LRA_TARGETS:
+        lra_lo, lra_hi = GENRE_LRA_TARGETS[genre]
+        actual_lra = get_actual('lra', result)
+        try:
+            lra_in_range = actual_lra is not None and lra_lo <= float(actual_lra) <= lra_hi
+        except (TypeError, ValueError):
+            lra_in_range = False
+        lra_verdict = 'Dynamic range appears appropriate for this genre.' if lra_in_range else 'See LRA row in the rubric scorecard above.'
+        genre_note_html = f"""
+<div style="background:rgba(208,176,102,0.04); border:1px solid rgba(208,176,102,0.15); border-radius:2px; padding:10px 14px; margin-bottom:20px; font-size:12px;">
+  <span style="color:#d0b066; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.07em;">Genre Context — {esc(genre)}</span><br>
+  <span style="color:#b0a88a; line-height:1.6;">Typical LRA for {esc(genre)}: {lra_lo}–{lra_hi} LU. {lra_verdict}</span>
+</div>"""
+
+    # ── Encode penalty / delivery risk ──────────────────────────────
+    true_peak_b = get_actual('true_peak_dbtp', result)
+    encode_risk = ''
+    if true_peak_b is not None:
+        try:
+            tp_val = float(true_peak_b)
+            if tp_val > -1.0:
+                risk_level = 'HIGH'
+                risk_color = '#eb5757'
+                risk_msg = f'True Peak is {tp_val:+.1f} dBTP — above the −1.0 dBTP delivery ceiling. AAC encoding may cause audible clipping. Lower the limiter ceiling immediately.'
+            elif tp_val > -1.5:
+                risk_level = 'MODERATE'
+                risk_color = '#f2c94c'
+                risk_msg = f'True Peak is {tp_val:+.1f} dBTP. AAC encoding (which can raise peaks by up to 3 dB) may push this above 0 dBTP. Consider lowering to −1.5 dBTP or below.'
+            else:
+                risk_level = 'LOW'
+                risk_color = '#6fcf97'
+                risk_msg = f'True Peak is {tp_val:+.1f} dBTP — sufficient encode headroom for AAC/MP3 delivery.'
+            encode_risk = f"""
+<section>
+  <h2>Encode / Delivery Risk</h2>
+  <table>
+    <tbody>
+      <tr>
+        <td style="width:100px; font-weight:600">True Peak (B)</td>
+        <td>{tp_val:+.1f} dBTP</td>
+        <td style="color:{risk_color}; font-weight:600">{risk_level} RISK</td>
+      </tr>
+      <tr>
+        <td colspan="3" style="color:#b0a88a; font-size:11px; line-height:1.6">{esc(risk_msg)}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:11px; color:#888; margin-top:8px; font-style:italic">Note: AAC encoding (iTunes, Spotify, Apple Music) can raise true peaks by up to 3 dB due to inter-sample peak reconstruction.</p>
+</section>"""
+        except (TypeError, ValueError):
+            pass
+
     # ── Key metrics table ────────────────────────────────────────────
     metrics_rows = ''
     for key, vals in metrics.items():
@@ -294,6 +416,7 @@ def build_html(payload):
 
     # ── Assemble HTML ────────────────────────────────────────────────
     student_id_str = f' ({student_id})' if student_id else ''
+    genre_cell = f'<div class="meta-item"><label>Genre</label>{esc(genre)}</div>' if genre else ''
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -424,9 +547,12 @@ def build_html(payload):
   <div class="meta-item"><label>Reference (File A)</label>{file_a}</div>
   <div class="meta-item"><label>Mix (File B)</label>{file_b}</div>
   <div class="meta-item"><label>Exported</label>{esc(date_str)}</div>
+  {genre_cell}
 </div>
 
 {rubric_section}
+
+{genre_note_html}
 
 <section>
   <h2>Key Metrics Summary</h2>
@@ -442,6 +568,8 @@ def build_html(payload):
     </tbody>
   </table>
 </section>
+
+{encode_risk}
 
 {annotations_section}
 

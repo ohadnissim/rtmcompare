@@ -22,8 +22,6 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (!enabled) return null
-
   async function handleExport() {
     setLoading(true)
     setError(null)
@@ -37,8 +35,15 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
       exportedAt: new Date().toISOString(),
     }
 
+    const TIMEOUT_MS = 30_000
+
     try {
-      const result = await (window as any).electronAPI.generateStudentReport(payload)
+      const result = await Promise.race([
+        (window as any).electronAPI.generateStudentReport(payload),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Report generation timed out after 30 s')), TIMEOUT_MS)
+        ),
+      ])
       if (result?.ok && result.path) {
         await (window as any).electronAPI.revealInFinder(result.path)
       } else {
@@ -50,6 +55,14 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
       setLoading(false)
     }
   }
+
+  React.useEffect(() => {
+    const handler = () => { if (!loading) handleExport() }
+    window.addEventListener('rtm-learn-export-report', handler)
+    return () => window.removeEventListener('rtm-learn-export-report', handler)
+  }, [loading, assignment, annotations, analysisResult, fileAName, fileBName])
+
+  if (!enabled) return null
 
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
