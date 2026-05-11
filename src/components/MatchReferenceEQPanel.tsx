@@ -138,12 +138,61 @@ export function deriveCategoryBands(categories: Category[] | undefined): Band[] 
  return out
 }
 
+/**
+ * 5.7.0: log-frequency Hann smoothing on a 31-band 1/3-octave spectrum.
+ * Mirrors python/engineer_profile.py:_smooth_log_spectrum so the
+ * single-track Match path produces band moves that are consistent with
+ * the engineer-profile path. Without this, narrow tonal features (a
+ * tuned kick fundamental at 50 Hz, a resonant note in the bass, etc.)
+ * read as broad-band imbalance against any reference and the panel
+ * suggests aggressive cuts that destroy the genre's signature.
+ *
+ * For kernel_bands=3 the resulting kernel is [0.25, 0.5, 0.25] — the
+ * classic binomial 3-tap smoother. Reflective padding avoids attenuating
+ * the lowest (20 Hz) and highest (20 kHz) bands.
+ */
+export function smoothLogSpectrum(spec: number[], kernelBands: number = 3): number[] {
+  if (!spec || spec.length === 0) return []
+  if (kernelBands <= 1 || spec.length <= kernelBands) return spec.slice()
+  // Hann window of length kernelBands+2, drop the zero endpoints, normalise.
+  const klen = kernelBands + 2
+  const raw: number[] = []
+  for (let i = 0; i < klen; i++) {
+    raw.push(0.5 * (1 - Math.cos((2 * Math.PI * i) / (klen - 1))))
+  }
+  const kernel = raw.slice(1, -1)
+  const ksum = kernel.reduce((a, b) => a + b, 0)
+  for (let i = 0; i < kernel.length; i++) kernel[i] /= ksum
+  const pad = Math.floor(kernelBands / 2)
+  // Reflective padding (np.pad mode='reflect'): mirror around the edge,
+  // not including the edge sample itself.
+  const padded: number[] = []
+  for (let i = pad; i > 0; i--) padded.push(spec[Math.min(i, spec.length - 1)])
+  for (let i = 0; i < spec.length; i++) padded.push(spec[i])
+  for (let i = 0; i < pad; i++) padded.push(spec[Math.max(spec.length - 2 - i, 0)])
+  // Valid-mode convolution.
+  const out: number[] = []
+  for (let i = 0; i < spec.length; i++) {
+    let acc = 0
+    for (let k = 0; k < kernel.length; k++) acc += padded[i + k] * kernel[k]
+    out.push(acc)
+  }
+  return out
+}
+
 export function deriveMatchBands(specA: number[], specB: number[]): Band[] {
  if (!specA || !specB || specA.length < 31 || specB.length < 31) return []
+ // 5.7.0: smooth both spectra equally before the diff. See
+ // smoothLogSpectrum() docstring for the full motivation. Same op
+ // on both sides preserves real broad-band imbalances; suppresses
+ // narrow tonal features that the diff alone can't tell apart from
+ // intentional musical content.
+ const specASm = smoothLogSpectrum(specA)
+ const specBSm = smoothLogSpectrum(specB)
  const bands: Band[] = []
  for (const r of REGIONS) {
- const sliceA = specA.slice(r.start, r.end)
- const sliceB = specB.slice(r.start, r.end)
+ const sliceA = specASm.slice(r.start, r.end)
+ const sliceB = specBSm.slice(r.start, r.end)
  const aAvg = sliceA.reduce((s, v) => s + v, 0) / sliceA.length
  const bAvg = sliceB.reduce((s, v) => s + v, 0) / sliceB.length
  // Skip regions that are effectively silent in both files.
@@ -352,6 +401,7 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  next[bandIdx] = !next[bandIdx]
  return next
  })}
+ aria-pressed={bandEnabledForRec}
  className={`text-[10px] font-mono tabular-nums transition-colors group/chip ${bandEnabledForRec ? 'is-active' : ''}`}
  style={{
  color: bandEnabledForRec ? '#d0b066' : '#a8a29e',

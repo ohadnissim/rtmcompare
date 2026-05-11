@@ -26,6 +26,7 @@ import OnboardingTour, { useTourState } from './components/OnboardingTour'
 import ShortcutHelp from './components/ShortcutHelp'
 import AnalysisTour, { useAnalysisTourState } from './components/AnalysisTour'
 import RefOnlyTour, { useRefOnlyTourState } from './components/RefOnlyTour'
+import ProfileDropdown from './components/ProfileDropdown'
 
 interface ProfileInfo {
  id: string
@@ -34,6 +35,19 @@ interface ProfileInfo {
  sample_count?: number
  user_created?: boolean
 }
+
+// Computed once at module scope — platform never changes mid-session and
+// this avoids recalculating inside every render of the App component.
+// navigator.userAgentData.platform is the modern API; navigator.platform
+// is deprecated but still works in all Electron versions we target.
+const isMac = (() => {
+ try {
+ const ua: any = (navigator as any).userAgentData?.platform || navigator.platform || ''
+ return /mac|iphone|ipad/i.test(String(ua))
+ } catch { return true }
+})()
+const MOD   = isMac ? '⌘' : 'Ctrl'
+const MINUS = isMac ? '−' : '-'
 
 declare global {
  interface Window {
@@ -193,7 +207,7 @@ export default function App() {
  const [results, setResults] = useState<AnalysisResult | null>(null)
  const [error, setError] = useState<string | null>(null)
  const [deepScan, setDeepScan] = useState(false)
- const [refOnlyResults, setRefOnlyResults] = useState<any>(null)
+ const [refOnlyResults, setRefOnlyResults] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
  // A-side lock. When set,
  // the Reference drop zone ignores drops + clicks so successive revisions
  // target the Compare slot without clobbering the pinned master. Also
@@ -673,7 +687,7 @@ export default function App() {
  try { window.electronAPI?.cancelAnalysis?.() } catch {}
  }, [])
 
- const handleReset = () => {
+ const handleReset = useCallback(() => {
  setState('upload')
  setFileA(null)
  setFileB(null)
@@ -684,7 +698,7 @@ export default function App() {
  setBatchInitialSession(null)
  setError(null)
  setNavOrigin('upload')
- }
+ }, [])
 
  // ── Album / batch mode — pick a folder, analyse every audio file inside,
  // route to the BatchView when done. Per-file progress streams through
@@ -764,17 +778,7 @@ export default function App() {
  }
  }, [state, analysisTour, refOnlyTour, tour])
 
- // Cross-platform modifier key label — ⌘ on macOS, Ctrl on Windows/Linux.
- // navigator.platform is deprecated but still works across Electron versions;
- // navigator.userAgentData.platform is the modern fallback.
- const isMac = (() => {
- try {
- const ua: any = (navigator as any).userAgentData?.platform || navigator.platform || ''
- return /mac|iphone|ipad/i.test(String(ua))
- } catch { return true }
- })()
- const MOD = isMac ? '⌘' : 'Ctrl'
- const MINUS = isMac ? '−' : '-'
+ // MOD / MINUS are computed at module scope above the component.
 
  // Detect multichannel file by extension heuristic (full check is done in Python).
  // We use a quick filename / extension cue so we can gate Deep Scan before analysis.
@@ -903,6 +907,20 @@ export default function App() {
       onBegin={fileA && fileB ? handleCompare : handleRefOnly}
       onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
     >
+      {/* 5.7.0: engineer profile picker. Restored to the cover so the
+          user can switch profiles before kicking off an analysis. The
+          selected profile drives tonal recommendations and the cohort-
+          aware tolerance MAD curve. */}
+      <div className="flex items-center justify-center mb-3">
+        <ProfileDropdown
+          profiles={profiles}
+          selected={profile}
+          onSelect={setProfile}
+          onLoadCustom={handleLoadProfile}
+          onDelete={handleDeleteProfile}
+          errorMessage={profileError}
+        />
+      </div>
       {/* 5.4.1: compact reference-history dropdown above the dropzones.
         Saved + recent collapse into a single trigger so the cover
         stays clean. Hides itself when the user has zero history. */}
@@ -939,13 +957,19 @@ export default function App() {
           file={fileB}
           onFile={setFileB}
         />
-        {fileA && fileB && (
+        {/* 5.7.x: render the swap button when EITHER slot has a file
+            (was: only when BOTH did). The "I dropped my mix into Reference
+            by mistake" case is the most common — a single file in the
+            wrong slot. Click swaps fileA ↔ fileB; if only one is set,
+            the empty slot just stays empty after the swap, but the
+            loaded file ends up where the user actually wanted it. */}
+        {(fileA || fileB) && (
           <button
             onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full hidden md:flex items-center justify-center transition-all hover:scale-110"
             style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)' }}
-            aria-label="Swap reference and compare files"
-            title="Swap files"
+            aria-label={fileA && fileB ? "Swap reference and compare files" : "Move file to the other slot"}
+            title={fileA && fileB ? "Swap files" : "Move to the other slot"}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
