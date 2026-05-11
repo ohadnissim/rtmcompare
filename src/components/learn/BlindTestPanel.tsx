@@ -8,7 +8,7 @@
 
 import React from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
-import type { BlindTestAnswer, BlindTestPredictions } from '../../types'
+import type { BlindTestAnswer, BlindTestPredictions, EarTrainingAnswers } from '../../types'
 
 interface Props {
   onClose: () => void
@@ -163,6 +163,11 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
     for (const a of blindTest.answers) map[a.dimension] = a
     return map
   })
+  const [earTraining, setEarTraining] = React.useState<EarTrainingAnswers>({
+    frequencyRegions: [],
+    reverbType: '',
+    monoPrediction: '',
+  })
   const [notesField, setNotesField] = React.useState<string>(() => {
     if (!blindTest) return ''
     return blindTest.answers.find(a => a.dimension === 'overall')?.notes ?? ''
@@ -194,6 +199,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
     }))
     const predictions: BlindTestPredictions = {
       answers: finalAnswers,
+      earTraining,
       submittedAt: new Date().toISOString(),
       revealed: false,
     }
@@ -442,6 +448,272 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
               ))}
             </div>
 
+            {/* ── Ear Training section ──────────────────────────────────── */}
+            <div style={{ marginTop: 32 }}>
+              {/* Divider */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ flex: 1, height: 1, background: 'rgba(168,161,150,0.12)' }} />
+                <div
+                  style={{
+                    fontSize: 9,
+                    letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(168,161,150,0.45)',
+                    flexShrink: 0,
+                    textAlign: 'center',
+                  }}
+                >
+                  BONUS — Ear Training (Identify Without Comparing)
+                </div>
+                <div style={{ flex: 1, height: 1, background: 'rgba(168,161,150,0.12)' }} />
+              </div>
+              <p style={{ fontSize: 12, color: 'rgba(168,161,150,0.55)', margin: '0 0 20px', lineHeight: 1.6 }}>
+                These questions test absolute identification, not A-vs-B comparison. Optional — they do not affect your submission.
+              </p>
+
+              {/* Q1 — Frequency regions */}
+              <div
+                style={{
+                  border: '1px solid rgba(168,161,150,0.1)',
+                  borderRadius: '2px',
+                  padding: '14px 16px',
+                  background: 'rgba(255,255,255,0.015)',
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(208,176,102,0.7)',
+                    marginBottom: 8,
+                  }}
+                >
+                  Frequency Regions
+                </div>
+                <p style={{ fontSize: 13, color: 'rgba(220,215,205,0.9)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  Which frequency regions stand out most in File B compared to the reference? (select all that apply)
+                </p>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8,
+                  }}
+                >
+                  {(
+                    [
+                      { value: 'sub',        label: 'Sub bass (20–80 Hz)' },
+                      { value: 'bass',       label: 'Bass (80–250 Hz)' },
+                      { value: 'low_mids',   label: 'Low mids (250–500 Hz)' },
+                      { value: 'mids',       label: 'Mids (500–2 kHz)' },
+                      { value: 'upper_mids', label: 'Upper mids (2–4 kHz)' },
+                      { value: 'presence',   label: 'Presence (4–6 kHz)' },
+                      { value: 'air',        label: 'Air (6–20 kHz)' },
+                    ] as { value: EarTrainingAnswers['frequencyRegions'][number]; label: string }[]
+                  ).map(({ value, label }) => {
+                    const checked = earTraining.frequencyRegions.includes(value)
+                    return (
+                      <label
+                        key={value}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          cursor: 'pointer',
+                          fontSize: 12,
+                          color: checked ? 'rgba(220,215,205,0.9)' : 'rgba(168,161,150,0.7)',
+                          userSelect: 'none',
+                        }}
+                      >
+                        <div
+                          onClick={() => {
+                            setEarTraining(prev => ({
+                              ...prev,
+                              frequencyRegions: checked
+                                ? prev.frequencyRegions.filter(v => v !== value)
+                                : [...prev.frequencyRegions, value],
+                            }))
+                          }}
+                          style={{
+                            width: 14,
+                            height: 14,
+                            border: checked
+                              ? '1px solid rgba(208,176,102,0.7)'
+                              : '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '2px',
+                            background: checked ? 'rgba(208,176,102,0.08)' : 'transparent',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'border-color 0.1s, background 0.1s',
+                          }}
+                        >
+                          {checked && (
+                            <div
+                              style={{
+                                width: 8,
+                                height: 8,
+                                background: 'rgba(208,176,102,0.9)',
+                                borderRadius: '1px',
+                              }}
+                            />
+                          )}
+                        </div>
+                        <span
+                          onClick={() => {
+                            setEarTraining(prev => ({
+                              ...prev,
+                              frequencyRegions: checked
+                                ? prev.frequencyRegions.filter(v => v !== value)
+                                : [...prev.frequencyRegions, value],
+                            }))
+                          }}
+                        >
+                          {label}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Q2 — Reverb type */}
+              <div
+                style={{
+                  border: '1px solid rgba(168,161,150,0.1)',
+                  borderRadius: '2px',
+                  padding: '14px 16px',
+                  background: 'rgba(255,255,255,0.015)',
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(208,176,102,0.7)',
+                    marginBottom: 8,
+                  }}
+                >
+                  Reverb Type
+                </div>
+                <p style={{ fontSize: 13, color: 'rgba(220,215,205,0.9)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  What type of reverb is most prominent on the lead element?
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {(
+                    [
+                      { value: 'plate',  label: 'Plate' },
+                      { value: 'hall',   label: 'Hall' },
+                      { value: 'room',   label: 'Room' },
+                      { value: 'spring', label: 'Spring' },
+                      { value: 'none',   label: 'No noticeable reverb' },
+                    ] as { value: EarTrainingAnswers['reverbType']; label: string }[]
+                  ).map(({ value, label }) => {
+                    const selected = earTraining.reverbType === value
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setEarTraining(prev => ({ ...prev, reverbType: value }))}
+                        style={{
+                          background: selected ? 'rgba(208,176,102,0.08)' : 'transparent',
+                          border: selected
+                            ? '1px solid rgba(208,176,102,0.7)'
+                            : '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '2px',
+                          color: selected ? 'rgba(208,176,102,1)' : 'rgba(168,161,150,0.7)',
+                          fontSize: 11,
+                          letterSpacing: '0.04em',
+                          padding: '5px 12px',
+                          cursor: 'pointer',
+                          transition: 'border-color 0.1s, color 0.1s, background 0.1s',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Q3 — Mono prediction */}
+              <div
+                style={{
+                  border: '1px solid rgba(168,161,150,0.1)',
+                  borderRadius: '2px',
+                  padding: '14px 16px',
+                  background: 'rgba(255,255,255,0.015)',
+                  marginBottom: 14,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(208,176,102,0.7)',
+                    marginBottom: 8,
+                  }}
+                >
+                  Mono Prediction
+                </div>
+                <p style={{ fontSize: 13, color: 'rgba(220,215,205,0.9)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  When summed to mono, what do you predict will be most affected?
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {(
+                    [
+                      { value: 'sub_loss',        label: 'Sub / bass energy',       desc: 'Low end thins out' },
+                      { value: 'mid_fullness',     label: 'Midrange fullness',       desc: 'Mid instruments lose body' },
+                      { value: 'stereo_collapse',  label: 'Stereo spread collapses', desc: 'Panned elements move to centre' },
+                      { value: 'nothing',          label: 'Nothing significant',     desc: 'Mono-safe mix' },
+                    ] as { value: EarTrainingAnswers['monoPrediction']; label: string; desc: string }[]
+                  ).map(({ value, label, desc }) => {
+                    const selected = earTraining.monoPrediction === value
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setEarTraining(prev => ({ ...prev, monoPrediction: value }))}
+                        style={{
+                          background: selected ? 'rgba(208,176,102,0.08)' : 'transparent',
+                          border: selected
+                            ? '1px solid rgba(208,176,102,0.7)'
+                            : '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '2px',
+                          color: selected ? 'rgba(208,176,102,1)' : 'rgba(168,161,150,0.7)',
+                          fontSize: 11,
+                          letterSpacing: '0.04em',
+                          padding: '7px 14px',
+                          cursor: 'pointer',
+                          transition: 'border-color 0.1s, color 0.1s, background 0.1s',
+                          textAlign: 'left',
+                          display: 'flex',
+                          gap: 12,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <span style={{ minWidth: 160 }}>{label}</span>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: selected ? 'rgba(208,176,102,0.65)' : 'rgba(168,161,150,0.45)',
+                            letterSpacing: '0.02em',
+                          }}
+                        >
+                          {desc}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
             {/* Submit button */}
             <div style={{ marginTop: 28 }}>
               <button
@@ -667,6 +939,193 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                     You correctly predicted {correctCount} of {measurableTotal} measurable dimensions.
                   </div>
                 </div>
+
+                {/* Ear Training Results */}
+                {blindTest?.earTraining && (
+                  <div style={{ marginTop: 28 }}>
+                    {/* Divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+                      <div style={{ flex: 1, height: 1, background: 'rgba(168,161,150,0.12)' }} />
+                      <div
+                        style={{
+                          fontSize: 9,
+                          letterSpacing: '0.16em',
+                          textTransform: 'uppercase',
+                          color: 'rgba(168,161,150,0.45)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        Ear Training Results
+                      </div>
+                      <div style={{ flex: 1, height: 1, background: 'rgba(168,161,150,0.12)' }} />
+                    </div>
+
+                    {/* Frequency regions */}
+                    <div
+                      style={{
+                        border: '1px solid rgba(168,161,150,0.1)',
+                        borderRadius: '2px',
+                        padding: '12px 14px',
+                        background: 'rgba(255,255,255,0.015)',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                          color: 'rgba(208,176,102,0.6)',
+                          marginBottom: 6,
+                        }}
+                      >
+                        Frequency Regions Selected
+                      </div>
+                      {blindTest.earTraining.frequencyRegions.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                          {blindTest.earTraining.frequencyRegions.map(r => (
+                            <span
+                              key={r}
+                              style={{
+                                fontSize: 11,
+                                color: 'rgba(220,215,205,0.8)',
+                                border: '1px solid rgba(208,176,102,0.3)',
+                                borderRadius: '2px',
+                                padding: '2px 8px',
+                                background: 'rgba(208,176,102,0.04)',
+                              }}
+                            >
+                              {r.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: 'rgba(168,161,150,0.5)', marginBottom: 8 }}>
+                          No regions selected
+                        </div>
+                      )}
+                      <div style={{ fontSize: 11, color: 'rgba(168,161,150,0.55)', lineHeight: 1.5 }}>
+                        See Tonal Balance tab for the full spectral comparison.
+                      </div>
+                    </div>
+
+                    {/* Reverb type */}
+                    <div
+                      style={{
+                        border: '1px solid rgba(168,161,150,0.1)',
+                        borderRadius: '2px',
+                        padding: '12px 14px',
+                        background: 'rgba(255,255,255,0.015)',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                          color: 'rgba(208,176,102,0.6)',
+                          marginBottom: 6,
+                        }}
+                      >
+                        Reverb Type Identified
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(220,215,205,0.85)', marginBottom: 6 }}>
+                        {blindTest.earTraining.reverbType
+                          ? blindTest.earTraining.reverbType === 'none'
+                            ? 'No noticeable reverb'
+                            : blindTest.earTraining.reverbType.charAt(0).toUpperCase() +
+                              blindTest.earTraining.reverbType.slice(1)
+                          : '—'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'rgba(168,161,150,0.55)', lineHeight: 1.5 }}>
+                        Compare with the Methodology notes from your session.
+                      </div>
+                    </div>
+
+                    {/* Mono prediction */}
+                    <div
+                      style={{
+                        border: '1px solid rgba(168,161,150,0.1)',
+                        borderRadius: '2px',
+                        padding: '12px 14px',
+                        background: 'rgba(255,255,255,0.015)',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                          color: 'rgba(208,176,102,0.6)',
+                          marginBottom: 6,
+                        }}
+                      >
+                        Mono Prediction
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(220,215,205,0.85)', marginBottom: 8 }}>
+                        {blindTest.earTraining.monoPrediction === 'sub_loss'
+                          ? 'Sub / bass energy — Low end thins out'
+                          : blindTest.earTraining.monoPrediction === 'mid_fullness'
+                          ? 'Midrange fullness — Mid instruments lose body'
+                          : blindTest.earTraining.monoPrediction === 'stereo_collapse'
+                          ? 'Stereo spread collapses — Panned elements move to centre'
+                          : blindTest.earTraining.monoPrediction === 'nothing'
+                          ? 'Nothing significant — Mono-safe mix'
+                          : '—'}
+                      </div>
+                      {(() => {
+                        const monoCompat =
+                          ar.mono_compat_b ?? ar.mono_compat_pct_b ?? null
+                        if (monoCompat == null) return null
+                        const contextMsg =
+                          monoCompat < 85
+                            ? 'Your mix lost significant content in mono — check Step 4 (Stereo & Phase)'
+                            : monoCompat >= 95
+                            ? 'Your mix is highly mono-compatible'
+                            : 'Moderate mono compatibility — some content affected'
+                        return (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: monoCompat < 85
+                                ? 'rgba(208,176,102,0.8)'
+                                : 'rgba(168,161,150,0.65)',
+                              lineHeight: 1.5,
+                              marginBottom: 6,
+                            }}
+                          >
+                            {contextMsg}
+                          </div>
+                        )
+                      })()}
+                    </div>
+
+                    {/* Ear training note */}
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        border: '1px solid rgba(168,161,150,0.08)',
+                        borderRadius: '2px',
+                        background: 'rgba(255,255,255,0.01)',
+                      }}
+                    >
+                      <p
+                        style={{
+                          fontSize: 11,
+                          color: 'rgba(168,161,150,0.55)',
+                          margin: 0,
+                          lineHeight: 1.65,
+                        }}
+                      >
+                        Frequency identification is the most-tested skill in professional ear training (Golden Ears,
+                        Berklee ear training). Review the Tonal Balance tab to see how your frequency perception
+                        compares to the spectrum analysis.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 

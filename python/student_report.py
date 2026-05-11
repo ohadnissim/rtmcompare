@@ -308,6 +308,18 @@ def build_html(payload):
       </table>
     </section>"""
 
+    # ── Teacher feedback ─────────────────────────────────────────────
+    teacher_feedback_raw = payload.get('teacherFeedback', '') or ''
+    teacher_feedback_section = ''
+    if teacher_feedback_raw.strip():
+        teacher_feedback_section = f"""
+  <div style="margin-bottom:28px;">
+    <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#6b6560;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">
+      Instructor Feedback
+    </div>
+    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(208,176,102,0.2); border-left:3px solid rgba(208,176,102,0.6); border-radius:2px; padding:14px 16px; font-size:12px; line-height:1.8; color:#c8c0b0; white-space:pre-wrap;">{esc(teacher_feedback_raw.strip())}</div>
+  </div>"""
+
     # ── Genre context note ───────────────────────────────────────────
     genre_note_html = ''
     if genre:
@@ -443,6 +455,29 @@ def build_html(payload):
             )
         except (TypeError, ValueError):
             qc_rows += qc_row('Noise Floor', noise_floor_b)
+
+    # Dither detection
+    bit_depth_val = result.get('bit_depth_b')
+    dither_applied = payload.get('ditherApplied')  # bool or None, set by student in reflection
+    dither_html = ''
+    if bit_depth_val is not None:
+        if str(bit_depth_val) in ('16', '16-bit'):
+            # 16-bit delivery: dithering matters
+            if dither_applied is True:
+                dither_icon = '<span style="color:#6fcf97">&#10003;</span>'
+                dither_text = '16-bit + dithered'
+            elif dither_applied is False:
+                dither_icon = '<span style="color:#eb5757">&#10007;</span>'
+                dither_text = '16-bit — no dither reported'
+            else:
+                dither_icon = '<span style="color:#f2c94c">&#8263;</span>'
+                dither_text = '16-bit — dither unconfirmed'
+            dither_html = f'<tr><td style="width:160px; color:#b0a88a">Dithering</td><td style="color:#ebe7e0">{dither_text} {dither_icon}</td></tr>'
+        else:
+            # 24-bit or 32-bit: no dither needed
+            dither_html = f'<tr><td style="width:160px; color:#b0a88a">Dithering</td><td style="color:#6b6560">Not required ({esc(str(bit_depth_val))}-bit delivery)</td></tr>'
+    if dither_html:
+        qc_rows += dither_html
 
     ms_ratio_b = result.get('ms_ratio_b')
     if ms_ratio_b is not None:
@@ -610,6 +645,49 @@ def build_html(payload):
 
         submitted_note = ' on ' + bt_submitted if bt_submitted else ''
 
+        # ── Ear training sub-section ──────────────────────────────────
+        ear_training = blind_test.get('earTraining') or {}
+        et_html = ''
+        if ear_training:
+            freq_regions = ear_training.get('frequencyRegions', [])
+            reverb_type = ear_training.get('reverbType', '')
+            mono_pred = ear_training.get('monoPrediction', '')
+
+            FREQ_LABELS = {
+                'sub': 'Sub bass (20–80 Hz)', 'bass': 'Bass (80–250 Hz)',
+                'low_mids': 'Low mids (250–500 Hz)', 'mids': 'Mids (500–2 kHz)',
+                'upper_mids': 'Upper mids (2–4 kHz)', 'presence': 'Presence (4–6 kHz)',
+                'air': 'Air (6–20 kHz)'
+            }
+            REVERB_LABELS = {
+                'plate': 'Plate', 'hall': 'Hall', 'room': 'Room',
+                'spring': 'Spring', 'none': 'No noticeable reverb'
+            }
+            MONO_LABELS = {
+                'sub_loss': 'Sub / bass energy thins out',
+                'mid_fullness': 'Midrange loses body',
+                'stereo_collapse': 'Stereo spread collapses to centre',
+                'nothing': 'Nothing significant'
+            }
+
+            freq_display = ', '.join(FREQ_LABELS.get(f, f) for f in freq_regions) if freq_regions else '—'
+            reverb_display = REVERB_LABELS.get(reverb_type, reverb_type) if reverb_type else '—'
+            mono_display = MONO_LABELS.get(mono_pred, mono_pred) if mono_pred else '—'
+
+            et_html = (
+                '<div style="margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05);">'
+                '<div style="font-size:10px;color:#6b6560;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">Ear Training Answers</div>'
+                '<table style="width:100%;border-collapse:collapse;">'
+                '<tr><td style="padding:4px 10px;color:#a8a197;font-size:11px;width:180px;">Frequency regions identified</td>'
+                '<td style="padding:4px 10px;font-size:11px;color:#c8c0b0;">' + esc(freq_display) + '</td></tr>'
+                '<tr><td style="padding:4px 10px;color:#a8a197;font-size:11px;">Reverb type heard</td>'
+                '<td style="padding:4px 10px;font-size:11px;color:#c8c0b0;">' + esc(reverb_display) + '</td></tr>'
+                '<tr><td style="padding:4px 10px;color:#a8a197;font-size:11px;">Mono prediction</td>'
+                '<td style="padding:4px 10px;font-size:11px;color:#c8c0b0;">' + esc(mono_display) + '</td></tr>'
+                '</table>'
+                '</div>'
+            )
+
         blind_test_section = (
             '<div style="margin-bottom:28px;">'
             '<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#6b6560;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">'
@@ -619,6 +697,7 @@ def build_html(payload):
             '<table style="width:100%;border-collapse:collapse;">'
             + rows_html +
             '</table>'
+            + et_html +
             '</div>'
         )
 
@@ -776,6 +855,8 @@ def build_html(payload):
 
 {rubric_section}
 
+{teacher_feedback_section}
+
 {genre_note_html}
 
 <section>
@@ -807,6 +888,7 @@ def build_html(payload):
 
 <footer>
   Generated with RTMcompare v5.7.2 &middot; Learn Mode &middot; {esc(date_str)}
+  <div style="font-size:9px;color:#4a4540;margin-top:6px;">Grade CSV export is compatible with Canvas LMS import format (Student Name / Student ID / Score columns).</div>
 </footer>
 
 </body>

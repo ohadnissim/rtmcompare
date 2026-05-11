@@ -35,6 +35,7 @@ interface GradeRecord {
   totalEarned: number
   totalPossible: number
   pct: number | null
+  pdfPath?: string
 }
 
 interface Props {
@@ -53,6 +54,8 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const [sortCol, setSortCol] = useState<'name' | 'date' | 'pct'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [lastScanned, setLastScanned] = useState<string | null>(null)
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, string>>({})
+  const [insightsOpen, setInsightsOpen] = useState(true)
 
   // Sync folder when assignment changes
   useEffect(() => {
@@ -68,8 +71,23 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     try {
       const result = await (window as any).electronAPI?.scanClassFolder(folderPath)
       if (result?.ok) {
-        setRecords(result.records ?? [])
+        const loadedRecords: GradeRecord[] = result.records ?? []
+        setRecords(loadedRecords)
         setLastScanned(new Date().toLocaleTimeString())
+        // Load feedback for each record
+        const newFeedbackMap: Record<string, string> = {}
+        for (const record of loadedRecords) {
+          if (!record.pdfPath) continue
+          try {
+            const feedback = await (window as any).electronAPI.loadStudentFeedback(record.pdfPath)
+            if (feedback?.text) {
+              newFeedbackMap[record.pdfPath] = feedback.text
+            }
+          } catch {
+            // best-effort, ignore errors
+          }
+        }
+        setFeedbackMap(newFeedbackMap)
       } else {
         setError(result?.error ?? 'Scan failed')
         setRecords([])
@@ -358,6 +376,148 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
           </div>
         )}
 
+        {/* Class Insights */}
+        {records.length > 0 && (() => {
+          // Per-criterion analytics
+          const criterionNames: string[] = records[0]?.rubric?.map(r => r.label) ?? []
+          const hasBlindTest = records.some(r => (r as any).blindTest?.answers?.length > 0)
+
+          return (
+            <div style={{
+              flexShrink: 0,
+              borderTop: '1px solid rgba(208,176,102,0.15)',
+              background: 'rgba(14,13,11,0.6)',
+            }}>
+              {/* Insights header */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 20px',
+                borderBottom: insightsOpen ? '1px solid rgba(208,176,102,0.1)' : 'none',
+                cursor: 'pointer',
+              }}
+                onClick={() => setInsightsOpen(o => !o)}
+              >
+                <span style={{
+                  fontSize: 10,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-accent)',
+                }}>
+                  Class Insights
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--color-sand-400)' }}>
+                  {insightsOpen ? '▲ hide' : '▼ show'}
+                </span>
+              </div>
+
+              {insightsOpen && (
+                <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                  {/* Sub-section A: Per-criterion performance */}
+                  {criterionNames.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                        Per-Criterion Performance
+                      </div>
+                      {criterionNames.map((criterion, idx) => {
+                        const rowsForCriterion = records.map(r => r.rubric?.find(row => row.label === criterion)).filter(Boolean) as RubricRow[]
+                        if (!rowsForCriterion.length) return null
+                        let full = 0, partial = 0, zero = 0, totalPct = 0
+                        rowsForCriterion.forEach(row => {
+                          if (row.earned == null) return
+                          const p = row.possible > 0 ? row.earned / row.possible : 0
+                          totalPct += p * 100
+                          if (row.earned === row.possible) full++
+                          else if (row.earned > 0) partial++
+                          else zero++
+                        })
+                        const count = rowsForCriterion.length
+                        const avgPctCrit = count > 0 ? Math.round(totalPct / count) : 0
+                        const isMostMissed = avgPctCrit < 60
+                        return (
+                          <div
+                            key={criterion}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '5px 0',
+                              borderBottom: idx < criterionNames.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                              fontSize: 12,
+                              gap: 8,
+                            }}
+                          >
+                            <span style={{ color: isMostMissed ? 'rgba(220,80,60,0.9)' : 'var(--color-text-primary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {criterion}
+                              {isMostMissed && (
+                                <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: '0.06em', color: 'rgba(220,80,60,0.9)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: '2px', padding: '1px 4px', textTransform: 'uppercase' }}>
+                                  Most Missed
+                                </span>
+                              )}
+                            </span>
+                            <span style={{ fontSize: 11, color: 'var(--color-sand-400)', whiteSpace: 'nowrap' }}>
+                              avg: {avgPctCrit}% — ✓ {full} / ◑ {partial} / ✗ {zero}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Sub-section B: Blind test calibration */}
+                  {hasBlindTest && (() => {
+                    const btRecords = records.filter(r => (r as any).blindTest?.answers?.length > 0)
+                    const btCount = btRecords.length
+                    const avgCorrect = btCount > 0
+                      ? Math.round(btRecords.reduce((s, r) => {
+                          const answers = (r as any).blindTest?.answers ?? []
+                          return s + answers.filter((a: any) => a.revealed === true).length
+                        }, 0) / btCount * 10) / 10
+                      : 0
+
+                    // Dimension accuracy
+                    const dimMap: Record<string, { correct: number; total: number }> = {}
+                    btRecords.forEach(r => {
+                      const answers: any[] = (r as any).blindTest?.answers ?? []
+                      answers.forEach((a: any) => {
+                        if (!a.dimension) return
+                        if (!dimMap[a.dimension]) dimMap[a.dimension] = { correct: 0, total: 0 }
+                        dimMap[a.dimension].total++
+                        if (a.revealed) dimMap[a.dimension].correct++
+                      })
+                    })
+                    const dims = Object.entries(dimMap).map(([name, d]) => ({ name, pct: d.total > 0 ? d.correct / d.total : 0 }))
+                    dims.sort((a, b) => b.pct - a.pct)
+                    const mostAccurate = dims[0]?.name ?? '—'
+                    const leastAccurate = dims[dims.length - 1]?.name ?? '—'
+
+                    return (
+                      <div>
+                        <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                          Blind Test Calibration
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div>{btCount} student{btCount !== 1 ? 's' : ''} completed blind test</div>
+                          <div>Avg correct predictions: <span style={{ color: 'var(--color-accent)' }}>{avgCorrect}</span></div>
+                          {dims.length > 0 && (
+                            <>
+                              <div>Most accurate dimension: <span style={{ color: '#6fcf97' }}>{mostAccurate}</span></div>
+                              <div>Least accurate dimension: <span style={{ color: '#eb5757' }}>{leastAccurate}</span></div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Table */}
         {records.length > 0 && (
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
@@ -377,6 +537,9 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                   ))}
                   <th style={{ ...thStyle, minWidth: 70, textAlign: 'center' }} onClick={() => toggleSort('pct')}>
                     Total {sortCol === 'pct' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                  </th>
+                  <th style={{ ...thStyle, minWidth: 160 }}>
+                    Feedback
                   </th>
                 </tr>
               </thead>
@@ -402,6 +565,39 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                       })}
                       <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: scoreColor(rec.totalEarned, rec.totalPossible) }}>
                         {rec.pct != null ? `${rec.pct}%` : '—'}
+                      </td>
+                      <td style={{ ...tdStyle, minWidth: 160 }}>
+                        {rec.pdfPath ? (
+                          <textarea
+                            rows={2}
+                            placeholder="Add feedback…"
+                            value={feedbackMap[rec.pdfPath] ?? ''}
+                            onChange={e => {
+                              const text = e.target.value
+                              setFeedbackMap(prev => ({ ...prev, [rec.pdfPath!]: text }))
+                            }}
+                            onBlur={e => {
+                              const text = e.target.value
+                              if (rec.pdfPath) {
+                                ;(window as any).electronAPI.saveStudentFeedback(rec.pdfPath, text)
+                              }
+                            }}
+                            style={{
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: '2px',
+                              color: 'var(--color-text-primary)',
+                              fontSize: 11,
+                              padding: '4px 6px',
+                              resize: 'vertical',
+                              width: '100%',
+                              fontFamily: 'inherit',
+                              outline: 'none',
+                            }}
+                          />
+                        ) : (
+                          <span style={{ color: 'var(--color-sand-400)', fontSize: 10 }}>—</span>
+                        )}
                       </td>
                     </tr>
                   )

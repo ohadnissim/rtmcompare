@@ -44,7 +44,7 @@ export const METRIC_EXPLAINERS: Record<string, MetricExplainerContent> = {
     tooLow: 'The platform normalizes your track up, potentially exposing noise floor artifacts and making the master sound thin. Revisit your limiting stage or add gentle bus compression to raise the average level.',
     unit: 'LUFS',
     standard: 'ITU-R BS.1770-4 / EBU R128',
-    proTip: 'LUFS-I is a gated measurement — it ignores segments below −70 LUFS and below −10 LU relative to ungated loudness, so very quiet intros and long silences do not drag the integrated value down.',
+    proTip: 'LUFS-I is a gated measurement — it ignores segments below −70 LUFS and below −10 LU relative to ungated loudness, so very quiet intros and long silences do not drag the integrated value down. Alongside LUFS-I, use LUFS-S (short-term, 3-second window) to read the dynamic arc of the track — the LUFS-S difference between the quietest verse and the loudest chorus is a measure of macro-dynamics. Use LUFS-M (momentary, 400 ms window) to catch the peak loudness of individual hits — critical for broadcast compliance where LUFS-M above −18 triggers processors.',
   },
 
   true_peak: {
@@ -253,6 +253,30 @@ export const METRIC_EXPLAINERS: Record<string, MetricExplainerContent> = {
     tooLow: 'Very few transients indicate a smooth, sustained signal (drone, pad, ambient) or that heavy limiting/compression has erased transient attack. If the genre calls for punchy drums, the latter is a mastering problem — reduce limiter gain reduction and check the attack times of any bus compression.',
     unit: '/s',
     proTip: 'Transient density is measured on the broadband signal but can be frequency-split in the full analysis view. Sub-80 Hz transients (kick sub punches) count separately from high-frequency transients (hi-hat, percussion), giving you insight into where the rhythmic energy actually lives spectrally.',
+  },
+
+  dither_applied: {
+    metric: 'DITHER',
+    fullName: 'Dither Applied',
+    oneLiner: 'Whether dithering was applied as the final step before 16-bit delivery — prevents quantisation distortion on fade-outs.',
+    why: 'When reducing bit depth from 24-bit (mastering session) to 16-bit (CD/streaming delivery), the conversion truncates the lower 8 bits of each sample. Without dithering, this truncation causes quantisation distortion — a harsh, non-harmonic noise that is most audible at low signal levels: fade-outs, quiet passages, spaces between notes. Dithering adds a carefully designed low-level noise signal before truncation that randomises the quantisation error, converting the harsh distortion into a smooth, steady noise floor that is far less perceptually objectionable.',
+    unit: 'boolean (applied / not applied)',
+    range: 'Required when delivering 16-bit/44.1 kHz (CD, most streaming pre-encoders). Not required for 24-bit delivery or 32-bit float bounce.',
+    tooHigh: '',
+    tooLow: 'Dither was not detected or not confirmed. For 16-bit delivery, this risks audible quantisation distortion on fade-outs and quiet passages. Apply TPDF or noise-shaped dither (POW-R, UV22HR) as the absolute last step in the mastering chain — after the limiter, before export.',
+    proTip: 'Dither type selection: TPDF (triangular probability density function) is the most accurate and correct for any use. Noise-shaped dither (POW-R Type 1/2/3, UV22HR) pushes dither energy into 14–16 kHz where human hearing is least sensitive, giving a slightly quieter perceived noise floor. Never apply dither more than once, and never apply processing after dithering — any gain change re-introduces quantisation error and makes the dither ineffective.',
+  },
+
+  transient_integrity: {
+    metric: 'T-INTEG',
+    fullName: 'Transient Integrity',
+    oneLiner: 'How well attack transients (kick, snare, pluck) are preserved vs. smeared by over-compression.',
+    why: 'Transients — the sharp initial attack of percussive and plucked instruments — create the sense of punch, presence, and clarity in a mix. Excessive compression with fast attack times (< 5 ms) flattens transients before the ear perceives them, making the mix sound dense but lifeless. Transient integrity measures the ratio of peak level to the following sustain envelope: a high ratio means attack transients are preserved; a low ratio means they have been compressed or limited flat.',
+    unit: 'ratio (higher = more transient preserved; 1.0+ = healthy; < 0.5 = over-compressed)',
+    range: 'Kick and snare: 1.2–2.0 transient ratio. Full-mix: 0.8–1.4 is typical for commercial masters depending on genre. EDM/club: can be 0.5–0.8 intentionally. Jazz/classical: 1.4–2.5.',
+    tooHigh: 'Very high transient ratio means little or no dynamic processing — may sound uncontrolled or fatiguing at high levels. Consider gentle bus compression with a slow attack (30–50 ms) to add glue while preserving the initial crack.',
+    tooLow: 'Transients are heavily flattened. Common causes: (1) compressor attack too fast (< 2 ms) on the mix bus; (2) limiter ceiling too low; (3) multiple stages of compression adding up. Raise attack time on bus compressor, increase limiter ceiling 1–2 dB and re-set gain staging.',
+    proTip: 'Transient designers (Waves Trans-X, SPL Transient Designer, Eventide Physion) can restore transient integrity after the fact, but it is always better to fix at the compression/limiting stage. As a rule: if the kick does not visually "pop" above the waveform RMS on a sample-accurate peak meter, the transients have been compressed flat.',
   },
 
 }

@@ -716,8 +716,18 @@ export interface BlindTestAnswer {
   notes: string
 }
 
+export interface EarTrainingAnswers {
+  /** Which frequency regions are more prominent in B vs A (checkboxes, multiple allowed) */
+  frequencyRegions: Array<'sub' | 'bass' | 'low_mids' | 'mids' | 'upper_mids' | 'presence' | 'air'>
+  /** What reverb type is most prominent on the lead element */
+  reverbType: 'plate' | 'hall' | 'room' | 'spring' | 'none' | ''
+  /** What would you predict loses most when summed to mono */
+  monoPrediction: 'sub_loss' | 'mid_fullness' | 'stereo_collapse' | 'nothing' | ''
+}
+
 export interface BlindTestPredictions {
   answers: BlindTestAnswer[]
+  earTraining?: EarTrainingAnswers
   submittedAt: string
   revealed: boolean
 }

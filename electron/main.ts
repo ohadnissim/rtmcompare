@@ -1985,7 +1985,16 @@ ipcMain.handle('scan-class-folder', async (_e, folderPath: string) => {
       .map((f: string) => {
         try {
           const raw = fs.readFileSync(path.join(resolved, f), 'utf8')
-          return JSON.parse(raw)
+          const record = JSON.parse(raw)
+          // Load sibling .rtm-feedback.json if present
+          const feedbackPath = path.join(resolved, f).replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
+          if (fs.existsSync(feedbackPath)) {
+            try {
+              const fb = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'))
+              record.feedback = fb.feedback ?? ''
+            } catch { /* ignore */ }
+          }
+          return record
         } catch { return null }
       })
       .filter(Boolean)
@@ -2012,10 +2021,16 @@ ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
     })
   })
 
-  // CSV header
-  const headerCols = ['Student', 'Student ID', 'Assignment', 'Course', 'Genre', 'Date', 'File']
-  const scoreCols  = labelSet.flatMap(l => [`${l} (earned)`, `${l} (possible)`])
-  const allCols    = [...headerCols, ...scoreCols, 'Total Earned', 'Total Possible', 'Score %']
+  // CSV header — Canvas-compatible column order:
+  // Student Name, Student ID, Assignment, Genre, Due Date, Submitted,
+  // Score %, [Criterion Earned / Possible...], Teacher Feedback
+  const criterionCols = labelSet.flatMap(l => [`${l} Earned`, `${l} Possible`])
+  const allCols = [
+    'Student Name', 'Student ID', 'Assignment', 'Genre', 'Due Date', 'Submitted',
+    'Score %',
+    ...criterionCols,
+    'Teacher Feedback',
+  ]
 
   function csvCell(v: unknown): string {
     if (v == null) return ''
@@ -2025,13 +2040,24 @@ ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
   }
 
   const rows = records.map((rec: any) => {
-    const date = rec.exportedAt ? new Date(rec.exportedAt).toLocaleDateString() : ''
-    const base = [rec.studentName ?? '', rec.studentId ?? '', rec.assignmentTitle ?? '', rec.course ?? '', rec.genre ?? '', date, rec.fileBName ?? '']
-    const scores = labelSet.flatMap(label => {
+    const submitted = rec.exportedAt ? new Date(rec.exportedAt).toLocaleDateString() : ''
+    const dueDate = rec.dueDate ?? ''
+    const scoreCell = rec.pct != null ? `${rec.pct}%` : ''
+    const criterionValues = labelSet.flatMap(label => {
       const row = (rec.rubric ?? []).find((r: any) => r.label === label)
       return row ? [row.earned ?? '', row.possible ?? ''] : ['', '']
     })
-    return [...base, ...scores, rec.totalEarned ?? '', rec.totalPossible ?? '', rec.pct != null ? `${rec.pct}%` : '']
+    return [
+      rec.studentName ?? '',
+      rec.studentId ?? '',
+      rec.assignmentTitle ?? '',
+      rec.genre ?? '',
+      dueDate,
+      submitted,
+      scoreCell,
+      ...criterionValues,
+      rec.feedback ?? '',
+    ]
   })
 
   const csvLines = [allCols.map(csvCell).join(','), ...rows.map(r => r.map(csvCell).join(','))]
@@ -2049,6 +2075,39 @@ ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
     return { ok: true, path: savePath.filePath }
   } catch (e: any) {
     return { ok: false, error: e?.message }
+  }
+})
+
+// ── Learn Mode — teacher feedback persistence ─────────────────────────────
+// Each student report gets a sibling .rtm-feedback.json file so teachers
+// can save notes that survive app restarts and survive re-exports.
+
+ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback: string) => {
+  try {
+    // Validate path is within home dir
+    const os = require('os') as typeof import('os')
+    const home = os.homedir()
+    const resolved = path.resolve(reportPath)
+    if (!resolved.startsWith(home)) return { ok: false, error: 'Path outside home directory' }
+    // Write .rtm-feedback.json next to the report file
+    const feedbackPath = reportPath.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
+      .replace(/\.pdf$/i, '.rtm-feedback.json')
+    fs.writeFileSync(feedbackPath, JSON.stringify({ feedback, savedAt: new Date().toISOString() }, null, 2), 'utf8')
+    return { ok: true, path: feedbackPath }
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? 'save-student-feedback failed' }
+  }
+})
+
+ipcMain.handle('load-student-feedback', async (_e, reportPath: string) => {
+  try {
+    const feedbackPath = reportPath.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
+      .replace(/\.pdf$/i, '.rtm-feedback.json')
+    if (!fs.existsSync(feedbackPath)) return { ok: true, text: '' }
+    const raw = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'))
+    return { ok: true, text: raw.feedback ?? '' }
+  } catch {
+    return { ok: true, text: '' }
   }
 })
 

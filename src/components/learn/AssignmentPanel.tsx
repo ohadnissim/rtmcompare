@@ -61,8 +61,59 @@ const METRIC_OPTIONS = [
   { key: 'distortion',        label: 'Distortion / Clipping' },
   { key: 'masking_overlap',   label: 'Frequency Masking' },
   { key: 'click_count',       label: 'Click / Artifact Count' },
-  { key: 'center_fill_ms',   label: 'Center Fill (M/S Ratio)' },
-  { key: 'noise_floor',      label: 'Noise Floor' },
+  { key: 'center_fill_ms',      label: 'Center Fill (M/S Ratio)' },
+  { key: 'noise_floor',         label: 'Noise Floor' },
+  { key: 'transient_integrity', label: 'Transient Integrity' },
+  { key: 'dither_applied',      label: 'Dithering Applied (16-bit delivery)' },
+]
+
+// ─── Rubric templates ────────────────────────────────────────────────────────
+
+const RUBRIC_TEMPLATES: Array<{
+  name: string
+  description: string
+  rows: Array<{ metric: string; target: number; tolerance: number; points: number }>
+}> = [
+  {
+    name: 'Mixing Fundamentals',
+    description: 'Tonal balance, loudness, mono compat, masking — week 4–6 level',
+    rows: [
+      { metric: 'lufs_i',          target: -14, tolerance: 2,   points: 10 },
+      { metric: 'tonal_deviation', target: 0,   tolerance: 3,   points: 10 },
+      { metric: 'masking_overlap', target: 0,   tolerance: 15,  points: 10 },
+      { metric: 'mono_compat_pct', target: 90,  tolerance: 8,   points: 10 },
+      { metric: 'lra',             target: 9,   tolerance: 3,   points: 10 },
+    ],
+  },
+  {
+    name: 'Mastering Final Project',
+    description: 'All 12 metrics, strict tolerances — final exam standard',
+    rows: [
+      { metric: 'lufs_i',           target: -14,  tolerance: 1,   points: 10 },
+      { metric: 'lra',              target: 9,    tolerance: 2,   points: 10 },
+      { metric: 'true_peak_dbtp',   target: -1,   tolerance: 0.5, points: 10 },
+      { metric: 'mono_compat_pct',  target: 92,   tolerance: 5,   points: 10 },
+      { metric: 'stereo_width',     target: 0.65, tolerance: 0.15,points: 10 },
+      { metric: 'plr',              target: 10,   tolerance: 3,   points: 10 },
+      { metric: 'tonal_deviation',  target: 0,    tolerance: 2,   points: 10 },
+      { metric: 'distortion',       target: 0,    tolerance: 2,   points: 10 },
+      { metric: 'masking_overlap',  target: 0,    tolerance: 10,  points: 10 },
+      { metric: 'click_count',      target: 0,    tolerance: 0,   points: 10 },
+      { metric: 'center_fill_ms',   target: 1.0,  tolerance: 0.3, points: 10 },
+      { metric: 'noise_floor',      target: -75,  tolerance: 10,  points: 10 },
+    ],
+  },
+  {
+    name: 'Advanced Dynamics Focus',
+    description: 'Dynamics-only rubric: LRA, PLR, transients, noise, artifacts',
+    rows: [
+      { metric: 'lra',         target: 9,   tolerance: 2,  points: 20 },
+      { metric: 'plr',         target: 10,  tolerance: 3,  points: 20 },
+      { metric: 'distortion',  target: 0,   tolerance: 1,  points: 20 },
+      { metric: 'noise_floor', target: -75, tolerance: 10, points: 20 },
+      { metric: 'click_count', target: 0,   tolerance: 0,  points: 20 },
+    ],
+  },
 ]
 
 // ─── Sub-components / style helpers ─────────────────────────────────────────
@@ -126,6 +177,8 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   const [rubric, setRubric]             = useState<RubricCriteria[]>(
     current?.rubric?.length ? current.rubric : DEFAULT_RUBRIC
   )
+  const [templateOpen, setTemplateOpen]       = useState(false)
+  const [templateApplied, setTemplateApplied] = useState('')
 
   // Sync when `current` changes (e.g. loaded from context)
   useEffect(() => {
@@ -142,6 +195,13 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       setRubric(current.rubric?.length ? current.rubric : DEFAULT_RUBRIC)
     }
   }, [current])
+
+  // Clear template confirmation after 2s
+  useEffect(() => {
+    if (!templateApplied) return
+    const t = setTimeout(() => setTemplateApplied(''), 2000)
+    return () => clearTimeout(t)
+  }, [templateApplied])
 
   // Rubric helpers
   const updateRubricRow = (id: string, field: keyof RubricCriteria, raw: string) => {
@@ -428,25 +488,122 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           alignItems: 'center',
           justifyContent: 'space-between',
           ...sectionTitleStyle,
+          position: 'relative',
         }}
       >
-        <span>Rubric</span>
-        <button
-          onClick={() => setRubric(DEFAULT_RUBRIC)}
-          style={{
-            background: 'none',
-            border: '1px solid rgba(208,176,102,0.3)',
-            borderRadius: '2px',
-            color: 'var(--color-accent)',
-            fontSize: 9,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            padding: '2px 7px',
-            cursor: 'pointer',
-          }}
-        >
-          Load Defaults
-        </button>
+        <span>Rubric Criteria</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {templateApplied && (
+            <span style={{ fontSize: 10, color: 'var(--color-accent)', letterSpacing: '0.04em' }}>
+              ✓ {templateApplied} template applied
+            </span>
+          )}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setTemplateOpen(o => !o)}
+              style={{
+                background: 'none',
+                border: '1px solid rgba(208,176,102,0.35)',
+                borderRadius: '2px',
+                color: 'var(--color-accent)',
+                fontSize: 10,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '2px 7px',
+                cursor: 'pointer',
+              }}
+            >
+              Templates ▾
+            </button>
+            {templateOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: 4,
+                  zIndex: 300,
+                  background: 'rgba(14,13,11,0.98)',
+                  border: '1px solid rgba(208,176,102,0.3)',
+                  borderRadius: '2px',
+                  width: 240,
+                  overflow: 'hidden',
+                }}
+              >
+                {RUBRIC_TEMPLATES.map((tpl, idx) => (
+                  <div
+                    key={tpl.name}
+                    style={{
+                      padding: '10px 12px',
+                      borderBottom: idx < RUBRIC_TEMPLATES.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-primary)', marginBottom: 2 }}>
+                        {tpl.name}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--color-accent)', lineHeight: 1.4 }}>
+                        {tpl.description}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const totalPts = tpl.rows.reduce((s, r) => s + r.points, 0)
+                        setRubric(tpl.rows.map((r, i) => {
+                          const opt = METRIC_OPTIONS.find(m => m.key === r.metric)
+                          return {
+                            id: `tpl-${Date.now()}-${i}`,
+                            metric: r.metric,
+                            label: opt?.label ?? r.metric,
+                            target: r.target,
+                            tolerance: r.tolerance,
+                            weight: totalPts > 0 ? r.points / totalPts : 1 / tpl.rows.length,
+                          }
+                        }))
+                        setTemplateOpen(false)
+                        setTemplateApplied(tpl.name)
+                      }}
+                      style={{
+                        flexShrink: 0,
+                        background: 'none',
+                        border: '1px solid rgba(208,176,102,0.35)',
+                        borderRadius: '2px',
+                        color: 'var(--color-accent)',
+                        fontSize: 9,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        padding: '3px 7px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setRubric(DEFAULT_RUBRIC)}
+            style={{
+              background: 'none',
+              border: '1px solid rgba(208,176,102,0.3)',
+              borderRadius: '2px',
+              color: 'var(--color-accent)',
+              fontSize: 9,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '2px 7px',
+              cursor: 'pointer',
+            }}
+          >
+            Load Defaults
+          </button>
+        </div>
       </div>
 
       {/* Table header */}
