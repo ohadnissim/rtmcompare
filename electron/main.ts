@@ -1783,6 +1783,93 @@ ipcMain.handle('render-pdf-direct', async (_event, folderPath: string, fileName:
   }
 })
 
+/** Build a .rtm-report.json grade record from a StudentReportPayload. */
+function buildGradeRecord(payload: any, pdfPath: string): Record<string, unknown> {
+  const result    = payload?.analysisResult ?? {}
+  const overall   = result?.overall ?? {}
+  const assignment = payload?.assignment ?? {}
+  const rubric: any[] = assignment?.rubric ?? []
+
+  function getActual(metric: string): number | null {
+    if (metric === 'lufs_i')
+      return overall.lufs_b ?? overall.lufs_a ?? null
+    if (metric === 'lra')
+      return overall.dynamics_b ?? overall.lra_b ?? overall.lra ?? null
+    if (metric === 'true_peak_dbtp')
+      return overall.headroom_b ?? overall.headroom ?? overall.true_peak_b ?? null
+    if (metric === 'mono_compat_pct' || metric === 'mono_compat')
+      return result?.mono_compat?.mono_loss_b_pct ?? result?.mono_compat?.mono_loss_pct ?? null
+    if (metric === 'stereo_width')
+      return overall.width_b ?? overall.width ?? null
+    if (metric === 'plr') {
+      const l = overall.lufs_b ?? overall.lufs_a
+      const t = overall.headroom_b ?? overall.headroom
+      return (l != null && t != null) ? (t - l) : null
+    }
+    if (metric === 'tonal_deviation')
+      return result?.tonal?.deviation_b ?? result?.tonal?.deviation ?? null
+    if (metric === 'distortion')
+      return result?.distortion?.severity_b ?? result?.distortion?.severity ?? null
+    if (metric === 'masking_overlap')
+      return result?.masking?.overlap_pct ?? result?.masking?.masking_pct ?? null
+    if (metric === 'click_count') {
+      const clicks = result?.clicks ?? {}
+      const c = clicks.count_b ?? clicks.count
+      if (c != null) return c
+      const ev = clicks.click_events ?? clicks.events ?? []
+      return Array.isArray(ev) ? ev.length : null
+    }
+    return null
+  }
+
+  function scoreRow(actual: number | null, target: number, tol: number, pts: number): number | null {
+    if (actual == null) return null
+    const d = Math.abs(actual - target)
+    if (d <= tol) return pts
+    if (d <= 2 * tol) return pts * 0.5
+    return 0
+  }
+
+  let totalEarned = 0
+  let totalPossible = 0
+  const rows = rubric.map((crit: any) => {
+    const pts    = typeof crit.points === 'number' ? crit.points : (crit.weight ?? 0) * 100
+    const actual = getActual(crit.metric)
+    const earned = scoreRow(actual, crit.target, crit.tolerance, pts)
+    const delta  = actual != null ? Math.round((actual - crit.target) * 10) / 10 : null
+    totalPossible += pts
+    if (earned != null) totalEarned += earned
+    return {
+      metric: crit.metric ?? '',
+      label:  crit.label ?? '',
+      target: crit.target,
+      tolerance: crit.tolerance,
+      actual,
+      delta,
+      earned: earned != null ? Math.round(earned * 10) / 10 : null,
+      possible: Math.round(pts * 10) / 10,
+    }
+  })
+
+  return {
+    version:         1,
+    studentName:     assignment.studentName ?? '',
+    studentId:       assignment.studentId  ?? '',
+    assignmentTitle: assignment.title      ?? '',
+    course:          assignment.course     ?? '',
+    instructor:      assignment.instructor ?? '',
+    genre:           assignment.genre      ?? '',
+    dueDate:         assignment.dueDate    ?? '',
+    exportedAt:      payload.exportedAt    ?? new Date().toISOString(),
+    fileBName:       payload.fileBName     ?? '',
+    pdfPath,
+    rubric: rows,
+    totalEarned:  Math.round(totalEarned * 10) / 10,
+    totalPossible: Math.round(totalPossible * 10) / 10,
+    pct: totalPossible > 0 ? Math.round(totalEarned / totalPossible * 1000) / 10 : null,
+  }
+}
+
 // ── Student Report PDF — Learn Mode ──────────────────────────────────────────
 // Spawns python/student_report.py with the payload JSON via stdin.
 // The script outputs a complete HTML document to stdout, which we render
@@ -1844,6 +1931,12 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
         margins: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true,
       })
       fs.writeFileSync(finalPath, pdfBuf)
+      // ── Write .rtm-report.json sidecar for grade book ──
+      try {
+        const sidecarPath = finalPath.replace(/\.pdf$/i, '.rtm-report.json')
+        const sidecar = buildGradeRecord(payload, finalPath)
+        fs.writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8')
+      } catch { /* sidecar write is best-effort, never fail the PDF */ }
       return { ok: true, path: finalPath }
     } catch (err: any) {
       return { ok: false, error: err?.message || 'PDF render failed' }
@@ -1852,6 +1945,89 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
     }
   } catch (err: any) {
     return { ok: false, error: err?.message || 'generate-student-report dispatch failed' }
+  }
+})
+
+// ── Learn Mode — scan a folder for .rtm-report.json grade files ──────────
+ipcMain.handle('scan-class-folder', async (_e, folderPath: string) => {
+  try {
+    // Validate path is within allowed dirs (home directory)
+    const os = require('os') as typeof import('os')
+    const homeDir = os.homedir()
+    const resolved = path.resolve(folderPath)
+    if (!resolved.startsWith(homeDir) && !resolved.startsWith('/tmp')) {
+      return { ok: false, error: 'Folder must be within your home directory.' }
+    }
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      return { ok: false, error: 'Folder not found or is not a directory.' }
+    }
+    const files = fs.readdirSync(resolved)
+    const jsonFiles = files.filter((f: string) => f.endsWith('.rtm-report.json'))
+    const records = jsonFiles
+      .map((f: string) => {
+        try {
+          const raw = fs.readFileSync(path.join(resolved, f), 'utf8')
+          return JSON.parse(raw)
+        } catch { return null }
+      })
+      .filter(Boolean)
+    return { ok: true, records, count: records.length }
+  } catch (e: any) {
+    return { ok: false, error: e?.message ?? 'scan-class-folder failed' }
+  }
+})
+
+// ── Learn Mode — export grade book records as CSV ────────────────────────
+ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
+  if (!Array.isArray(records) || records.length === 0) {
+    return { ok: false, error: 'No records to export.' }
+  }
+
+  // Build unified set of criterion labels from all records
+  const labelSet: string[] = []
+  records.forEach((rec: any) => {
+    (rec.rubric ?? []).forEach((row: any) => {
+      if (row.label && !labelSet.includes(row.label)) labelSet.push(row.label)
+    })
+  })
+
+  // CSV header
+  const headerCols = ['Student', 'Student ID', 'Assignment', 'Course', 'Genre', 'Date', 'File']
+  const scoreCols  = labelSet.flatMap(l => [`${l} (earned)`, `${l} (possible)`])
+  const allCols    = [...headerCols, ...scoreCols, 'Total Earned', 'Total Possible', 'Score %']
+
+  function csvCell(v: unknown): string {
+    if (v == null) return ''
+    const s = String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  const rows = records.map((rec: any) => {
+    const date = rec.exportedAt ? new Date(rec.exportedAt).toLocaleDateString() : ''
+    const base = [rec.studentName ?? '', rec.studentId ?? '', rec.assignmentTitle ?? '', rec.course ?? '', rec.genre ?? '', date, rec.fileBName ?? '']
+    const scores = labelSet.flatMap(label => {
+      const row = (rec.rubric ?? []).find((r: any) => r.label === label)
+      return row ? [row.earned ?? '', row.possible ?? ''] : ['', '']
+    })
+    return [...base, ...scores, rec.totalEarned ?? '', rec.totalPossible ?? '', rec.pct != null ? `${rec.pct}%` : '']
+  })
+
+  const csvLines = [allCols.map(csvCell).join(','), ...rows.map(r => r.map(csvCell).join(','))]
+  const csvContent = csvLines.join('\n')
+
+  const { dialog } = require('electron')
+  const savePath = await dialog.showSaveDialog({
+    title: 'Export Grade Book',
+    defaultPath: path.join(require('os').homedir(), 'Documents', 'RTMcompare', `gradebook_${new Date().toISOString().slice(0,10)}.csv`),
+    filters: [{ name: 'CSV', extensions: ['csv'] }],
+  })
+  if (savePath.canceled || !savePath.filePath) return { ok: false, error: 'Cancelled' }
+  try {
+    fs.writeFileSync(savePath.filePath, csvContent, 'utf8')
+    return { ok: true, path: savePath.filePath }
+  } catch (e: any) {
+    return { ok: false, error: e?.message }
   }
 })
 

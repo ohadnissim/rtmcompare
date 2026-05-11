@@ -30,9 +30,25 @@ const SPEC_OPTIONS = [
 ]
 
 const GENRE_OPTIONS = [
-  'Pop', 'EDM / Electronic', 'Rock', 'Hip-Hop / R&B',
-  'Jazz', 'Classical / Orchestral', 'Folk / Acoustic', 'Podcast / Spoken Word', 'Other'
+  'Pop', 'EDM / Electronic', 'Rock', 'Metal',
+  'Hip-Hop / R&B', 'Country', 'Jazz',
+  'Classical / Orchestral', 'Folk / Acoustic',
+  'Podcast / Spoken Word', 'Other'
 ]
+
+const GENRE_TARGETS: Record<string, { lraLo: number; lraHi: number; lufsTarget: number }> = {
+  'Pop':                   { lraLo: 4,  lraHi: 7,  lufsTarget: -14 },
+  'EDM / Electronic':      { lraLo: 4,  lraHi: 6,  lufsTarget: -9  },
+  'Rock':                  { lraLo: 8,  lraHi: 12, lufsTarget: -12 },
+  'Metal':                 { lraLo: 4,  lraHi: 7,  lufsTarget: -10 },
+  'Hip-Hop / R&B':         { lraLo: 6,  lraHi: 9,  lufsTarget: -12 },
+  'Country':               { lraLo: 8,  lraHi: 12, lufsTarget: -13 },
+  'Jazz':                  { lraLo: 10, lraHi: 14, lufsTarget: -18 },
+  'Classical / Orchestral':{ lraLo: 14, lraHi: 20, lufsTarget: -23 },
+  'Folk / Acoustic':       { lraLo: 10, lraHi: 16, lufsTarget: -16 },
+  'Podcast / Spoken Word': { lraLo: 6,  lraHi: 12, lufsTarget: -16 },
+  'Other':                 { lraLo: 6,  lraHi: 12, lufsTarget: -14 },
+}
 
 const METRIC_OPTIONS = [
   { key: 'lufs_i',            label: 'Integrated Loudness' },
@@ -104,6 +120,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   const [lockRef, setLockRef]           = useState(!!current?.lockedReferenceFile)
   const [lockSpec, setLockSpec]         = useState(!!current?.lockedTargetSpec)
   const [selectedSpec, setSelectedSpec] = useState(current?.lockedTargetSpec ?? SPEC_OPTIONS[0].id)
+  const [submissionsFolder, setSubmissionsFolder] = useState(current?.submissionsFolder ?? '')
   const [rubric, setRubric]             = useState<RubricCriteria[]>(
     current?.rubric?.length ? current.rubric : DEFAULT_RUBRIC
   )
@@ -116,6 +133,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       setInstructor(current.instructor ?? '')
       setDueDate(current.dueDate ?? '')
       setGenre(current.genre ?? '')
+      setSubmissionsFolder(current.submissionsFolder ?? '')
       setLockRef(!!current.lockedReferenceFile)
       setLockSpec(!!current.lockedTargetSpec)
       setSelectedSpec(current.lockedTargetSpec ?? SPEC_OPTIONS[0].id)
@@ -145,6 +163,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       studentName: '',
       dueDate: dueDate || undefined,
       genre: genre || undefined,
+      submissionsFolder: submissionsFolder || undefined,
       lockedReferenceFile: lockRef ? (referenceFilePath ?? current?.lockedReferenceFile ?? null) : null,
       lockedTargetSpec: lockSpec ? selectedSpec : null,
       rubric,
@@ -250,6 +269,22 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           <option value="">— Select genre —</option>
           {GENRE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
+        {genre && GENRE_TARGETS[genre] && (
+          <div style={{
+            fontSize: 10,
+            color: 'var(--color-sand-400)',
+            marginTop: 4,
+            padding: '4px 8px',
+            background: 'rgba(208,176,102,0.04)',
+            border: '1px solid rgba(208,176,102,0.1)',
+            borderRadius: '2px',
+            lineHeight: 1.6,
+          }}>
+            LRA: {GENRE_TARGETS[genre].lraLo}–{GENRE_TARGETS[genre].lraHi} LU
+            &nbsp;·&nbsp;
+            LUFS-I target: {GENRE_TARGETS[genre].lufsTarget} LUFS
+          </div>
+        )}
       </div>
 
       {/* ── Locks ────────────────────────────────────────────────────── */}
@@ -343,6 +378,46 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           </select>
         </div>
       )}
+
+      {/* ── Class Submissions ────────────────────────────────────────── */}
+      <div style={sectionTitleStyle}>Class Submissions</div>
+
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>Submissions Folder</label>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input
+            type="text"
+            value={submissionsFolder}
+            readOnly
+            placeholder="Pick folder where students drop their reports…"
+            style={{ ...inputStyle, flex: 1, cursor: 'default', color: submissionsFolder ? 'var(--color-text-primary)' : 'var(--color-sand-400)', fontSize: 11 }}
+          />
+          <button
+            onClick={async () => {
+              const folderPath = await (window as any).electronAPI?.pickFolder('Select submissions folder')
+              if (folderPath) setSubmissionsFolder(folderPath)
+            }}
+            style={{
+              flexShrink: 0,
+              background: 'transparent',
+              border: '1px solid rgba(208,176,102,0.35)',
+              borderRadius: '2px',
+              color: 'var(--color-accent)',
+              fontSize: 10,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              padding: '5px 10px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Pick Folder
+          </button>
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--color-sand-400)', marginTop: 4, fontStyle: 'italic' }}>
+          Students drop their .rtm-report.json files here. The Grade Book scans this folder.
+        </div>
+      </div>
 
       {/* ── Rubric ───────────────────────────────────────────────────── */}
       <div

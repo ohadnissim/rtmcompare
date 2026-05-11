@@ -687,6 +687,7 @@ export interface AssignmentConfig {
  studentId?: string
  dueDate?: string
  genre?: string   // e.g. 'Pop', 'EDM', 'Rock', 'Hip-Hop', 'Jazz', 'Classical', 'Podcast'
+ submissionsFolder?: string   // teacher-set folder path where students drop .rtm-report.json files
  lockedReferenceFile?: string | null   // absolute path or null
  lockedTargetSpec?: string | null      // spec ID string or null
  rubric: RubricCriteria[]

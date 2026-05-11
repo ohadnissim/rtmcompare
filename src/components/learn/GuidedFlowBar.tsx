@@ -9,6 +9,7 @@
 import React from 'react'
 import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
 import AssignmentPanel from './AssignmentPanel'
+import ClassGradeBook from './ClassGradeBook'
 
 interface Props {
   /** Called when a step pill is clicked — callers use this to navigate tabs */
@@ -41,6 +42,7 @@ function StudentReportExportTrigger() {
 export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) {
   const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment } = useLearnMode()
   const [showAssignmentPanel, setShowAssignmentPanel] = React.useState(false)
+  const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [completed, setCompleted] = React.useState(false)
 
   if (!enabled) return null
@@ -192,6 +194,26 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
           {/* Teacher setup button */}
           {role === 'teacher' && (
             <button
+              onClick={() => setShowGradeBook(true)}
+              style={{
+                flexShrink: 0,
+                background: 'transparent',
+                border: '1px solid rgba(208,176,102,0.3)',
+                borderRadius: '2px',
+                color: 'var(--color-sand-400)',
+                fontSize: 10,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '5px 10px',
+                cursor: 'pointer',
+                marginLeft: 8,
+              }}
+            >
+              Grade Book
+            </button>
+          )}
+          {role === 'teacher' && (
+            <button
               onClick={() => setShowAssignmentPanel(true)}
               style={{
                 flexShrink: 0,
@@ -293,6 +315,24 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
               >
                 Review Steps
               </button>
+              {role === 'teacher' && (
+                <button
+                  onClick={() => setShowGradeBook(true)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(208,176,102,0.3)',
+                    borderRadius: '2px',
+                    color: 'var(--color-sand-400)',
+                    fontSize: 10,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    padding: '5px 10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Grade Book
+                </button>
+              )}
               <StudentReportExportTrigger />
             </div>
           </div>
@@ -349,6 +389,13 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
         }}
         current={assignment ?? null}
         referenceFilePath={referenceFilePath ?? null}
+      />
+
+      {/* Grade Book (teacher only) */}
+      <ClassGradeBook
+        open={showGradeBook}
+        onClose={() => setShowGradeBook(false)}
+        initialFolder={assignment?.submissionsFolder ?? null}
       />
     </>
   )

@@ -52,6 +52,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openTextFileDialog: (filters: any[]) =>
     ipcRenderer.invoke('open-text-file-dialog', filters),
   revealInFinder: (filePath: string) => ipcRenderer.invoke('reveal-in-finder', filePath),
+  scanClassFolder: (folderPath: string) => ipcRenderer.invoke('scan-class-folder', folderPath),
+  exportGradebookCsv: (records: any[]) => ipcRenderer.invoke('export-gradebook-csv', records),
   copyToClipboard: (text: string) => ipcRenderer.invoke('copy-to-clipboard', text),
 
   // ISRC history / Releases store / Audit log — REMOVED (FLOW territory).

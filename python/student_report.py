@@ -163,12 +163,28 @@ METRIC_UNITS = {
 GENRE_LRA_TARGETS = {
     'Pop':                    (4, 7),
     'EDM / Electronic':       (4, 6),
+    'Metal':                  (4, 7),
     'Rock':                   (8, 12),
     'Hip-Hop / R&B':          (6, 9),
+    'Country':                (8, 12),
     'Jazz':                   (10, 14),
     'Classical / Orchestral': (14, 20),
     'Folk / Acoustic':        (10, 16),
     'Podcast / Spoken Word':  (6, 12),
+}
+
+GENRE_LUFS_TARGETS = {
+    'Pop':                    -14,
+    'EDM / Electronic':       -9,
+    'Rock':                   -12,
+    'Metal':                  -10,
+    'Hip-Hop / R&B':          -12,
+    'Country':                -13,
+    'Jazz':                   -18,
+    'Classical / Orchestral': -23,
+    'Folk / Acoustic':        -16,
+    'Podcast / Spoken Word':  -16,
+    'Other':                  -14,
 }
 
 
@@ -294,18 +310,39 @@ def build_html(payload):
 
     # ── Genre context note ───────────────────────────────────────────
     genre_note_html = ''
-    if genre and genre in GENRE_LRA_TARGETS:
-        lra_lo, lra_hi = GENRE_LRA_TARGETS[genre]
-        actual_lra = get_actual('lra', result)
-        try:
-            lra_in_range = actual_lra is not None and lra_lo <= float(actual_lra) <= lra_hi
-        except (TypeError, ValueError):
-            lra_in_range = False
-        lra_verdict = 'Dynamic range appears appropriate for this genre.' if lra_in_range else 'See LRA row in the rubric scorecard above.'
-        genre_note_html = f"""
-<div style="background:rgba(208,176,102,0.04); border:1px solid rgba(208,176,102,0.15); border-radius:2px; padding:10px 14px; margin-bottom:20px; font-size:12px;">
-  <span style="color:#d0b066; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.07em;">Genre Context — {esc(genre)}</span><br>
-  <span style="color:#b0a88a; line-height:1.6;">Typical LRA for {esc(genre)}: {lra_lo}–{lra_hi} LU. {lra_verdict}</span>
+    if genre:
+        lra_info = ''
+        lufs_info = ''
+        if genre in GENRE_LRA_TARGETS:
+            lra_lo, lra_hi = GENRE_LRA_TARGETS[genre]
+            actual_lra = get_actual('lra', result)
+            try:
+                lra_in_range = actual_lra is not None and lra_lo <= float(actual_lra) <= lra_hi
+            except (TypeError, ValueError):
+                lra_in_range = False
+            lra_verdict = '✓ In range' if lra_in_range else '⚠ Out of range'
+            lra_verdict_color = '#6fcf97' if lra_in_range else '#f2c94c'
+            lra_info = f'<span>LRA target: {lra_lo}–{lra_hi} LU &nbsp;<span style="color:{lra_verdict_color}">{lra_verdict}</span></span>'
+
+        if genre in GENRE_LUFS_TARGETS:
+            lufs_target = GENRE_LUFS_TARGETS[genre]
+            actual_lufs = get_actual('lufs_i', result)
+            try:
+                lufs_ok = actual_lufs is not None and abs(float(actual_lufs) - lufs_target) <= 1.5
+            except (TypeError, ValueError):
+                lufs_ok = False
+            lufs_verdict = '✓ On target' if lufs_ok else '⚠ Off target'
+            lufs_verdict_color = '#6fcf97' if lufs_ok else '#f2c94c'
+            lufs_info = f'<span>LUFS-I target: {lufs_target} LUFS &nbsp;<span style="color:{lufs_verdict_color}">{lufs_verdict}</span></span>'
+
+        if lra_info or lufs_info:
+            genre_note_html = f"""
+<div style="background:rgba(208,176,102,0.04); border:1px solid rgba(208,176,102,0.15); border-radius:2px; padding:10px 16px; margin-bottom:20px; font-size:12px;">
+  <div style="color:#d0b066; font-weight:600; text-transform:uppercase; font-size:10px; letter-spacing:0.07em; margin-bottom:6px;">Genre Context — {esc(genre)}</div>
+  <div style="color:#b0a88a; line-height:2; display:flex; gap:24px; flex-wrap:wrap;">
+    {lra_info}
+    {lufs_info}
+  </div>
 </div>"""
 
     # ── Encode penalty / delivery risk ──────────────────────────────
@@ -345,6 +382,70 @@ def build_html(payload):
 </section>"""
         except (TypeError, ValueError):
             pass
+
+    # ── Technical QC data ────────────────────────────────────────────
+    file_info = result.get('file_info', {}) or result.get('fileInfo', {}) or {}
+    sample_rate_b = file_info.get('sample_rate_b') or file_info.get('sampleRate_b') or overall.get('sample_rate_b')
+    bit_depth_b   = file_info.get('bit_depth_b')   or file_info.get('bitDepth_b')   or overall.get('bit_depth_b')
+    file_format_b = file_info.get('format_b')      or file_info.get('codec_b')      or overall.get('format_b')
+    duration_b    = file_info.get('duration_b')    or overall.get('duration_b')
+
+    # Build QC rows
+    qc_rows = ''
+    def qc_row(label, value, ok=None):
+        color = '#6fcf97' if ok is True else ('#eb5757' if ok is False else '#ebe7e0')
+        icon = ' ✓' if ok is True else (' ✗' if ok is False else '')
+        return f'<tr><td style="width:160px; color:#b0a88a">{esc(label)}</td><td style="color:{color}">{esc(str(value or "—"))}{icon}</td></tr>'
+
+    if sample_rate_b:
+        try:
+            sr = int(float(sample_rate_b))
+            sr_ok = sr in (44100, 48000, 88200, 96000)
+            qc_rows += qc_row('Sample Rate', f'{sr:,} Hz', sr_ok)
+        except (TypeError, ValueError):
+            qc_rows += qc_row('Sample Rate', sample_rate_b)
+
+    if bit_depth_b:
+        try:
+            bd = int(float(bit_depth_b))
+            bd_ok = bd >= 16
+            qc_rows += qc_row('Bit Depth', f'{bd}-bit', bd_ok)
+        except (TypeError, ValueError):
+            qc_rows += qc_row('Bit Depth', bit_depth_b)
+
+    if file_format_b:
+        fmt_ok = str(file_format_b).lower() in ('wav', 'aiff', 'aif', 'flac', 'pcm')
+        qc_rows += qc_row('Format', file_format_b, fmt_ok)
+
+    if duration_b:
+        try:
+            dur = float(duration_b)
+            mins = int(dur // 60)
+            secs = dur % 60
+            qc_rows += qc_row('Duration', f'{mins}:{secs:04.1f}')
+        except (TypeError, ValueError):
+            qc_rows += qc_row('Duration', duration_b)
+
+    tech_qc_section = ''
+    if qc_rows:
+        tech_qc_section = f"""
+<section>
+  <h2>Technical QC</h2>
+  <table>
+    <tbody>{qc_rows}
+    </tbody>
+  </table>
+</section>"""
+
+    # ── Mastering chain documentation ────────────────────────────────
+    mastering_chain = payload.get('masteringChain') or payload.get('processingNotes') or ''
+    mastering_chain_section = ''
+    if mastering_chain:
+        mastering_chain_section = f"""
+<section>
+  <h2>Mastering Chain Documentation</h2>
+  <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); border-radius:2px; padding:12px 16px; font-size:12px; line-height:1.7; color:#b0a88a; white-space:pre-wrap;">{esc(mastering_chain)}</div>
+</section>"""
 
     # ── Key metrics table ────────────────────────────────────────────
     metrics_rows = ''
@@ -570,6 +671,10 @@ def build_html(payload):
 </section>
 
 {encode_risk}
+
+{tech_qc_section}
+
+{mastering_chain_section}
 
 {annotations_section}
 
