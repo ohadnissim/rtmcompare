@@ -339,14 +339,25 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setStemsLoading(true)
  try {
  const ctx = audioCtxRef.current
+ const stemNames = Object.keys(stems.a)
+
+ // Load all stems in parallel — previously serial awaits per stem meant
+ // 8 sequential IPC round-trips. Promise.all fires all reads at once so
+ // the total wait is bounded by the slowest single stem, not their sum.
+ const [arraysA, arraysB] = await Promise.all([
+ Promise.all(stemNames.map(name => window.electronAPI!.readAudioFile(stems.a[name]))),
+ Promise.all(stemNames.map(name => window.electronAPI!.readAudioFile(stems.b[name]))),
+ ])
+ const [decodedA, decodedB] = await Promise.all([
+ Promise.all(arraysA.map(arr => ctx.decodeAudioData(arr.slice(0)))),
+ Promise.all(arraysB.map(arr => ctx.decodeAudioData(arr.slice(0)))),
+ ])
+
  const bufsA: Record<string, AudioBuffer> = {}
  const bufsB: Record<string, AudioBuffer> = {}
-
- for (const name of Object.keys(stems.a)) {
- const arrA = await window.electronAPI.readAudioFile(stems.a[name])
- bufsA[name] = await ctx.decodeAudioData(arrA.slice(0))
- const arrB = await window.electronAPI.readAudioFile(stems.b[name])
- bufsB[name] = await ctx.decodeAudioData(arrB.slice(0))
+ for (let i = 0; i < stemNames.length; i++) {
+ bufsA[stemNames[i]] = decodedA[i]
+ bufsB[stemNames[i]] = decodedB[i]
  }
 
  stemBuffersARef.current = bufsA

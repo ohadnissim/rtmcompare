@@ -23,25 +23,28 @@ function seekToTime(time: number, file?: 'A' | 'B') {
 }
 
 export default function ClickTimeline({ clicks, labelB, fileA, fileB, waveform, durationSec }: Props) {
- if (!clicks || clicks.length === 0) return null
-
- const highCount = clicks.filter(c => c.severity === 'high').length
- const medCount = clicks.filter(c => c.severity === 'medium').length
- const lowCount = clicks.filter(c => c.severity === 'low').length
+ // All hooks must be called unconditionally before any early return
+ // (Rules of Hooks — violating this causes React to throw in strict mode).
+ const highCount = useMemo(() => clicks.filter(c => c.severity === 'high').length, [clicks])
+ const medCount = useMemo(() => clicks.filter(c => c.severity === 'medium').length, [clicks])
+ const lowCount = useMemo(() => clicks.filter(c => c.severity === 'low').length, [clicks])
 
  const maxTime = useMemo(() => {
- if (clicks.length === 0) return 60
+ if (!clicks || clicks.length === 0) return 60
  return Math.max(clicks[clicks.length - 1].time + 10, 60)
  }, [clicks])
 
  const timeMarkers = useMemo(() => {
- const markers = []
+ const markers: number[] = []
  const interval = maxTime > 180 ? 60 : 30
  for (let t = 0; t <= maxTime; t += interval) {
  markers.push(t)
  }
  return markers
  }, [maxTime])
+
+ // Early return AFTER all hooks — safe to bail out here
+ if (!clicks || clicks.length === 0) return null
 
  return (
  <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">

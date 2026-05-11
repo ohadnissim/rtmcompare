@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
+import type { ChildProcess } from 'child_process'
 import { analyzePython, ensureDeps, cancelActiveAnalysis, getPythonPaths, pythonSpawnEnv } from './python-bridge'
 import * as rtmsend from './rtmsend-bridge'
 import {
@@ -306,6 +307,86 @@ ipcMain.handle('history-clear', async () => {
 //   analyze-batch        → spawns python/batch_analyze.py with file paths
 const AUDIO_EXT = new Set(['.wav', '.flac', '.aiff', '.aif', '.mp3', '.m4a', '.ogg'])
 
+// ── Secondary-spawn watchdog ────────────────────────────────────────────
+// All secondary Python spawns (everything except the main analyzePython()
+// call in python-bridge.ts which has its own watchdog) must go through
+// this helper so a corrupt audio file or runaway process can never pin an
+// ipcMain handler forever.
+//
+// Defaults:  5-minute timeout  |  64 MB combined stdout+stderr cap.
+// Both are env-tunable (RTM_PY_TIMEOUT_MS, RTM_PY_OUT_CAP_BYTES) so
+// developers can override without rebuilding.
+const SEC_TIMEOUT_MS  = Number(process.env.RTM_PY_TIMEOUT_MS)    || 5 * 60 * 1000
+const SEC_OUT_CAP     = Number(process.env.RTM_PY_OUT_CAP_BYTES)  || 64 * 1024 * 1024
+
+/**
+ * Wraps a spawned process with a timeout + stdout/stderr output cap.
+ * Returns { stdout, stderr, code } on completion. Rejects with an
+ * explanatory error if the timeout fires or output exceeds the cap.
+ *
+ * @param proc   Already-spawned ChildProcess (caller owns the spawn call
+ *               so they can write to stdin, etc. before passing here).
+ * @param label  IPC handler name — used in error messages only.
+ * @param stdinPayload  Optional string written to stdin and then closed.
+ */
+function watchdogSpawn(
+  proc: ChildProcess,
+  label: string,
+  stdinPayload?: string | null,
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
+  return new Promise((resolve, reject) => {
+    let stdoutBytes = 0
+    let stderrBytes = 0
+    let capKilled = false
+    let stdout = ''
+    let stderr = ''
+
+    const watchdog = setTimeout(() => {
+      if (!proc.killed) {
+        capKilled = true
+        try { proc.kill('SIGTERM') } catch {}
+        setTimeout(() => { try { if (!proc.killed) proc.kill('SIGKILL') } catch {} }, 1500)
+      }
+    }, SEC_TIMEOUT_MS)
+
+    proc.stdout?.on('data', (d: Buffer) => {
+      stdoutBytes += d.length
+      if (stdoutBytes + stderrBytes > SEC_OUT_CAP) {
+        if (!capKilled) { capKilled = true; try { proc.kill('SIGTERM') } catch {} }
+        return
+      }
+      stdout += d.toString()
+    })
+    proc.stderr?.on('data', (d: Buffer) => {
+      stderrBytes += d.length
+      if (stdoutBytes + stderrBytes > SEC_OUT_CAP) {
+        if (!capKilled) { capKilled = true; try { proc.kill('SIGTERM') } catch {} }
+        return
+      }
+      stderr += d.toString()
+    })
+    proc.on('close', (code) => {
+      clearTimeout(watchdog)
+      if (capKilled) {
+        const reason = stdoutBytes + stderrBytes >= SEC_OUT_CAP
+          ? `output exceeded ${SEC_OUT_CAP / 1024 / 1024} MB cap`
+          : `timed out after ${SEC_TIMEOUT_MS / 1000}s`
+        reject(new Error(`${label}: Python aborted — ${reason}`))
+        return
+      }
+      resolve({ stdout, stderr, code })
+    })
+    proc.on('error', (e: Error) => {
+      clearTimeout(watchdog)
+      reject(new Error(`${label}: Could not start Python — ${e.message}`))
+    })
+
+    if (stdinPayload != null) {
+      proc.stdin?.end(stdinPayload)
+    }
+  })
+}
+
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
@@ -356,50 +437,41 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
     ? (fs.existsSync(winBundled) ? winBundled : 'python.exe')
     : (fs.existsSync(macBundled) ? macBundled : '/usr/bin/python3')
 
-  return new Promise<any>((resolve, reject) => {
-    const { spawn } = require('child_process') as typeof import('child_process')
-    const scriptPath = path.join(pythonDir, 'batch_analyze.py')
-    // Optional --deep runs full single-file analyses per song in parallel
-    // subprocesses inside batch_analyze.py. Users trade longer scan time
-    // for every tab being instant in the batch view.
-    const args = [scriptPath, ...filePaths]
-    if (options?.deep) args.push('--deep')
-    if (options?.deepWorkers && Number.isInteger(options.deepWorkers) && options.deepWorkers > 0 && options.deepWorkers <= 32) args.push(`--deep-workers=${options.deepWorkers}`)
-    const proc = spawn(pythonCmd, args, {
-      cwd: pythonDir,
-      env: pythonSpawnEnv(),
-    })
-    let stdout = ''
-    let stderr = ''
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
-    proc.stderr.on('data', (d: Buffer) => {
-      const text = d.toString()
-      stderr += text
-      // Forward per-file progress lines to the renderer.
-      for (const line of text.split('\n')) {
-        const t = line.trim()
-        if (!t) continue
-        try {
-          const msg = JSON.parse(t)
-          if (msg.type === 'progress' && msg.message) {
-            event.sender.send('batch-progress', msg)
-          }
-        } catch { /* not JSON */ }
-      }
-    })
-    proc.on('close', (code: number) => {
-      if (code !== 0) {
-        reject(new Error(stderr.slice(-500) || `batch analyser exited ${code}`))
-        return
-      }
+  const { spawn } = require('child_process') as typeof import('child_process')
+  const scriptPath = path.join(pythonDir, 'batch_analyze.py')
+  // Optional --deep runs full single-file analyses per song in parallel
+  // subprocesses inside batch_analyze.py. Users trade longer scan time
+  // for every tab being instant in the batch view.
+  const args = [scriptPath, ...filePaths]
+  if (options?.deep) args.push('--deep')
+  if (options?.deepWorkers && Number.isInteger(options.deepWorkers) && options.deepWorkers > 0 && options.deepWorkers <= 32) args.push(`--deep-workers=${options.deepWorkers}`)
+  const proc = spawn(pythonCmd, args, { cwd: pythonDir, env: pythonSpawnEnv() })
+
+  // Tap stderr for progress events before handing off to watchdogSpawn,
+  // which will collect the rest. We read stderr bytes as they arrive so
+  // progress notifications aren't delayed by the cap-check buffer.
+  proc.stderr?.on('data', (d: Buffer) => {
+    for (const line of d.toString().split('\n')) {
+      const t = line.trim()
+      if (!t) continue
       try {
-        resolve(JSON.parse(stdout.trim()))
-      } catch {
-        reject(new Error(`Failed to parse batch output: ${stdout.slice(0, 200)}`))
-      }
-    })
-    proc.on('error', (err: Error) => reject(new Error(`Could not start Python: ${err.message}`)))
+        const msg = JSON.parse(t)
+        if (msg.type === 'progress' && msg.message) {
+          event.sender.send('batch-progress', msg)
+        }
+      } catch { /* not JSON */ }
+    }
   })
+
+  const { stdout, stderr, code } = await watchdogSpawn(proc, 'analyze-batch')
+  if (code !== 0) {
+    throw new Error(stderr.slice(-500) || `batch analyser exited ${code}`)
+  }
+  try {
+    return JSON.parse(stdout.trim())
+  } catch {
+    throw new Error(`Failed to parse batch output: ${stdout.slice(0, 200)}`)
+  }
 })
 
 // Handle drag-and-drop: receive filename, show dialog to confirm full path
@@ -648,10 +720,9 @@ ipcMain.handle('render-corrected-eq', async (
     ? (fs.existsSync(winBundled) ? winBundled : 'python.exe')
     : (fs.existsSync(macBundled) ? macBundled : '/usr/bin/python3')
 
-  return new Promise<string>((resolve, reject) => {
-    const { spawn } = require('child_process') as typeof import('child_process')
-    // Feed bands over stdin so we don't run into ARG_MAX limits.
-    const script = `
+  const { spawn } = require('child_process') as typeof import('child_process')
+  // Feed bands over stdin so we don't run into ARG_MAX limits.
+  const script = `
 import sys, json, os
 sys.path.insert(0, ${JSON.stringify(pythonDir)})
 from apply_eq import render_corrected
@@ -667,30 +738,20 @@ out = render_corrected(
 )
 print(out)
 `
-    const py = spawn(pythonCmd, ['-c', script], {
-      cwd: pythonDir,
-      env: pythonSpawnEnv(),
-    })
-    let stdout = ''
-    let stderr = ''
-    py.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
-    py.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
-    py.on('close', (code: number) => {
-      if (code === 0) {
-        resolve(stdout.trim())
-      } else {
-        reject(new Error(stderr || `render-corrected-eq exited ${code}`))
-      }
-    })
-    py.stdin.end(JSON.stringify({
-      src: srcPath,
-      bands,
-      outPath,
-      truePeakLimit: truePeakLimit ?? false,
-      ceilingDbtp: ceilingDbtp ?? -1.0,
-      targetLufs: targetLufs ?? null,
-    }))
+  const py = spawn(pythonCmd, ['-c', script], { cwd: pythonDir, env: pythonSpawnEnv() })
+  const stdinPayload = JSON.stringify({
+    src: srcPath,
+    bands,
+    outPath,
+    truePeakLimit: truePeakLimit ?? false,
+    ceilingDbtp: ceilingDbtp ?? -1.0,
+    targetLufs: targetLufs ?? null,
   })
+  const { stdout, stderr, code } = await watchdogSpawn(py, 'render-corrected-eq', stdinPayload)
+  if (code !== 0) {
+    throw new Error(stderr || `render-corrected-eq exited ${code}`)
+  }
+  return stdout.trim()
 })
 
 // Save-dialog helper for exports
@@ -887,33 +948,28 @@ print(json.dumps(d))
     })
     // Stream the JSON payload to stdin for the preview shim — this is
     // how user-supplied params reach the Python script SAFELY (never
-    // interpolated into source).
-    if (previewStdinPayload !== null) {
-      proc.stdin.end(previewStdinPayload)
-    }
-    let stdout = ''
-    let stderr = ''
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
-    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
-    proc.on('close', (code: number) => {
-      if (tmpSlicePath) {
-        try { fs.unlinkSync(tmpSlicePath) } catch {}
-      }
-      if (code !== 0) {
-        reject(new Error(`declick exit ${code}: ${stderr.slice(-500)}`))
-        return
-      }
-      try {
-        // declick.py and the preview shim both print a single JSON object
-        // on the final line. Defensive .pop() in case an import-time
-        // warning went to stdout ahead of the payload.
-        const payload = stdout.trim().split('\n').pop() || '{}'
-        resolve(JSON.parse(payload))
-      } catch (err: any) {
-        reject(new Error(`declick parse failed: ${err?.message}; raw=${stdout.slice(-300)}`))
-      }
-    })
-    proc.on('error', (err: Error) => reject(new Error(`Could not start Python: ${err.message}`)))
+    // interpolated into source). watchdogSpawn closes stdin after writing.
+    watchdogSpawn(proc, previewHead ? 'declick-preview' : 'declick-process', previewStdinPayload)
+      .then(({ stdout, stderr, code }) => {
+        if (tmpSlicePath) { try { fs.unlinkSync(tmpSlicePath) } catch {} }
+        if (code !== 0) {
+          reject(new Error(`declick exit ${code}: ${stderr.slice(-500)}`))
+          return
+        }
+        try {
+          // declick.py and the preview shim both print a single JSON object
+          // on the final line. Defensive .pop() in case an import-time
+          // warning went to stdout ahead of the payload.
+          const payload = stdout.trim().split('\n').pop() || '{}'
+          resolve(JSON.parse(payload))
+        } catch (err: any) {
+          reject(new Error(`declick parse failed: ${err?.message}; raw=${stdout.slice(-300)}`))
+        }
+      })
+      .catch((err: Error) => {
+        if (tmpSlicePath) { try { fs.unlinkSync(tmpSlicePath) } catch {} }
+        reject(err)
+      })
   })
 }
 
@@ -1220,18 +1276,15 @@ ipcMain.handle('references-add', async (_e, srcPath: string) => {
     : (fs.existsSync(macBundled) ? macBundled : 'python3')
   const scriptPath = path.join(pythonDir, 'reference_quickscan.py')
   const { spawn } = require('child_process') as typeof import('child_process')
-  const scan = await new Promise<any>((resolve) => {
-    const proc = spawn(pyBin, [scriptPath, srcPath], { cwd: pythonDir, env: pythonSpawnEnv() })
-    let out = '', err = ''
-    proc.stdout.on('data', (d: Buffer) => { out += d.toString() })
-    proc.stderr.on('data', (d: Buffer) => { err += d.toString() })
-    proc.on('close', (code: number) => {
-      if (code !== 0) { resolve({ error: `python exit ${code}: ${err.slice(-300)}` }); return }
-      try { resolve(JSON.parse(out.trim().split('\n').pop() || '{}')) }
-      catch (e: any) { resolve({ error: `parse failed: ${e?.message}` }) }
-    })
-    proc.on('error', (e: Error) => resolve({ error: e.message }))
-  })
+  const scan = await (async () => {
+    try {
+      const proc = spawn(pyBin, [scriptPath, srcPath], { cwd: pythonDir, env: pythonSpawnEnv() })
+      const { stdout: out, stderr: err, code } = await watchdogSpawn(proc, 'references-add')
+      if (code !== 0) return { error: `python exit ${code}: ${err.slice(-300)}` }
+      try { return JSON.parse(out.trim().split('\n').pop() || '{}') }
+      catch (e: any) { return { error: `parse failed: ${e?.message}` } }
+    } catch (e: any) { return { error: e?.message || 'references-add timed out' } }
+  })()
 
   const record: RefRecord = {
     id,
@@ -1528,19 +1581,17 @@ ipcMain.handle('master-chain-render', async (_event, srcPath: string, config: an
     const cfgPath = path.join(require('os').tmpdir(), `rtm-master-chain-${Date.now()}.json`)
     fs.writeFileSync(cfgPath, JSON.stringify(config), 'utf8')
     const { spawn } = require('child_process') as typeof import('child_process')
-    return await new Promise<any>((resolve) => {
+    try {
       const proc = spawn(pyBin, [scriptPath, srcPath, resolvedOut!, cfgPath], { cwd: pythonDir, env: pythonSpawnEnv() })
-      let out = '', err = ''
-      proc.stdout.on('data', (d: Buffer) => { out += d.toString() })
-      proc.stderr.on('data', (d: Buffer) => { err += d.toString() })
-      proc.on('close', (code: number) => {
-        try { fs.unlinkSync(cfgPath) } catch {}
-        if (code !== 0) { resolve({ ok: false, error: `python exit ${code}: ${err.slice(-400)}` }); return }
-        try { resolve(JSON.parse(out.trim().split('\n').pop() || '{}')) }
-        catch (e: any) { resolve({ ok: false, error: `parse failed: ${e?.message}; raw=${out.slice(-300)}` }) }
-      })
-      proc.on('error', (e: Error) => resolve({ ok: false, error: e.message }))
-    })
+      const { stdout: out, stderr: err, code } = await watchdogSpawn(proc, 'master-chain-render')
+      try { fs.unlinkSync(cfgPath) } catch {}
+      if (code !== 0) return { ok: false, error: `python exit ${code}: ${err.slice(-400)}` }
+      try { return JSON.parse(out.trim().split('\n').pop() || '{}') }
+      catch (e: any) { return { ok: false, error: `parse failed: ${e?.message}; raw=${out.slice(-300)}` } }
+    } catch (e: any) {
+      try { fs.unlinkSync(cfgPath) } catch {}
+      return { ok: false, error: e?.message || 'master-chain-render timed out' }
+    }
   } catch (err: any) {
     return { ok: false, error: err?.message || 'master-chain dispatch failed' }
   }
@@ -1579,18 +1630,15 @@ ipcMain.handle('encoded-preview-render', async (_event, srcPath: string, dsp: st
     args.push(integratedLufs != null ? String(integratedLufs) : '')
     if (windowStartSec != null) args.push(String(windowStartSec))
     const { spawn } = require('child_process') as typeof import('child_process')
-    return await new Promise<any>((resolve) => {
+    try {
       const proc = spawn(pyBin, args, { cwd: pythonDir, env: pythonSpawnEnv() })
-      let out = '', err = ''
-      proc.stdout.on('data', (d: Buffer) => { out += d.toString() })
-      proc.stderr.on('data', (d: Buffer) => { err += d.toString() })
-      proc.on('close', (code: number) => {
-        if (code !== 0) { resolve({ ok: false, error: `python exit ${code}: ${err.slice(-400)}` }); return }
-        try { resolve(JSON.parse(out.trim().split('\n').pop() || '{}')) }
-        catch (e: any) { resolve({ ok: false, error: `parse failed: ${e?.message}; raw=${out.slice(-400)}` }) }
-      })
-      proc.on('error', (e: Error) => resolve({ ok: false, error: e.message }))
-    })
+      const { stdout: out, stderr: err, code } = await watchdogSpawn(proc, 'encoded-preview-render')
+      if (code !== 0) return { ok: false, error: `python exit ${code}: ${err.slice(-400)}` }
+      try { return JSON.parse(out.trim().split('\n').pop() || '{}') }
+      catch (e: any) { return { ok: false, error: `parse failed: ${e?.message}; raw=${out.slice(-400)}` } }
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'encoded-preview timed out' }
+    }
   } catch (err: any) {
     return { ok: false, error: err?.message || 'encoded-preview dispatch failed' }
   }
@@ -1636,18 +1684,15 @@ ipcMain.handle('translation-render', async (_event, srcPath: string, envId: stri
     const args = [scriptPath, srcPath, outPath, envId]
     if (windowStartSec != null) args.push(String(windowStartSec))
     const { spawn } = require('child_process') as typeof import('child_process')
-    return await new Promise<any>((resolve) => {
+    try {
       const proc = spawn(pyBin, args, { cwd: pythonDir, env: pythonSpawnEnv() })
-      let out = '', err = ''
-      proc.stdout.on('data', (d: Buffer) => { out += d.toString() })
-      proc.stderr.on('data', (d: Buffer) => { err += d.toString() })
-      proc.on('close', (code: number) => {
-        if (code !== 0) { resolve({ ok: false, error: `python exit ${code}: ${err.slice(-400)}` }); return }
-        try { resolve(JSON.parse(out.trim().split('\n').pop() || '{}')) }
-        catch (e: any) { resolve({ ok: false, error: `parse failed: ${e?.message}; raw=${out.slice(-400)}` }) }
-      })
-      proc.on('error', (e: Error) => resolve({ ok: false, error: e.message }))
-    })
+      const { stdout: out, stderr: err, code } = await watchdogSpawn(proc, 'translation-render')
+      if (code !== 0) return { ok: false, error: `python exit ${code}: ${err.slice(-400)}` }
+      try { return JSON.parse(out.trim().split('\n').pop() || '{}') }
+      catch (e: any) { return { ok: false, error: `parse failed: ${e?.message}; raw=${out.slice(-400)}` } }
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'translation-render timed out' }
+    }
   } catch (err: any) {
     return { ok: false, error: err?.message || 'translation-render dispatch failed' }
   }

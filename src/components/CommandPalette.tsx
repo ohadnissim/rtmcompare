@@ -19,10 +19,42 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  const [cursor, setCursor] = useState(0)
  const inputRef = useRef<HTMLInputElement>(null)
  const listRef = useRef<HTMLDivElement>(null)
+ const containerRef = useRef<HTMLDivElement>(null)
+ // Capture the element that had focus before the palette opened so we
+ // can restore it when the palette closes. Without this, dismissing with
+ // Escape drops keyboard focus entirely — the next keystroke (Space)
+ // triggers whatever was focused before the modal opened (e.g. the play button).
+ const previousFocusRef = useRef<Element | null>(null)
 
  useEffect(() => {
+ previousFocusRef.current = document.activeElement
  inputRef.current?.focus()
+ return () => {
+ // Restore focus to the element that was active before the palette opened.
+ const prev = previousFocusRef.current
+ if (prev && (prev as HTMLElement).focus) {
+ (prev as HTMLElement).focus()
+ }
+ }
  }, [])
+
+ // Focus trap: keep Tab / Shift+Tab cycling within the palette container.
+ const handleKeyDownContainer = (e: React.KeyboardEvent<HTMLDivElement>) => {
+ if (e.key !== 'Tab') return
+ const container = containerRef.current
+ if (!container) return
+ const focusable = container.querySelectorAll<HTMLElement>(
+ 'input, button, [tabindex]:not([tabindex="-1"])'
+ )
+ if (focusable.length === 0) return
+ const first = focusable[0]
+ const last = focusable[focusable.length - 1]
+ if (e.shiftKey) {
+ if (document.activeElement === first) { e.preventDefault(); last.focus() }
+ } else {
+ if (document.activeElement === last) { e.preventDefault(); first.focus() }
+ }
+ }
 
  // Compute the ranked result list. Show top 10 matches when the user has
  // typed something; when empty, show a "starter" list — one representative
@@ -70,6 +102,10 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  onClick={onClose}
  >
  <div
+ ref={containerRef}
+ role="dialog"
+ aria-modal="true"
+ aria-label="Command palette"
  className="w-full max-w-xl mx-4 mt-[12vh] rounded-2xl overflow-hidden"
  style={{
  backgroundColor: '#151411',
@@ -77,6 +113,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  boxShadow: '0 20px 60px rgba(0,0,0,0.55)',
  }}
  onClick={(e) => e.stopPropagation()}
+ onKeyDown={handleKeyDownContainer}
  >
  {/* Search input */}
  <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(168,161,150,0.08)' }}>
