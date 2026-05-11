@@ -24,7 +24,7 @@ const SEVERITY: Record<string, { color: string; bg: string; label: string }> = {
 export default function MaskingPanel({ masking }: Props) {
  if (!masking || !masking.overlaps || masking.overlaps.length === 0) {
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50">
+ <div className="bg-dark-900 p-6 border border-dark-700/50">
  <h2 className="text-lg font-semibold mb-2">Masking Analysis</h2>
  <p className="text-xs text-dark-400">No significant masking detected — elements have clear frequency space.</p>
  </div>
@@ -32,7 +32,7 @@ export default function MaskingPanel({ masking }: Props) {
  }
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Masking Analysis</h2>
@@ -55,7 +55,7 @@ export default function MaskingPanel({ masking }: Props) {
  return (
  <div
  key={i}
- className="rounded-xl p-3 flex items-start gap-3"
+ className="p-3 flex items-start gap-3"
  style={{ backgroundColor: sev.bg, border: `1px solid ${sev.color}30` }}
  >
  <div

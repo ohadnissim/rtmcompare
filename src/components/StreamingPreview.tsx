@@ -66,7 +66,7 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  const [twinStartSec, setTwinStartSec] = useState<number | null>(null)
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <div className="flex items-center justify-between gap-3 flex-wrap">
  <h2 className="text-lg font-semibold">Streaming Normalization Preview</h2>
@@ -113,7 +113,7 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  </p>
  </div>
 
- <div className="bg-dark-800/40 rounded-xl overflow-hidden">
+ <div className="bg-dark-800/40 overflow-hidden" style={{ borderRadius: '2px' }}>
  <div className="flex items-center text-[10px] text-dark-500 px-3 py-2 border-b border-dark-700/30">
  <span className="flex-1">Platform</span>
  <span className="w-16 text-right">Target</span>

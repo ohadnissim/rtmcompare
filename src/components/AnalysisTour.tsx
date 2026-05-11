@@ -22,88 +22,116 @@ const STEPS: AnalysisTourStep[] = [
  tab: 'overview',
  selector: '[data-tour="surface-picker"]',
  placement: 'bottom',
- title: 'Surface picker',
- body: 'Music / Full / Bcast / Post in the header tunes the whole app to your workflow. Music = Spotify / Apple / YouTube / social only; Broadcast = R128 / A/85 / Netflix first with dialog-gated LUFS; Post = both; Full = everything. Changes what DSP profiles, delivery targets, and Atmos panels you see.',
+ // 5.7.2 copy:
+ title: 'Pick your world',
+ // 5.7.2 copy:
+ body: 'Music, Broadcast, Post, or Full. RTMcompare reshapes itself around the work you do — only the targets and panels you need, nothing you don\'t.',
  },
  {
  tab: 'overview',
  selector: '[data-tour="advanced-qc"]',
  placement: 'bottom',
+ // 5.7.2 copy:
  title: 'Advanced QC',
- body: 'Off by default. Toggle on to unlock masking, per-band phase, transient density, waveform diff, tempo drift, and the full mono-compat breakdown. Round-3 panel consensus: these are pro-only diagnostics that clutter the page for everyone else.',
+ // 5.7.2 copy:
+ body: 'Flip this on when you want the deep dive — masking, phase per band, transient density, the works. Off by default so the page stays clean.',
  },
  {
  tab: 'overview',
  selector: '[data-tour-target="player"]',
  placement: 'bottom',
+ // 5.7.2 copy:
  title: 'A/B Player',
- body: 'Level-matched playback of both files. Click A or B to swap, scrub to find sections, and keyboard shortcut "?" shows all hotkeys. Playback is gapless for instant A/B flips. EQ Amount slider + BYPASS pill in the header audits any proposed EQ live over playback.',
+ // 5.7.2 copy:
+ body: 'Both files, levels matched, instant flip between A and B. Hit "?" for shortcuts. The EQ slider in the header lets you hear any proposed move live, no bouncing.',
  },
  {
  tab: 'overview',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Overview',
- body: 'Your north-star metrics: Integrated LUFS, True Peak, LRA, stereo width, dynamic range, length (ms-precise). The A vs B table shows every difference; the gold dot next to the reference filename summarises reference quality on hover.',
+ // 5.7.2 copy:
+ body: 'The numbers that matter — loudness, peaks, dynamic range, width, length. Every difference between A and B in one table. Hover the gold dot for a quick read on your reference.',
  },
  {
  tab: 'delivery',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Delivery',
- body: 'Will your master get turned down? Each streaming platform row has a ▶ to audition the loudest section at that platform\'s normalised level; Spotify vs Apple vs Tidal back to back. File metadata lives here too — inspect BEXT / iXML / LIST-INFO tags before delivery.',
+ // 5.7.2 copy:
+ body: 'Will your master get turned down on Spotify? Apple? Tidal? Hit play on any row to hear the loudest moment at that platform\'s level. Tags live here too.',
  },
  {
  tab: 'stereo',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Stereo & Spectrum',
- body: 'Overlaid spectra (A vs B), vectorscope, per-band phase, stereo-width trajectory. Catches mono-compat issues and stereo imbalances engineers miss on headphones.',
+ // 5.7.2 copy:
+ body: 'A vs B spectra overlaid, vectorscope, phase per band, width over time. Catches the stereo and mono problems headphones hide.',
  },
  {
  tab: 'match',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'EQ Match',
- body: 'One surface, five lenses. Reference = EQ derived from A vs B. Engineer = the loaded profile\'s curve. Hybrid = both. Library = match any reference from your persistent library with live auditioned EQ. Assistant = the full delivery chain (gain, HPF, EQ, compressor, TP limiter, dither).',
+ // 5.7.2 copy:
+ body: 'Five ways to land on a curve. Match the reference, your profile, both, anything from your library, or let the Assistant build a full delivery chain.',
  },
  {
  tab: 'match',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Master Assistant',
- body: 'Pick a DSP target (Spotify / Apple / YouTube / broadcast / Netflix). RTM composes a transparent chain and shows every stage: what gain it applies, whether the HPF engages, what bands land, whether the compressor glues the dynamics. Preview in the player, then render a delivery-ready WAV with BEXT / iXML auto-embedded.',
+ // 5.7.2 copy:
+ body: 'Pick a target — Spotify, Apple, YouTube, broadcast, Netflix. The Assistant builds a chain and shows you every move. Preview in the player, then render a clean WAV.',
  },
  {
  tab: 'match',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Reference Library',
- body: 'Library tab opens your persistent reference shelf. Tracks you\'ve added once stay auto-analysed (LUFS / TP / LRA / spectrum / BPM / key). Pick one; RTM proposes parametric EQ moves to match its tonal balance and auditions them live through the player\'s biquad bank. No plugin, no bounce.',
+ // 5.7.2 copy:
+ body: 'Your shelf of references, always ready. Add a track once and it stays analysed. Pick one and hear the EQ moves live through the player.',
  },
  {
  tab: 'delivery',
  placement: 'center',
- title: 'Sound Check twin + Delta Heatmap',
- body: 'The ≋ button next to each DSP plays the *actual* AAC output of that platform\'s ingest chain: gain, 4× oversampled TP limiter, codec. The red heatmap underneath shows where each limiter fires on the 30-second window. Pick any start-second in the "Twin starts at" field to audition a specific passage.',
+ // 5.7.2 copy:
+ title: 'Sound Check twin',
+ // 5.7.2 copy:
+ body: 'The ≋ button plays the actual codec output of each platform — gain, limiter, AAC, the lot. The red strip shows where the limiter clamps down. Pick any second to audition.',
  },
  {
  tab: 'breakdown',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Breakdown',
- body: 'Diagnostic: per-element balance (kick, snare, sub, vocals, etc.), mix-diverge heatmap, masking, transient density. If deep-scan was on, you get per-stem breakdown, useful for figuring out why something feels off.',
+ // 5.7.2 copy:
+ body: 'Why does it feel off? Element balance — kick, snare, sub, vocals — masking, transient density. If you ran Deep, you get it stem by stem.',
  },
  {
  tab: 'quality',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Quality',
- body: 'QC red-flags: clicks, clipping, distortion, hum, tonal issues, tempo stability. If anything here shows red, fix it before delivery.',
+ // 5.7.2 copy:
+ body: 'The stuff that gets a master rejected: clicks, clipping, distortion, hum, tempo wobble. If anything\'s red, fix it before you send.',
  },
  {
  tab: 'atmos',
  placement: 'center',
+ // 5.7.2 copy:
  title: 'Atmos Preflight',
- body: 'ADM-specific hard-checks: object count ≤ 118 (Apple Music cap), LFE routing, bed layout (7.1.2 or 5.1.4), SR 48 kHz, BD ≥ 24-bit, orphan beds, binaural TP headroom. Single HOLD / WARN / READY banner: deliverability at a glance before the wider Atmos QC panel.',
+ // 5.7.2 copy:
+ body: 'One banner — HOLD, WARN, or READY — answers the only question that matters: will the platform accept this? Object count, bed layout, sample rate, headroom, all checked.',
  },
  {
  tab: 'atmos',
  placement: 'center',
- title: 'Per-object Anomalies',
- body: 'Flags objects that usually mean mix mistakes: hot (object > bed + 6 LU, un-attenuated send), silent (declared but inactive, wasting ADM slots), static (no trajectory automation), dark (sub-content routed to an object instead of the LFE bed).',
+ // 5.7.2 copy:
+ title: 'Object Anomalies',
+ // 5.7.2 copy:
+ body: 'Objects that usually mean a mistake: too hot, silent (wasting a slot), static (forgot to automate), or carrying sub that should be in the LFE.',
  },
 ]
 
@@ -287,12 +315,11 @@ export default function AnalysisTour({
 
  {/* Popover */}
  <div
- className="fixed z-[100] rounded-2xl p-5 space-y-3"
+ className="fixed z-[100] p-5 space-y-3"
  style={{
  ...popoverStyle,
  backgroundColor: '#151411',
  border: '1px solid rgba(208,176,102,0.35)',
- boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
  // Smooth movement between steps. Eases `left / top / width`
  // over 300 ms — short enough not to feel sluggish, long enough
  // to read as intentional rather than a teleport.
@@ -304,17 +331,19 @@ export default function AnalysisTour({
  <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>
  Tab {stepIndex + 1} of {totalSteps}
  </span>
+ {/* 5.7.2 copy: */}
  <button
  onClick={stopTour}
  className="text-[10px]"
  style={{ color: '#a8a29e' }}
- >End tour</button>
+ >Close tour</button>
  </div>
  <h3 className="text-base" style={{ color: '#f5f2ed', fontWeight: 500 }}>{step.title}</h3>
  <p className="text-[12px] leading-relaxed" style={{ color: '#a8a196' }}>{step.body}</p>
  {!rect && (
+ // 5.7.2 copy:
  <p className="text-[10px] italic pt-1" style={{ color: '#8d867b' }}>
- The highlighted area isn't on this screen yet. Continue, or skip to explore.
+ You&apos;ll see this one once it shows up on screen. Keep going, or close and explore.
  </p>
  )}
  <div className="flex items-center justify-between pt-1">
@@ -327,13 +356,13 @@ export default function AnalysisTour({
  {!isFirst && (
  <button
  onClick={prevStep}
- className="text-[10px] px-3 py-1.5 rounded-md"
+ className="text-[10px] px-3 py-1.5"
  style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  >Back</button>
  )}
  <button
  onClick={nextStep}
- className="text-[10px] px-4 py-1.5 rounded-md"
+ className="text-[10px] px-4 py-1.5"
  style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
  >
  {isLast ? 'Got it' : 'Next'}

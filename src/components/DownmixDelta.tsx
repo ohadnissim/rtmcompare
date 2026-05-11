@@ -12,7 +12,7 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  const maxDiff = Math.max(3, ...delta.categories.map(c => Math.abs(c.diff_db)))
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  {/* Downmix comparison */}
  <div className="space-y-4">
  <div className="space-y-1">
@@ -36,8 +36,9 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ backgroundColor: '#3a3835' }} />
  {/* Bar */}
  <div
- className="absolute top-0 bottom-0 rounded-sm"
+ className="absolute top-0 bottom-0"
  style={{
+ borderRadius: '2px',
  left: isPositive ? '50%' : `${50 + pct}%`,
  width: `${Math.abs(pct)}%`,
  backgroundColor: Math.abs(cat.diff_db) > 1.5 ? '#e07a4f' :

@@ -54,7 +54,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  if (!currentSpectrum || currentSpectrum.length === 0) {
  return (
  <div
- className="rounded-xl p-4 text-[11px]"
+ className="p-4 text-[11px]"
  style={{
  backgroundColor: 'rgba(30,28,24,0.5)',
  border: '1px solid rgba(168,161,150,0.08)',
@@ -69,7 +69,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
 
  return (
  <div
- className="rounded-xl p-4 space-y-3"
+ className="p-4 space-y-3"
  style={{
  backgroundColor: 'rgba(30,28,24,0.5)',
  border: '1px solid rgba(168,161,150,0.1)',
@@ -87,7 +87,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  </div>
  <button
  onClick={() => setLibraryOpen(true)}
- className="text-[11px] px-3 py-1.5 rounded-md"
+ className="text-[11px] px-3 py-1.5"
  style={{
  color: '#d0b066',
  border: '1px solid rgba(208,176,102,0.35)',
@@ -139,7 +139,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  <div className="flex items-center gap-2">
  <button
  onClick={applyToEQ}
- className="text-[11px] px-3 py-1 rounded-md"
+ className="text-[11px] px-3 py-1"
  style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
  title="Load these bands into the EQ bank and engage it in the main A/B player"
  >
@@ -147,7 +147,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  </button>
  <button
  onClick={() => { eq.clear(); setPicked(null) }}
- className="text-[11px] px-3 py-1 rounded-md"
+ className="text-[11px] px-3 py-1"
  style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  Clear
@@ -214,7 +214,7 @@ function MatchCurves({ source, reference, predicted, currentLabel, referenceLabe
  const freqLabels = [20, 100, 1000, 10000, 20000]
 
  return (
- <div className="rounded-lg overflow-hidden" style={{ backgroundColor: 'rgba(14,13,11,0.7)' }}>
+ <div className="overflow-hidden" style={{ backgroundColor: 'rgba(14,13,11,0.7)' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full" preserveAspectRatio="xMidYMid meet" style={{ height: 140 }}>
  {/* Grid */}
  {[-30, -20, -10, 0].map(db => (
@@ -276,7 +276,7 @@ function BandsTable({ bands }: { bands: EQBand[] }) {
  )
  }
  return (
- <div className="rounded-md overflow-hidden" style={{ border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="overflow-hidden" style={{ border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="flex items-center px-3 py-1.5 text-[9px] uppercase tracking-[0.12em]" style={{ color: '#7a7164', backgroundColor: 'rgba(14,13,11,0.4)' }}>
  <span className="w-16">Freq</span>
  <span className="w-14 text-right">Gain</span>

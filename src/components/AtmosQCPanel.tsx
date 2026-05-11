@@ -22,7 +22,7 @@ function CheckRow({ check }: { check: AtmosQCCheck }) {
 
  return (
  <div
- className="rounded-lg overflow-hidden"
+ className="overflow-hidden" style={{ borderRadius: '2px' }}
  style={{ backgroundColor: 'rgba(26,25,24,0.5)', border: `1px solid ${check.status === 'pass' ? 'transparent' : config.bg}` }}
  >
  <button
@@ -91,7 +91,7 @@ export default function AtmosQCPanel({ qc, scope = 'all' }: Props) {
  const passCount = scopedChecks.filter(c => c.status === 'pass').length
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  {/* Header: status + score */}
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-4">

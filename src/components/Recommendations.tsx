@@ -20,7 +20,7 @@ export default function Recommendations({ recommendations, labelA, labelB }: Pro
  const medCount = recommendations.filter(r => r.priority === 'medium').length
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Recommendations</h2>
@@ -51,8 +51,8 @@ export default function Recommendations({ recommendations, labelA, labelB }: Pro
  return (
  <div
  key={i}
- className="rounded-lg p-3.5 flex gap-3"
- style={{ backgroundColor: config.bg, borderLeft: `3px solid ${config.border}` }}
+ className="p-3.5 flex gap-3"
+ style={{ borderRadius: '2px', backgroundColor: config.bg, borderLeft: `3px solid ${config.border}` }}
  >
  <div className="flex-shrink-0 pt-0.5">
  <span

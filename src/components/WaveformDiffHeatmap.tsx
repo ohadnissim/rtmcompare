@@ -92,7 +92,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  const timeLabelCount = 6
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Where does the mix diverge?</h2>
  <p className="text-xs text-dark-400">
@@ -101,7 +101,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  </p>
  </div>
 
- <div className="bg-dark-800 rounded-xl p-3 overflow-hidden">
+ <div className="bg-dark-800 p-3 overflow-hidden">
  <svg viewBox={`0 0 ${w} ${h + 30}`} className="w-full h-56" preserveAspectRatio="none">
  {/* Cells */}
  {diff.grid.map((row, ti) =>
@@ -165,7 +165,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  {/* Ranked hotspots list — sorted by |diff_db| desc, arrows for direction,
   magnitude-coloured dB, clickable rows when a callback is provided. */}
  {diff.hotspots.length > 0 && (
- <div className="bg-dark-800/40 rounded-xl p-3 space-y-1">
+ <div className="bg-dark-800/40 p-3 space-y-1">
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.12em] text-dark-500">Biggest divergence points</span>
  <span className="text-[9px] text-dark-500">[^] hotter in {labelB} &middot; [v] quieter in {labelB}</span>
@@ -178,7 +178,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  const arrowColor = hs.diff_db > 0 ? '#e05a5a' : '#78716c'
  const dbColor = magnitudeColour(hs.diff_db)
  const clickable = Boolean(onHotspotClick)
- const rowClasses = 'flex items-center text-[11px] px-2 py-1 rounded-md transition-colors'
+ const rowClasses = 'flex items-center text-[11px] px-2 py-1 transition-colors'
  + (clickable ? ' cursor-pointer hover:bg-dark-700/40' : '')
  return (
  <div

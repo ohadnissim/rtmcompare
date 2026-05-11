@@ -165,8 +165,9 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
 
  return (
  <div
- className="rounded-2xl p-6 space-y-5"
+ className="p-6 space-y-5"
  style={{
+ borderRadius: '2px',
  backgroundColor: BG,
  border: `1px solid ${HAIRLINE}`,
  color: INK,
@@ -193,8 +194,9 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  value={algorithm}
  disabled={busy}
  onChange={(e) => setAlgorithm(e.target.value as Algorithm)}
- className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+ className="w-full px-3 py-2 text-sm outline-none"
  style={{
+ borderRadius: '2px',
  backgroundColor: PANEL,
  color: INK,
  border: `1px solid ${HAIRLINE}`,
@@ -255,8 +257,9 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  {/* Stats strip */}
  {lastResult && (
  <div
- className="rounded-lg px-3 py-2 flex items-center gap-4 text-[11px] font-mono tabular-nums"
+ className="px-3 py-2 flex items-center gap-4 text-[11px] font-mono tabular-nums"
  style={{
+ borderRadius: '2px',
  backgroundColor: PANEL,
  border: `1px solid ${HAIRLINE}`,
  color: INK,
@@ -278,8 +281,8 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  )}
  {error && (
  <div
- className="text-[11px] rounded-lg px-3 py-2"
- style={{ color: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.08)' }}
+ className="text-[11px] px-3 py-2"
+ style={{ color: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.08)', borderRadius: '2px' }}
  >
  {error}
  </div>
@@ -291,8 +294,9 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  type="button"
  disabled={busy}
  onClick={onPreview}
- className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+ className="px-4 py-2 text-xs font-medium transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: PANEL,
  color: INK,
  border: `1px solid ${HAIRLINE}`,
@@ -307,8 +311,9 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  type="button"
  disabled={busy}
  onClick={onCompare}
- className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
+ className="px-4 py-2 text-xs font-medium transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: PANEL,
  color: compareOriginal ? GOLD : INK,
  border: `1px solid ${compareOriginal ? GOLD_DIM : HAIRLINE}`,
@@ -333,8 +338,9 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  type="button"
  disabled={busy}
  onClick={onRender}
- className="px-5 py-2 rounded-lg text-xs font-semibold transition-colors"
+ className="px-5 py-2 text-xs font-semibold transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: busy ? 'rgba(208,176,102,0.5)' : GOLD,
  color: '#1c1915',
  opacity: busy ? 0.7 : 1,
@@ -447,8 +453,9 @@ function BypassToggle({ value, onChange, disabled }: {
  aria-checked={value}
  disabled={disabled}
  onClick={() => onChange(!value)}
- className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+ className="flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: PANEL,
  color: value ? GOLD : INK,
  border: `1px solid ${value ? GOLD_DIM : HAIRLINE}`,

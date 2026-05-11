@@ -337,8 +337,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.file_warnings.map((w, i) => (
  <div
  key={i}
- className="rounded-lg px-3 py-2 text-[11px] flex items-start gap-2"
- style={{ backgroundColor: 'rgba(224,122,79,0.08)', border: '1px solid rgba(224,122,79,0.3)', color: '#e07a4f' }}
+ className="px-3 py-2 text-[11px] flex items-start gap-2"
+ style={{ backgroundColor: 'rgba(224,122,79,0.08)', border: '1px solid rgba(224,122,79,0.3)', color: '#e07a4f', borderRadius: '2px' }}
  title={`File warning: ${w.type}`}
  >
  <span className="text-[13px] leading-none" aria-hidden>!</span>
@@ -357,12 +357,12 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {pluginDrop.slotA && pluginDrop.slotA.audioPath === filePath && (
  <div
  data-tour-ref="banner"
- className="rounded-xl p-3 flex items-start gap-3"
- style={{ backgroundColor: 'rgba(208,176,102,0.06)', border: '1px solid rgba(208,176,102,0.22)' }}
+ className="p-3 flex items-start gap-3"
+ style={{ backgroundColor: 'rgba(208,176,102,0.06)', border: '1px solid rgba(208,176,102,0.22)', borderRadius: '2px' }}
  >
  <div
- className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
- style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
+ className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+ style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066', borderRadius: '2px' }}
  title="Sent from the RTM Send plugin"
  >
  <span className="text-[14px]">↙</span>
@@ -424,7 +424,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  simply blank out. (5.2.3: genre detection removed — was
  unreliable on real-world masters.) */}
  {check?.stats && (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <h3 className="text-lg font-semibold">Song Info</h3>
  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
  <StatBox label="Integrated" value={`${check.stats.lufs} LUFS`} />
@@ -569,8 +569,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  const icon = adm.status === 'ready' ? '✓' : adm.status === 'warn' ? '⚠' : '✕'
  return (
  <details
- className="rounded-xl px-3 py-2 text-[11px]"
- style={{ backgroundColor: bg, border: `1px solid ${colour}40`, color: colour }}
+ className="px-3 py-2 text-[11px]"
+ style={{ backgroundColor: bg, border: `1px solid ${colour}40`, color: colour, borderRadius: '2px' }}
  >
  <summary
  className="list-none cursor-pointer flex items-center gap-2 select-none"
@@ -636,8 +636,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  },
  }))
  }}
- className="mt-2 text-[10px] px-2.5 py-1 rounded-md transition-colors hover:bg-white/[0.04]"
- style={{ color: '#c5a55a', border: '1px solid rgba(197,165,90,0.45)' }}
+ className="mt-2 text-[10px] px-2.5 py-1 transition-colors hover:bg-white/[0.04]"
+ style={{ color: '#c5a55a', border: '1px solid rgba(197,165,90,0.45)', borderRadius: '2px' }}
  title="Open the BEXT / iXML editor below with ADM-compliant defaults pre-filled. Click Save in the editor to actually write; RTM never writes BEXT without your confirmation."
  >
  Write ADM-compliant BEXT →
@@ -667,8 +667,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  BEXT payload to inspect. */}
  {integrityWarnings.length > 0 && (
  <div
- className="rounded-lg px-3 py-2 text-[10px]"
- style={{ backgroundColor: 'rgba(197,165,90,0.08)', border: '1px solid rgba(197,165,90,0.3)', color: '#c5a55a' }}
+ className="px-3 py-2 text-[10px]"
+ style={{ backgroundColor: 'rgba(197,165,90,0.08)', border: '1px solid rgba(197,165,90,0.3)', color: '#c5a55a', borderRadius: '2px' }}
  >
  <div className="text-[9px] uppercase tracking-[0.15em] mb-1">File integrity</div>
  {integrityWarnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
@@ -695,7 +695,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  )}
 
  {/* ── 7. Master Assistant — the finish-from-DAW surface ───── */}
- <div data-tour-ref="master-assistant" className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50">
+ <div data-tour-ref="master-assistant" className="bg-dark-900 p-6 border border-dark-700/50" style={{ borderRadius: '2px' }}>
  <MasterAssistantPanel
  result={synthesisedResult}
  fileB={fileAInfo}
@@ -821,7 +821,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  why="Every song has a tonal centre (the key). Its root, fifth, and octaves carry most of the harmonic weight. EQ moves that land ON those frequencies feel musical; moves between them feel mechanical. When in doubt, snap your EQ to the highlighted bands."
  defaultOpen={false}
  >
- <div className="rounded-xl p-4 overflow-hidden" style={{ backgroundColor: 'rgba(48,44,39,0.4)' }}>
+ <div className="p-4 overflow-hidden" style={{ backgroundColor: 'rgba(48,44,39,0.4)', borderRadius: '2px' }}>
  <div className="relative h-16">
  <div className="absolute inset-x-0 top-1/2 h-px" style={{ backgroundColor: 'rgba(87,83,78,0.3)' }} />
  {check.song_info.harmonics.map((h: any, i: number) => {
@@ -950,8 +950,9 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <button
  type="button"
  onClick={() => setDeclickOpen(v => !v)}
- className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+ className="px-3 py-1.5 text-xs font-medium transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: declickOpen ? 'rgba(208,176,102,0.12)' : '#151411',
  color: declickOpen ? '#d0b066' : '#ebe7e0',
  border: `1px solid ${declickOpen ? 'rgba(208,176,102,0.35)' : 'rgba(208,176,102,0.18)'}`,
@@ -985,11 +986,11 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  These are high-signal (file-level warnings from the Python
  backend); keep them visible. */}
  {check.warnings.length > 0 && (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <h3 className="text-lg font-semibold">Notes</h3>
  <div className="space-y-3">
  {check.warnings.map((w, i) => (
- <div key={i} className="rounded-lg p-3.5 space-y-1.5" style={{
+ <div key={i} className="p-3.5 space-y-1.5" style={{ borderRadius: '2px',
  backgroundColor: w.severity === 'warning' ? 'rgba(224,122,79,0.06)' : 'rgba(107,140,187,0.06)',
  borderLeft: `3px solid ${w.severity === 'warning' ? 'rgba(224,122,79,0.3)' : 'rgba(107,140,187,0.2)'}`,
  }}>
@@ -1019,7 +1020,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
 
  {/* Tonal Character — file curve vs profile neutral. */}
  {check.tonal && (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2">
  <h3 className="text-lg font-semibold">Tonal Character</h3>
@@ -1027,7 +1028,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </div>
  <p className="text-xs" style={{ color: '#e07a4f' }}>{check.tonal.character}</p>
  </div>
- <div className="rounded-xl p-3 overflow-hidden" style={{ backgroundColor: 'rgba(48,44,39,0.4)' }}>
+ <div className="p-3 overflow-hidden" style={{ backgroundColor: 'rgba(48,44,39,0.4)', borderRadius: '2px' }}>
  <svg viewBox="0 0 800 160" className="w-full h-36" preserveAspectRatio="none">
  <line x1="0" y1="80" x2="800" y2="80" stroke="#44403c" strokeWidth="0.5" strokeDasharray="4 4" />
  <path d={makeCurvePath(check.tonal.neutral_curve, 800, 160, 20)} fill="none" stroke="#6ec577" strokeWidth="1.5" opacity="0.4" strokeDasharray="4 3" />
@@ -1074,7 +1075,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <span className="text-dark-300">Broadband correlation: <span className="font-mono">{data.mono_compat.correlation_a.toFixed(2)}</span></span>
  <span className="text-dark-300">Weighted risk: <span className="font-mono">{(data.mono_compat.risk_a ?? 0).toFixed(1)}</span></span>
  </div>
- <div className="bg-dark-800/40 rounded-xl p-3 space-y-1.5">
+ <div className="bg-dark-800/40 p-3 space-y-1.5" style={{ borderRadius: '2px' }}>
  {data.mono_compat.bands_a.map((band: any) => {
  const color = band.loss_pct < 5 ? '#34d399' : band.loss_pct < 15 ? '#f59e0b' : '#f43f5e'
  return (
@@ -1182,7 +1183,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div className="flex justify-center">
  <div className="space-y-2 max-w-[250px]">
  <span className="text-xs text-dark-400">{label}</span>
- <div className="bg-dark-800/30 rounded-xl p-2 flex items-center justify-center">
+ <div className="bg-dark-800/30 p-2 flex items-center justify-center" style={{ borderRadius: '2px' }}>
  <VectorscopeCanvas points={data.vectorscope_a} />
  </div>
  </div>
@@ -1232,7 +1233,7 @@ function StatBox({ label, value, sub, warn }: { label: string; value: string; su
  }
  const termKey = termByLabel[label]
  return (
- <div className="rounded-lg p-3 text-center space-y-1" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
+ <div className="p-3 text-center space-y-1" style={{ backgroundColor: 'rgba(48,44,39,0.5)', borderRadius: '2px' }}>
  <p className="text-[9px] tracking-widest uppercase flex items-center justify-center gap-1" style={{ color: '#78716c' }}>
  {termKey ? <TeachTerm term={termKey}>{label}</TeachTerm> : label}
  </p>

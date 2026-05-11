@@ -8,7 +8,7 @@ interface Props {
 export default function MissingElements({ elements }: Props) {
  if (elements.length === 0) {
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50">
+ <div className="bg-dark-900 p-6 border border-dark-700/50">
  <div className="flex items-center gap-3">
  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(110,197,119,0.1)' }}>
  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#6ec577" strokeWidth={2}>
@@ -28,7 +28,7 @@ export default function MissingElements({ elements }: Props) {
  const reduced = elements.filter(e => e.severity === 'reduced')
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Missing Elements</h2>
  <p className="text-xs text-dark-400">
@@ -54,7 +54,7 @@ function ElementRow({ element }: { element: MissingElement }) {
 
  return (
  <div
- className="rounded-lg overflow-hidden"
+ className="overflow-hidden"
  style={{
  backgroundColor: isMissing ? 'rgba(224,90,90,0.05)' : 'rgba(224,122,79,0.05)',
  border: `1px solid ${isMissing ? 'rgba(224,90,90,0.15)' : 'rgba(224,122,79,0.15)'}`,

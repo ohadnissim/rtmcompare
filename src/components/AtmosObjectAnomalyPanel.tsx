@@ -100,7 +100,8 @@ export default function AtmosObjectAnomalyPanel({ result }: Props) {
  if (!result.atmos_channels || result.atmos_channels.length === 0) return null
  if (anomalies.length === 0) {
  return (
- <div className="rounded-lg px-4 py-3 text-[11px]" style={{
+ <div className="px-4 py-3 text-[11px]" style={{
+ borderRadius: '2px',
  color: '#6ec577',
  backgroundColor: 'rgba(110,197,119,0.06)',
  border: '1px solid rgba(110,197,119,0.18)',
@@ -146,7 +147,8 @@ function AnomalyRow({ a }: { a: Anomaly }) {
  dark: '▽',
  }[a.kind] || '⚠'
  return (
- <div className="rounded-md px-3 py-2 text-[11px]" style={{
+ <div className="px-3 py-2 text-[11px]" style={{
+ borderRadius: '2px',
  backgroundColor: a.severity === 'block' ? 'rgba(224,90,90,0.06)' : 'rgba(197,165,90,0.06)',
  border: `1px solid ${a.severity === 'block' ? 'rgba(224,90,90,0.18)' : 'rgba(197,165,90,0.2)'}`,
  color: '#b5afa4',

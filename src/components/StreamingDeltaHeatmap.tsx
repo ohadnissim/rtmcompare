@@ -47,7 +47,7 @@ export default function StreamingDeltaHeatmap({
  const secondsPerBlock = stepMs / 1000
 
  return (
- <div className="rounded-md overflow-hidden" style={{ backgroundColor: 'rgba(14,13,11,0.6)', border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="overflow-hidden" style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.6)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="flex items-center justify-between px-3 py-1.5 text-[9px] uppercase tracking-[0.12em]" style={{ color: '#7a7164', borderBottom: '1px solid rgba(168,161,150,0.06)' }}>
  <span>{dsp} limiter · where it engaged</span>
  <span className="font-mono" style={{ color: worstGrDb < -1 ? '#e05a5a' : worstGrDb < -0.3 ? '#d0b066' : '#6ec577' }}>

@@ -129,7 +129,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
 
  return (
  <div
- className="rounded-xl p-4 flex items-center justify-between gap-4"
+ className="p-4 flex items-center justify-between gap-4"
  style={{
  backgroundColor: 'rgba(208,176,102,0.08)',
  border: '1px solid rgba(208,176,102,0.30)',
@@ -150,7 +150,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  trim, +4 dB boost cap. */}
  {srcFilePath && refLufsAvailable && (
  <label
- className="flex items-center gap-2 px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+ className="flex items-center gap-2 px-2.5 py-1 cursor-pointer transition-colors"
  style={{ backgroundColor: 'rgba(14,13,11,0.35)' }}
  title={`Closed-loop loudness trim toward ${(refLufs as number).toFixed(1)} LUFS${refLabel ? ` (${refLabel})` : ''}. Boost capped at +4 dB so quiet mixes chasing hot references don't slam the limiter.`}
  >
@@ -170,7 +170,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  it sits next to the action button without dominating. */}
  {srcFilePath && (
  <label
- className="flex items-center gap-2 px-2.5 py-1 rounded-md cursor-pointer transition-colors"
+ className="flex items-center gap-2 px-2.5 py-1 cursor-pointer transition-colors"
  style={{ backgroundColor: 'rgba(14,13,11,0.35)' }}
  title="True-peak limit at −0.3 dBTP (Apple Music ceiling). 16× oversampled ISP detection. Keeps boosts safe from clipping and platform-side limiters."
  >
@@ -189,7 +189,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  <button
  onClick={applyAndBounce}
  disabled={disabled}
- className="px-4 py-2 rounded-md text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+ className="px-4 py-2 text-[12px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
  style={{
  backgroundColor: disabled ? 'rgba(208,176,102,0.20)' : '#d0b066',
  color: disabled ? '#8d867b' : '#0e0d0b',
@@ -205,7 +205,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
 
  {toast && (
  <div
- className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg text-xs"
+ className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 text-xs"
  style={{ backgroundColor: 'rgba(14,13,11,0.96)', color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
  >
  {toast}

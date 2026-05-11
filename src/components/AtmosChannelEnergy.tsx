@@ -35,7 +35,7 @@ export default function AtmosChannelEnergy({ channels, layout, objectCount, obje
  const labelWidth = 40
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Channel Energy</h2>
  <p className="text-xs text-dark-400">
@@ -83,7 +83,7 @@ export default function AtmosChannelEnergy({ channels, layout, objectCount, obje
 
  {/* Object energy info (when objects exist but no ADM position data) */}
  {!hasAdm && objectCount != null && objectCount > 0 && (
- <div className="flex items-center gap-3 px-4 py-3 rounded-lg" style={{ backgroundColor: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.15)' }}>
+ <div className="flex items-center gap-3 px-4 py-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.15)' }}>
  <span className="text-xs" style={{ color: '#a855f7' }}>
  {objectCount} audio objects
  </span>

@@ -44,7 +44,7 @@ export default function TransientDensityPanel({ density, durationSec, onSectionS
  const tintFor = (i: number) => (i % 2 === 0 ? 'rgba(235,231,224,0.025)' : 'rgba(208,176,102,0.035)')
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Transient Density & Structure</h2>
  <p className="text-xs text-dark-400">
@@ -52,7 +52,7 @@ export default function TransientDensityPanel({ density, durationSec, onSectionS
  </p>
  </div>
 
- <div className="bg-dark-800 rounded-xl p-3 overflow-hidden">
+ <div className="bg-dark-800 p-3 overflow-hidden" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h + topPad + 24}`} className="w-full h-40" preserveAspectRatio="none">
  {/* Alternating section background tint */}
  {density.sections.map((s, i) => {

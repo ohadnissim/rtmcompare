@@ -47,7 +47,7 @@ export default function ClickTimeline({ clicks, labelB, fileA, fileB, waveform, 
  if (!clicks || clicks.length === 0) return null
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="space-y-1">
@@ -80,7 +80,7 @@ export default function ClickTimeline({ clicks, labelB, fileA, fileB, waveform, 
 
  {/* Visual Timeline */}
  <div className="space-y-1">
- <div className="relative h-20 bg-dark-800 rounded-xl overflow-visible px-3">
+ <div className="relative h-20 bg-dark-800 overflow-visible px-3" style={{ borderRadius: '2px' }}>
  <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 h-px bg-dark-600" />
 
  {/* RMS waveform — CLIPPED to the rail only (time-label/markers poke above).
@@ -501,8 +501,8 @@ function ClickRow({ click, fileA, fileB }: { click: ClickArtifact; fileA?: { pat
 
  return (
  <div
- className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs"
- style={{ backgroundColor: config.bg, borderLeft: `3px solid ${config.color}` }}
+ className="flex items-center gap-2 px-3 py-2.5 text-xs"
+ style={{ borderRadius: '2px', backgroundColor: config.bg, borderLeft: `3px solid ${config.color}` }}
  >
  {/* Play region button */}
  <button

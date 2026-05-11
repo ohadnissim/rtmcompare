@@ -94,8 +94,8 @@ export default function CohortMode({ rows, reference, onPickReference, onLoadRef
 
  // ── Heatmap render ────────────────────────────────────────────────────
  return (
- <div className="rounded-xl p-5 space-y-4"
- style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(208,176,102,0.18)' }}>
+ <div className="p-5 space-y-4"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(208,176,102,0.18)' }}>
  <div className="flex items-start justify-between gap-4 flex-wrap">
  <div className="min-w-0">
  <div className="text-[10px] tracking-[0.2em] uppercase mb-1" style={{ color: '#d0b066' }}>
@@ -261,13 +261,13 @@ function DriftHeatmap({ deltas }: {
  {/* Legend */}
  <div className="flex items-center justify-end gap-4 mt-2 text-[9px] font-mono" style={{ color: '#7a7164' }}>
  <span className="inline-flex items-center gap-1">
- <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(107,140,187,0.9)' }} /> −8 dB
+ <span className="inline-block w-3 h-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(107,140,187,0.9)' }} /> −8 dB
  </span>
  <span className="inline-flex items-center gap-1">
- <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(87,83,78,0.15)' }} /> match
+ <span className="inline-block w-3 h-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(87,83,78,0.15)' }} /> match
  </span>
  <span className="inline-flex items-center gap-1">
- <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgba(208,176,102,0.9)' }} /> +8 dB
+ <span className="inline-block w-3 h-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.9)' }} /> +8 dB
  </span>
  </div>
  </div>
@@ -301,8 +301,8 @@ function CohortExplainer() {
  )
  }
  return (
- <div className="rounded-lg px-4 py-3 text-[11px] space-y-2"
- style={{ backgroundColor: 'rgba(30,28,24,0.55)', border: '1px solid rgba(208,176,102,0.2)', color: '#b5afa4' }}>
+ <div className="px-4 py-3 text-[11px] space-y-2"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.55)', border: '1px solid rgba(208,176,102,0.2)', color: '#b5afa4' }}>
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.2em]" style={{ color: '#d0b066' }}>What you're looking at</span>
  <button onClick={dismiss} className="text-[10px] uppercase tracking-[0.1em] transition-colors hover:text-sand-200" style={{ color: '#8d867b' }} title="Dismiss — you can reopen from the 'What is Cohort Mode?' link.">

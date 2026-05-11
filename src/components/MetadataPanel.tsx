@@ -110,9 +110,9 @@ export default function MetadataPanel({ metadata, labelA, labelB, pathA, pathB, 
  // Even when metadata is absent, show the "will fail DDEX" warning so the
  // user knows their file is missing critical tags.
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-3">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-3" style={{ borderRadius: '2px' }}>
  <h2 className="text-lg font-semibold">File Metadata</h2>
- <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(201,103,101,0.08)', border: '1px solid rgba(201,103,101,0.3)' }}>
+ <div className="px-3 py-2" style={{ backgroundColor: 'rgba(201,103,101,0.08)', border: '1px solid rgba(201,103,101,0.3)', borderRadius: '2px' }}>
  <div className="text-[11px] font-medium" style={{ color: '#c96765' }}>✕ No metadata tags found</div>
  <div className="text-[10px] text-dark-400 mt-1">
  This file has no BEXT / iXML / LIST-INFO / ID3 tags.
@@ -126,7 +126,7 @@ export default function MetadataPanel({ metadata, labelA, labelB, pathA, pathB, 
  const deliveryB = checkDeliveryReady(metadata.b)
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">File Metadata (BEXT / iXML / INFO)</h2>
  <p className="text-xs text-dark-400">
@@ -172,7 +172,7 @@ export default function MetadataPanel({ metadata, labelA, labelB, pathA, pathB, 
 function BroadcastBanner({ label, status }: { label: string; status: { ok: boolean; missing: string[] } }) {
  const color = status.ok ? '#6fa37e' : '#c5a55a'
  return (
- <div className="rounded-lg px-3 py-2" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}40` }}>
+ <div className="px-3 py-2" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}40`, borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color }}>
  {status.ok ? '✓ Broadcast audit trail intact' : '⚠ Broadcast audit trail incomplete'}
@@ -191,7 +191,7 @@ function BroadcastBanner({ label, status }: { label: string; status: { ok: boole
 function DeliveryBanner({ label, status }: { label: string; status: { ok: boolean; missing: string[] } }) {
  const color = status.ok ? '#6fa37e' : '#c96765'
  return (
- <div className="rounded-lg px-3 py-2" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}40` }}>
+ <div className="px-3 py-2" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}40`, borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color }}>
  {status.ok ? '✓ Delivery-ready' : '✕ Missing for DDEX'}
@@ -209,7 +209,7 @@ function DeliveryBanner({ label, status }: { label: string; status: { ok: boolea
 
 function MetaBlock({ label, meta }: { label: string; meta: Meta }) {
  return (
- <div className="bg-dark-800/40 rounded-xl p-4 space-y-3 text-[11px]">
+ <div className="bg-dark-800/40 p-4 space-y-3 text-[11px]" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between pb-2 border-b border-dark-700/40">
  <span className="text-terra font-medium">{label}</span>
  {meta.file_bytes != null && <span className="font-mono text-dark-500">{formatBytes(meta.file_bytes)}</span>}

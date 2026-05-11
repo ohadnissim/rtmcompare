@@ -80,7 +80,7 @@ export default function LoudnessTimeline({
  }, [durationSec])
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Loudness Over Time</h2>
@@ -112,7 +112,7 @@ export default function LoudnessTimeline({
  </div>
  </div>
 
- <div className="relative bg-dark-800 rounded-xl p-2 overflow-hidden">
+ <div className="relative bg-dark-800 p-2 overflow-hidden" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-44" preserveAspectRatio="none">
  {/* Y-axis grid */}
  {yGridLines.map(v => {

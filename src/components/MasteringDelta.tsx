@@ -57,7 +57,7 @@ export default function MasteringDelta({ delta, overall }: Props) {
  </div>
 
  <div className="grid grid-cols-1 lg:grid-cols-[1fr_0.7fr] gap-4">
- <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
+ <div className="border overflow-hidden" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
  <div className="flex items-center px-3 py-2 border-b" style={{ borderColor: 'rgba(168,161,150,0.1)' }}>
  <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>Per-band gain - 31-band 1/3 octave</div>
  <div className="ml-auto text-[10px] font-mono" style={{ color: MUTED }}>B - A</div>
@@ -72,7 +72,7 @@ export default function MasteringDelta({ delta, overall }: Props) {
  </div>
 
  <div className="space-y-4">
- <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
+ <div className="border p-3 space-y-2" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
  <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>Playback delta after platform normalization</div>
  <div className="text-[10px] leading-relaxed" style={{ color: MUTED }}>
  <span style={{ color: CREAM }}>B − A</span> in played LUFS after each platform's loudness normalization. <span style={{ color: CREAM }}>0.0 on every row</span> usually means both files are louder than every platform target — normalization attenuates them to the same level, wiping out the mastering loudness difference.
@@ -87,7 +87,7 @@ export default function MasteringDelta({ delta, overall }: Props) {
  )}
  </div>
 
- <div className="rounded-lg border p-3 space-y-3" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
+ <div className="border p-3 space-y-3" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
  <ReportLine label="Transient density" value={fmtTransient(delta.transient_density_change_pct)} />
  <ReportLine label="Peak-to-RMS ratio" value={fmtSigned(delta.peak_to_rms_ratio_change, ' dB')} />
  <ReportLine label="TP overs pulled back" value={fmtTpOvers(delta)} />
@@ -101,7 +101,7 @@ export default function MasteringDelta({ delta, overall }: Props) {
 
 function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
  return (
- <div className="rounded-lg p-3 min-h-[78px]" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
+ <div className="p-3 min-h-[78px]" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <div className="text-[9px] uppercase tracking-[0.16em] mb-1" style={{ color: MUTED }}>{label}</div>
  <div className="font-mono text-lg tabular-nums" style={{ color: tone || CREAM }}>{value}</div>
  {sub && <div className="text-[10px] mt-1" style={{ color: MUTED }}>{sub}</div>}

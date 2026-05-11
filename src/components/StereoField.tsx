@@ -23,7 +23,7 @@ export default function StereoField({ widthA, widthB, panA, panB, labelA, labelB
  <span className="text-xs font-medium text-dark-400 uppercase tracking-wide">Stereo</span>
  <span className="text-xs text-dark-400">{widthLabel}</span>
  </div>
- <div className="relative h-10 bg-dark-800 rounded-lg overflow-hidden">
+ <div className="relative h-10 bg-dark-800 overflow-hidden" style={{ borderRadius: '2px' }}>
  {/* Center line */}
  <div className="absolute top-0 bottom-0 left-1/2 w-px bg-dark-600" />
  {/* L/R labels */}

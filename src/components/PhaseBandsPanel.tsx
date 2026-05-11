@@ -83,7 +83,7 @@ export default function PhaseBandsPanel({ bandsA, bandsB, labelA, labelB }: Prop
  const scoreB = bandsB ? overallScore(bandsB) : null
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="flex items-start justify-between gap-4">
  <div className="space-y-1 flex-1">
  <h2 className="text-lg font-semibold">Phase Correlation — Per Band</h2>
@@ -97,7 +97,7 @@ export default function PhaseBandsPanel({ bandsA, bandsB, labelA, labelB }: Prop
  </div>
  </div>
 
- <div className="bg-dark-800/40 rounded-xl p-3 space-y-1">
+ <div className="bg-dark-800/40 p-3 space-y-1">
  <div className="flex items-center text-[10px] text-dark-500 px-2 pb-1 border-b border-dark-700/30">
  <span className="flex-1">Band</span>
  <span className="w-20 text-center">{labelA}</span>
@@ -142,7 +142,7 @@ export default function PhaseBandsPanel({ bandsA, bandsB, labelA, labelB }: Prop
 function ScoreCard({ label, score }: { label: string; score: number }) {
  const color = scoreColor(score)
  return (
- <div className="rounded-lg px-3 py-2 text-center min-w-[110px]" style={{ backgroundColor: 'rgba(42,41,39,0.45)', border: `1px solid ${color}40` }}>
+ <div className="px-3 py-2 text-center min-w-[110px]" style={{ backgroundColor: 'rgba(42,41,39,0.45)', border: `1px solid ${color}40` }}>
  <div className="text-[9px] uppercase tracking-[0.12em]" style={{ color: '#8d867b' }}>{label}</div>
  <div className="flex items-baseline justify-center gap-1">
  <span className="text-2xl font-semibold font-mono" style={{ color }}>{score}</span>

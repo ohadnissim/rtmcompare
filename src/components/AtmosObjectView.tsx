@@ -40,7 +40,7 @@ export default function AtmosObjectView({ view }: Props) {
  const { object_count, heatmap_grid, trajectories, stats, heights_over_time, duration_sec } = view
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Object Trajectories (Atmos)</h2>
@@ -67,7 +67,7 @@ export default function AtmosObjectView({ view }: Props) {
  </div>
 
  {/* Sphere view — heatmap OR trails */}
- <div className="bg-dark-800 rounded-xl p-3">
+ <div className="bg-dark-800 p-3">
  {tab === 'heatmap' ? (
  <HeatmapSphere grid={heatmap_grid} />
  ) : (
@@ -85,7 +85,7 @@ export default function AtmosObjectView({ view }: Props) {
 
  {/* Height-over-time strip */}
  {heights_over_time.length > 1 && (
- <div className="bg-dark-800/40 rounded-xl p-3 space-y-1">
+ <div className="bg-dark-800/40 p-3 space-y-1">
  <div className="flex items-center justify-between text-[10px] text-dark-500">
  <span className="uppercase tracking-[0.12em]">Objects in height channel over time</span>
  <span className="font-mono">0 → {Math.floor(duration_sec/60)}:{String(Math.floor(duration_sec)%60).padStart(2,'0')}</span>
@@ -96,7 +96,7 @@ export default function AtmosObjectView({ view }: Props) {
 
  {/* Per-object stats list */}
  {stats.length > 0 && (
- <div className="bg-dark-800/40 rounded-xl p-3 space-y-1">
+ <div className="bg-dark-800/40 p-3 space-y-1">
  <div className="flex items-center text-[10px] text-dark-500 px-2 pb-1 border-b border-dark-700/30">
  <span className="flex-1">Object</span>
  <span className="w-20 text-center">Motion</span>

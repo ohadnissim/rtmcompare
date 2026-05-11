@@ -36,7 +36,7 @@ export default function MonoCompat({ mono, labelA, labelB }: Props) {
  const worsened = riskB > riskA + 10
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Mono Compatibility</h2>
@@ -54,15 +54,15 @@ export default function MonoCompat({ mono, labelA, labelB }: Props) {
 
  {/* Scoring legend — helps readers understand the numbers */}
  <div className="grid grid-cols-3 gap-2 text-[10px]">
- <div className="rounded-md px-2.5 py-1.5" style={{ backgroundColor: 'rgba(110,197,119,0.10)', color: '#6ec577' }}>
+ <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(110,197,119,0.10)', color: '#6ec577', borderRadius: '2px' }}>
  <div className="font-semibold">&lt; 5% loss</div>
  <div className="opacity-80">Excellent — mono-safe</div>
  </div>
- <div className="rounded-md px-2.5 py-1.5" style={{ backgroundColor: 'rgba(197,165,90,0.10)', color: '#c5a55a' }}>
+ <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(197,165,90,0.10)', color: '#c5a55a', borderRadius: '2px' }}>
  <div className="font-semibold">5–15% loss</div>
  <div className="opacity-80">Acceptable — narrow the widest band</div>
  </div>
- <div className="rounded-md px-2.5 py-1.5" style={{ backgroundColor: 'rgba(224,90,90,0.10)', color: '#e05a5a' }}>
+ <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(224,90,90,0.10)', color: '#e05a5a', borderRadius: '2px' }}>
  <div className="font-semibold">&gt; 15% loss</div>
  <div className="opacity-80">High risk — phone/bluetooth will suffer</div>
  </div>
@@ -91,7 +91,7 @@ export default function MonoCompat({ mono, labelA, labelB }: Props) {
 
  {/* Per-band breakdown */}
  {mono.bands_a && mono.bands_b && (
- <div className="bg-dark-800/40 rounded-xl p-3 space-y-2">
+ <div className="bg-dark-800/40 p-3 space-y-2" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between text-[10px] text-dark-500 px-2 pb-1 border-b border-dark-700/30">
  <span className="flex-1">Band</span>
  <span className="w-20 text-center">Impact</span>
@@ -134,7 +134,7 @@ function RiskSummary({
  const offScale = risk > SCALE_TOP
 
  return (
- <div className="bg-dark-800 rounded-xl p-4 space-y-3">
+ <div className="bg-dark-800 p-4 space-y-3" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <span className="text-xs font-medium" style={{ color: barColor }}>{label}</span>
  <span className="text-xs font-mono" style={{ color: status.color }}>{status.label}</span>
@@ -293,7 +293,7 @@ function MonoWaterfall({ bandsA, bandsB, labelA, labelB }: {
  }
  const isSingleFile = labelA === labelB
  return (
- <div className="rounded-xl p-3" style={{ backgroundColor: 'rgba(48,44,39,0.35)', border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="p-3" style={{ backgroundColor: 'rgba(48,44,39,0.35)', border: '1px solid rgba(168,161,150,0.08)', borderRadius: '2px' }}>
  <div className="flex items-center justify-between mb-2">
  <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>
  Mono-risk waterfall

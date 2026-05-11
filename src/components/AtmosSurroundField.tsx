@@ -60,7 +60,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  }, [channels, maxDb])
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Surround Field</h2>
  <p className="text-xs text-dark-400">
@@ -70,7 +70,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
 
  <div className="flex items-start gap-6">
  {/* SVG surround field */}
- <div className="bg-dark-800 rounded-xl p-3 flex items-center justify-center flex-1">
+ <div className="bg-dark-800 p-3 flex items-center justify-center flex-1" style={{ borderRadius: '2px' }}>
  <svg viewBox="0 0 100 100" className="w-full max-w-[280px]" style={{ aspectRatio: '1' }}>
  {/* Listener position */}
  <circle cx={50} cy={50} r={2} fill="#57534e" />

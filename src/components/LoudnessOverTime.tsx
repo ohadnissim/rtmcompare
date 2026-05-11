@@ -96,7 +96,8 @@ export default function LoudnessOverTime({ result, side = 'b', durationSec }: Pr
  for (let v = Math.ceil(maxY / 3) * 3; v >= minY; v -= 3) yTicks.push(v)
 
  return (
- <div className="rounded-xl p-4 space-y-2" style={{
+ <div className="p-4 space-y-2" style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(48,44,39,0.35)',
  border: '1px solid rgba(168,161,150,0.08)',
  }}>

@@ -231,8 +231,8 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  up together. */}
  {modes.educator && (
  <div
- className="rounded-lg px-3 py-2 text-[11px] leading-relaxed"
- style={{
+ className="px-3 py-2 text-[11px] leading-relaxed"
+ style={{ borderRadius: '2px',
  backgroundColor: 'rgba(111,163,126,0.08)',
  border: '1px solid rgba(111,163,126,0.25)',
  color: '#b5afa4',
@@ -261,13 +261,13 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  </p>
  </div>
  {/* Target picker */}
- <div className="flex items-center gap-1 rounded-lg p-1" style={{ backgroundColor: 'rgba(30,28,24,0.5)' }}>
+ <div className="flex items-center gap-1 p-1" style={{ backgroundColor: 'rgba(30,28,24,0.5)', borderRadius: '2px' }}>
  {profiles.map(p => (
  <button
  key={p.id}
  onClick={() => setProfileId(p.id)}
- className="text-[10px] px-3 py-1 rounded-md transition-colors"
- style={{
+ className="text-[10px] px-3 py-1 transition-colors"
+ style={{ borderRadius: '2px',
  color: profileId === p.id ? '#d0b066' : '#8d867b',
  backgroundColor: profileId === p.id ? 'rgba(208,176,102,0.15)' : 'transparent',
  border: `1px solid ${profileId === p.id ? 'rgba(208,176,102,0.4)' : 'transparent'}`,
@@ -338,8 +338,8 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  {/* Warnings */}
  {chain.warnings.length > 0 && (
  <ul
- className="rounded-lg px-3 py-2 text-[11px] space-y-0.5"
- style={{ backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.3)', color: '#d0b066' }}
+ className="px-3 py-2 text-[11px] space-y-0.5"
+ style={{ backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.3)', color: '#d0b066', borderRadius: '2px' }}
  >
  {chain.warnings.map((w, i) => (
  <li key={i}>⚠ {w}</li>
@@ -371,8 +371,8 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <div className="flex items-center gap-2 flex-wrap">
  <button
  onClick={applyPreview}
- className="text-[11px] px-4 py-1.5 rounded-md"
- style={{ backgroundColor: 'rgba(208,176,102,0.18)', color: '#d0b066', border: '1px solid rgba(208,176,102,0.45)' }}
+ className="text-[11px] px-4 py-1.5"
+ style={{ backgroundColor: 'rgba(208,176,102,0.18)', color: '#d0b066', border: '1px solid rgba(208,176,102,0.45)', borderRadius: '2px' }}
  title="Load the proposed EQ bands into the A/B player's EQ bank to audition tone changes live. The Amount slider in the player header scales the gains; whatever you set there is what renders."
  >
  Preview in main player
@@ -380,8 +380,8 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <button
  onClick={renderFinal}
  disabled={rendering || !fileB}
- className="text-[11px] px-4 py-1.5 rounded-md disabled:opacity-50"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ className="text-[11px] px-4 py-1.5 disabled:opacity-50"
+ style={{ backgroundColor: '#d0b066', color: '#0e0d0b', borderRadius: '2px' }}
  title={fileB
  ? `Render a ${chain.bitDepth}-bit / ${chain.sampleRate / 1000} kHz WAV with the full chain baked in at the current Amount scaling, plus BEXT / iXML metadata embedded.`
  : 'Load a file to render'}
@@ -391,16 +391,16 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <button
  onClick={renderStems}
  disabled={rendering}
- className="text-[11px] px-3 py-1.5 rounded-md"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
+ className="text-[11px] px-3 py-1.5"
+ style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)', borderRadius: '2px' }}
  title="Pick a folder containing stems (vocals/drums/bass/other WAVs). RTM applies the chain minus the final limiter to each stem and writes <name>_mastered.wav next to each. Useful when the limiter lives on the summed mix downstream."
  >
  Stem-level render…
  </button>
  <button
  onClick={() => { eq.clear(); setRenderMsg(null); setError(null); setRiaaEnabled(false) }}
- className="text-[11px] px-3 py-1.5 rounded-md"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[11px] px-3 py-1.5"
+ style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)', borderRadius: '2px' }}
  >
  Clear
  </button>
@@ -481,7 +481,7 @@ function ChainTable({ chain }: { chain: MasterChain }) {
  },
  ]
  return (
- <div className="rounded-lg overflow-hidden" style={{ border: '1px solid rgba(168,161,150,0.1)', backgroundColor: 'rgba(30,28,24,0.4)' }}>
+ <div className="overflow-hidden" style={{ border: '1px solid rgba(168,161,150,0.1)', backgroundColor: 'rgba(30,28,24,0.4)', borderRadius: '2px' }}>
  {rows.map((r, i) => (
  <div
  key={r.label}
@@ -542,8 +542,9 @@ function RenderCompleteBanner({ message, onDismiss }: { message: string; onDismi
  }
  return (
  <div
- className="rounded-lg px-3 py-2 flex items-start gap-3"
+ className="px-3 py-2 flex items-start gap-3"
  style={{
+ borderRadius: '2px',
  color: '#6ec577',
  backgroundColor: 'rgba(110,197,119,0.06)',
  border: '1px solid rgba(110,197,119,0.3)',
@@ -560,8 +561,8 @@ function RenderCompleteBanner({ message, onDismiss }: { message: string; onDismi
  {path && window.electronAPI?.revealInFinder && (
  <button
  onClick={reveal}
- className="text-[10px] px-2 py-0.5 rounded-md"
- style={{ color: '#6ec577', border: '1px solid rgba(110,197,119,0.45)' }}
+ className="text-[10px] px-2 py-0.5"
+ style={{ color: '#6ec577', border: '1px solid rgba(110,197,119,0.45)', borderRadius: '2px' }}
  title={`Reveal ${path} in Finder / Explorer`}
  >
  Reveal
@@ -569,8 +570,8 @@ function RenderCompleteBanner({ message, onDismiss }: { message: string; onDismi
  )}
  <button
  onClick={onDismiss}
- className="text-[10px] px-2 py-0.5 rounded-md"
- style={{ color: '#7a7164', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[10px] px-2 py-0.5"
+ style={{ color: '#7a7164', border: '1px solid rgba(168,161,150,0.2)', borderRadius: '2px' }}
  >
  Dismiss
  </button>

@@ -88,15 +88,15 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  return (
  <div
  key={i}
- className="rounded-xl p-4 space-y-2.5"
- style={{ backgroundColor: `${color}10`, borderLeft: `3px solid ${color}40` }}
+ className="p-4 space-y-2.5"
+ style={{ borderRadius: '2px', backgroundColor: `${color}10`, borderLeft: `3px solid ${color}40` }}
  >
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2.5">
  <span
- className="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold"
- style={{ backgroundColor: `${color}20`, color }}
+ className="w-7 h-7 flex items-center justify-center text-[9px] font-bold"
+ style={{ borderRadius: '2px', backgroundColor: `${color}20`, color }}
  >
  {icon}
  </span>
