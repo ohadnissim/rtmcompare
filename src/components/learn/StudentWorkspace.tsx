@@ -57,6 +57,20 @@ export default function StudentWorkspace() {
     } catch {}
   }, [])
 
+  // Publish sidebar width as a CSS variable so App.tsx's <main> can
+  // add matching padding-right without needing LearnModeContext access.
+  useEffect(() => {
+    if (enabled && role === 'student') {
+      document.documentElement.style.setProperty(
+        '--rtm-student-sidebar-width',
+        expanded ? '300px' : '40px'
+      )
+    } else {
+      document.documentElement.style.removeProperty('--rtm-student-sidebar-width')
+    }
+    return () => { document.documentElement.style.removeProperty('--rtm-student-sidebar-width') }
+  }, [enabled, role, expanded])
+
   if (!enabled || role !== 'student') return null
 
   const handleAnswerChange = (text: string) => {
@@ -117,7 +131,7 @@ export default function StudentWorkspace() {
           userSelect: 'none',
         }}
       >
-        {expanded ? '▶ Close' : '◀ Learn'}
+        {expanded ? '▶' : '◀ Notes'}
       </button>
 
       {/* Main panel */}
@@ -138,35 +152,19 @@ export default function StudentWorkspace() {
         }}
       >
         {/* Step label */}
-        <div
-          style={{
-            fontSize: 10,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: 'var(--color-accent)',
-            marginBottom: 6,
-          }}
-        >
-          Step {step + 1} of {GUIDED_STEPS.length} — {currentStep?.label}
+        <div style={{
+          fontSize: 9,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: 'var(--color-accent)',
+          marginBottom: 10,
+          opacity: 0.8,
+        }}>
+          Step {step + 1} / {GUIDED_STEPS.length} — {currentStep?.label}
         </div>
 
-        {/* Step question */}
-        {currentStep && (
-          <p
-            style={{
-              fontSize: 13,
-              color: 'var(--color-text-primary)',
-              lineHeight: 1.5,
-              margin: '0 0 10px',
-              fontStyle: 'italic',
-              fontFamily: 'var(--font-display, serif)',
-            }}
-          >
-            {currentStep.question}
-          </p>
-        )}
-
-        {/* Hint (collapsible) */}
+        {/* Hint (collapsible) — replaces the duplicate question. The question
+            lives in GuidedFlowBar. This panel is the answer pad. */}
         {currentStep?.hint && (
           <div style={{ marginBottom: 10 }}>
             <button
@@ -214,13 +212,13 @@ export default function StudentWorkspace() {
               marginBottom: 4,
             }}
           >
-            My Answer
+            My Notes — Step {step + 1}
           </label>
           <textarea
             value={answer}
             onChange={e => handleAnswerChange(e.target.value)}
-            placeholder="Type your answer here…"
-            rows={4}
+            placeholder="What do you hear? What do the meters tell you? Write your observations here — they'll be included in your report."
+            rows={5}
             style={{
               width: '100%',
               background: 'rgba(255,255,255,0.04)',

@@ -170,11 +170,50 @@ export default function GuidedFlowBar({
           position: 'sticky',
           top: 92,
           zIndex: 30, // must be below header's z-40 so OverflowMenu dropdown renders on top
-          background: 'rgba(21,20,17,0.98)',
+          background: effectiveRole === 'teacher'
+            ? 'rgba(21,20,17,0.98)'
+            : 'rgba(21,20,17,0.98)',
           borderBottom: '1px solid rgba(208,176,102,0.18)',
+          borderTop: effectiveRole === 'teacher'
+            ? '2px solid rgba(123,196,158,0.5)'   // teal = teacher
+            : '2px solid rgba(208,176,102,0.5)',  // gold = student
           padding: '0 24px',
         }}
       >
+        {/* Role banner — always visible so user knows exactly which mode they're in */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '4px 0 2px',
+          borderBottom: '1px solid rgba(208,176,102,0.06)',
+        }}>
+          <span style={{
+            fontSize: 8,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            padding: '2px 7px',
+            borderRadius: '2px',
+            fontWeight: 600,
+            background: effectiveRole === 'teacher'
+              ? 'rgba(123,196,158,0.15)'
+              : 'rgba(208,176,102,0.12)',
+            color: effectiveRole === 'teacher'
+              ? 'rgba(123,196,158,0.9)'
+              : 'var(--color-accent)',
+            border: effectiveRole === 'teacher'
+              ? '1px solid rgba(123,196,158,0.3)'
+              : '1px solid rgba(208,176,102,0.3)',
+          }}>
+            {effectiveRole === 'teacher' ? '🎓 Teacher Mode' : '🎧 Student Mode'}
+          </span>
+          {previewingStudent && (
+            <span style={{ fontSize: 9, color: 'rgba(123,196,158,0.6)', letterSpacing: '0.06em' }}>
+              — previewing as student
+            </span>
+          )}
+        </div>
+
         {/* Assignment title row — shown when an assignment is active */}
         {assignment && (
           <div
@@ -540,27 +579,35 @@ export default function GuidedFlowBar({
                 Step {step + 1} of {GUIDED_STEPS.length} — {currentStep.label}
               </div>
               {currentStep.targetTab && (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  marginBottom: 8,
-                  padding: '3px 8px',
-                  border: '1px solid rgba(208,176,102,0.3)',
-                  borderRadius: '2px',
-                  fontSize: 10,
-                  color: 'var(--color-sand-400)',
-                  letterSpacing: '0.05em',
-                  background: 'rgba(208,176,102,0.05)',
-                }}>
-                  <span style={{ fontSize: 9, opacity: 0.6 }}>▶</span>
-                  <span style={{ textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                    Navigate to:
+                <button
+                  onClick={() => onNavigate(currentStep.tabId)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    marginBottom: 8,
+                    padding: '3px 8px',
+                    border: '1px solid rgba(208,176,102,0.4)',
+                    borderRadius: '2px',
+                    fontSize: 10,
+                    color: 'var(--color-accent)',
+                    letterSpacing: '0.05em',
+                    background: 'rgba(208,176,102,0.08)',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(208,176,102,0.15)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(208,176,102,0.08)')}
+                >
+                  <span style={{ fontSize: 9 }}>▶</span>
+                  <span style={{ textTransform: 'uppercase', letterSpacing: '0.07em', opacity: 0.7 }}>
+                    Open:
                   </span>
-                  <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>
+                  <span style={{ fontWeight: 600 }}>
                     {currentStep.targetTab}
                   </span>
-                </div>
+                </button>
               )}
               {/* BUG-08: show rubric metrics relevant to this step when an assignment is active.
                   FIX (NEW-02): was checking non-existent `rubricMetrics` property; now uses

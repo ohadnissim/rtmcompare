@@ -1,6 +1,20 @@
 import React, { useState } from 'react'
-import { useLearnMode } from '../../context/LearnModeContext'
+import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
 import type { AssignmentConfig, LearnAnnotation, BlindTestPredictions } from '../../types'
+
+const STORAGE_PREFIX = 'rtm-learn-answer-'
+
+/** Read all 9 step answers from localStorage (written by StudentWorkspace) */
+function loadAllStepAnswers(): Record<string, string> {
+  const answers: Record<string, string> = {}
+  try {
+    for (const s of GUIDED_STEPS) {
+      const v = localStorage.getItem(`${STORAGE_PREFIX}${s.id}`)
+      if (v) answers[s.id] = v
+    }
+  } catch {}
+  return answers
+}
 
 interface StudentReportPayload {
   assignment: AssignmentConfig | null
@@ -9,11 +23,11 @@ interface StudentReportPayload {
   fileAName: string
   fileBName: string
   exportedAt: string
-  // BUG-01 fix: include blind test data in PDF payload
   blindTest: BlindTestPredictions | null
-  // BUG-02 fix: carry student name from localStorage into the report
   studentName: string
   studentId: string
+  /** Per-step written answers from StudentWorkspace — keyed by step ID */
+  stepAnswers: Record<string, string>
 }
 
 interface Props {
@@ -51,6 +65,7 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
       blindTest,
       studentName,
       studentId,
+      stepAnswers: loadAllStepAnswers(),
     }
 
     const TIMEOUT_MS = 30_000

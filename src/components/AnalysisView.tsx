@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { AnalysisResult, FileInfo } from '../types'
 import ABPlayer from './ABPlayer'
+import { AnnotationLayer } from './learn/AnnotationLayer'
+import { useLearnMode } from '../context/LearnModeContext'
 import CategoryCard from './CategoryCard'
 import SpectrumOverlay from './SpectrumOverlay'
 import MonoCompat from './MonoCompat'
@@ -61,6 +63,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  // spectrum / reference / QC analysis readable while the audition stays blind.
  const labelA = stripExt(fileA.name)
  const labelB = stripExt(fileB.name)
+
+ // Learn Mode — hide tab strip and mount annotation layer when active
+ const { enabled: learnEnabled } = useLearnMode()
 
  const [activeTab, setActiveTab] = useState<Tab>('overview')
  // Atmos tab has a sub-toggle (Immersive / Downmix) so ADM sessions don't
@@ -340,18 +345,14 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </div>
  )}
 
- {/* Sticky tab nav — sits ABOVE the player so tabs are always visible.
- `--app-sticky-top` is published from App.tsx by measuring the actual
- drag-strip + header heights at runtime (ResizeObserver-backed so it
- stays correct on header reflow). The 92 px fallback covers the brief
- window before the measurement effect fires. Beta-tester reports prior
- to v5.0.3: hardcoded pixel offsets broke every time header content
- changed (rebrand wordmark, button-row growth, etc.). */}
+ {/* Sticky tab nav — hidden in Learn Mode (GuidedFlowBar drives navigation).
+ In normal mode: sits sticky above the player, always visible.
+ `--app-sticky-top` measured at runtime by App.tsx so it survives header reflows. */}
  <div
  role="tablist"
  aria-label="Analysis sections"
  className="sticky z-20 -mx-8 px-8 bg-sand-950/96 backdrop-blur-md border-b border-dark-700/30"
- style={{ top: 'var(--app-sticky-top, 100px)' }}
+ style={{ top: 'var(--app-sticky-top, 100px)', display: learnEnabled ? 'none' : undefined }}
  >
  <div className="flex">
  {tabs.map(tab => (
@@ -1518,6 +1519,13 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  />
  </div>
  )}
+
+ {/* ─── LEARN MODE: Annotation Layer ─── */}
+ {/* Mounted once and keyed to the active tab so annotations are
+     scoped per-tab per-step. Renders as a fixed overlay so it
+     works identically regardless of which tab is showing. */}
+ {learnEnabled && <AnnotationLayer tabId={activeTab} />}
+
  </div>
  )
 }

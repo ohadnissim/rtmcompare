@@ -918,7 +918,7 @@ export default function App() {
  />
  <StudentWorkspace />
 
- <main className="max-w-5xl mx-auto px-8 py-6">
+ <main className="max-w-5xl mx-auto px-8 py-6" style={{ paddingRight: 'calc(32px + var(--rtm-student-sidebar-width, 0px))', transition: 'padding-right 0.2s ease' }}>
  {/* ReleaseCockpit removed — Label mode is shelved while we
  focus on the engineer side. The component + its tour + the
  releases store all remain in the codebase. */}
