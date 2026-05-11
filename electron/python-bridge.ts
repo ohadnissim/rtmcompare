@@ -60,12 +60,24 @@ export function pythonSpawnEnv(): NodeJS.ProcessEnv {
   }
   const cacheRoot = path.join(userData, 'python-cache')
   try { fs.mkdirSync(cacheRoot, { recursive: true }) } catch {}
+  // 5.7.x audit fix: namespace the numba cache by app version. Pre-fix,
+  // multiple concurrent analyses (a parallel batch run, or the user
+  // hitting Analyze twice quickly) wrote the same `.nbi`/`.nbc` files
+  // simultaneously — numba doesn't lock cache files. Symptom on first
+  // launch after upgrade: `ImportError: nbi version mismatch`. Per-
+  // version subdir means a) concurrent writes within the same version
+  // are still racy but converge, and b) upgrades start with a clean
+  // cache so stale .nbi from a prior version can't poison the load.
+  let appVersion = 'dev'
+  try { appVersion = require('electron').app.getVersion() } catch {}
+  const numbaCacheDir = path.join(cacheRoot, 'numba', appVersion)
+  try { fs.mkdirSync(numbaCacheDir, { recursive: true }) } catch {}
   return {
     ...process.env,
     PYTHONUNBUFFERED: '1',
     PYTHONDONTWRITEBYTECODE: '1',
     PYTHONPYCACHEPREFIX: path.join(cacheRoot, 'pycache'),
-    NUMBA_CACHE_DIR: path.join(cacheRoot, 'numba'),
+    NUMBA_CACHE_DIR: numbaCacheDir,
   }
 }
 
@@ -161,6 +173,22 @@ export function getPythonPaths(): { pythonCmd: string; pythonDir: string; script
   }
 
   // Fallback: system python (dev mode)
+  // Prefer Homebrew arm64 Python if available (dev on Apple Silicon — the
+  // bundled python-bundle/ only ships with the packaged app, not in the dev
+  // tree, so /usr/bin/python3 is bare and lacks numpy/soundfile/etc.)
+  const homebrewPythons = [
+    '/opt/homebrew/bin/python3.12',
+    '/opt/homebrew/bin/python3.11',
+    '/opt/homebrew/bin/python3.10',
+    '/opt/homebrew/bin/python3',
+  ]
+  if (!isWin) {
+    for (const p of homebrewPythons) {
+      if (fs.existsSync(p)) {
+        return { pythonCmd: p, pythonDir, scriptPath }
+      }
+    }
+  }
   return {
     pythonCmd: isWin ? 'python.exe' : '/usr/bin/python3',
     pythonDir,
@@ -299,8 +327,16 @@ export async function analyzePython(
         } catch {}
       }
 
-      // Distinguish cancelled from crashed.
+      // 5.7.x audit fix: differentiate the THREE reasons SIGTERM fires.
+      // Pre-fix, every SIGTERM/SIGKILL was reported as "cancelled by
+      // user", masking the watchdog timeout (30 min) and the stdout
+      // overflow guard. Check the more-specific flag first so users
+      // see the real cause when their analysis dies on its own.
       if (signal === 'SIGTERM' || signal === 'SIGKILL') {
+        if (bufferKilled) {
+          reject(new Error('Analysis killed: stdout overflow (Python printed too much). Re-run with smaller files or report this as a bug.'))
+          return
+        }
         const e: any = new Error('Analysis cancelled by user')
         e.cancelled = true
         reject(e)
