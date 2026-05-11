@@ -61,6 +61,8 @@ const METRIC_OPTIONS = [
   { key: 'distortion',        label: 'Distortion / Clipping' },
   { key: 'masking_overlap',   label: 'Frequency Masking' },
   { key: 'click_count',       label: 'Click / Artifact Count' },
+  { key: 'center_fill_ms',   label: 'Center Fill (M/S Ratio)' },
+  { key: 'noise_floor',      label: 'Noise Floor' },
 ]
 
 // ─── Sub-components / style helpers ─────────────────────────────────────────

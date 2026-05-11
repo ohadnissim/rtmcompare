@@ -1819,6 +1819,19 @@ function buildGradeRecord(payload: any, pdfPath: string): Record<string, unknown
       const ev = clicks.click_events ?? clicks.events ?? []
       return Array.isArray(ev) ? ev.length : null
     }
+    const ar = result
+    if (metric === 'center_fill_ms') {
+      // M/S ratio: mid energy / side energy
+      // Try analysisResult.ms_ratio_b or analysisResult.center_fill_ms_b or analysisResult.ms_ratio
+      const msB = ar?.ms_ratio_b ?? ar?.center_fill_ms_b ?? ar?.ms_ratio ?? null
+      return typeof msB === 'number' ? msB : null
+    }
+    if (metric === 'noise_floor') {
+      // Noise floor in dBFS — lower (more negative) is better
+      // Try analysisResult.noise_floor_b or analysisResult.noise_floor
+      const nfB = ar?.noise_floor_b ?? ar?.noise_floor ?? null
+      return typeof nfB === 'number' ? nfB : null
+    }
     return null
   }
 
@@ -1935,7 +1948,12 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
       try {
         const sidecarPath = finalPath.replace(/\.pdf$/i, '.rtm-report.json')
         const sidecar = buildGradeRecord(payload, finalPath)
-        fs.writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2), 'utf8')
+        // Include blind test predictions if present
+        const blindTest = payload?.blindTest ?? null
+        const sidecarWithBlindTest = blindTest
+          ? { ...sidecar as Record<string, unknown>, blindTest }
+          : sidecar
+        fs.writeFileSync(sidecarPath, JSON.stringify(sidecarWithBlindTest, null, 2), 'utf8')
       } catch { /* sidecar write is best-effort, never fail the PDF */ }
       return { ok: true, path: finalPath }
     } catch (err: any) {
@@ -1978,6 +1996,9 @@ ipcMain.handle('scan-class-folder', async (_e, folderPath: string) => {
 })
 
 // ── Learn Mode — export grade book records as CSV ────────────────────────
+// Dynamic per-criterion columns: derived from rubric[] array in each record.
+// New metrics (center_fill_ms, noise_floor, etc.) appear automatically when
+// teachers include them in their assignment rubric — no CSV code changes needed.
 ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
   if (!Array.isArray(records) || records.length === 0) {
     return { ok: false, error: 'No records to export.' }

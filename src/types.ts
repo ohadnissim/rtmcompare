@@ -710,12 +710,25 @@ export interface LearnGuidedStep {
  hint?: string           // optional hint text
 }
 
+export interface BlindTestAnswer {
+  dimension: 'loudness' | 'tonal_low' | 'tonal_bright' | 'stereo_width' | 'dynamics' | 'translation' | 'overall'
+  choice: 'A' | 'equal' | 'B'
+  notes: string
+}
+
+export interface BlindTestPredictions {
+  answers: BlindTestAnswer[]
+  submittedAt: string
+  revealed: boolean
+}
+
 export interface LearnModeState {
  enabled: boolean
  role: LearnRole
  step: number                        // current guided step (0-indexed)
  assignment: AssignmentConfig | null
  annotations: LearnAnnotation[]
+ blindTest: BlindTestPredictions | null
  toggleLearnMode: () => void
  setRole: (role: LearnRole) => void
  nextStep: () => void
@@ -725,4 +738,7 @@ export interface LearnModeState {
  addAnnotation: (a: Omit<LearnAnnotation, 'id' | 'createdAt'>) => void
  removeAnnotation: (id: string) => void
  clearAnnotations: () => void
+ submitBlindTest: (predictions: BlindTestPredictions) => void
+ revealBlindTest: () => void
+ resetBlindTest: () => void
 }

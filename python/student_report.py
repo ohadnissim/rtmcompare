@@ -426,6 +426,42 @@ def build_html(payload):
         except (TypeError, ValueError):
             qc_rows += qc_row('Duration', duration_b)
 
+    noise_floor_b = result.get('noise_floor_b')
+    if noise_floor_b is not None:
+        try:
+            nf_val = float(noise_floor_b)
+            nf_display = f'−{abs(nf_val):.1f} dBFS' if nf_val < 0 else f'{nf_val:.1f} dBFS'
+            if nf_val <= -75:
+                nf_indicator = '<span style="color:#6fcf97">&#10003;</span>'
+            elif nf_val <= -60:
+                nf_indicator = '<span style="color:#f2c94c">&#9888;</span>'
+            else:
+                nf_indicator = '<span style="color:#eb5757">&#10007;</span>'
+            qc_rows += (
+                f'<tr><td style="width:160px; color:#b0a88a">Noise Floor</td>'
+                f'<td style="color:#ebe7e0">{nf_display} {nf_indicator}</td></tr>'
+            )
+        except (TypeError, ValueError):
+            qc_rows += qc_row('Noise Floor', noise_floor_b)
+
+    ms_ratio_b = result.get('ms_ratio_b')
+    if ms_ratio_b is not None:
+        try:
+            ms_val = float(ms_ratio_b)
+            ms_display = f'{ms_val:.2f}'
+            if 0.8 <= ms_val <= 1.4:
+                ms_indicator = '<span style="color:#6fcf97">&#10003;</span>'
+            elif (0.5 <= ms_val < 0.8) or (1.4 < ms_val <= 1.8):
+                ms_indicator = '<span style="color:#f2c94c">&#9888;</span>'
+            else:
+                ms_indicator = '<span style="color:#eb5757">&#10007;</span>'
+            qc_rows += (
+                f'<tr><td style="width:160px; color:#b0a88a">Center Fill (M/S)</td>'
+                f'<td style="color:#ebe7e0">{ms_display} {ms_indicator}</td></tr>'
+            )
+        except (TypeError, ValueError):
+            qc_rows += qc_row('Center Fill (M/S)', ms_ratio_b)
+
     tech_qc_section = ''
     if qc_rows:
         tech_qc_section = f"""
@@ -459,6 +495,27 @@ def build_html(payload):
           <td>{esc(name)}</td>
           <td style="text-align:center">{a_val}</td>
           <td style="text-align:center">{b_val}</td>
+        </tr>"""
+        # Insert M/S center-fill row after stereo_width
+        if key == 'stereo_width':
+            ar = result
+            ms_a = ar.get('ms_ratio_a') or ar.get('center_fill_ms_a')
+            ms_b = ar.get('ms_ratio_b') or ar.get('center_fill_ms_b')
+            if ms_a is not None or ms_b is not None:
+                def fmt_ms(v):
+                    if v is None:
+                        return '&mdash;'
+                    try:
+                        return f'{float(v):.2f}'
+                    except (TypeError, ValueError):
+                        return '&mdash;'
+                ms_a_str = fmt_ms(ms_a)
+                ms_b_str = fmt_ms(ms_b)
+                metrics_rows += f"""
+        <tr>
+          <td>Center Fill (M/S)</td>
+          <td style="text-align:center">{ms_a_str}</td>
+          <td style="text-align:center">{ms_b_str}</td>
         </tr>"""
 
     # ── Annotations ──────────────────────────────────────────────────
@@ -498,6 +555,72 @@ def build_html(payload):
         </tbody>
       </table>
     </section>"""
+
+    # ── Blind Test section ───────────────────────────────────────────────────
+    file_a_name = payload.get('fileAName') or 'File A'
+    file_b_name = payload.get('fileBName') or 'File B'
+    blind_test = payload.get('blindTest') or {}
+    bt_answers = blind_test.get('answers', [])
+    blind_test_section = ''
+    if bt_answers:
+        DIMENSION_LABELS = {
+            'loudness':     'Loudness',
+            'tonal_low':    'Low-end energy',
+            'tonal_bright': 'Brightness',
+            'stereo_width': 'Stereo width',
+            'dynamics':     'Dynamic feel',
+            'translation':  'Translation',
+            'overall':      'Overall preference',
+        }
+        rows_html = ''
+        for ans in bt_answers:
+            dim = ans.get('dimension', '')
+            choice = ans.get('choice', '')  # 'A', 'equal', 'B'
+            notes = esc(ans.get('notes', ''))
+            label = DIMENSION_LABELS.get(dim, dim)
+
+            if choice == 'A':
+                choice_display = '<span style="color:#6fcf97">' + esc(file_a_name[:20]) + '</span>'
+            elif choice == 'B':
+                choice_display = '<span style="color:#b0a88a">' + esc(file_b_name[:20]) + '</span>'
+            elif choice == 'equal':
+                choice_display = '<span style="color:#a8a197">Equal / No difference</span>'
+            else:
+                choice_display = esc(choice)
+
+            notes_html = (
+                '<div style="font-size:11px;color:#7a7368;margin-top:3px;">' + notes + '</div>'
+                if notes else ''
+            )
+
+            rows_html += (
+                '<tr>'
+                '<td style="padding:6px 10px;color:#a8a197;font-size:12px;width:150px;vertical-align:top;">' + esc(label) + '</td>'
+                '<td style="padding:6px 10px;font-size:12px;vertical-align:top;">' + choice_display + notes_html + '</td>'
+                '</tr>'
+            )
+
+        bt_submitted_raw = blind_test.get('submittedAt', '')
+        bt_submitted = bt_submitted_raw[:10] if bt_submitted_raw else ''
+        bt_revealed = blind_test.get('revealed', False)
+        if bt_revealed:
+            revealed_badge = '<span style="color:#6fcf97;font-size:10px;margin-left:8px;">REVEALED</span>'
+        else:
+            revealed_badge = '<span style="color:#f2c94c;font-size:10px;margin-left:8px;">NOT YET REVEALED</span>'
+
+        submitted_note = ' on ' + bt_submitted if bt_submitted else ''
+
+        blind_test_section = (
+            '<div style="margin-bottom:28px;">'
+            '<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#6b6560;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+            'Blind Test Predictions' + revealed_badge +
+            '</div>'
+            '<div style="font-size:11px;color:#7a7368;margin-bottom:10px;">Student submitted listening predictions before viewing measurements' + submitted_note + '.</div>'
+            '<table style="width:100%;border-collapse:collapse;">'
+            + rows_html +
+            '</table>'
+            '</div>'
+        )
 
     # ── Recommendations (top 3) ──────────────────────────────────────
     # Sort by priority field descending; fall back to order.
@@ -677,6 +800,8 @@ def build_html(payload):
 {mastering_chain_section}
 
 {annotations_section}
+
+{blind_test_section}
 
 {recs_section}
 

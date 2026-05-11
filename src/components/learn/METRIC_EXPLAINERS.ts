@@ -219,6 +219,30 @@ export const METRIC_EXPLAINERS: Record<string, MetricExplainerContent> = {
     proTip: 'PLR = dBTP − LUFS-I (approximately). You can compute it mentally from any meter. A PLR below 6 LU is the threshold many mastering engineers use as a hard warning sign that a master is over-processed.',
   },
 
+  center_fill_ms: {
+    metric: 'M/S',
+    fullName: 'Center Fill M/S Ratio',
+    oneLiner: 'Ratio of Mid (center) to Side energy — how much of the mix is center-anchored vs. spread.',
+    why: 'The Mid/Side ratio determines how a mix behaves on mono playback. A mix with very high Side energy and low Mid energy will lose significant content when summed to mono — critical elements (kick, bass, lead vocal) may appear to thin out or disappear. Club PA systems, broadcast center fills, and phone speakers all sum to mono; a healthy center fill ensures the mix retains body and punch on these systems.',
+    range: 'Typically 0.8–1.4 for pop/rock/hip-hop; jazz and orchestral may be lower (0.5–0.9). Avoid going below 0.4 on any commercially delivered mix.',
+    tooHigh: 'The mix is very center-dominant (mono-ish). This is safe for translation but may sound narrow and unengaging on a good stereo system. Consider adding stereo wideners to instrument buses (guitars, pads, synths) — but never widen the bass or lead vocal.',
+    tooLow: 'The mix is side-heavy. This will cause significant content loss in mono — problematic for Bluetooth speakers, club PA center fills, and broadcast. Use an M/S compressor to reduce Side channel gain, or use a stereo narrower on the master bus. Also check for phase-cancellation issues (correlation meter).',
+    unit: 'ratio (M/S, 0–2+; >1 = center-dominant, <0.5 = side-heavy)',
+    proTip: 'Sub-bass (below 80–120 Hz) should always be mono — any energy in the Side channel below this frequency causes mono compat problems and wastes woofer energy. Use M/S EQ on the master bus: cut the Side channel with a steep HPF at 80–120 Hz.',
+  },
+
+  noise_floor: {
+    metric: 'NOISE',
+    fullName: 'Noise Floor',
+    oneLiner: 'The dBFS level of the audio during silent sections — reveals noise, hum, and residual signal.',
+    why: 'The noise floor reveals everything that shouldn\'t be there: hum from ground loops, preamp noise, computer fan bleed, pedal board buzz, plugin-introduced noise. Heavy compression and limiting raise the noise floor significantly because they reduce the dynamic difference between signal and noise. A track that sounds clean in a loud mix may have an audible noise tail during fade-outs or between sections.',
+    range: 'Recording: −85 dBFS or lower. Mix: −75 dBFS or lower. Mastered: −65 dBFS or lower (compression raises the floor). Broadcast/classical: −90 dBFS or lower required.',
+    tooHigh: 'Noise floor is too high — audible hum, hiss, or residual signal. Find the source: single-track noise should be treated at the channel (noise gate, noise reduction plugin, or recording fix). Global noise from a plugin usually means a plugin is adding distortion or gain — check your mix bus chain. Hum at 50/60 Hz or harmonics indicates a ground loop in the signal path.',
+    tooLow: 'No issue — a lower noise floor is always better. If you see a suspiciously low floor (−110 to −120 dBFS), confirm the silent sections are truly silent rather than the file being padded with digital black.',
+    unit: 'dBFS (negative; lower is quieter; e.g., −90 dBFS is excellent, −60 dBFS is problematic)',
+    proTip: 'Always check the noise floor of your EXPORTED file, not just the DAW session. Many plugins add a measurable noise tail during silence (amp sims, convolution reverbs, some saturators). Export a 10-second section of silence from your bounce and measure it separately.',
+  },
+
   transient_density: {
     metric: 'TRANS',
     fullName: 'Transient Density',

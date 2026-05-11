@@ -10,12 +10,19 @@ import React from 'react'
 import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
 import AssignmentPanel from './AssignmentPanel'
 import ClassGradeBook from './ClassGradeBook'
+import BlindTestPanel from './BlindTestPanel'
 
 interface Props {
   /** Called when a step pill is clicked — callers use this to navigate tabs */
   onNavigate: (tabId: string) => void
   /** Optional reference file path — forwarded to AssignmentPanel for the lock toggle */
   referenceFilePath?: string | null
+  /** File A display name — forwarded to BlindTestPanel */
+  fileAName?: string
+  /** File B display name — forwarded to BlindTestPanel */
+  fileBName?: string
+  /** Current analysis result — forwarded to BlindTestPanel for reveal comparison */
+  analysisResult?: any
 }
 
 function StudentReportExportTrigger() {
@@ -39,11 +46,18 @@ function StudentReportExportTrigger() {
   )
 }
 
-export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) {
-  const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment } = useLearnMode()
+export default function GuidedFlowBar({
+  onNavigate,
+  referenceFilePath,
+  fileAName,
+  fileBName,
+  analysisResult,
+}: Props) {
+  const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment, blindTest } = useLearnMode()
   const [showAssignmentPanel, setShowAssignmentPanel] = React.useState(false)
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [completed, setCompleted] = React.useState(false)
+  const [blindTestOpen, setBlindTestOpen] = React.useState(false)
 
   if (!enabled) return null
 
@@ -87,8 +101,51 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
     return currentStep?.question ?? ''
   }, [currentStep, (assignment as any)?.genre])
 
+  // Count correct measurable blind test predictions for completion screen
+  const blindTestSummary = React.useMemo(() => {
+    if (!blindTest?.revealed || !blindTest.answers.length) return null
+    const measurable = ['loudness', 'stereo_width', 'dynamics', 'translation'] as const
+    type MeasurableDim = typeof measurable[number]
+    const ar = analysisResult ?? {}
+
+    function matchLufs(choice: string, a: number | null | undefined, b: number | null | undefined): boolean {
+      if (a == null || b == null) return false
+      const delta = a - b
+      if (Math.abs(delta) < 0.5) return choice === 'equal'
+      return delta > 0 ? choice === 'A' : choice === 'B'
+    }
+    function matchDelta(choice: string, a: number | null | undefined, b: number | null | undefined, higherFavorsA: boolean): boolean {
+      if (a == null || b == null) return false
+      const delta = a - b
+      if (Math.abs(delta) < 0.1) return choice === 'equal'
+      return (higherFavorsA ? delta > 0 : delta < 0) ? choice === 'A' : choice === 'B'
+    }
+
+    let correct = 0
+    for (const dim of measurable) {
+      const answer = blindTest.answers.find(a => a.dimension === dim)
+      if (!answer) continue
+      const c = answer.choice
+      if (dim === 'loudness' && matchLufs(c, ar.lufs_i_a, ar.lufs_i_b)) correct++
+      else if (dim === 'stereo_width' && matchDelta(c, ar.stereo_width_a, ar.stereo_width_b, true)) correct++
+      else if (dim === 'dynamics' && matchDelta(c, ar.lra_a, ar.lra_b, false)) correct++
+      else if (dim === 'translation' && matchDelta(c, ar.mono_compat_a, ar.mono_compat_b, true)) correct++
+    }
+    return { correct, total: measurable.length }
+  }, [blindTest, analysisResult])
+
   return (
     <>
+      {/* Blind Test overlay */}
+      {blindTestOpen && (
+        <BlindTestPanel
+          onClose={() => setBlindTestOpen(false)}
+          analysisResult={analysisResult}
+          fileAName={fileAName ?? 'File A'}
+          fileBName={fileBName ?? 'File B'}
+        />
+      )}
+
       <div
         style={{
           position: 'sticky',
@@ -144,6 +201,41 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
             scrollbarWidth: 'none',
           }}
         >
+          {/* Blind Test button */}
+          <button
+            onClick={() => setBlindTestOpen(true)}
+            style={{
+              flexShrink: 0,
+              background: 'transparent',
+              border: '1px solid rgba(168,161,150,0.3)',
+              borderRadius: '2px',
+              color: 'var(--color-sand-400)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '5px 10px',
+              cursor: 'pointer',
+              marginRight: 4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            🎧 Blind Test
+            {blindTest != null && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: 'rgba(208,176,102,0.8)',
+                  flexShrink: 0,
+                }}
+              />
+            )}
+          </button>
+
           {GUIDED_STEPS.map((s, index) => {
             const isActive = index === step
             const isCompleted = index < step
@@ -297,6 +389,30 @@ export default function GuidedFlowBar({ onNavigate, referenceFilePath }: Props) 
               <div style={{ fontSize: 11, color: 'var(--color-sand-400)' }}>
                 You've worked through all {GUIDED_STEPS.length} steps. Export your report to document your findings.
               </div>
+              {blindTestSummary && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTop: '1px solid rgba(208,176,102,0.1)',
+                    fontSize: 11,
+                    color: 'var(--color-sand-400)',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      color: 'rgba(208,176,102,0.5)',
+                      marginRight: 8,
+                    }}
+                  >
+                    Blind Test Results
+                  </span>
+                  You correctly predicted {blindTestSummary.correct} of {blindTestSummary.total} measurable dimensions.
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
               <button
