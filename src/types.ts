@@ -708,6 +708,7 @@ export interface LearnGuidedStep {
  tabId: string           // App tab to navigate to
  question: string        // question the student should answer
  hint?: string           // optional hint text
+ targetTab?: string      // human-readable tab label shown as a navigate-to hint
 }
 
 export interface BlindTestAnswer {

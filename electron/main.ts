@@ -1920,21 +1920,23 @@ function buildGradeRecord(payload: any, pdfPath: string): Record<string, unknown
   })
 
   return {
-    version:         1,
-    studentName:     assignment.studentName ?? '',
-    studentId:       assignment.studentId  ?? '',
-    assignmentTitle: assignment.title      ?? '',
-    course:          assignment.course     ?? '',
-    instructor:      assignment.instructor ?? '',
-    genre:           assignment.genre      ?? '',
-    dueDate:         assignment.dueDate    ?? '',
-    exportedAt:      payload.exportedAt    ?? new Date().toISOString(),
-    fileBName:       payload.fileBName     ?? '',
+    version:           1,
+    studentName:       assignment.studentName ?? '',
+    studentId:         assignment.studentId  ?? '',
+    assignmentTitle:   assignment.title      ?? '',
+    course:            assignment.course     ?? '',
+    instructor:        assignment.instructor ?? '',
+    genre:             assignment.genre      ?? '',
+    dueDate:           assignment.dueDate    ?? '',
+    exportedAt:        payload.exportedAt    ?? new Date().toISOString(),
+    fileBName:         payload.fileBName     ?? '',
     pdfPath,
     rubric: rows,
-    totalEarned:  Math.round(totalEarned * 10) / 10,
-    totalPossible: Math.round(totalPossible * 10) / 10,
-    pct: totalPossible > 0 ? Math.round(totalEarned / totalPossible * 1000) / 10 : null,
+    totalEarned:       Math.round(totalEarned * 10) / 10,
+    totalPossible:     Math.round(totalPossible * 10) / 10,
+    pct:               totalPossible > 0 ? Math.round(totalEarned / totalPossible * 1000) / 10 : null,
+    submissionVersion: 1,
+    isDraft:           false,
   }
 }
 

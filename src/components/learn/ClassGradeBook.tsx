@@ -11,6 +11,37 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import { LmsExportPanel } from './LmsExportPanel'
 
+function detectRevisions(records: any[]): any[] {
+  // Group by studentName (case-insensitive, trimmed)
+  const groups: Record<string, any[]> = {}
+  for (const r of records) {
+    const key = (r.studentName || '').trim().toLowerCase()
+    if (!groups[key]) groups[key] = []
+    groups[key].push(r)
+  }
+
+  const result: any[] = []
+  for (const key of Object.keys(groups)) {
+    const group = groups[key]
+    if (group.length === 1) {
+      result.push({ ...group[0], submissionVersion: 1, isDraft: false })
+    } else {
+      // Sort by exportedAt ascending (oldest = v1)
+      const sorted = [...group].sort((a, b) =>
+        new Date(a.exportedAt || 0).getTime() - new Date(b.exportedAt || 0).getTime()
+      )
+      sorted.forEach((r, i) => {
+        result.push({
+          ...r,
+          submissionVersion: i + 1,
+          isDraft: i < sorted.length - 1,  // all but latest are drafts
+        })
+      })
+    }
+  }
+  return result
+}
+
 interface RubricRow {
   metric: string
   label: string
@@ -37,6 +68,9 @@ interface GradeRecord {
   totalPossible: number
   pct: number | null
   pdfPath?: string
+  submissionVersion?: number
+  isDraft?: boolean
+  reportPath?: string
 }
 
 interface Props {
@@ -56,6 +90,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [lastScanned, setLastScanned] = useState<string | null>(null)
   const [feedbackMap, setFeedbackMap] = useState<Record<string, string>>({})
+  const [draftOverrides, setDraftOverrides] = useState<Record<string, boolean>>({})
   const [insightsOpen, setInsightsOpen] = useState(true)
   const [lmsOpen, setLmsOpen] = useState(false)
   const [hasLmsConfig, setHasLmsConfig] = useState(false)
@@ -74,7 +109,11 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     try {
       const result = await (window as any).electronAPI?.scanClassFolder(folderPath)
       if (result?.ok) {
-        const loadedRecords: GradeRecord[] = result.records ?? []
+        const raw: GradeRecord[] = (result.records ?? []).map((r: GradeRecord) => ({
+          ...r,
+          reportPath: r.pdfPath ?? '',
+        }))
+        const loadedRecords: GradeRecord[] = detectRevisions(raw)
         setRecords(loadedRecords)
         setLastScanned(new Date().toLocaleTimeString())
         // Load feedback for each record
@@ -135,8 +174,11 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     if (!allLabels.includes(row.label)) allLabels.push(row.label)
   }))
 
-  // Sort records
+  // Sort records: isDraft ascending (false first), then user-selected sort
   const sorted = [...records].sort((a, b) => {
+    const aIsDraft = draftOverrides[a.reportPath ?? ''] ?? a.isDraft ?? false
+    const bIsDraft = draftOverrides[b.reportPath ?? ''] ?? b.isDraft ?? false
+    if (aIsDraft !== bIsDraft) return aIsDraft ? 1 : -1
     let cmp = 0
     if (sortCol === 'name') cmp = (a.studentName ?? '').localeCompare(b.studentName ?? '')
     else if (sortCol === 'date') cmp = (a.exportedAt ?? '').localeCompare(b.exportedAt ?? '')
@@ -585,10 +627,31 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
               <tbody>
                 {sorted.map((rec, i) => {
                   const dateStr = rec.exportedAt ? new Date(rec.exportedAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '—'
+                  const effectiveIsDraft = draftOverrides[rec.reportPath ?? ''] ?? rec.isDraft ?? false
                   return (
-                    <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                    <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)', opacity: effectiveIsDraft ? 0.45 : 1 }}>
                       <td style={tdStyle}>
-                        <div>{rec.studentName || '—'}</div>
+                        <div>
+                          {rec.studentName || '—'}
+                          {(rec.submissionVersion ?? 1) > 1 && (
+                            <span style={{
+                              marginLeft: 6, fontSize: 9, padding: '1px 5px',
+                              border: '1px solid rgba(208,176,102,0.5)',
+                              borderRadius: '2px', color: 'rgba(208,176,102,0.8)',
+                              letterSpacing: '0.04em', verticalAlign: 'middle',
+                            }}>
+                              v{rec.submissionVersion}
+                            </span>
+                          )}
+                          {effectiveIsDraft && (
+                            <span style={{
+                              marginLeft: 5, fontSize: 9, color: 'rgba(220,80,60,0.6)',
+                              textTransform: 'uppercase', letterSpacing: '0.06em',
+                            }}>
+                              [draft]
+                            </span>
+                          )}
+                        </div>
                         {rec.studentId && <div style={{ fontSize: 9, color: 'var(--color-sand-400)' }}>{rec.studentId}</div>}
                       </td>
                       <td style={{ ...tdStyle, fontSize: 10, color: 'var(--color-sand-400)' }}>{dateStr}</td>
@@ -636,6 +699,33 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                           />
                         ) : (
                           <span style={{ color: 'var(--color-sand-400)', fontSize: 10 }}>—</span>
+                        )}
+                        {(rec.submissionVersion ?? 1) > 1 && (
+                          <button
+                            onClick={() => {
+                              const currentIsDraft = draftOverrides[rec.reportPath ?? ''] ?? rec.isDraft ?? false
+                              setDraftOverrides(prev => ({ ...prev, [rec.reportPath ?? '']: !currentIsDraft }))
+                              // If there are exactly 2 records for this student, flip the sibling too
+                              const siblings = records.filter(r =>
+                                (r.studentName || '').trim().toLowerCase() === (rec.studentName || '').trim().toLowerCase()
+                                && r.reportPath !== rec.reportPath
+                              )
+                              if (siblings.length === 1) {
+                                setDraftOverrides(prev => ({ ...prev, [siblings[0].reportPath ?? '']: currentIsDraft }))
+                              }
+                            }}
+                            style={{
+                              marginTop: 4, padding: '3px 8px',
+                              background: 'none',
+                              border: '1px solid rgba(208,176,102,0.2)',
+                              borderRadius: '2px',
+                              color: 'var(--color-sand-400)',
+                              fontSize: 10, cursor: 'pointer',
+                              letterSpacing: '0.04em', textTransform: 'uppercase',
+                            }}
+                          >
+                            {effectiveIsDraft ? 'Mark Final' : 'Mark Draft'}
+                          </button>
                         )}
                       </td>
                     </tr>
