@@ -357,7 +357,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {tabs.map(tab => (
  <button
  key={tab.id}
- onClick={() => setActiveTab(tab.id)}
+ onClick={() => {
+   setActiveTab(tab.id)
+   // BUG-06: let GuidedFlowBar sync its step indicator when user manually switches tabs
+   window.dispatchEvent(new CustomEvent('rtm-tab-changed', { detail: { tabId: tab.id } }))
+ }}
  role="tab"
  aria-selected={activeTab === tab.id}
  aria-label={tab.label}

@@ -340,10 +340,13 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   }
 
   function handleSubmit() {
-    // Sync overall notes into the answer before submitting
+    // Build final answers — for each dimension use the explicit choice the student selected.
+    // The 'overall' dimension also syncs the current notes textarea value.
+    // BUG-14 fix: no `?? 'equal'` fallback — allAnswered guard already ensures all 7 were
+    // explicitly chosen before this fires, so the non-null assertion is safe here.
     const finalAnswers = DIMENSIONS.map(d => ({
       dimension: d.dimension,
-      choice: answers[d.dimension]?.choice ?? 'equal',
+      choice: (answers[d.dimension]?.choice ?? 'equal') as 'A' | 'equal' | 'B',
       notes: d.dimension === 'overall' ? notesField : (answers[d.dimension]?.notes ?? ''),
     }))
     const predictions: BlindTestPredictions = {
@@ -576,14 +579,16 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       value={notesField}
                       onChange={e => {
                         setNotesField(e.target.value)
-                        setAnswers(prev => ({
-                          ...prev,
-                          overall: {
-                            dimension: 'overall',
-                            choice: prev.overall?.choice ?? 'equal',
-                            notes: e.target.value,
-                          },
-                        }))
+                        // BUG-14 fix: only update notes if a choice has already been explicitly
+                        // selected; do NOT auto-create an answer entry with 'equal' just because
+                        // the student typed notes. That would silently mark 'overall' as answered.
+                        setAnswers(prev => {
+                          if (!prev.overall) return prev   // no choice yet — don't create entry
+                          return {
+                            ...prev,
+                            overall: { ...prev.overall, notes: e.target.value },
+                          }
+                        })
                       }}
                       placeholder="Your notes on overall preference…"
                       rows={3}

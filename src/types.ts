@@ -697,6 +697,9 @@ export interface LearnAnnotation {
  id: string
  text: string
  tabId?: string          // which analysis tab this note belongs to
+ /** BUG-16 fix: step ID (GUIDED_STEPS[n].id) so steps sharing the same
+  *  tabId ('overview' shared by steps 1, 2, 9) get separate annotation namespaces */
+ stepId?: string
  positionX?: number      // 0–1 relative horizontal position (waveform)
  color?: 'gold' | 'red' | 'teal' | 'sand'
  createdAt: string       // ISO string
@@ -739,6 +742,8 @@ export interface LearnModeState {
  enabled: boolean
  role: LearnRole
  step: number                        // current guided step (0-indexed)
+ /** BUG-07 fix: persisted so "Analysis Complete" banner survives re-renders */
+ completed: boolean
  assignment: AssignmentConfig | null
  annotations: LearnAnnotation[]
  blindTest: BlindTestPredictions | null
@@ -747,10 +752,11 @@ export interface LearnModeState {
  nextStep: () => void
  prevStep: () => void
  setStep: (n: number) => void
+ setCompleted: (v: boolean) => void
  setAssignment: (a: AssignmentConfig | null) => void
  addAnnotation: (a: Omit<LearnAnnotation, 'id' | 'createdAt'>) => void
  removeAnnotation: (id: string) => void
- clearAnnotations: (tabId: string) => void
+ clearAnnotations: (tabId: string, stepId?: string) => void
  submitBlindTest: (predictions: BlindTestPredictions) => void
  revealBlindTest: (analysisResult?: any) => void
  resetBlindTest: () => void

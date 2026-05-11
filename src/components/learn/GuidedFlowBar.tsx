@@ -59,10 +59,9 @@ export default function GuidedFlowBar({
   fileBPath,
   analysisResult,
 }: Props) {
-  const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment, blindTest } = useLearnMode()
+  const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment, blindTest, completed, setCompleted } = useLearnMode()
   const [showAssignmentPanel, setShowAssignmentPanel] = React.useState(false)
   const [showGradeBook, setShowGradeBook] = React.useState(false)
-  const [completed, setCompleted] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
   const [helpOpen, setHelpOpen] = React.useState(false)
 
@@ -86,6 +85,27 @@ export default function GuidedFlowBar({
     }
     return currentStep?.question ?? ''
   }, [currentStep, (assignment as any)?.genre])
+
+  // BUG-06: sync step pill when user manually clicks a tab in AnalysisView
+  // Only sync for tabs that map unambiguously to a single step (not 'overview'
+  // which is shared by steps 1, 2, and 9).
+  React.useEffect(() => {
+    function onTabChanged(e: Event) {
+      if (!enabled) return
+      const tabId = (e as CustomEvent<{ tabId: string }>).detail?.tabId
+      if (!tabId) return
+      const matchingIndices = GUIDED_STEPS.reduce<number[]>((acc, s, i) => {
+        if (s.tabId === tabId) acc.push(i)
+        return acc
+      }, [])
+      // Only auto-sync when there's exactly one matching step (unambiguous)
+      if (matchingIndices.length === 1) {
+        setStep(matchingIndices[0])
+      }
+    }
+    window.addEventListener('rtm-tab-changed', onTabChanged)
+    return () => window.removeEventListener('rtm-tab-changed', onTabChanged)
+  }, [enabled, setStep])
 
   // Count correct measurable blind test predictions for completion screen
   const blindTestSummary = React.useMemo(() => {
@@ -528,6 +548,58 @@ export default function GuidedFlowBar({
                   </span>
                 </div>
               )}
+              {/* BUG-08: show rubric metrics relevant to this step when an assignment is active */}
+              {assignment && (assignment as any).rubricMetrics && (() => {
+                // Map each guided step to the rubric metric IDs that a student should be thinking about
+                const STEP_RUBRIC_MAP: Record<string, string[]> = {
+                  listening:  [],
+                  metering:   ['lufs_i', 'lra', 'plr'],
+                  breakdown:  ['masking'],
+                  stereo:     ['mono_compat_pct', 'stereo_width', 'center_fill_ms'],
+                  tonal:      ['tonal_deviation'],
+                  dynamics:   ['lra', 'plr', 'transient_integrity'],
+                  quality:    ['distortion', 'click_count', 'noise_floor', 'hum_detected'],
+                  delivery:   ['true_peak_dbtp', 'dither_applied'],
+                  reflection: (assignment as any).rubricMetrics as string[],
+                }
+                const relevantIds: string[] = STEP_RUBRIC_MAP[currentStep.id] ?? []
+                const activeMetrics: string[] = ((assignment as any).rubricMetrics as string[])
+                  .filter((m: string) => relevantIds.includes(m))
+                if (!activeMetrics.length) return null
+                const METRIC_LABELS: Record<string, string> = {
+                  lufs_i: 'LUFS-I', lra: 'LRA', plr: 'PLR',
+                  true_peak_dbtp: 'True Peak', mono_compat_pct: 'Mono Compat',
+                  stereo_width: 'Stereo Width', tonal_deviation: 'Tonal Dev',
+                  distortion: 'Distortion', masking: 'Masking', click_count: 'Clicks',
+                  center_fill_ms: 'Center Fill (M/S)', noise_floor: 'Noise Floor',
+                  transient_integrity: 'Transient', dither_applied: 'Dithering',
+                  hum_detected: 'Hum', dialog_gate: 'Dialog Gate',
+                }
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                    <span style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.45)', alignSelf: 'center', marginRight: 2 }}>
+                      Rubric:
+                    </span>
+                    {activeMetrics.map(m => (
+                      <span
+                        key={m}
+                        style={{
+                          fontSize: 9,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                          padding: '2px 6px',
+                          border: '1px solid rgba(208,176,102,0.3)',
+                          borderRadius: '2px',
+                          color: 'rgba(208,176,102,0.75)',
+                          background: 'rgba(208,176,102,0.04)',
+                        }}
+                      >
+                        {METRIC_LABELS[m] ?? m}
+                      </span>
+                    ))}
+                  </div>
+                )
+              })()}
               <p
                 style={{
                   fontSize: 13,

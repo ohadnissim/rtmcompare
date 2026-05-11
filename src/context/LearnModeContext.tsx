@@ -101,6 +101,8 @@ interface PersistedState {
   enabled: boolean
   role: LearnRole
   step: number
+  /** BUG-07: persisted so "Analysis Complete" banner survives re-renders */
+  completed: boolean
   assignment: AssignmentConfig | null
   annotations: LearnAnnotation[]
   blindTest: BlindTestPredictions | null
@@ -117,6 +119,7 @@ function loadFromStorage(): PersistedState {
       enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : false,
       role: parsed.role === 'teacher' ? 'teacher' : 'student',
       step: typeof parsed.step === 'number' ? Math.min(parsed.step, GUIDED_STEPS.length - 1) : 0,
+      completed: typeof parsed.completed === 'boolean' ? parsed.completed : false,
       assignment: parsed.assignment ?? null,
       annotations: Array.isArray(parsed.annotations) ? parsed.annotations : [],
       blindTest: parsed.blindTest ?? null,
@@ -127,7 +130,7 @@ function loadFromStorage(): PersistedState {
 }
 
 function defaultPersisted(): PersistedState {
-  return { enabled: false, role: 'student', step: 0, assignment: null, annotations: [], blindTest: null }
+  return { enabled: false, role: 'student', step: 0, completed: false, assignment: null, annotations: [], blindTest: null }
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -138,10 +141,11 @@ type Action =
   | { type: 'NEXT_STEP' }
   | { type: 'PREV_STEP' }
   | { type: 'SET_STEP'; n: number }
+  | { type: 'SET_COMPLETED'; v: boolean }
   | { type: 'SET_ASSIGNMENT'; assignment: AssignmentConfig | null }
   | { type: 'ADD_ANNOTATION'; annotation: LearnAnnotation }
   | { type: 'REMOVE_ANNOTATION'; id: string }
-  | { type: 'CLEAR_ANNOTATIONS'; tabId: string }
+  | { type: 'CLEAR_ANNOTATIONS'; tabId: string; stepId?: string }
   | { type: 'SUBMIT_BLIND_TEST'; predictions: BlindTestPredictions }
   | { type: 'REVEAL_BLIND_TEST'; analysisResult?: any }
   | { type: 'RESET_BLIND_TEST' }
@@ -158,6 +162,8 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       return { ...state, step: Math.max(state.step - 1, 0) }
     case 'SET_STEP':
       return { ...state, step: Math.max(0, Math.min(action.n, GUIDED_STEPS.length - 1)) }
+    case 'SET_COMPLETED':
+      return { ...state, completed: action.v }
     case 'SET_ASSIGNMENT':
       return { ...state, assignment: action.assignment }
     case 'ADD_ANNOTATION':
@@ -165,7 +171,16 @@ function reducer(state: PersistedState, action: Action): PersistedState {
     case 'REMOVE_ANNOTATION':
       return { ...state, annotations: state.annotations.filter(a => a.id !== action.id) }
     case 'CLEAR_ANNOTATIONS':
-      return { ...state, annotations: state.annotations.filter(a => a.tabId !== action.tabId) }
+      // BUG-16 fix: when stepId is provided, only clear annotations for that step
+      return {
+        ...state,
+        annotations: state.annotations.filter(a => {
+          if (a.tabId !== action.tabId) return true  // different tab — keep
+          if (!action.stepId) return false             // no stepId → clear all for this tab
+          // stepId provided → clear only if annotation's stepId matches (or annotation has no stepId)
+          return a.stepId !== undefined && a.stepId !== action.stepId
+        }),
+      }
     case 'SUBMIT_BLIND_TEST':
       return { ...state, blindTest: action.predictions }
     case 'REVEAL_BLIND_TEST': {
@@ -214,19 +229,21 @@ export function LearnModeProvider({ children }: { children: React.ReactNode }) {
         enabled: state.enabled,
         role: state.role,
         step: state.step,
+        completed: state.completed,
         assignment: state.assignment,
         annotations: state.annotations,
         blindTest: state.blindTest,
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted))
     } catch { /* swallow — storage is best-effort */ }
-  }, [state.enabled, state.role, state.step, state.assignment, state.annotations, state.blindTest])
+  }, [state.enabled, state.role, state.step, state.completed, state.assignment, state.annotations, state.blindTest])
 
   const toggleLearnMode = useCallback(() => dispatch({ type: 'TOGGLE' }), [])
   const setRole = useCallback((role: LearnRole) => dispatch({ type: 'SET_ROLE', role }), [])
   const nextStep = useCallback(() => dispatch({ type: 'NEXT_STEP' }), [])
   const prevStep = useCallback(() => dispatch({ type: 'PREV_STEP' }), [])
   const setStep = useCallback((n: number) => dispatch({ type: 'SET_STEP', n }), [])
+  const setCompleted = useCallback((v: boolean) => dispatch({ type: 'SET_COMPLETED', v }), [])
   const setAssignment = useCallback((assignment: AssignmentConfig | null) => dispatch({ type: 'SET_ASSIGNMENT', assignment }), [])
 
   const addAnnotation = useCallback((a: Omit<LearnAnnotation, 'id' | 'createdAt'>) => {
@@ -239,7 +256,7 @@ export function LearnModeProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const removeAnnotation = useCallback((id: string) => dispatch({ type: 'REMOVE_ANNOTATION', id }), [])
-  const clearAnnotations = useCallback((tabId: string) => dispatch({ type: 'CLEAR_ANNOTATIONS', tabId }), [])
+  const clearAnnotations = useCallback((tabId: string, stepId?: string) => dispatch({ type: 'CLEAR_ANNOTATIONS', tabId, stepId }), [])
 
   const submitBlindTest = useCallback((p: BlindTestPredictions) => dispatch({ type: 'SUBMIT_BLIND_TEST', predictions: p }), [])
   const revealBlindTest = useCallback((analysisResult?: any) => dispatch({ type: 'REVEAL_BLIND_TEST', analysisResult }), [])
@@ -249,6 +266,7 @@ export function LearnModeProvider({ children }: { children: React.ReactNode }) {
     enabled: state.enabled,
     role: state.role,
     step: state.step,
+    completed: state.completed,
     assignment: state.assignment,
     annotations: state.annotations,
     blindTest: state.blindTest,
@@ -257,6 +275,7 @@ export function LearnModeProvider({ children }: { children: React.ReactNode }) {
     nextStep,
     prevStep,
     setStep,
+    setCompleted,
     setAssignment,
     addAnnotation,
     removeAnnotation,

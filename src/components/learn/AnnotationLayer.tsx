@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useLearnMode } from '../../context/LearnModeContext'
+import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
 import type { LearnAnnotation } from '../../types'
 
 interface Props {
@@ -17,7 +17,7 @@ const COLOR_MAP: Record<NonNullable<LearnAnnotation['color']>, string> = {
 const COLORS: Array<LearnAnnotation['color']> = ['gold', 'red', 'teal', 'sand']
 
 export function AnnotationLayer({ tabId }: Props) {
-  const { enabled, annotations, addAnnotation, removeAnnotation, clearAnnotations } = useLearnMode()
+  const { enabled, annotations, step, addAnnotation, removeAnnotation, clearAnnotations } = useLearnMode()
 
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = React.useState(false)
@@ -26,14 +26,22 @@ export function AnnotationLayer({ tabId }: Props) {
 
   if (!enabled) return null
 
-  const tabAnnotations = annotations.filter(a => a.tabId === tabId)
+  // BUG-16 fix: scope annotations to the current step when multiple steps share
+  // the same tabId (e.g. 'overview' is used by steps 1, 2, and 9).
+  // Annotations added before this fix (no stepId) are shown on all steps for
+  // backward compatibility.
+  const currentStepId = GUIDED_STEPS[step]?.id
+  const tabAnnotations = annotations.filter(a =>
+    a.tabId === tabId && (a.stepId === undefined || a.stepId === currentStepId)
+  )
 
   // Stack notes without positionX from top in a column on the right.
   let stackOffset = 0
 
   function handleAdd() {
     if (!noteText.trim()) return
-    addAnnotation({ text: noteText.trim(), tabId, color: selectedColor })
+    // BUG-16: store stepId alongside tabId so annotations are step-scoped
+    addAnnotation({ text: noteText.trim(), tabId, stepId: currentStepId, color: selectedColor })
     setNoteText('')
     setSelectedColor('gold')
     setPopoverOpen(false)
@@ -306,12 +314,13 @@ export function AnnotationLayer({ tabId }: Props) {
               Clear all notes?
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-sand-400)', marginBottom: 20, lineHeight: 1.5 }}>
-              This will permanently delete all {annotations.filter(a => a.tabId === tabId).length} annotation{annotations.filter(a => a.tabId === tabId).length !== 1 ? 's' : ''} on this tab. This cannot be undone.
+              This will permanently delete all {tabAnnotations.length} annotation{tabAnnotations.length !== 1 ? 's' : ''} on this step. This cannot be undone.
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => {
-                  clearAnnotations(tabId)
+                  // BUG-16: pass stepId so only the current step's annotations are cleared
+                  clearAnnotations(tabId, currentStepId)
                   setShowClearConfirm(false)
                 }}
                 style={{
