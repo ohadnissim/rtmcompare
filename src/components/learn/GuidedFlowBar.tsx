@@ -494,6 +494,29 @@ export default function GuidedFlowBar({
               >
                 Step {step + 1} of {GUIDED_STEPS.length} — {currentStep.label}
               </div>
+              {currentStep.targetTab && (
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  marginBottom: 8,
+                  padding: '3px 8px',
+                  border: '1px solid rgba(208,176,102,0.3)',
+                  borderRadius: '2px',
+                  fontSize: 10,
+                  color: 'var(--color-sand-400)',
+                  letterSpacing: '0.05em',
+                  background: 'rgba(208,176,102,0.05)',
+                }}>
+                  <span style={{ fontSize: 9, opacity: 0.6 }}>▶</span>
+                  <span style={{ textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                    Navigate to:
+                  </span>
+                  <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>
+                    {currentStep.targetTab}
+                  </span>
+                </div>
+              )}
               <p
                 style={{
                   fontSize: 13,
