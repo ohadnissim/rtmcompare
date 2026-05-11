@@ -9,6 +9,7 @@
 import React from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import type { BlindTestAnswer, BlindTestPredictions, EarTrainingAnswers } from '../../types'
+import ABPlayer from '../ABPlayer'
 
 interface Props {
   onClose: () => void
@@ -157,151 +158,9 @@ function ChoiceRow({ dimension, labelA, labelB, value, onChange }: ChoiceRowProp
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-// ─── Mini audio player ────────────────────────────────────────────────────────
-
-function BlindAudioPlayer({ fileAPath, fileBPath, labelA, labelB }: {
-  fileAPath?: string | null
-  fileBPath?: string | null
-  labelA: string
-  labelB: string
-}) {
-  const audioRef = React.useRef<HTMLAudioElement | null>(null)
-  const [playing, setPlaying] = React.useState<'A' | 'B' | null>(null)
-  const [progress, setProgress] = React.useState(0)
-
-  if (!fileAPath && !fileBPath) return null
-
-  function toFileUrl(p: string) {
-    // Electron renderer can play file:// URLs directly
-    return p.startsWith('file://') ? p : `file://${p.replace(/\\/g, '/')}`
-  }
-
-  function play(which: 'A' | 'B') {
-    const path = which === 'A' ? fileAPath : fileBPath
-    if (!path) return
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.src = toFileUrl(path)
-      audioRef.current.currentTime = 0
-      audioRef.current.play().catch(() => {})
-      setPlaying(which)
-      setProgress(0)
-    }
-  }
-
-  function stop() {
-    audioRef.current?.pause()
-    setPlaying(null)
-    setProgress(0)
-  }
-
-  function toggle(which: 'A' | 'B') {
-    if (playing === which) { stop() } else { play(which) }
-  }
-
-  const btnBase: React.CSSProperties = {
-    border: '1px solid rgba(168,161,150,0.25)',
-    borderRadius: '2px',
-    fontSize: 11,
-    letterSpacing: '0.06em',
-    padding: '5px 14px',
-    cursor: 'pointer',
-    transition: 'border-color 0.1s, color 0.1s, background 0.1s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-  }
-
-  return (
-    <div
-      style={{
-        background: 'rgba(208,176,102,0.03)',
-        border: '1px solid rgba(208,176,102,0.15)',
-        borderRadius: '2px',
-        padding: '12px 16px',
-        marginBottom: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 9,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'rgba(208,176,102,0.6)',
-          marginBottom: 2,
-        }}
-      >
-        🎧 Listen before answering — play each file, then form your opinion
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {fileAPath && (
-          <button
-            onClick={() => toggle('A')}
-            style={{
-              ...btnBase,
-              background: playing === 'A' ? 'rgba(208,176,102,0.1)' : 'transparent',
-              borderColor: playing === 'A' ? 'rgba(208,176,102,0.7)' : 'rgba(168,161,150,0.25)',
-              color: playing === 'A' ? 'rgba(208,176,102,1)' : 'rgba(168,161,150,0.8)',
-            }}
-          >
-            {playing === 'A' ? '⏹' : '▶'} {labelA}
-          </button>
-        )}
-        {fileBPath && (
-          <button
-            onClick={() => toggle('B')}
-            style={{
-              ...btnBase,
-              background: playing === 'B' ? 'rgba(208,176,102,0.1)' : 'transparent',
-              borderColor: playing === 'B' ? 'rgba(208,176,102,0.7)' : 'rgba(168,161,150,0.25)',
-              color: playing === 'B' ? 'rgba(208,176,102,1)' : 'rgba(168,161,150,0.8)',
-            }}
-          >
-            {playing === 'B' ? '⏹' : '▶'} {labelB}
-          </button>
-        )}
-        {playing && (
-          <span style={{ fontSize: 10, color: 'rgba(208,176,102,0.6)' }}>
-            Playing…
-          </span>
-        )}
-      </div>
-      {/* Progress bar */}
-      {playing && (
-        <div
-          style={{
-            height: 2,
-            background: 'rgba(168,161,150,0.15)',
-            borderRadius: 1,
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${progress * 100}%`,
-              background: 'rgba(208,176,102,0.6)',
-              transition: 'width 0.25s linear',
-            }}
-          />
-        </div>
-      )}
-      {/* Hidden audio element */}
-      <audio
-        ref={audioRef}
-        onEnded={() => { setPlaying(null); setProgress(0) }}
-        onTimeUpdate={() => {
-          const a = audioRef.current
-          if (a && a.duration > 0) setProgress(a.currentTime / a.duration)
-        }}
-        style={{ display: 'none' }}
-      />
-    </div>
-  )
-}
+// BlindAudioPlayer removed — replaced with the real ABPlayer (continuous
+// playback, waveform scrubbing, gain alignment) so students get the same
+// listen experience as the main analysis view.
 
 export default function BlindTestPanel({ onClose, analysisResult, fileAName, fileBName, fileAPath, fileBPath }: Props) {
   const { blindTest, submitBlindTest, revealBlindTest, resetBlindTest } = useLearnMode()
@@ -531,13 +390,14 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
         {/* ── SECTION B: Questions ──────────────────────────────────────── */}
         {!showResults && (
           <div style={{ maxWidth: 740 }}>
-            {/* BUG-05 fix: audio player so students can actually listen */}
-            <BlindAudioPlayer
-              fileAPath={fileAPath}
-              fileBPath={fileBPath}
-              labelA={labelA}
-              labelB={labelB}
-            />
+            {/* Real ABPlayer — continuous playback, waveform, gain-aligned */}
+            {fileAPath && fileBPath && (
+              <ABPlayer
+                fileA={{ path: fileAPath, name: labelA }}
+                fileB={{ path: fileBPath, name: labelB }}
+                gainAppliedDb={analysisResult?.gain_applied_db ?? 0}
+              />
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {DIMENSIONS.map(({ dimension, label, question }) => (
                 <div
