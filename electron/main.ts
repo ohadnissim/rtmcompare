@@ -140,6 +140,30 @@ function lmsConfigPath(): string {
   return path.join(app.getPath('userData'), 'lms-config.json')
 }
 
+/** Render an HTML string to PDF via a hidden BrowserWindow.
+ *  Writes the HTML to a temp file and `loadFile`s it — historically we used a
+ *  `data:text/html` URL inline, but Chromium tightened constraints on `loadURL`
+ *  for `data:` URIs in recent versions (security + payload size). Temp file is
+ *  the canonical pattern and removes the size ceiling for large reports.
+ *  The temp file is deleted in the finally block even if rendering throws. */
+async function renderHtmlToPdf(
+  hidden: BrowserWindow,
+  html: string,
+  pdfOpts: Electron.PrintToPDFOptions
+): Promise<Buffer> {
+  const os = require('os') as typeof import('os')
+  const tmpDir = path.join(os.tmpdir(), 'rtm-pdf')
+  try { fs.mkdirSync(tmpDir, { recursive: true }) } catch {}
+  const tmpFile = path.join(tmpDir, `rtm-pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`)
+  fs.writeFileSync(tmpFile, html, 'utf8')
+  try {
+    await hidden.loadFile(tmpFile)
+    return await hidden.webContents.printToPDF(pdfOpts)
+  } finally {
+    try { fs.unlinkSync(tmpFile) } catch {}
+  }
+}
+
 // Splash window — opens INSTANTLY on app launch (before Electron loads
 // the main renderer, before vite chunks parse, before Python init) so
 // the user sees the brand within 200 ms instead of staring at a black
@@ -739,9 +763,7 @@ ipcMain.handle('render-pdf', async (_event, html: string, suggestedName: string)
     webPreferences: { offscreen: false, sandbox: true, contextIsolation: true },
   })
   try {
-    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
-    await hidden.loadURL(dataUrl)
-    const pdfBuf = await hidden.webContents.printToPDF({
+    const pdfBuf = await renderHtmlToPdf(hidden, html, {
       printBackground: true,
       pageSize: 'A4',
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -1821,9 +1843,7 @@ ipcMain.handle('render-pdf-direct', async (_event, folderPath: string, fileName:
     webPreferences: { offscreen: false, sandbox: true, contextIsolation: true },
   })
   try {
-    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
-    await hidden.loadURL(dataUrl)
-    const pdfBuf = await hidden.webContents.printToPDF({
+    const pdfBuf = await renderHtmlToPdf(hidden, html, {
       printBackground: true,
       pageSize: 'A4',
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -1994,9 +2014,7 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
       webPreferences: { offscreen: false, sandbox: true, contextIsolation: true },
     })
     try {
-      const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
-      await hidden.loadURL(dataUrl)
-      const pdfBuf = await hidden.webContents.printToPDF({
+      const pdfBuf = await renderHtmlToPdf(hidden, html, {
         printBackground: true, pageSize: 'A4',
         margins: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true,
       })
@@ -2268,13 +2286,32 @@ ipcMain.handle('load-lms-config', async () => {
   }
 })
 
+// Electron 36+ throws on decrypt failure (was: returned ""). Centralise the
+// try/catch so all three Canvas IPC handlers surface a clear actionable error
+// instead of a generic stack trace.
+function decryptCanvasToken(raw: any): { ok: true; token: string } | { ok: false; error: string } {
+  try {
+    const token = raw.usedSafeStorage
+      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
+      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8')
+    return { ok: true, token }
+  } catch (e: any) {
+    return { ok: false, error: 'Keychain decrypt failed — re-enter your Canvas API token in LMS settings' }
+  }
+}
+
 ipcMain.handle('canvas-test-connection', async (_e, overrideToken?: string) => {
   try {
     if (!fs.existsSync(lmsConfigPath())) return { ok: false, error: 'No LMS config saved' }
     const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
-    const token = overrideToken ?? (raw.usedSafeStorage
-      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
-      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8'))
+    let token: string
+    if (overrideToken) {
+      token = overrideToken
+    } else {
+      const dec = decryptCanvasToken(raw)
+      if (!dec.ok) return dec
+      token = dec.token
+    }
 
     const res = await canvasRequest({
       baseUrl: raw.baseUrl,
@@ -2299,9 +2336,9 @@ ipcMain.handle('canvas-get-assignments', async () => {
   try {
     if (!fs.existsSync(lmsConfigPath())) return { ok: false, error: 'No LMS config saved' }
     const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
-    const token = raw.usedSafeStorage
-      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
-      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8')
+    const dec = decryptCanvasToken(raw)
+    if (!dec.ok) return dec
+    const token = dec.token
 
     const res = await canvasRequest({
       baseUrl: raw.baseUrl,
@@ -2329,9 +2366,9 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
   try {
     if (!fs.existsSync(lmsConfigPath())) return { ok: false, error: 'No LMS config saved' }
     const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
-    const token = raw.usedSafeStorage
-      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
-      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8')
+    const dec = decryptCanvasToken(raw)
+    if (!dec.ok) return dec
+    const token = dec.token
 
     // Build grade_data for Canvas bulk update API.
     // BUG-10 fix: send raw score points, not a percentage. Canvas scales the
