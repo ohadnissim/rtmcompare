@@ -748,7 +748,7 @@ export interface LearnModeState {
  setAssignment: (a: AssignmentConfig | null) => void
  addAnnotation: (a: Omit<LearnAnnotation, 'id' | 'createdAt'>) => void
  removeAnnotation: (id: string) => void
- clearAnnotations: () => void
+ clearAnnotations: (tabId: string) => void
  submitBlindTest: (predictions: BlindTestPredictions) => void
  revealBlindTest: () => void
  resetBlindTest: () => void

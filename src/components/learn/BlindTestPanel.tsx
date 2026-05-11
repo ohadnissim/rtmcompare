@@ -230,6 +230,9 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   const resultRows: ResultRow[] = React.useMemo(() => {
     const savedAnswers = blindTest?.answers ?? []
     const answerFor = (d: Dimension) => savedAnswers.find(a => a.dimension === d)
+    // Use analysisResult directly (not the `ar` alias created outside useMemo)
+    // so the dep is a stable reference rather than a new inline object each render.
+    const result = analysisResult ?? {}
 
     return DIMENSIONS.map(({ dimension, label }) => {
       const a = answerFor(dimension)
@@ -241,8 +244,8 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
 
       switch (dimension) {
         case 'loudness': {
-          metersText = lufsVerdict(ar.lufs_i_a, ar.lufs_i_b)
-          verdict = matchLufs(choice ?? 'equal', ar.lufs_i_a, ar.lufs_i_b)
+          metersText = lufsVerdict(result.lufs_i_a, result.lufs_i_b)
+          verdict = matchLufs(choice ?? 'equal', result.lufs_i_a, result.lufs_i_b)
           break
         }
         case 'tonal_low': {
@@ -256,21 +259,21 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
           break
         }
         case 'stereo_width': {
-          metersText = deltaVerdict(ar.stereo_width_a, ar.stereo_width_b, 'A', 'B', true, 'wider ')
-          verdict = matchDelta(choice ?? 'equal', ar.stereo_width_a, ar.stereo_width_b, true)
+          metersText = deltaVerdict(result.stereo_width_a, result.stereo_width_b, 'A', 'B', true, 'wider ')
+          verdict = matchDelta(choice ?? 'equal', result.stereo_width_a, result.stereo_width_b, true)
           break
         }
         case 'dynamics': {
           // Higher LRA = less compressed; lower = more compressed
           // Question asks "which is MORE compressed" → lower LRA = more compressed → B wins if lra_b < lra_a
-          metersText = deltaVerdict(ar.lra_a, ar.lra_b, 'B', 'A', false, 'more compressed ')
-          verdict = matchDelta(choice ?? 'equal', ar.lra_a, ar.lra_b, false)
+          metersText = deltaVerdict(result.lra_a, result.lra_b, 'B', 'A', false, 'more compressed ')
+          verdict = matchDelta(choice ?? 'equal', result.lra_a, result.lra_b, false)
           break
         }
         case 'translation': {
           // Higher mono compat % = better translation
-          metersText = deltaVerdict(ar.mono_compat_a, ar.mono_compat_b, 'A', 'B', true, 'better translation ')
-          verdict = matchDelta(choice ?? 'equal', ar.mono_compat_a, ar.mono_compat_b, true)
+          metersText = deltaVerdict(result.mono_compat_a, result.mono_compat_b, 'A', 'B', true, 'better translation ')
+          verdict = matchDelta(choice ?? 'equal', result.mono_compat_a, result.mono_compat_b, true)
           break
         }
         case 'overall': {
@@ -282,7 +285,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
 
       return { dimension, label, yourChoice: choice, yourNotes: notes, metersText, verdict }
     })
-  }, [blindTest, ar])
+  }, [blindTest, analysisResult])
 
   // Count measurable correct predictions
   const measurableDimensions: Dimension[] = ['loudness', 'stereo_width', 'dynamics', 'translation']

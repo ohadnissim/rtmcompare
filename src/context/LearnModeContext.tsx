@@ -141,7 +141,7 @@ type Action =
   | { type: 'SET_ASSIGNMENT'; assignment: AssignmentConfig | null }
   | { type: 'ADD_ANNOTATION'; annotation: LearnAnnotation }
   | { type: 'REMOVE_ANNOTATION'; id: string }
-  | { type: 'CLEAR_ANNOTATIONS' }
+  | { type: 'CLEAR_ANNOTATIONS'; tabId: string }
   | { type: 'SUBMIT_BLIND_TEST'; predictions: BlindTestPredictions }
   | { type: 'REVEAL_BLIND_TEST' }
   | { type: 'RESET_BLIND_TEST' }
@@ -165,7 +165,7 @@ function reducer(state: PersistedState, action: Action): PersistedState {
     case 'REMOVE_ANNOTATION':
       return { ...state, annotations: state.annotations.filter(a => a.id !== action.id) }
     case 'CLEAR_ANNOTATIONS':
-      return { ...state, annotations: [] }
+      return { ...state, annotations: state.annotations.filter(a => a.tabId !== action.tabId) }
     case 'SUBMIT_BLIND_TEST':
       return { ...state, blindTest: action.predictions }
     case 'REVEAL_BLIND_TEST':
@@ -217,7 +217,7 @@ export function LearnModeProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const removeAnnotation = useCallback((id: string) => dispatch({ type: 'REMOVE_ANNOTATION', id }), [])
-  const clearAnnotations = useCallback(() => dispatch({ type: 'CLEAR_ANNOTATIONS' }), [])
+  const clearAnnotations = useCallback((tabId: string) => dispatch({ type: 'CLEAR_ANNOTATIONS', tabId }), [])
 
   const submitBlindTest = useCallback((p: BlindTestPredictions) => dispatch({ type: 'SUBMIT_BLIND_TEST', predictions: p }), [])
   const revealBlindTest = useCallback(() => dispatch({ type: 'REVEAL_BLIND_TEST' }), [])

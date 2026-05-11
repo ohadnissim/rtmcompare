@@ -311,7 +311,7 @@ export function AnnotationLayer({ tabId }: Props) {
             <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={() => {
-                  clearAnnotations()
+                  clearAnnotations(tabId)
                   setShowClearConfirm(false)
                 }}
                 style={{
