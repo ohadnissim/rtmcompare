@@ -169,7 +169,7 @@ export default function GuidedFlowBar({
         style={{
           position: 'sticky',
           top: 92,
-          zIndex: 35,
+          zIndex: 30, // must be below header's z-40 so OverflowMenu dropdown renders on top
           background: 'rgba(21,20,17,0.98)',
           borderBottom: '1px solid rgba(208,176,102,0.18)',
           padding: '0 24px',
