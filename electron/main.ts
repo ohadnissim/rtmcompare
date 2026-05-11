@@ -1,6 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, safeStorage } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
+import https from 'https'
+import http from 'http'
 import type { ChildProcess } from 'child_process'
 import { analyzePython, ensureDeps, cancelActiveAnalysis, getPythonPaths, pythonSpawnEnv } from './python-bridge'
 import * as rtmsend from './rtmsend-bridge'
@@ -83,6 +85,59 @@ function assertSafeProfileId(id: unknown): string {
     throw new Error(`profile id: illegal characters (${id})`)
   }
   return base
+}
+
+/**
+ * Makes a Canvas REST API request using Node's built-in https module.
+ * Returns { ok, status, body } — never throws.
+ */
+function canvasRequest(opts: {
+  baseUrl: string
+  path: string
+  method: string
+  token: string
+  body?: Record<string, unknown>
+}): Promise<{ ok: boolean; status: number; body: unknown }> {
+  return new Promise((resolve) => {
+    try {
+      const url = new URL(opts.path, opts.baseUrl)
+      const isHttps = url.protocol === 'https:'
+      const lib = isHttps ? https : http
+      const bodyStr = opts.body ? JSON.stringify(opts.body) : undefined
+
+      const req = lib.request({
+        hostname: url.hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: url.pathname + url.search,
+        method: opts.method,
+        headers: {
+          'Authorization': `Bearer ${opts.token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
+        },
+        timeout: 15000,
+      }, (res) => {
+        let data = ''
+        res.on('data', (chunk) => { data += chunk })
+        res.on('end', () => {
+          let parsed: unknown = data
+          try { parsed = JSON.parse(data) } catch { /* keep as string */ }
+          resolve({ ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300, status: res.statusCode ?? 0, body: parsed })
+        })
+      })
+      req.on('error', (e) => resolve({ ok: false, status: 0, body: e.message }))
+      req.on('timeout', () => { req.destroy(); resolve({ ok: false, status: 0, body: 'Request timed out' }) })
+      if (bodyStr) req.write(bodyStr)
+      req.end()
+    } catch (e: any) {
+      resolve({ ok: false, status: 0, body: e.message })
+    }
+  })
+}
+
+function lmsConfigPath(): string {
+  return path.join(app.getPath('userData'), 'lms-config.json')
 }
 
 // Splash window — opens INSTANTLY on app launch (before Electron loads
@@ -2159,5 +2214,161 @@ ipcMain.handle('write-sidecar', async (_e, filePath: string, suffix: string, con
     return out
   } catch (err: any) {
     return { error: err?.message || 'sidecar write failed' }
+  }
+})
+
+// ── Canvas LMS Integration ──────────────────────────────────────────
+
+ipcMain.handle('save-lms-config', async (_e, config: {
+  baseUrl: string
+  apiToken: string
+  courseId: string
+  assignmentName?: string
+}) => {
+  try {
+    const encrypted = safeStorage.isEncryptionAvailable()
+      ? safeStorage.encryptString(config.apiToken).toString('base64')
+      : Buffer.from(config.apiToken).toString('base64')  // fallback: base64 only (no OS keychain)
+    const toSave = {
+      baseUrl: config.baseUrl.replace(/\/$/, ''),
+      courseId: config.courseId,
+      assignmentName: config.assignmentName ?? '',
+      encryptedToken: encrypted,
+      usedSafeStorage: safeStorage.isEncryptionAvailable(),
+      savedAt: new Date().toISOString(),
+    }
+    fs.writeFileSync(lmsConfigPath(), JSON.stringify(toSave, null, 2), 'utf8')
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, error: e?.message }
+  }
+})
+
+ipcMain.handle('load-lms-config', async () => {
+  try {
+    if (!fs.existsSync(lmsConfigPath())) return { ok: true, config: null }
+    const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
+    return {
+      ok: true,
+      config: {
+        baseUrl: raw.baseUrl ?? '',
+        courseId: raw.courseId ?? '',
+        assignmentName: raw.assignmentName ?? '',
+        hasToken: !!raw.encryptedToken,
+      }
+    }
+  } catch {
+    return { ok: true, config: null }
+  }
+})
+
+ipcMain.handle('canvas-test-connection', async (_e, overrideToken?: string) => {
+  try {
+    if (!fs.existsSync(lmsConfigPath())) return { ok: false, error: 'No LMS config saved' }
+    const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
+    const token = overrideToken ?? (raw.usedSafeStorage
+      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
+      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8'))
+
+    const res = await canvasRequest({
+      baseUrl: raw.baseUrl,
+      path: `/api/v1/courses/${raw.courseId}`,
+      method: 'GET',
+      token,
+    })
+    if (!res.ok) {
+      const msg = typeof res.body === 'object' && res.body !== null && 'errors' in (res.body as any)
+        ? JSON.stringify((res.body as any).errors)
+        : `HTTP ${res.status}`
+      return { ok: false, error: msg }
+    }
+    const course = res.body as any
+    return { ok: true, courseName: course.name ?? course.course_code ?? raw.courseId }
+  } catch (e: any) {
+    return { ok: false, error: e?.message }
+  }
+})
+
+ipcMain.handle('canvas-get-assignments', async () => {
+  try {
+    if (!fs.existsSync(lmsConfigPath())) return { ok: false, error: 'No LMS config saved' }
+    const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
+    const token = raw.usedSafeStorage
+      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
+      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8')
+
+    const res = await canvasRequest({
+      baseUrl: raw.baseUrl,
+      path: `/api/v1/courses/${raw.courseId}/assignments?per_page=50&order_by=due_at`,
+      method: 'GET',
+      token,
+    })
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+    const assignments = (res.body as any[]).map((a: any) => ({ id: String(a.id), name: a.name, pointsPossible: a.points_possible }))
+    return { ok: true, assignments }
+  } catch (e: any) {
+    return { ok: false, error: e?.message }
+  }
+})
+
+ipcMain.handle('canvas-upload-grades', async (_e, payload: {
+  assignmentId: string
+  grades: Array<{ studentId: string; studentName: string; score: number; totalPossible: number }>
+}) => {
+  try {
+    if (!fs.existsSync(lmsConfigPath())) return { ok: false, error: 'No LMS config saved' }
+    const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
+    const token = raw.usedSafeStorage
+      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
+      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8')
+
+    // Build grade_data for Canvas bulk update API
+    // Canvas expects: { grade_data: { "sis_user_id:XXXXX": { posted_grade: "95" } } }
+    const gradeData: Record<string, { posted_grade: string }> = {}
+    for (const g of payload.grades) {
+      if (!g.studentId) continue
+      const pct = Math.round((g.score / g.totalPossible) * 100)
+      gradeData[`sis_user_id:${g.studentId}`] = { posted_grade: String(pct) }
+    }
+
+    if (Object.keys(gradeData).length === 0) {
+      return { ok: false, error: 'No students with valid Student IDs found in the records. Students must enter their Canvas Student ID when exporting their report.' }
+    }
+
+    const res = await canvasRequest({
+      baseUrl: raw.baseUrl,
+      path: `/api/v1/courses/${raw.courseId}/assignments/${payload.assignmentId}/submissions/update_grades`,
+      method: 'POST',
+      token,
+      body: { grade_data: gradeData },
+    })
+
+    if (!res.ok) {
+      const errMsg = typeof res.body === 'object' && res.body !== null
+        ? JSON.stringify(res.body)
+        : String(res.body)
+      return { ok: false, error: `Canvas API error (HTTP ${res.status}): ${errMsg}` }
+    }
+
+    // Canvas bulk update returns a Progress object — not per-student results
+    // Return how many we submitted
+    return {
+      ok: true,
+      submitted: Object.keys(gradeData).length,
+      total: payload.grades.length,
+      skipped: payload.grades.length - Object.keys(gradeData).length,
+      message: `Submitted ${Object.keys(gradeData).length} grades to Canvas. Grades may take a moment to appear.`,
+    }
+  } catch (e: any) {
+    return { ok: false, error: e?.message }
+  }
+})
+
+ipcMain.handle('clear-lms-config', async () => {
+  try {
+    if (fs.existsSync(lmsConfigPath())) fs.unlinkSync(lmsConfigPath())
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, error: e?.message }
   }
 })

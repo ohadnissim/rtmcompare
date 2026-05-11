@@ -9,6 +9,7 @@
  */
 import React, { useState, useEffect, useCallback } from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
+import { LmsExportPanel } from './LmsExportPanel'
 
 interface RubricRow {
   metric: string
@@ -56,6 +57,8 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const [lastScanned, setLastScanned] = useState<string | null>(null)
   const [feedbackMap, setFeedbackMap] = useState<Record<string, string>>({})
   const [insightsOpen, setInsightsOpen] = useState(true)
+  const [lmsOpen, setLmsOpen] = useState(false)
+  const [hasLmsConfig, setHasLmsConfig] = useState(false)
 
   // Sync folder when assignment changes
   useEffect(() => {
@@ -103,6 +106,13 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   useEffect(() => {
     if (open && folder) scan(folder)
   }, [open, folder])
+
+  // Check if LMS is configured
+  useEffect(() => {
+    ;(window as any).electronAPI?.loadLmsConfig?.().then((res: any) => {
+      setHasLmsConfig(res?.ok && res.config?.hasToken)
+    }).catch(() => {})
+  }, [])
 
   async function pickFolder() {
     const picked = await (window as any).electronAPI?.pickFolder('Select submissions folder')
@@ -238,6 +248,28 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
               }}
             >
               Export CSV
+            </button>
+            <button
+              onClick={() => setLmsOpen(o => !o)}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(208,176,102,0.4)',
+                borderRadius: '2px',
+                color: 'var(--color-accent)',
+                fontSize: 11,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '5px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              {hasLmsConfig && (
+                <span style={{ color: '#6fcf97', fontSize: 10, lineHeight: 1 }}>●</span>
+              )}
+              Canvas LMS ↑
             </button>
             <button
               onClick={onClose}
@@ -517,6 +549,13 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
             </div>
           )
         })()}
+
+        {/* LMS Export Panel */}
+        {lmsOpen && (
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 16, paddingTop: 16, padding: '16px 20px', flexShrink: 0 }}>
+            <LmsExportPanel records={records} />
+          </div>
+        )}
 
         {/* Table */}
         {records.length > 0 && (

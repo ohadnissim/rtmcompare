@@ -56,6 +56,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('save-student-feedback', reportPath, feedback),
   loadStudentFeedback: (reportPath: string) =>
     ipcRenderer.invoke('load-student-feedback', reportPath),
+  saveLmsConfig: (config: { baseUrl: string; apiToken: string; courseId: string; assignmentName?: string }) =>
+    ipcRenderer.invoke('save-lms-config', config),
+  loadLmsConfig: () => ipcRenderer.invoke('load-lms-config'),
+  canvasTestConnection: (overrideToken?: string) => ipcRenderer.invoke('canvas-test-connection', overrideToken),
+  canvasGetAssignments: () => ipcRenderer.invoke('canvas-get-assignments'),
+  canvasUploadGrades: (payload: { assignmentId: string; grades: Array<{ studentId: string; studentName: string; score: number; totalPossible: number }> }) =>
+    ipcRenderer.invoke('canvas-upload-grades', payload),
+  clearLmsConfig: () => ipcRenderer.invoke('clear-lms-config'),
   scanClassFolder: (folderPath: string) => ipcRenderer.invoke('scan-class-folder', folderPath),
   exportGradebookCsv: (records: any[]) => ipcRenderer.invoke('export-gradebook-csv', records),
   copyToClipboard: (text: string) => ipcRenderer.invoke('copy-to-clipboard', text),
