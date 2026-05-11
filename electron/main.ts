@@ -2146,8 +2146,14 @@ ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback:
     const home = os.homedir()
     const resolved = path.resolve(reportPath)
     if (!resolved.startsWith(home)) return { ok: false, error: 'Path outside home directory' }
-    // Write .rtm-feedback.json next to the report file
-    const feedbackPath = reportPath.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
+    // Write .rtm-feedback.json next to the report file.
+    // Guard: if the path doesn't end in a known suffix, reject rather than
+    // writing feedback over an arbitrary file (both regexes would be no-ops,
+    // leaving feedbackPath === reportPath and clobbering the source file).
+    if (!/\.(rtm-report\.json|pdf)$/i.test(resolved)) {
+      return { ok: false, error: 'reportPath must end in .rtm-report.json or .pdf' }
+    }
+    const feedbackPath = resolved.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
       .replace(/\.pdf$/i, '.rtm-feedback.json')
     fs.writeFileSync(feedbackPath, JSON.stringify({ feedback, savedAt: new Date().toISOString() }, null, 2), 'utf8')
     return { ok: true, path: feedbackPath }
@@ -2306,6 +2312,11 @@ ipcMain.handle('canvas-get-assignments', async () => {
       token,
     })
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+    // Canvas may return an object (errors, rate-limit, etc.) instead of an array
+    // when something is misconfigured. Guard before .map() to prevent TypeError.
+    if (!Array.isArray(res.body)) {
+      return { ok: false, error: `Canvas returned unexpected response: ${JSON.stringify(res.body).slice(0, 200)}` }
+    }
     const assignments = (res.body as any[]).map((a: any) => ({ id: String(a.id), name: a.name, pointsPossible: a.points_possible }))
     return { ok: true, assignments }
   } catch (e: any) {
@@ -2329,7 +2340,11 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     const gradeData: Record<string, { posted_grade: string }> = {}
     for (const g of payload.grades) {
       if (!g.studentId) continue
+      // Guard against division by zero — skip rows where totalPossible is 0
+      // (or non-numeric), which would produce NaN and an invalid Canvas grade.
+      if (!g.totalPossible || !Number.isFinite(g.totalPossible)) continue
       const pct = Math.round((g.score / g.totalPossible) * 100)
+      if (!Number.isFinite(pct)) continue
       gradeData[`sis_user_id:${g.studentId}`] = { posted_grade: String(pct) }
     }
 
