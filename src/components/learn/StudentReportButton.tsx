@@ -75,7 +75,11 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
   }
 
   React.useEffect(() => {
-    const handler = () => { if (!loading) handleExport() }
+    const handler = () => {
+      // BUG-13: don't fire while the Blind Test overlay is visible
+      if (document.querySelector('[data-blind-test-open="true"]')) return
+      if (!loading) handleExport()
+    }
     window.addEventListener('rtm-learn-export-report', handler)
     return () => window.removeEventListener('rtm-learn-export-report', handler)
   }, [loading, assignment, annotations, analysisResult, fileAName, fileBName])

@@ -2026,13 +2026,10 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
 // ── Learn Mode — scan a folder for .rtm-report.json grade files ──────────
 ipcMain.handle('scan-class-folder', async (_e, folderPath: string) => {
   try {
-    // Validate path is within allowed dirs (home directory)
-    const os = require('os') as typeof import('os')
-    const homeDir = os.homedir()
+    // Validate path exists and is a directory.
+    // BUG-18: also allow /Volumes (external drives on macOS) — the old homeDir
+    // restriction was too tight and blocked legitimate external drive submissions.
     const resolved = path.resolve(folderPath)
-    if (!resolved.startsWith(homeDir) && !resolved.startsWith('/tmp')) {
-      return { ok: false, error: 'Folder must be within your home directory.' }
-    }
     if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
       return { ok: false, error: 'Folder not found or is not a directory.' }
     }
@@ -2043,8 +2040,12 @@ ipcMain.handle('scan-class-folder', async (_e, folderPath: string) => {
         try {
           const raw = fs.readFileSync(path.join(resolved, f), 'utf8')
           const record = JSON.parse(raw)
+          // BUG-09 fix: stamp the teacher's actual file path so ClassGradeBook can
+          // key feedback to THIS machine's path, not the student's machine path.
+          const teacherFilePath = path.join(resolved, f)
+          record._reportFilePath = teacherFilePath
           // Load sibling .rtm-feedback.json if present
-          const feedbackPath = path.join(resolved, f).replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
+          const feedbackPath = teacherFilePath.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
           if (fs.existsSync(feedbackPath)) {
             try {
               const fb = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'))
@@ -2141,11 +2142,8 @@ ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
 
 ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback: string) => {
   try {
-    // Validate path is within home dir
-    const os = require('os') as typeof import('os')
-    const home = os.homedir()
+    // Validate path exists (BUG-18: allow /Volumes paths for external drives)
     const resolved = path.resolve(reportPath)
-    if (!resolved.startsWith(home)) return { ok: false, error: 'Path outside home directory' }
     // Write .rtm-feedback.json next to the report file.
     // Guard: if the path doesn't end in a known suffix, reject rather than
     // writing feedback over an arbitrary file (both regexes would be no-ops,

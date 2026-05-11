@@ -71,6 +71,9 @@ interface GradeRecord {
   totalPossible: number
   pct: number | null
   pdfPath?: string
+  /** BUG-09: actual path to the .rtm-report.json on THE TEACHER'S machine — safe to use for feedback I/O */
+  _reportFilePath?: string
+  feedback?: string
   submissionVersion?: number
   isDraft?: boolean
   reportPath?: string
@@ -122,17 +125,15 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
         const loadedRecords: GradeRecord[] = detectRevisions(raw)
         setRecords(loadedRecords)
         setLastScanned(new Date().toLocaleTimeString())
-        // Load feedback for each record
+        // BUG-09 fix: feedback is already loaded by scanClassFolder from the sibling
+        // .rtm-feedback.json on the teacher's machine. Key feedbackMap by _reportFilePath
+        // (the teacher's actual path) — NOT pdfPath (the student's machine path).
         const newFeedbackMap: Record<string, string> = {}
         for (const record of loadedRecords) {
-          if (!record.pdfPath) continue
-          try {
-            const feedback = await (window as any).electronAPI.loadStudentFeedback(record.pdfPath)
-            if (feedback?.text) {
-              newFeedbackMap[record.pdfPath] = feedback.text
-            }
-          } catch {
-            // best-effort, ignore errors
+          const key = record._reportFilePath || record.pdfPath
+          if (!key) continue
+          if (record.feedback) {
+            newFeedbackMap[key] = record.feedback
           }
         }
         setFeedbackMap(newFeedbackMap)
@@ -681,19 +682,22 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                         {rec.pct != null ? `${rec.pct}%` : '—'}
                       </td>
                       <td style={{ ...tdStyle, minWidth: 160 }}>
-                        {rec.pdfPath ? (
+                        {(rec._reportFilePath || rec.pdfPath) ? (
                           <textarea
                             rows={2}
                             placeholder="Add feedback…"
-                            value={feedbackMap[rec.pdfPath] ?? ''}
+                            value={feedbackMap[rec._reportFilePath || rec.pdfPath!] ?? ''}
                             onChange={e => {
                               const text = e.target.value
-                              setFeedbackMap(prev => ({ ...prev, [rec.pdfPath!]: text }))
+                              const key = rec._reportFilePath || rec.pdfPath!
+                              setFeedbackMap(prev => ({ ...prev, [key]: text }))
                             }}
                             onBlur={e => {
                               const text = e.target.value
-                              if (rec.pdfPath) {
-                                ;(window as any).electronAPI?.saveStudentFeedback(rec.pdfPath, text)
+                              // BUG-09: save to _reportFilePath (teacher's machine path) not pdfPath (student's path)
+                              const savePath = rec._reportFilePath || rec.pdfPath
+                              if (savePath) {
+                                ;(window as any).electronAPI?.saveStudentFeedback(savePath, text)
                               }
                             }}
                             style={{

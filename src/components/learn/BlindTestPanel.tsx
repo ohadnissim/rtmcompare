@@ -452,6 +452,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
 
   return (
     <div
+      data-blind-test-open="true"
       style={{
         position: 'fixed',
         inset: 0,
