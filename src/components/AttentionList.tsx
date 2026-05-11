@@ -28,8 +28,8 @@ export default function AttentionList({ items, onJump }: {
  <li key={i}>
  <button
  onClick={isClickable ? () => onJump!(it.jumpSec!) : undefined}
- className={`w-full text-left flex items-start gap-2 px-2 py-1 rounded transition-colors ${isClickable ? 'hover:bg-white/[0.04]' : ''}`}
- style={{ color: '#b5afa4', cursor: isClickable ? 'pointer' : 'default' }}
+ className={`w-full text-left flex items-start gap-2 px-2 py-1 transition-colors ${isClickable ? 'hover:bg-white/[0.04]' : ''}`}
+ style={{ borderRadius: '2px', color: '#b5afa4', cursor: isClickable ? 'pointer' : 'default' }}
  disabled={!isClickable}
  title={isClickable ? 'Click to jump transport to this moment' : undefined}
  >

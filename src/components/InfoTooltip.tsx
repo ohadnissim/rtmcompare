@@ -28,8 +28,9 @@ export default function InfoTooltip({ text }: Props) {
  onMouseLeave={() => setShow(false)}
  >
  <span
- className="w-4 h-4 rounded-full flex items-center justify-center cursor-help text-[9px] font-medium transition-colors"
+ className="w-4 h-4 flex items-center justify-center cursor-help text-[9px] font-medium transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: show ? 'rgba(224,122,79,0.2)' : 'rgba(87,83,78,0.3)',
  color: show ? '#e07a4f' : '#78716c',
  }}
@@ -47,12 +48,12 @@ export default function InfoTooltip({ text }: Props) {
  }}
  >
  <div
- className="px-3 py-2 rounded-lg text-[11px] leading-relaxed max-w-[260px] whitespace-normal text-center"
+ className="px-3 py-2 text-[11px] leading-relaxed max-w-[260px] whitespace-normal text-center"
  style={{
+ borderRadius: '2px',
  backgroundColor: '#272524',
  color: '#d6d3d1',
  border: '1px solid rgba(87,83,78,0.4)',
- boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
  }}
  >
  {text}

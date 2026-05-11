@@ -51,12 +51,12 @@ export default function ShortcutHelp() {
  return (
  <div
  className="fixed inset-0 z-50 flex items-center justify-center"
- style={{ backgroundColor: 'rgba(20,19,19,0.8)', backdropFilter: 'blur(4px)' }}
+ style={{ backgroundColor: 'rgba(20,19,19,0.8)' }}
  onClick={() => setShow(false)}
  >
  <div
- className="rounded-2xl p-8 space-y-6 max-w-sm w-full"
- style={{ backgroundColor: '#1e1d1c', border: '1px solid rgba(51,48,44,0.6)' }}
+ className="p-8 space-y-6 max-w-sm w-full"
+ style={{ borderRadius: '2px', backgroundColor: '#1e1d1c', border: '1px solid rgba(51,48,44,0.6)' }}
  onClick={e => e.stopPropagation()}
  >
  <div className="text-center space-y-1">
@@ -72,8 +72,8 @@ export default function ShortcutHelp() {
  {s.keys.map((key, j) => (
  <kbd
  key={j}
- className="px-2 py-1 rounded text-[10px] font-mono"
- style={{ backgroundColor: '#272524', color: '#e07a4f', border: '1px solid rgba(51,48,44,0.6)' }}
+ className="px-2 py-1 text-[10px] font-mono"
+ style={{ borderRadius: '2px', backgroundColor: '#272524', color: '#e07a4f', border: '1px solid rgba(51,48,44,0.6)' }}
  >
  {key}
  </kbd>
@@ -85,8 +85,8 @@ export default function ShortcutHelp() {
 
  <button
  onClick={() => setShow(false)}
- className="w-full py-2 rounded-lg text-xs"
- style={{ backgroundColor: 'rgba(87,83,78,0.2)', color: '#78716c' }}
+ className="w-full py-2 text-xs"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(87,83,78,0.2)', color: '#78716c' }}
  >
  Close (Esc)
  </button>

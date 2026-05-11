@@ -398,7 +398,7 @@ function RadioPair<T extends string>({
  borderRadius: 'var(--radius-pill)',
  border: 'none',
  cursor: 'pointer',
- backgroundColor: active ? 'var(--color-bg-app)' : 'transparent',
+ backgroundColor: active ? 'var(--rtm-chip-bg-active)' : 'transparent',
  color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
  transition: 'color 120ms var(--easing-shell), background-color 120ms var(--easing-shell)',
  }}

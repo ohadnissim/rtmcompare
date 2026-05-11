@@ -9,13 +9,11 @@ namespace
     constexpr int kWidth  = kBaseWidth;
     constexpr int kHeight = kBaseHeight;
 
-    // Bottega-veneta palette - same swatches as the RTMcompare app.
-    const juce::Colour kBg       { 14,  13,  11 };
-    const juce::Colour kGold     { 208, 176, 102 };
-    const juce::Colour kInk      { 235, 231, 224 };
-    const juce::Colour kMuted    { 141, 134, 123 };
-    const juce::Colour kDim      { 87,  83,  78  };
-    const juce::Colour kBorder = juce::Colour::fromRGBA (168, 161, 150, static_cast<juce::uint8> (0.15f * 255));
+    // 5.2.4: All palette values now reference ConsoleDidoneLookAndFeel
+    // static constants. The previous local copies were identical in value
+    // but diverged from the LookAndFeel over time (e.g. kBorder alpha
+    // differed by 0.03f). One source of truth.
+    using LF = ConsoleDidoneLookAndFeel;
 }
 
 RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& p)
@@ -54,9 +52,15 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     // through the system stack). Mirrors the v5.2 Wordmark
     // component's `size="md"` (~30 px) used in HeaderV2.
     titleLabel.setText("RTMsend", juce::dontSendNotification);
+    // 5.2.4: Instrument Serif is loaded by family name. JUCE resolves it
+    // against the system font stack; if the typeface is not installed
+    // system-wide, the host platform's default serif is used. To guarantee
+    // the typeface on all machines, bundle InstrumentSerif-Regular.ttf into
+    // the plugin Resources folder and load it via juce::Typeface::createSystemTypefaceFor
+    // in ConsoleDidoneLookAndFeel (see font-loading note in that header).
     titleLabel.setFont (juce::Font ("Instrument Serif", 30.0f, juce::Font::plain)
                             .withExtraKerningFactor (0.02f));
-    titleLabel.setColour (juce::Label::textColourId, kInk);
+    titleLabel.setColour (juce::Label::textColourId, LF::kCream);
     titleLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (titleLabel);
 
@@ -65,7 +69,7 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     subtitleLabel.setText ("One button between your bus and a verdict.",
                            juce::dontSendNotification);
     subtitleLabel.setFont (juce::Font ("Instrument Serif", 14.0f, juce::Font::italic));
-    subtitleLabel.setColour (juce::Label::textColourId, kInk.brighter (0.62f));  // sand-secondary
+    subtitleLabel.setColour (juce::Label::textColourId, LF::kSandSecondary);
     subtitleLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (subtitleLabel);
 
@@ -74,7 +78,7 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     // gold is reserved for the primary Single button (see below).
     hostHintLabel.setText(buildHostHint(), juce::dontSendNotification);
     hostHintLabel.setFont (juce::Font ("Instrument Serif", 11.0f, juce::Font::italic));
-    hostHintLabel.setColour (juce::Label::textColourId, juce::Colour (214, 209, 198));
+    hostHintLabel.setColour (juce::Label::textColourId, LF::kSandSecondary);
     hostHintLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (hostHintLabel);
 
@@ -100,32 +104,32 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
 
     statusLabel.setText("Ready.", juce::dontSendNotification);
     statusLabel.setFont(juce::Font(10.0f));
-    statusLabel.setColour(juce::Label::textColourId, kMuted);
+    statusLabel.setColour(juce::Label::textColourId, LF::kSandMuted);
     statusLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(statusLabel);
 
     sessionLabel.setText("Session name", juce::dontSendNotification);
     sessionLabel.setFont(juce::Font(9.0f).withExtraKerningFactor(0.15f));
-    sessionLabel.setColour(juce::Label::textColourId, kDim);
+    sessionLabel.setColour(juce::Label::textColourId, LF::kSandDim);
     sessionLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(sessionLabel);
 
     sessionInput.setText(processor.getSessionName(), false);
-    sessionInput.setColour(juce::TextEditor::textColourId, kInk);
-    sessionInput.setColour(juce::TextEditor::backgroundColourId, juce::Colour(30, 28, 24));
-    sessionInput.setColour(juce::TextEditor::outlineColourId, kBorder);
+    sessionInput.setColour(juce::TextEditor::textColourId, LF::kCream);
+    sessionInput.setColour(juce::TextEditor::backgroundColourId, LF::kPanel);
+    sessionInput.setColour(juce::TextEditor::outlineColourId, LF::kBorder);
     sessionInput.setMultiLine(false);
     sessionInput.onTextChange = [this] { processor.setSessionName(sessionInput.getText()); };
     addAndMakeVisible(sessionInput);
 
     bufferLabel.setFont(juce::Font(9.0f).withExtraKerningFactor(0.15f));
-    bufferLabel.setColour(juce::Label::textColourId, kDim);
+    bufferLabel.setColour(juce::Label::textColourId, LF::kSandDim);
     bufferLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(bufferLabel);
 
     sourceLabel.setText("Source", juce::dontSendNotification);
     sourceLabel.setFont(juce::Font(9.0f).withExtraKerningFactor(0.15f));
-    sourceLabel.setColour(juce::Label::textColourId, kDim);
+    sourceLabel.setColour(juce::Label::textColourId, LF::kSandDim);
     sourceLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(sourceLabel);
 
@@ -134,10 +138,12 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     sourceBox.addItem("Triggered region (Rec / Stop below)", 3);
     sourceBox.addItem("ARA region / marker (Wavelab, Studio One, ...)", 4);
     sourceBox.setSelectedId(static_cast<int>(processor.getSource()) + 1, juce::dontSendNotification);
-    sourceBox.setColour(juce::ComboBox::textColourId, kInk);
-    sourceBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(30, 28, 24));
-    sourceBox.setColour(juce::ComboBox::outlineColourId, kBorder);
-    sourceBox.setColour(juce::ComboBox::arrowColourId, kGold);
+    sourceBox.setColour(juce::ComboBox::textColourId, LF::kCream);
+    sourceBox.setColour(juce::ComboBox::backgroundColourId, LF::kPanel);
+    sourceBox.setColour(juce::ComboBox::outlineColourId, LF::kBorder);
+    // 5.2.4: arrow was gold — violates "one gold gesture per screen" rule.
+    // Gold belongs to the Single button. Arrow reverts to sand-muted.
+    sourceBox.setColour(juce::ComboBox::arrowColourId, LF::kSandMuted);
     sourceBox.onChange = [this] {
         const int idx = sourceBox.getSelectedId() - 1;
         processor.setSource(static_cast<RtmSendAudioProcessor::Source>(idx));
@@ -148,14 +154,16 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     // flips Source to ARA so the next Send captures it.
     regionLabel.setText("Region / marker", juce::dontSendNotification);
     regionLabel.setFont(juce::Font(9.0f).withExtraKerningFactor(0.15f));
-    regionLabel.setColour(juce::Label::textColourId, kDim);
+    regionLabel.setColour(juce::Label::textColourId, LF::kSandDim);
     regionLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(regionLabel);
 
-    regionBox.setColour(juce::ComboBox::textColourId, kInk);
-    regionBox.setColour(juce::ComboBox::backgroundColourId, juce::Colour(30, 28, 24));
-    regionBox.setColour(juce::ComboBox::outlineColourId, kBorder);
-    regionBox.setColour(juce::ComboBox::arrowColourId, kGold);
+    regionBox.setColour(juce::ComboBox::textColourId, LF::kCream);
+    regionBox.setColour(juce::ComboBox::backgroundColourId, LF::kPanel);
+    regionBox.setColour(juce::ComboBox::outlineColourId, LF::kBorder);
+    // 5.2.4: same as sourceBox — arrow reverts to sand-muted so gold
+    // remains exclusive to the Single button.
+    regionBox.setColour(juce::ComboBox::arrowColourId, LF::kSandMuted);
     regionBox.onChange = [this] {
         const int id = regionBox.getSelectedId();
         if (id <= 0) { processor.setSelectedAraRegionId({}); return; }
@@ -188,9 +196,12 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     bufferSlider.setTextValueSuffix(" s");
     bufferSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     bufferSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 64, 20);
-    bufferSlider.setColour(juce::Slider::trackColourId, kGold.withAlpha(0.5f));
-    bufferSlider.setColour(juce::Slider::thumbColourId, kGold);
-    bufferSlider.setColour(juce::Slider::textBoxTextColourId, kInk);
+    // 5.2.4: track and thumb were gold — that's a second gold element on the
+    // same screen as the Single button. The LookAndFeel drawLinearSlider uses
+    // cream (kCream) for the filled portion and thumb, which is correct.
+    // These inline overrides are dropped so the LookAndFeel owns the slider
+    // appearance. Text box uses cream on transparent — unchanged.
+    bufferSlider.setColour(juce::Slider::textBoxTextColourId, LF::kCream);
     bufferSlider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     bufferSlider.onValueChange = [this] { processor.setBufferSeconds(bufferSlider.getValue()); };
     addAndMakeVisible(bufferSlider);
@@ -198,7 +209,7 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     // 1.1.0 spike: plugin-host slot UI.
     pluginSlotLabel.setText("Plugin slot", juce::dontSendNotification);
     pluginSlotLabel.setFont(juce::Font(12.0f, juce::Font::plain));
-    pluginSlotLabel.setColour(juce::Label::textColourId, kInk);
+    pluginSlotLabel.setColour(juce::Label::textColourId, LF::kCream);
     addAndMakeVisible(pluginSlotLabel);
 
     pluginPickButton.setButtonText("Pick");
@@ -246,7 +257,7 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     addAndMakeVisible(pluginUnloadButton);
 
     pluginStatusLabel.setFont(juce::Font(11.0f, juce::Font::italic));
-    pluginStatusLabel.setColour(juce::Label::textColourId, kMuted);
+    pluginStatusLabel.setColour(juce::Label::textColourId, LF::kSandMuted);
     addAndMakeVisible(pluginStatusLabel);
 
     refreshPluginSlotUi();
@@ -273,8 +284,8 @@ RtmSendAudioProcessorEditor::~RtmSendAudioProcessorEditor()
 
 void RtmSendAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(kBg);
-    g.setColour(kBorder);
+    g.fillAll(LF::kInk);
+    g.setColour(LF::kBorder);
     g.fillRect(0, kHeight - 1, kWidth, 1);  // hairline bottom
 }
 
@@ -372,7 +383,10 @@ void RtmSendAudioProcessorEditor::timerCallback()
     // Loop mode but no loop points yet - tell the user.
     if (loopMode && !processor.hostHasLoopPoints())
     {
-        statusLabel.setColour(juce::Label::textColourId, juce::Colour(197, 165, 90));
+        // 5.2.4: was juce::Colour(197, 165, 90) - use kGold directly.
+        // This is the ONE contextual gold use allowed: a status warning
+        // on the statusLabel, which is off the primary button path.
+        statusLabel.setColour(juce::Label::textColourId, LF::kGold);
         statusLabel.setText("Set loop points in the DAW + play across them once.",
                             juce::dontSendNotification);
     }
@@ -389,7 +403,8 @@ void RtmSendAudioProcessorEditor::timerCallback()
         // ARA picked but the host hasn't published any regions yet.
         if (araMode && model->empty())
         {
-            statusLabel.setColour(juce::Label::textColourId, juce::Colour(141, 134, 123));
+            // 5.2.4: juce::Colour(141,134,123) == kSandMuted. Use the constant.
+            statusLabel.setColour(juce::Label::textColourId, LF::kSandMuted);
             statusLabel.setText("No ARA regions yet - open a montage with clips in the host.",
                                 juce::dontSendNotification);
         }
@@ -503,11 +518,19 @@ void RtmSendAudioProcessorEditor::onSendClicked(RtmSendAudioProcessor::Route rou
     auto path = processor.sendSnapshotToRtm(route, err);
     if (path.isEmpty())
     {
-        statusLabel.setColour(juce::Label::textColourId, juce::Colour(224, 90, 90));
+        // 5.2.4: warm-red semantic colour — same --color-warm-red used by
+        // rtm-warning buttons in the LookAndFeel (201, 103, 101). Use
+        // that constant rather than an independent literal so error states
+        // are visually consistent.
+        statusLabel.setColour(juce::Label::textColourId, juce::Colour(201, 103, 101));
         statusLabel.setText(err.isEmpty() ? "Send failed." : err, juce::dontSendNotification);
     }
     else
     {
+        // 5.2.4: success green — no LookAndFeel constant for this yet
+        // (it's a one-off semantic state, not a recurring palette swatch).
+        // Kept as a literal; add kSuccess to the LookAndFeel if more
+        // success states appear.
         statusLabel.setColour(juce::Label::textColourId, juce::Colour(110, 197, 119));
         juce::String routeStr;
         switch (route) {

@@ -59,15 +59,16 @@ export default class ErrorBoundary extends React.Component<Props, State> {
  return (
  <div
  role="alert"
- className="rounded-xl p-6 m-4 max-w-2xl mx-auto"
+ className="p-6 m-4 max-w-2xl mx-auto"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(224,90,90,0.06)',
  border: '1px solid rgba(224,90,90,0.30)',
  color: '#ebe7e0',
  }}
  >
  <div className="text-sm font-medium mb-2" style={{ color: '#e07a4f' }}>
- Something went wrong{where}.
+ Error{where}.
  </div>
  <div className="text-xs mb-4" style={{ color: '#a8a29e' }}>
  {this.state.error.message || 'Unknown error'}
@@ -75,8 +76,9 @@ export default class ErrorBoundary extends React.Component<Props, State> {
  <div className="flex items-center gap-2">
  <button
  onClick={this.reset}
- className="text-[11px] px-3 py-1.5 rounded-md"
+ className="text-[11px] px-3 py-1.5"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(208,176,102,0.12)',
  color: '#d0b066',
  border: '1px solid rgba(208,176,102,0.35)',
@@ -86,8 +88,9 @@ export default class ErrorBoundary extends React.Component<Props, State> {
  </button>
  <button
  onClick={() => window.location.reload()}
- className="text-[11px] px-3 py-1.5 rounded-md"
+ className="text-[11px] px-3 py-1.5"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(168,161,150,0.10)',
  color: '#a8a29e',
  border: '1px solid rgba(168,161,150,0.25)',

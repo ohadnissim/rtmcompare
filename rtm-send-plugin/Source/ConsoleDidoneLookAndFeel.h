@@ -192,5 +192,38 @@ public:
         return label.getFont();
     }
 
+    // ── Font loading note ──────────────────────────────────────────
+    // Title and subtitle labels use juce::Font("Instrument Serif", ...)
+    // which resolves against the system font stack. This works when
+    // Instrument Serif is installed system-wide (e.g. Google Fonts
+    // installed via Fontbook), but falls through to the platform serif
+    // on machines where it is not.
+    //
+    // To guarantee the typeface on all machines:
+    //   1. Add InstrumentSerif-Regular.ttf and InstrumentSerif-Italic.ttf
+    //      to the JUCE BinaryData (CMakeLists.txt juce_add_binary_data).
+    //   2. In this constructor, after the colour setup, call:
+    //        instrumentSerifRegular = juce::Typeface::createSystemTypefaceFor(
+    //            BinaryData::InstrumentSerifRegular_ttf,
+    //            BinaryData::InstrumentSerifRegular_ttfSize);
+    //        instrumentSerifItalic  = juce::Typeface::createSystemTypefaceFor(
+    //            BinaryData::InstrumentSerifItalic_ttf,
+    //            BinaryData::InstrumentSerifItalic_ttfSize);
+    //   3. Override getTypefaceForFont() to return the cached typeface
+    //      when the font family name is "Instrument Serif".
+    //   4. In drawButtonText(), replace the plain Font construction with
+    //        juce::Font (instrumentSerifRegular).withHeight (11.0f)
+    //      for primary / title contexts as needed.
+    //
+    // Font files to source: fonts.google.com/specimen/Instrument+Serif
+    // License: SIL Open Font License 1.1 (permissive, no embedding restrictions).
+    //
+    // NOTE: no TTF is bundled in this repository yet. The system-font
+    // fallback is active on all current builds.
+
+    // Private members to add when fonts are bundled:
+    // juce::Typeface::Ptr instrumentSerifRegular;
+    // juce::Typeface::Ptr instrumentSerifItalic;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ConsoleDidoneLookAndFeel)
 };

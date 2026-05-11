@@ -126,8 +126,9 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  {onToggleLock && (
  <button
  onClick={(e) => { e.stopPropagation(); onToggleLock() }}
- className="absolute top-2 left-2 h-7 px-2 rounded-full flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] transition-all"
+ className="absolute top-2 left-2 h-7 px-2 flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] transition-all"
  style={{
+ borderRadius: '2px',
  backgroundColor: locked ? 'rgba(208,176,102,0.16)' : 'rgba(87,83,78,0.18)',
  color: locked ? '#d0b066' : '#8d867b',
  border: `1px solid ${locked ? 'rgba(208,176,102,0.45)' : 'rgba(168,161,150,0.18)'}`,
@@ -153,7 +154,8 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  {!locked && (
  <button
  onClick={handleClear}
- className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center transition-all opacity-70 hover:opacity-100"
+ className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center transition-all opacity-70 hover:opacity-100"
+  style={{ borderRadius: '2px', backgroundColor: 'rgba(201,103,101,0.12)', color: '#c96765' }}
  style={{ backgroundColor: 'rgba(201,103,101,0.12)', color: '#c96765' }}
  aria-label={`Clear ${label}`}
  title="Clear this file"
@@ -183,8 +185,8 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  </p>
  {dropError && (
  <p
- className="text-[11px] mt-2 px-3 py-2 rounded"
- style={{ color: '#d0b066', backgroundColor: 'rgba(208,176,102,0.10)' }}
+ className="text-[11px] mt-2 px-3 py-2"
+ style={{ borderRadius: '2px', color: '#d0b066', backgroundColor: 'rgba(208,176,102,0.10)' }}
  onClick={(e) => { e.stopPropagation(); setDropError(null) }}
  title="Click to dismiss"
  >

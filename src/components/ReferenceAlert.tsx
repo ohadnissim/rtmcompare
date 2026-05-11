@@ -33,8 +33,8 @@ export default function ReferenceAlert({ check, labelA }: Props) {
 
  return (
  <div
- className="rounded-xl overflow-hidden"
- style={{ backgroundColor: config.bg, border: `1px solid ${config.border}` }}
+ className="overflow-hidden"
+ style={{ borderRadius: '2px', backgroundColor: config.bg, border: `1px solid ${config.border}` }}
  >
  {/* Header — always visible */}
  <button

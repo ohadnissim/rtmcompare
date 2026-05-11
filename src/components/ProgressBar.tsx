@@ -204,21 +204,21 @@ export default function ProgressBar({ message, onCancel }: Props) {
  {/* Progress bar */}
  <div className="w-full max-w-xs space-y-2">
  <div
- className="h-1.5 rounded-full overflow-hidden"
+ className="h-1.5 overflow-hidden"
  role="progressbar"
  aria-valuenow={ariaValueNow}
  aria-valuemin={0}
  aria-valuemax={100}
  aria-label={message}
- style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+ style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: '2px' }}
  >
  <div
- className="h-full rounded-full transition-all duration-300"
+ className="h-full transition-all duration-300"
  style={{
  width: `${displayPct}%`,
- background: 'linear-gradient(90deg, #00d4ff, #8b5cf6, #00ff88)',
- boxShadow: '0 0 15px rgba(0,212,255,0.4)',
- }}
+ backgroundColor: 'var(--color-sand-100)',
+ borderRadius: '2px',
+  }}
  />
  </div>
  <div className="flex justify-between items-center">
@@ -245,11 +245,12 @@ export default function ProgressBar({ message, onCancel }: Props) {
  {onCancel && (
  <button
  onClick={onCancel}
- className="text-[11px] px-4 py-2 rounded-full transition-colors"
+ className="text-[11px] px-4 py-2 transition-colors"
  style={{
  color: '#c45c5c',
  border: '1px solid rgba(196,92,92,0.3)',
  backgroundColor: 'rgba(196,92,92,0.05)',
+ borderRadius: '2px',
  }}
  title="Cancel scan and return to file selection"
  >

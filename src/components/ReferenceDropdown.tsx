@@ -62,8 +62,9 @@ export default function ReferenceDropdown({
  <button
  type="button"
  onClick={() => setOpen(v => !v)}
- className="text-[10px] uppercase tracking-[0.16em] px-3 py-1.5 rounded-md transition-colors"
+ className="text-[10px] uppercase tracking-[0.16em] px-3 py-1.5 transition-colors"
  style={{
+ borderRadius: '2px',
  color: open ? 'var(--color-accent)' : 'var(--color-text-muted)',
  border: `1px solid ${open ? 'color-mix(in srgb, var(--color-accent) 40%, transparent)' : 'var(--color-border)'}`,
  backgroundColor: 'transparent',
@@ -78,11 +79,11 @@ export default function ReferenceDropdown({
  {open && (
  <div
  role="menu"
- className="absolute left-0 z-30 mt-1 min-w-[280px] max-h-[60vh] overflow-y-auto rounded-md py-1"
+ className="absolute left-0 z-30 mt-1 min-w-[280px] max-h-[60vh] overflow-y-auto py-1"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'var(--color-bg-panel)',
  border: '1px solid var(--color-border)',
- boxShadow: '0 6px 24px rgba(0,0,0,0.35)',
  }}
  >
  {saved.length > 0 && (

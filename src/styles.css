@@ -501,3 +501,238 @@ a:focus-visible,
   color: var(--color-sand-300);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   v5.2 ADDITIONS — 2026-05-11
+   Microinteraction system, accessibility polish, typography,
+   scrollbar, ARIA utilities.
+   All rules are additive — nothing above is modified.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Microinteraction keyframe library ───────────────────────────
+   Dan Saffer Trigger/Rules/Feedback/Loops framework:
+   Each keyframe is a single reusable primitive; application to the
+   correct selector is done in the same block below.              */
+
+/* Panel / metric-cell entrance — fade + gentle upward slide */
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Tab content swap — pure opacity fade, no translate (avoids layout
+   jump when tab panels vary in height) */
+@keyframes tab-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Active analysis progress bar — gentle opacity pulse so the bar
+   reads as "working" without distracting motion */
+@keyframes analysis-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* Verdict hero reveal — Didone number slides up on panel mount */
+@keyframes verdict-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Empty-state cover entrance — wordmark + kicker breathe in */
+@keyframes empty-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Toast / banner slide-in from above */
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 1a. Animation selectors ────────────────────────────────────────
+
+   MetricCell: each [data-cell] child of [data-rtm-metric-strip]
+   staggers in with panel-in. nth-child 1–6 get explicit delays;
+   7+ fall through to the catch-all so a wider strip doesn't hang.
+   Duration matches --duration-stagger-cell (200ms) from the token
+   sheet above. Easing matches --easing-shell.                    */
+
+[data-rtm-metric-strip] [data-cell] {
+  animation: panel-in var(--duration-stagger-cell, 200ms)
+             var(--easing-shell, cubic-bezier(0.32, 0.72, 0, 1))
+             both;
+}
+[data-rtm-metric-strip] [data-cell]:nth-child(1) { animation-delay: calc(var(--duration-stagger-step, 30ms) * 0); }
+[data-rtm-metric-strip] [data-cell]:nth-child(2) { animation-delay: calc(var(--duration-stagger-step, 30ms) * 1); }
+[data-rtm-metric-strip] [data-cell]:nth-child(3) { animation-delay: calc(var(--duration-stagger-step, 30ms) * 2); }
+[data-rtm-metric-strip] [data-cell]:nth-child(4) { animation-delay: calc(var(--duration-stagger-step, 30ms) * 3); }
+[data-rtm-metric-strip] [data-cell]:nth-child(5) { animation-delay: calc(var(--duration-stagger-step, 30ms) * 4); }
+[data-rtm-metric-strip] [data-cell]:nth-child(6) { animation-delay: calc(var(--duration-stagger-step, 30ms) * 5); }
+[data-rtm-metric-strip] [data-cell]:nth-child(n+7) { animation-delay: calc(var(--duration-stagger-step, 30ms) * 6); }
+
+/* Tab content areas — any element that enters after a tab switch.
+   Panels use role="tabpanel"; target that for the fade. */
+[role="tabpanel"] {
+  animation: tab-fade 160ms var(--easing-shell, cubic-bezier(0.32, 0.72, 0, 1)) both;
+}
+
+/* Active analysis progress bar fill — pulse while the bar is active.
+   ProgressBar renders the fill as the only div inside [role="progressbar"]. */
+[role="progressbar"] > div {
+  animation: analysis-pulse 2s ease-in-out infinite;
+}
+/* Stop pulsing once progress reaches 100 (aria-valuenow=100) */
+[role="progressbar"][aria-valuenow="100"] > div {
+  animation: none;
+}
+
+/* Verdict hero number — animate on mount via PanelVerdict's <header>.
+   PanelVerdict's value <span> is the second child of the <header>.  */
+[aria-label="Overall verdict"] > span:nth-child(2),
+[aria-label="Mastering delta"] > span:nth-child(2),
+[aria-label="Delivery"] > span:nth-child(2),
+[aria-label="Stereo balance"] > span:nth-child(2),
+[aria-label="EQ match"] > span:nth-child(2),
+[aria-label="Dynamic range"] > span:nth-child(2),
+[aria-label="Quality"] > span:nth-child(2) {
+  animation: verdict-in 320ms var(--easing-shell, cubic-bezier(0.32, 0.72, 0, 1)) both;
+  animation-delay: 60ms;
+}
+
+/* Empty-state cover entrance — the cover <section> and its direct
+   children animate in. EmptyStateV2 uses aria-label="RTMcompare cover". */
+[aria-label="RTMcompare cover"] {
+  animation: empty-in 400ms var(--easing-shell, cubic-bezier(0.32, 0.72, 0, 1)) both;
+}
+
+/* RTM incoming banner / toast — slide down from top-right.
+   RtmIncomingBanner's outer div has role="region". Each chip inside
+   it gets the banner-in animation. */
+[aria-label="Incoming from RTM plugin"] > div {
+  animation: banner-in 200ms var(--easing-shell, cubic-bezier(0.32, 0.72, 0, 1)) both;
+}
+
+/* File drop zone drag-over scale — micro-confirm that the zone
+   registered the drag. Kept to 1.003 so it reads as feedback
+   rather than a UI event. */
+.drop-zone.active {
+  transform: scale(1.003);
+  transition: transform 120ms var(--easing-shell, cubic-bezier(0.32, 0.72, 0, 1)),
+              border-color 0.4s ease,
+              background 0.4s ease;
+}
+
+/* ── 1b. Reduced-motion override (global) ───────────────────────────
+   The existing reduced-motion block in @layer components targets
+   specific shell sections. This global rule is the backstop for
+   everything not covered there. Matches WCAG SC 2.3.3.           */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ── 2. Global focus-visible ring ───────────────────────────────────
+   The @layer components block above scopes the gold ring to v5.2
+   shell contexts. This rule is the global fallback that covers every
+   other interactive element (links, selects, textareas, tabindex).
+   1px solid terra — thinner than the 2px v5.2 ring so it defers
+   visually to the shell context when both could match.           */
+:focus-visible {
+  outline: 1px solid var(--color-terra);
+  outline-offset: 2px;
+}
+
+/* Kill the browser's own focus ring where :focus-visible already
+   handles it, so we never show both rings at once. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ── 3. Skip-to-content link ────────────────────────────────────────
+   Keyboard / AT users hit Tab on load and the skip link appears.
+   It jumps to #main-content (the app root). Add id="main-content"
+   to App.tsx's top-level <div> and a <a href="#main-content"
+   className="skip-link">Skip to content</a> as the very first DOM
+   child to activate this.                                        */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--color-sand-950);
+  color: var(--color-sand-100);
+  border: 1px solid var(--color-terra);
+  border-radius: 2px;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  transition: top 0.1s;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* ── 4. Display font on verdict hero / empty-state headline ─────────
+   PanelVerdict renders the hero value as an inline <span> with
+   inline style; those inline styles already set font-family.
+   These selectors act as a fallback and document intent.
+   EmptyStateV2's hero uses inline styles too, but .empty-headline
+   and .verdict-hero can be applied via className on future
+   refactors without touching this block again.
+
+   NOTE: PanelVerdict passes className to its <header> wrapper.
+   Any panel that passes className="panel-verdict" will get the
+   intent-class, making .panel-verdict-value below usable once
+   interior <span>s receive the class. Until then the aria-label
+   selectors in section 1a cover the animation.                  */
+.verdict-hero,
+.empty-headline,
+.panel-verdict-value {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+/* ── 5. Scrollbar styling ───────────────────────────────────────────
+   6px track, no background, antique-gold-adjacent thumb.
+   Applies to all scrollable areas in the Electron WebView.
+   Standard scrollbar-width: thin covers Firefox.               */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sand-600) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-sand-600);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sand-500);
+}
+
+/* ── 6. Screen-reader utility class ────────────────────────────────
+   Use on <span> / <div> elements that should be announced by AT
+   but remain invisible visually.  Also use on ARIA live regions
+   that have no visible counterpart (e.g. progress announcements). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+

@@ -85,8 +85,8 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  return (
  <div
  key={e.sha256 + e.ts}
- className="group flex items-center gap-2 rounded-lg px-3 py-2 transition-colors"
- style={{ backgroundColor: 'rgba(87,83,78,0.12)', border: '1px solid rgba(168,161,150,0.08)' }}
+ className="group flex items-center gap-2 px-3 py-2 transition-colors"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(87,83,78,0.12)', border: '1px solid rgba(168,161,150,0.08)' }}
  >
  {/* Main label — loads as Reference A */}
  <button
@@ -120,8 +120,8 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  {/* Tiny B-slot badge — loads into the Compare slot instead */}
  <button
  onClick={() => onPick(e, 'B')}
- className="opacity-0 group-hover:opacity-100 text-[9px] uppercase tracking-[0.1em] px-2 py-1 rounded transition-all flex-shrink-0"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.25)' }}
+ className="opacity-0 group-hover:opacity-100 text-[9px] uppercase tracking-[0.1em] px-2 py-1 transition-all flex-shrink-0"
+ style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.25)' }}
  title="Load this file into the Compare slot (B) instead of Reference (A)"
  >
  → B

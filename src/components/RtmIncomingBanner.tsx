@@ -113,36 +113,45 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
 
  // Stable drop handler — empty dep list guarantees the subscription
  // doesn't tear down on parent re-render.
- const handleDrop = useCallback((drop: RtmIncomingDrop) => {
+ //
+ // 5.7.x: takes a `liveDrop` flag. Live drops (received via the
+ // main-process watcher AFTER mount) honour the plugin's routing
+ // hint (`route: 'single' / 'compareB' / 'batch'`) and auto-load
+ // into the requested slot. Pre-existing drops surfaced by the
+ // mount-time inbox sweep do NOT auto-route — they show the chip
+ // and let the user decide. Otherwise stale files in
+ // ~/.rtm/incoming/ from a previous session keep loading themselves
+ // as Reference on every RTMcompare launch (Mike's bug report).
+ const handleDrop = useCallback((drop: RtmIncomingDrop, liveDrop: boolean) => {
  if (dismissedRef.current.has(drop.audioPath)) return
  if (routedRef.current.has(drop.audioPath)) return
  const name = basename(drop.audioPath)
  const info = { path: drop.audioPath, name }
  const ar = autoRouteRef.current
  const route = drop.meta?.route
- // Auto-route when the plugin asked for a specific destination.  Mark
- // this path as routed BEFORE firing the callback so a synchronous
- // parent re-render that triggers our list effect again won't re-enter.
- if (ar && route === 'compareB') {
+ // Auto-route only for LIVE drops. Pre-existing files surface as a
+ // chip so the user can decide — they may be hours or days old
+ // and shouldn't silently land in the Reference slot on launch.
+ if (liveDrop && ar && route === 'compareB') {
  routedRef.current.add(drop.audioPath)
  onLoadIntoRef.current('B', info, drop)
  showAutoToast('Plug-in drop routed to Compare (File B) - click Compare to analyse.')
  return
  }
- if (ar && route === 'single' && onSingleRef.current) {
+ if (liveDrop && ar && route === 'single' && onSingleRef.current) {
  routedRef.current.add(drop.audioPath)
  onSingleRef.current(info, drop)
  showAutoToast('Plug-in drop loaded as Reference - click Analyze Reference Only to start.')
  return
  }
- if (ar && route === 'batch' && onBatchRef.current) {
+ if (liveDrop && ar && route === 'batch' && onBatchRef.current) {
  routedRef.current.add(drop.audioPath)
  onBatchRef.current(info, drop)
  showAutoToast('Plug-in drop loaded as the seed for a new album batch — click "Analyze Album" to start the batch with this track as track 1.')
  return
  }
- // No routing hint (or auto-route disabled): show the chip and
- // let the user pick.
+ // No auto-route (either pre-existing drop, no routing hint, or
+ // auto-route disabled): show the chip and let the user pick.
  setDrops(prev => dedupe([drop, ...prev]))
  }, [])
 
@@ -154,7 +163,8 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
  if (window.electronAPI?.rtmIncomingList) {
  window.electronAPI.rtmIncomingList().then(list => {
  if (!mounted) return
- for (const d of list) handleDrop(d)
+ // Pre-existing inbox files: show chips, never auto-route.
+ for (const d of list) handleDrop(d, /*liveDrop*/ false)
  }).catch(() => {})
  }
  return () => { mounted = false }
@@ -163,10 +173,10 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
  }, [])
 
  // Effect 2 — live subscription to the main-process watcher.  Also runs
- // exactly once per mount.
+ // exactly once per mount. Live drops auto-route per their meta hint.
  useEffect(() => {
  if (!window.electronAPI?.onRtmIncoming) return
- const unsub = window.electronAPI.onRtmIncoming(handleDrop)
+ const unsub = window.electronAPI.onRtmIncoming((drop) => handleDrop(drop, /*liveDrop*/ true))
  return () => { try { unsub?.() } catch {} }
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [])
@@ -190,8 +200,9 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
  >
  {autoToast && (
  <div
- className="rounded-lg px-3 py-2 shadow-xl backdrop-blur-md"
+ className="px-3 py-2"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(30,28,24,0.95)',
  border: '1px solid rgba(208,176,102,0.55)',
  }}
@@ -228,7 +239,7 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
  <div className="flex items-center justify-end">
  <button
  onClick={dismissAll}
- className="text-[9px] px-2 py-0.5 rounded hover:bg-white/[0.06]"
+ className="text-[9px] px-2 py-0.5 hover:bg-white/[0.06]"
  style={{ color: '#7a7164', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  Clear inbox ({drops.length})
@@ -255,14 +266,15 @@ function DropChip({ drop, onLoad, onDismiss }: {
 
  return (
  <div
- className="rounded-lg px-3 py-2 flex items-start gap-3 shadow-xl backdrop-blur-md"
+ className="px-3 py-2 flex items-start gap-3"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(30,28,24,0.95)',
  border: '1px solid rgba(208,176,102,0.45)',
  }}
  >
- <div className="w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0"
- style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
+ <div className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
  title="Incoming from the RTM Send plugin">
  <span className="text-[14px]">↙</span>
  </div>
@@ -279,21 +291,21 @@ function DropChip({ drop, onLoad, onDismiss }: {
  <div className="flex items-center gap-1.5 mt-1.5">
  <button
  onClick={() => onLoad('A')}
- className="text-[10px] px-2 py-0.5 rounded"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)' }}
+ className="text-[10px] px-2 py-0.5"
+ style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)' }}
  >
  → Reference
  </button>
  <button
  onClick={() => onLoad('B')}
- className="text-[10px] px-2 py-0.5 rounded"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)', backgroundColor: 'rgba(208,176,102,0.1)' }}
+ className="text-[10px] px-2 py-0.5"
+ style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)', backgroundColor: 'rgba(208,176,102,0.1)' }}
  >
  → Compare
  </button>
  <button
  onClick={onDismiss}
- className="text-[10px] px-2 py-0.5 rounded ml-auto"
+ className="text-[10px] px-2 py-0.5 ml-auto"
  style={{ color: '#8d867b' }}
  >
  Dismiss

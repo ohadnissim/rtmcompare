@@ -98,7 +98,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  return (
  <div
  className="fixed inset-0 z-[95] flex items-start justify-center"
- style={{ backgroundColor: 'rgba(14,13,11,0.55)', backdropFilter: 'blur(6px)' }}
+ style={{ backgroundColor: 'rgba(14,13,11,0.55)' }}
  onClick={onClose}
  >
  <div
@@ -106,11 +106,11 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  role="dialog"
  aria-modal="true"
  aria-label="Command palette"
- className="w-full max-w-xl mx-4 mt-[12vh] rounded-2xl overflow-hidden"
+ className="w-full max-w-xl mx-4 mt-[12vh] overflow-hidden"
  style={{
+ borderRadius: '2px',
  backgroundColor: '#151411',
  border: '1px solid rgba(208,176,102,0.25)',
- boxShadow: '0 20px 60px rgba(0,0,0,0.55)',
  }}
  onClick={(e) => e.stopPropagation()}
  onKeyDown={handleKeyDownContainer}
@@ -144,7 +144,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  className="flex-1 bg-transparent outline-none text-sm"
  style={{ color: '#ebe7e0' }}
  />
- <kbd className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#a8a29e', border: '1px solid rgba(168,161,150,0.15)' }}>
+ <kbd className="text-[10px] px-1.5 py-0.5" style={{ borderRadius: '2px', color: '#a8a29e', border: '1px solid rgba(168,161,150,0.15)' }}>
  Esc
  </kbd>
  </div>

@@ -26,6 +26,13 @@ interface Props {
 }
 
 export default function CollapsibleSection({ title, tooltip, badge, why, glossary, children }: Props) {
+ // Note on `defaultOpen` (kept in Props for backwards compat with every
+ // call site): this component is misnamed — it has never actually
+ // collapsed. We tried adding a real fold in 5.7.x but Mike preferred
+ // the original always-open behaviour ("just like the other windows")
+ // because every panel in the rest of the app shows its content by
+ // default and the chevron made the page feel emptier on first paint.
+ // The prop stays accepted-but-ignored so existing callers don't break.
  // When educator mode is on, show the `why` text inline under the title.
  const { educator } = useModes()
  const explainer = why || tooltip
@@ -33,15 +40,15 @@ export default function CollapsibleSection({ title, tooltip, badge, why, glossar
  const hasGlossary = !!(glossary && glossary.length > 0)
 
  return (
- <div className="overflow-visible bg-dark-900/40 border border-dark-700/30">
+ <div className="overflow-visible" style={{ backgroundColor: 'rgba(30,28,24,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="flex items-center justify-between px-6 pt-5 pb-3">
  <div className="flex items-center gap-2">
  <h2 className="text-lg font-semibold">{title}</h2>
  {hasGlossary ? (
  <button
  onClick={() => setSheetOpen(true)}
- className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] transition-colors hover:bg-white/[0.06]"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="w-5 h-5 flex items-center justify-center text-[11px] transition-colors hover:bg-white/[0.06]"
+ style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Open panel glossary"
  aria-label={`Open ${title} glossary`}
  >
@@ -55,8 +62,8 @@ export default function CollapsibleSection({ title, tooltip, badge, why, glossar
  </div>
  {educator && explainer && (
  <div className="px-6 pb-3 -mt-2">
- <div className="text-[11px] leading-relaxed rounded-lg px-3 py-2"
- style={{ backgroundColor: 'rgba(111,163,126,0.06)', color: '#8bb598', borderLeft: '2px solid #6fa37e' }}>
+ <div className="text-[11px] leading-relaxed px-3 py-2"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(111,163,126,0.06)', color: '#8bb598', borderLeft: '2px solid #6fa37e' }}>
  <span className="text-[9px] uppercase tracking-[0.15em] mr-2" style={{ color: '#6fa37e' }}>Why this matters</span>
  {explainer}
  </div>
@@ -100,7 +107,7 @@ function GlossarySheet({ title, overview, why, entries, onClose }: {
  return (
  <div
  className="fixed inset-0 z-[90] flex justify-end"
- style={{ backgroundColor: 'rgba(14,13,11,0.6)', backdropFilter: 'blur(4px)' }}
+ style={{ backgroundColor: 'rgba(14,13,11,0.6)' }}
  onClick={onClose}
  >
  <div
@@ -108,7 +115,6 @@ function GlossarySheet({ title, overview, why, entries, onClose }: {
  style={{
  backgroundColor: '#151411',
  borderLeft: '1px solid rgba(208,176,102,0.25)',
- boxShadow: '-16px 0 48px rgba(0,0,0,0.5)',
  }}
  onClick={(e) => e.stopPropagation()}
  >

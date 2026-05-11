@@ -53,7 +53,7 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
 
  return (
  <header
- className="app-no-drag sticky z-30 backdrop-blur-md"
+ className="app-no-drag sticky z-30"
  style={{
  top: 28,
  backgroundColor: 'var(--rtm-header-bg)',
@@ -96,10 +96,11 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  <button
  type="button"
  onClick={() => window.dispatchEvent(new CustomEvent('rtm-open-palette'))}
- className="w-8 h-8 rounded-md flex items-center justify-center transition-colors"
+ className="w-8 h-8 flex items-center justify-center transition-colors"
  style={{
  color: 'var(--color-text-muted)',
  border: '1px solid var(--color-border)',
+ borderRadius: 'var(--radius-card)',
  backgroundColor: 'transparent',
  }}
  title="Search (⌘K) — find any tab, metric, or panel by name"
@@ -114,10 +115,11 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  <button
  type="button"
  onClick={() => window.dispatchEvent(new CustomEvent('rtm-toggle-shortcuts'))}
- className="w-8 h-8 rounded-md flex items-center justify-center transition-colors"
+ className="w-8 h-8 flex items-center justify-center transition-colors"
  style={{
  color: 'var(--color-text-muted)',
  border: '1px solid var(--color-border)',
+ borderRadius: 'var(--radius-card)',
  backgroundColor: 'transparent',
  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
  fontSize: 13,
@@ -131,10 +133,11 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  <button
  type="button"
  onClick={onNewSearch}
- className="text-[10px] uppercase tracking-[0.16em] px-3 py-1.5 rounded-md transition-colors"
+ className="text-[10px] uppercase tracking-[0.16em] px-3 py-1.5 transition-colors"
  style={{
- color: 'var(--color-accent)',
- border: '1px solid color-mix(in srgb, var(--color-accent) 40%, transparent)',
+ color: 'var(--color-text-primary)',
+ border: '1px solid var(--color-accent)',
+ borderRadius: 'var(--radius-card)',
  backgroundColor: 'transparent',
  }}
  title="Drop new files. Current analysis stays in Recent Analyses. (⌘N)"

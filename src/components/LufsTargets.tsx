@@ -8,83 +8,84 @@ interface Props {
 }
 
 const targets = [
- { name: 'Spotify', lufs: -14, color: '#1DB954' },
- { name: 'Apple Music', lufs: -16, color: '#fc3c44' },
- { name: 'YouTube', lufs: -14, color: '#ff0000' },
- { name: 'Tidal', lufs: -14, color: '#000000' },
- { name: 'Amazon Music', lufs: -14, color: '#25d1da' },
- { name: 'Club / DJ', lufs: -8, color: '#f59e0b' },
+ { name: 'Spotify', lufs: -14 },
+ { name: 'Apple Music', lufs: -16 },
+ { name: 'YouTube', lufs: -14 },
+ { name: 'Tidal', lufs: -14 },
+ { name: 'Amazon Music', lufs: -14 },
+ { name: 'Club / DJ', lufs: -8 },
 ]
 
 export default function LufsTargets({ lufsA, lufsB, labelA, labelB }: Props) {
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="space-y-4" style={{ borderRadius: '2px', padding: '1.5rem', backgroundColor: 'rgba(30,28,24,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Streaming Loudness Targets</h2>
- <p className="text-xs text-dark-400">How your files compare to platform normalization targets</p>
+ <h3 className="text-sm">Streaming Loudness Targets</h3>
+ <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>How your files compare to platform normalization targets</p>
  </div>
 
  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
  {targets.map(t => {
- const diffA = lufsA - t.lufs
- const diffB = lufsB - t.lufs
- const statusA = getStatus(diffA)
- const statusB = getStatus(diffB)
+  const diffA = lufsA - t.lufs
+  const diffB = lufsB - t.lufs
+  const statusA = getStatus(diffA)
+  const statusB = getStatus(diffB)
 
- return (
- <div key={t.name} className="bg-dark-800 rounded-xl p-3.5 space-y-2.5">
- <div className="flex items-center gap-2">
- <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
- <span className="text-xs font-medium text-dark-200">{t.name}</span>
- <span className="text-[9px] text-dark-500 ml-auto">{t.lufs} LUFS</span>
- </div>
+  return (
+  <div key={t.name} className="space-y-2.5" style={{ backgroundColor: 'rgba(30,28,24,0.6)', border: '1px solid rgba(168,161,150,0.08)', borderRadius: '2px', padding: '0.875rem' }}>
+   <div className="flex items-center gap-2">
+   <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{t.name}</span>
+   <span className="text-[9px] ml-auto font-mono" style={{ color: 'var(--color-text-dim)' }}>{t.lufs} LUFS</span>
+   </div>
 
- {/* File A */}
- <div className="flex items-center justify-between text-[10px]">
- <span className="text-dark-400 truncate max-w-[120px]">{labelA}</span>
- <span className="font-mono flex-shrink-0" style={{ color: statusA.color }}>
- {diffA > 0 ? `turned down ${diffA.toFixed(1)} dB` : diffA < -1 ? `${Math.abs(diffA).toFixed(1)} dB below` : 'on target'}
- </span>
- </div>
+   {/* File A */}
+   <div className="flex items-center justify-between text-[10px]">
+   <span className="truncate max-w-[120px]" style={{ color: 'var(--color-text-muted)' }}>{labelA}</span>
+   <span className="font-mono flex-shrink-0" style={{ color: statusA.color }}>
+    {diffA > 0 ? `turned down ${diffA.toFixed(1)} dB` : diffA < -1 ? `${Math.abs(diffA).toFixed(1)} dB below` : 'on target'}
+   </span>
+   </div>
 
- {/* File B */}
- <div className="flex items-center justify-between text-[10px]">
- <span className="text-amber-400 truncate max-w-[120px]">{labelB}</span>
- <span className="font-mono flex-shrink-0" style={{ color: statusB.color }}>
- {diffB > 0 ? `turned down ${diffB.toFixed(1)} dB` : diffB < -1 ? `${Math.abs(diffB).toFixed(1)} dB below` : 'on target'}
- </span>
- </div>
+   {/* File B */}
+   <div className="flex items-center justify-between text-[10px]">
+   <span className="truncate max-w-[120px]" style={{ color: 'var(--color-terra)' }}>{labelB}</span>
+   <span className="font-mono flex-shrink-0" style={{ color: statusB.color }}>
+    {diffB > 0 ? `turned down ${diffB.toFixed(1)} dB` : diffB < -1 ? `${Math.abs(diffB).toFixed(1)} dB below` : 'on target'}
+   </span>
+   </div>
 
- {/* Visual bar */}
- <div className="relative h-1.5 bg-dark-700 rounded-full overflow-hidden">
- {/* Target marker */}
- <div className="absolute top-0 bottom-0 w-px bg-dark-400" style={{ left: '50%' }} />
- {/* File A dot */}
- <div
- className="absolute top-0 h-1.5 w-1.5 rounded-full"
- style={{
- left: `${Math.max(5, Math.min(95, 50 + diffA * 3))}%`,
- backgroundColor: '#6b7280',
- transform: 'translateX(-50%)',
- }}
- />
- {/* File B dot */}
- <div
- className="absolute top-0 h-1.5 w-1.5 rounded-full"
- style={{
- left: `${Math.max(5, Math.min(95, 50 + diffB * 3))}%`,
- backgroundColor: '#f59e0b',
- transform: 'translateX(-50%)',
- }}
- />
- </div>
- </div>
- )
+   {/* Visual bar */}
+   <div className="relative h-1.5 overflow-hidden" style={{ backgroundColor: 'rgba(87,83,78,0.35)', borderRadius: '2px' }}>
+   {/* Target marker */}
+   <div className="absolute top-0 bottom-0 w-px" style={{ left: '50%', backgroundColor: 'rgba(168,161,150,0.3)' }} />
+   {/* File A dot */}
+   <div
+    className="absolute top-0 h-1.5 w-1.5"
+    style={{
+    left: `${Math.max(5, Math.min(95, 50 + diffA * 3))}%`,
+    backgroundColor: 'var(--color-sand-400)',
+    transform: 'translateX(-50%)',
+    borderRadius: '2px',
+    }}
+   />
+   {/* File B dot */}
+   <div
+    className="absolute top-0 h-1.5 w-1.5"
+    style={{
+    left: `${Math.max(5, Math.min(95, 50 + diffB * 3))}%`,
+    backgroundColor: 'var(--color-terra)',
+    transform: 'translateX(-50%)',
+    borderRadius: '2px',
+    }}
+   />
+   </div>
+  </div>
+  )
  })}
  </div>
 
  {/* Explanation */}
- <div className="text-[10px] text-dark-500 space-y-1">
+ <div className="text-[10px] space-y-1" style={{ color: 'var(--color-text-dim)' }}>
  <p>Files louder than the target will be turned down by the platform. Files quieter will be turned up (or left quiet on some platforms).</p>
  <p>Aim for within +/- 1 dB of the target for best results.</p>
  </div>
@@ -92,9 +93,9 @@ export default function LufsTargets({ lufsA, lufsB, labelA, labelB }: Props) {
  )
 }
 
-function getStatus(diff: number): { color: string; icon: string } {
+function getStatus(diff: number): { color: string } {
  const abs = Math.abs(diff)
- if (abs <= 1) return { color: '#34d399', icon: '' }
- if (abs <= 3) return { color: '#f59e0b', icon: '' }
- return { color: '#f43f5e', icon: diff > 0 ? '(will be turned down)' : '(quiet)' }
+ if (abs <= 1) return { color: 'var(--color-sage)' }
+ if (abs <= 3) return { color: 'var(--color-warm-amber)' }
+ return { color: 'var(--color-warm-red)' }
 }

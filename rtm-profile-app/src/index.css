@@ -1,0 +1,150 @@
+/* RTMprofile — Console Didone token system
+   Mirrors the parent RTMcompare styles.css without Tailwind dependency.
+   All components reach for these variables; no hardcoded hex in TSX. */
+
+/* ── Fonts ──────────────────────────────────────────────────────────── */
+/* Loaded in index.html via Google Fonts link tag (see <head>).
+   Instrument Serif for display/wordmark, Outfit for body, JetBrains Mono for data. */
+
+/* ── Design tokens ──────────────────────────────────────────────────── */
+:root {
+  /* Sand scale — warm charcoal tones, matches parent exactly */
+  --color-sand-50:  #faf7f1;
+  --color-sand-100: #ebe7e0;   /* cream — primary headings */
+  --color-sand-200: #d6d1c6;
+  --color-sand-300: #b5afa4;   /* tertiary text */
+  --color-sand-400: #8d867b;   /* subtle text */
+  --color-sand-500: #6a6459;   /* dim text — colophon */
+  --color-sand-600: #3e3a33;
+  --color-sand-700: #2a2722;
+  --color-sand-800: #1e1c18;   /* panel bg */
+  --color-sand-900: #151411;   /* input bg */
+  --color-sand-950: #0e0d0b;   /* ink — app bg */
+
+  /* Semantic colour aliases */
+  --gold:    #d0b066;
+  --cream:   #ebe7e0;
+  --ink:     #0e0d0b;
+  --border:  rgba(168,161,150,0.18);
+
+  /* State colours */
+  --success: #6ec577;
+  --danger:  #c96765;
+
+  /* Active / hover gold tint — NEVER gold fill */
+  --gold-tint: rgba(208,176,102,0.12);
+  --gold-tint-hover: rgba(208,176,102,0.06);
+
+  /* Typography */
+  --font-display: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
+  --font-sans:    'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+
+  /* Radius — two values only: sharp card or full pill */
+  --radius: 2px;
+  --radius-pill: 9999px;
+}
+
+/* ── Base reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--color-sand-300);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none;
+  user-select: none;
+  letter-spacing: 0.005em;
+}
+
+/* ── Focus ring ─────────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ── Typography classes ─────────────────────────────────────────────── */
+.display-serif {
+  font-family: var(--font-display);
+  font-style: normal;
+  letter-spacing: -0.005em;
+  font-weight: 400;
+}
+
+.display-serif-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  letter-spacing: -0.005em;
+  font-weight: 400;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* ── Button resets ──────────────────────────────────────────────────── */
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* ── Input resets ───────────────────────────────────────────────────── */
+input, textarea, select {
+  font-family: var(--font-sans);
+  background: var(--color-sand-900);
+  color: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--color-sand-500);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-sand-700);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sand-600);
+}
+
+/* ── Utility classes ────────────────────────────────────────────────── */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}

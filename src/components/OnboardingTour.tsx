@@ -28,50 +28,66 @@ const DEFAULT_UPLOAD_STEPS: TourStep[] = [
  {
  selector: '[data-tour="dropzone"]',
  placement: 'bottom',
- title: 'Drop your files here',
- body: 'Left: your reference (demo, rough, or a track you like the sound of). Right: the file to compare, a mix, master, or Atmos bounce. WAV, FLAC, MP3, AIFF, ADM BWF.',
+ // 5.7.2 copy:
+ title: 'Drop two tracks here',
+ // 5.7.2 copy:
+ body: 'Left side, the sound you want to chase. Right side, the mix or master you\'re working on. WAV, FLAC, MP3, AIFF, or ADM BWF — we\'ll take it.',
  },
  {
  selector: '[data-tour="scan-mode"]',
  placement: 'top',
- title: 'Fast or Deep Scan',
- body: 'Fast gives you the full measurement set in under a minute. Deep adds AI stem separation for per-stem masking and AI-generation detection. Auto-disabled on ADM / Atmos files.',
+ // 5.7.2 copy:
+ title: 'Fast or Deep',
+ // 5.7.2 copy:
+ body: 'Fast gets you every measurement in under a minute. Deep adds stem separation so you can see each element on its own. Pick Fast unless you want to dig into the parts.',
  },
  {
  selector: '[data-tour="profile"]',
  placement: 'top',
- title: 'Engineer Profile',
- body: 'Target curve plus loudness / width / dynamics targets driving Engineer Tips. Load your own from JSON: a Ghenea curve, a vintage Neve console average, or your own signature.',
+ // 5.7.2 copy:
+ title: 'Your sound, saved',
+ // 5.7.2 copy:
+ body: 'A profile is your house style — target curve, loudness, width, dynamics. Load a preset, build your own, or import one from a colleague.',
  },
  {
  selector: '[data-tour="recent"]',
  placement: 'top',
- title: 'Reference Library',
- body: 'Star your go-to references so they re-load in one click. Separate saved list for favourites, recent list for the last 20 files you analysed.',
+ // 5.7.2 copy:
+ title: 'Keep your references close',
+ // 5.7.2 copy:
+ body: 'Star the tracks you reach for again and again. They\'ll be one click away next time, no re-importing.',
  },
  {
  selector: '[data-tour="analyze"]',
  placement: 'top',
- title: 'Ready to analyze',
- body: 'Click Compare (or Analyze Reference Only for single-file QC) and watch the progress. Processing is local.',
+ // 5.7.2 copy:
+ title: 'Hit Compare',
+ // 5.7.2 copy:
+ body: 'One click and you\'re off. Or use Analyze Reference Only if you just want to check a single file. Everything runs on your machine — nothing uploads.',
  },
  {
  selector: '[data-tour="analyze-album"]',
  placement: 'top',
- title: 'Analyse a whole album',
- body: 'Pick a folder. RTM runs a quick pass (LUFS, TP, LRA, length, SR / BD, ISRC hygiene, outlier flags) into a sortable table within seconds. Deep analysis (clicks, hum, distortion, phase bands, BPM / key, streaming preview) runs lazily per track when you open its tab.',
+ // 5.7.2 copy:
+ title: 'Got a whole album?',
+ // 5.7.2 copy:
+ body: 'Drop a folder. You\'ll get a sortable table of every track in seconds — loudness, peaks, length, ISRCs, the lot. Outliers flagged automatically.',
  },
  {
  selector: '[data-tour="analyze-album"]',
  placement: 'top',
- title: 'Inside the album view',
- body: 'Click any row to open that song in a rotating tab. Deep analysis starts on open and caches for the session, so ← / → is instant. Each song has its own Notes; the album has its own. The A/B player lets you reference against any other album track, an uploaded file, or a starred favourite. Promote any row as the cohort reference for a per-track drift heatmap.',
+ // 5.7.2 copy:
+ title: 'Click into any track',
+ // 5.7.2 copy:
+ body: 'Tap a row to open that song. Arrow keys jump between tracks. Each one gets its own notes, and you can A/B any track against any other.',
  },
  {
  selector: '[data-tour="load-session"]',
  placement: 'top',
- title: 'Save & reload album sessions',
- body: 'Leaving notes in an album review? Save Session writes a .rtmalbum.json with every row, notes, and your last-open tab. Load Album Session reopens it where you left off, no re-analysis. A/B favourites persist too.',
+ // 5.7.2 copy:
+ title: 'Pick up where you left off',
+ // 5.7.2 copy:
+ body: 'Save Session keeps every measurement, note, and favourite in one file. Load it tomorrow and you\'re right back in — no waiting on re-analysis.',
  },
 ]
 
@@ -165,49 +181,60 @@ export default function OnboardingTour({ externalTour }: { externalTour?: Return
 
 function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
  return (
- <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ backgroundColor: 'rgba(14,13,11,0.92)', backdropFilter: 'blur(8px)' }}>
- <div className="max-w-xl mx-6 rounded-2xl p-10 text-center space-y-6"
- style={{ backgroundColor: '#151411', border: '1px solid rgba(208,176,102,0.25)' }}>
+ <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ backgroundColor: 'rgba(14,13,11,0.92)' }}>
+ <div className="max-w-xl mx-6 p-10 text-center space-y-6"
+ style={{ borderRadius: '2px', backgroundColor: '#151411', border: '1px solid rgba(208,176,102,0.25)' }}>
  <div>
- <div className="text-[10px] tracking-[0.3em] uppercase" style={{ color: '#8d867b' }}>Pro audio QC for engineers &amp; producers</div>
+ {/* 5.7.2 copy: */}
+ <div className="text-[10px] tracking-[0.3em] uppercase" style={{ color: '#8d867b' }}>For people who care how it sounds</div>
  <div className="mt-2"><Wordmark size="lg" /></div>
- <div className="text-[10px] tracking-[0.2em] uppercase mt-1" style={{ color: '#d0b066' }}>Industry-standard QC &amp; A/B</div>
+ {/* 5.7.2 copy: */}
+ <div className="text-[10px] tracking-[0.2em] uppercase mt-1" style={{ color: '#d0b066' }}>Listen, compare, ship</div>
  </div>
 
+ {/* 5.7.2 copy: */}
  <p className="text-sm leading-relaxed" style={{ color: '#b5afa4' }}>
- Three clicks from <span style={{ color: '#ebe7e0' }}>&ldquo;this mix feels off&rdquo;</span> to <span style={{ color: '#d0b066' }}>knowing why</span>. Level-matched A/B, per-band phase, mono translation, streaming normalisation preview, and concrete EQ moves.
+ From <span style={{ color: '#ebe7e0' }}>&ldquo;something&apos;s off&rdquo;</span> to <span style={{ color: '#d0b066' }}>knowing exactly what</span> in three clicks. Level-matched A/B, honest streaming previews, and EQ moves you can hear before you commit.
  </p>
 
  <div className="grid grid-cols-2 gap-3 text-left">
- <Pillar title="Drop. Compare." body="Two files, level-matched, native sample rate. Every measurement side-by-side." />
- <Pillar title="Deliver clean." body="Catch clipping, hum, mono-collapse, ISRC drift, and Atmos spec failures before the label does." />
- <Pillar title="Actionable EQ." body="Match any target curve. Export as FabFilter Pro-Q / CSV / JSON, or Apply &amp; Bounce a corrected WAV." />
- <Pillar title="Local-first." body="Every measurement runs on your machine. No audio leaves. No cloud." />
+ {/* 5.7.2 copy: */}
+ <Pillar title="Drop. Compare." body="Two files, levels matched, every difference laid out side by side." />
+ {/* 5.7.2 copy: */}
+ <Pillar title="Catch it early." body="Clips, hum, mono problems, missing tags — spotted before the label calls." />
+ {/* 5.7.2 copy: */}
+ <Pillar title="EQ you can hear." body="Match a reference, audition the moves live, export to Pro-Q or bounce a corrected WAV." />
+ {/* 5.7.2 copy: */}
+ <Pillar title="Stays on your Mac." body="Every measurement runs locally. Your audio never leaves." />
  </div>
 
  <div className="flex items-center justify-center gap-3 pt-2">
  <button
  onClick={onSkip}
- className="text-[11px] px-4 py-2 rounded-full transition-colors"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[11px] px-4 py-2 transition-colors"
+ style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  >
- Skip tour
+ {/* 5.7.2 copy: */}
+ I&apos;ll poke around
  </button>
  <button
  onClick={onStart}
- className="text-[11px] px-6 py-2.5 rounded-full transition-all hover:scale-105"
+ className="text-[11px] px-6 py-2.5 transition-colors"
  style={{
- backgroundColor: '#d0b066',
- color: '#0e0d0b',
- boxShadow: '0 8px 24px rgba(208,176,102,0.2)',
+ borderRadius: '2px',
+ backgroundColor: 'transparent',
+ color: '#d0b066',
+ border: '1px solid rgba(208,176,102,0.55)',
  }}
  >
+ {/* 5.7.2 copy: */}
  Show me around
  </button>
  </div>
 
+ {/* 5.7.2 copy: */}
  <p className="text-[9px]" style={{ color: '#a8a29e' }}>
- Runs locally. Nothing leaves this machine.
+ Local-first. Your audio stays on your Mac.
  </p>
  </div>
  </div>
@@ -216,7 +243,7 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
 
 function Pillar({ title, body }: { title: string; body: string }) {
  return (
- <div className="rounded-xl p-3" style={{ backgroundColor: 'rgba(208,176,102,0.04)', border: '1px solid rgba(208,176,102,0.1)' }}>
+ <div className="p-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.04)', border: '1px solid rgba(208,176,102,0.1)' }}>
  <div className="text-[11px] tracking-[0.12em] uppercase mb-1" style={{ color: '#d0b066' }}>{title}</div>
  <div className="text-[11px]" style={{ color: '#a8a196' }}>{body}</div>
  </div>
@@ -351,12 +378,12 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
 
  {/* Popover */}
  <div
- className="fixed z-[100] rounded-2xl p-5 space-y-3"
+ className="fixed z-[100] p-5 space-y-3"
  style={{
  ...popoverStyle,
  backgroundColor: '#151411',
  border: '1px solid rgba(208,176,102,0.35)',
- boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+ borderRadius: '2px',
  // Smooth movement between steps — no more teleport.
  transition: 'left 300ms cubic-bezier(0.2, 0.8, 0.2, 1), top 300ms cubic-bezier(0.2, 0.8, 0.2, 1), width 300ms ease',
  }}
@@ -366,11 +393,12 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>
  Step {stepIndex + 1} of {totalSteps}
  </span>
+ {/* 5.7.2 copy: */}
  <button
  onClick={onSkip}
  className="text-[10px]"
  style={{ color: '#a8a29e' }}
- >Skip tour</button>
+ >Close tour</button>
  </div>
  <h3 className="text-base" style={{ color: '#f5f2ed', fontWeight: 500 }}>{step.title}</h3>
  <p className="text-[12px] leading-relaxed" style={{ color: '#a8a196' }}>{step.body}</p>
@@ -380,28 +408,29 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  Without this note the user stares at the dim backdrop looking
  for something that isn't there. */}
  {!rect && (
+ // 5.7.2 copy:
  <p className="text-[10px] italic pt-1" style={{ color: '#8d867b' }}>
- The highlighted area isn't on this screen yet — continue the tour, or skip to explore.
+ You&apos;ll see this one once it shows up on screen. Keep going, or close the tour and explore.
  </p>
  )}
  <div className="flex items-center justify-between pt-1">
  <div className="flex items-center gap-1">
  {Array.from({ length: totalSteps }).map((_, i) => (
- <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: i === stepIndex ? '#d0b066' : '#3e3a33' }} />
+ <span key={i} className="w-1.5 h-1.5" style={{ borderRadius: '2px', backgroundColor: i === stepIndex ? '#d0b066' : '#3e3a33' }} />
  ))}
  </div>
  <div className="flex items-center gap-2">
  {!isFirst && (
  <button
  onClick={onPrev}
- className="text-[10px] px-3 py-1.5 rounded-md"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[10px] px-3 py-1.5"
+ style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  >Back</button>
  )}
  <button
  onClick={onNext}
- className="text-[10px] px-4 py-1.5 rounded-md"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ className="text-[10px] px-4 py-1.5"
+ style={{ borderRadius: '2px', backgroundColor: 'transparent', color: '#d0b066', border: '1px solid rgba(208,176,102,0.55)' }}
  >
  {isLast ? 'Got it' : 'Next'}
  </button>

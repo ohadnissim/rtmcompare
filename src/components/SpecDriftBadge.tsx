@@ -60,8 +60,9 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  ref={triggerRef}
  type="button"
  onClick={() => setOpen(true)}
- className="inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-[10px] font-medium"
+ className="inline-flex items-center gap-2 px-2.5 py-1 text-[10px] font-medium"
  style={{
+ borderRadius: '2px',
  color: '#e07a4f',
  backgroundColor: 'rgba(224,122,79,0.10)',
  border: '1px solid rgba(224,122,79,0.35)',
@@ -74,7 +75,7 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  {open && (
  <div
  className="fixed inset-0 z-[120] flex items-center justify-center p-6"
- style={{ backgroundColor: 'rgba(14,13,11,0.82)', backdropFilter: 'blur(6px)' }}
+ style={{ backgroundColor: 'rgba(14,13,11,0.82)' }}
  role="dialog"
  aria-modal="true"
  aria-label="Spec drift details"
@@ -82,8 +83,8 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  >
  <div
  ref={dialogRef}
- className="w-full max-w-2xl rounded-xl p-5"
- style={{ backgroundColor: '#1e1c18', border: '1px solid rgba(168,161,150,0.18)', color: '#ebe7e0' }}
+ className="w-full max-w-2xl p-5"
+ style={{ borderRadius: '2px', backgroundColor: '#1e1c18', border: '1px solid rgba(168,161,150,0.18)', color: '#ebe7e0' }}
  onClick={(e) => e.stopPropagation()}
  >
  <div className="flex items-start justify-between gap-4">
@@ -96,8 +97,8 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  type="button"
  onClick={() => setOpen(false)}
  aria-label="Close spec drift details"
- className="rounded-md px-2 py-1 text-[11px]"
- style={{ color: '#a8a196', border: '1px solid rgba(168,161,150,0.18)' }}
+ className="px-2 py-1 text-[11px]"
+ style={{ borderRadius: '2px', color: '#a8a196', border: '1px solid rgba(168,161,150,0.18)' }}
  >
  Close
  </button>
@@ -111,8 +112,8 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  {deltas.length > 0 ? deltas.map(delta => (
  <div
  key={delta.id}
- className="rounded-lg p-3"
- style={{ backgroundColor: 'rgba(48,44,39,0.55)', border: '1px solid rgba(168,161,150,0.10)' }}
+ className="p-3"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.55)', border: '1px solid rgba(168,161,150,0.10)' }}
  >
  <div className="flex items-center justify-between gap-3">
  <span className="text-[12px] font-medium">{delta.name}</span>
@@ -125,7 +126,7 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  </ul>
  </div>
  )) : (
- <div className="rounded-lg p-3 text-[12px]" style={{ backgroundColor: 'rgba(48,44,39,0.55)', color: '#d9d4c8' }}>
+ <div className="p-3 text-[12px]" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.55)', color: '#d9d4c8' }}>
  The global registry version changed, but the stamped per-spec payload does not show target-level differences.
  </div>
  )}

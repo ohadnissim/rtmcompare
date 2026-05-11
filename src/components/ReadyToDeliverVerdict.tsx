@@ -68,8 +68,9 @@ export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid }:
  gold 10-30%, red > 30% (bluetooth / phone-speaker damage). */}
  {verdict.monoLossPct != null && (
  <span
- className="text-[9px] tracking-[0.12em] uppercase px-2 py-0.5 rounded-full"
+ className="text-[9px] tracking-[0.12em] uppercase px-2 py-0.5"
  style={{
+ borderRadius: '2px',
  color: verdict.monoLossPct > 30 ? '#e05a5a' : verdict.monoLossPct > 10 ? '#c5a55a' : '#6ec577',
  backgroundColor: verdict.monoLossPct > 30 ? 'rgba(224,90,90,0.12)' : verdict.monoLossPct > 10 ? 'rgba(197,165,90,0.12)' : 'rgba(110,197,119,0.12)',
  }}
@@ -125,7 +126,7 @@ export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid }:
  Each row shows the target DSP, measured playback level, and
  the level delta the DSP will apply. */}
  {showDspGrid && verdict.dsp.length > 0 && (
- <div className="mt-3 pt-3 rounded-md overflow-hidden" style={{ borderTop: `1px solid ${palette.accent}22` }}>
+ <div className="mt-3 pt-3 overflow-hidden" style={{ borderRadius: '2px', borderTop: `1px solid ${palette.accent}22` }}>
  <div className="flex items-baseline justify-between mb-2">
  <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: palette.accent }}>
  Per-platform compliance
@@ -134,7 +135,7 @@ export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid }:
  {verdict.dsp.length} platform{verdict.dsp.length === 1 ? '' : 's'} checked
  </span>
  </div>
- <div style={{ border: '1px solid rgba(168,161,150,0.1)', borderRadius: 6, overflow: 'hidden' }}>
+ <div style={{ border: '1px solid rgba(168,161,150,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
  {verdict.dsp.map((d, i) => (
  <div
  key={d.name}

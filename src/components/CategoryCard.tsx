@@ -55,8 +55,8 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
 
  return (
  <div
- className="p-4 transition-all bg-dark-900/40 border border-dark-700/30"
- style={{ borderLeft: `2px solid ${categoryStrokeColor}40` }}
+ className="p-4 transition-all"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.4)', border: '1px solid rgba(168,161,150,0.08)', borderLeft: `2px solid ${categoryStrokeColor}40` }}
  >
  {/* Header row — typography-only category identity (5.2.4). */}
  <div className="flex items-center justify-between mb-3">
@@ -70,8 +70,8 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  {soloMap && (
  <button
  onClick={() => isSoloed ? clearSolo() : setSolo(soloMap.freq, soloMap.q)}
- className="text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded transition-colors"
- style={{
+ className="text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 transition-colors"
+ style={{ borderRadius: '2px',
  color: isSoloed ? '#0e0d0b' : '#a8a29e',
  backgroundColor: isSoloed ? '#d0b066' : 'rgba(168,161,150,0.10)',
  borderBottom: `1px solid ${isSoloed ? '#d0b066' : 'rgba(168,161,150,0.25)'}`,
@@ -85,8 +85,9 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  )}
  {/* Level diff badge */}
  <span
- className="text-xs font-mono px-2 py-0.5 rounded-full"
+ className="text-xs font-mono px-2 py-0.5"
  style={{
+ borderRadius: '2px',
  color: diffColor,
  backgroundColor: `${diffColor}20`,
  }}
@@ -100,7 +101,7 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
      pre-5.3, audit P2-24). */}
  <div className="relative mb-3">
  <p
- className="text-xs text-dark-300 leading-relaxed cursor-pointer hover:text-dark-200 transition-colors"
+ className="text-xs leading-relaxed cursor-pointer transition-colors"
  onClick={async () => {
   try {
    await navigator.clipboard.writeText(category.insight)
@@ -117,8 +118,8 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  <span
  role="status"
  aria-live="polite"
- className="absolute right-0 top-0 text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded"
- style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
+ className="absolute right-0 top-0 text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
  >
  {toast}
  </span>
@@ -128,19 +129,19 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  {/* Level bars */}
  <div className="space-y-1">
  <div className="flex items-center gap-2">
- <span className="text-[9px] text-dark-500 w-10 truncate">{labelA}</span>
- <div className="flex-1 bg-dark-800/60 rounded-full h-2">
+ <span className="text-[9px] w-10 truncate" style={{ color: 'var(--color-text-dim)' }}>{labelA}</span>
+ <div className="flex-1 h-2" style={{ backgroundColor: 'rgba(87,83,78,0.3)', borderRadius: '2px', overflow: 'hidden' }}>
  <div
- className="h-2 rounded-full transition-all duration-700"
- style={{ width: `${barA}%`, backgroundColor: '#6b7280' }}
+ className="h-2 transition-all duration-700"
+ style={{ width: `${barA}%`, backgroundColor: 'var(--color-sand-400)' }}
  />
  </div>
  </div>
  <div className="flex items-center gap-2">
  <span className="text-[9px] w-10 truncate" style={{ color: '#d0b066' }}>{labelB}</span>
- <div className="flex-1 bg-dark-800/60 rounded-full h-2">
+ <div className="flex-1 h-2" style={{ backgroundColor: 'rgba(87,83,78,0.3)', borderRadius: '2px', overflow: 'hidden' }}>
  <div
- className="h-2 rounded-full transition-all duration-700"
+ className="h-2 transition-all duration-700"
  style={{ width: `${barB}%`, backgroundColor: '#d0b066' }}
  />
  </div>
@@ -149,8 +150,8 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
 
  {/* Extra metrics for relevant categories */}
  {(category.name === 'Wideness' || category.name === 'Vocals' || category.name === 'Instruments') && (
- <div className="mt-2 pt-2 border-t border-dark-700/30">
- <div className="flex items-center justify-between text-[10px] text-dark-400">
+ <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>Stereo width</span>
  <span>
  {(category.width_a * 100).toFixed(0)}% → {(category.width_b * 100).toFixed(0)}%
@@ -160,8 +161,8 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  )}
 
  {(category.name === 'Punch' || category.name === 'Kick' || category.name === 'Snare') && (
- <div className="mt-2 pt-2 border-t border-dark-700/30">
- <div className="flex items-center justify-between text-[10px] text-dark-400">
+ <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>Transient punch</span>
  <span>
  {category.punch_a.toFixed(1)}x → {category.punch_b.toFixed(1)}x
@@ -171,8 +172,8 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  )}
 
  {(category.name === 'Bass' || category.name === 'Sub') && (
- <div className="mt-2 pt-2 border-t border-dark-700/30">
- <div className="flex items-center justify-between text-[10px] text-dark-400">
+ <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>Dynamic range</span>
  <span>
  {category.dynamics_a.toFixed(1)} → {category.dynamics_b.toFixed(1)} dB

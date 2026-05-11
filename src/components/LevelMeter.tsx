@@ -17,37 +17,38 @@ export default function LevelMeter({ label, valueA, valueB, diff, unit, labelA, 
  const widthB = Math.min(100, Math.max(5, ((valueB + maxDb) / maxDb) * 100))
 
  const diffSign = diff > 0 ? '+' : ''
- const diffColor = Math.abs(diff) < 0.5 ? '#84858c' : diff > 0 ? '#34d399' : '#fbbf24'
+ // Neutral if near zero; warm-amber if negative (quieter); sage if positive (louder) — no vibrant palette
+ const diffColor = Math.abs(diff) < 0.5 ? 'var(--color-sand-400)' : diff > 0 ? 'var(--color-sage)' : 'var(--color-warm-amber)'
 
  return (
  <div className="space-y-1.5">
  <div className="flex items-center justify-between">
- <span className="text-xs font-medium text-dark-400 uppercase tracking-wide">{label}</span>
- <span className="text-xs font-mono" style={{ color: diffColor }}>
- {diffSign}{diff.toFixed(1)} {unit}
- </span>
+  <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+  <span className="text-xs font-mono" style={{ color: diffColor }}>
+  {diffSign}{diff.toFixed(1)} {unit}
+  </span>
  </div>
  <div className="space-y-1">
- <div className="flex items-center gap-2">
- <span className="text-[10px] text-dark-500 w-6">{labelA}</span>
- <div className="flex-1 bg-dark-800 rounded-full h-2.5">
- <div
- className="h-2.5 rounded-full transition-all duration-700"
- style={{ width: `${widthA}%`, backgroundColor: '#84858c' }}
- />
- </div>
- <span className="text-[10px] text-dark-500 font-mono w-12 text-right">{valueA.toFixed(1)}</span>
- </div>
- <div className="flex items-center gap-2">
- <span className="text-[10px] text-dark-500 w-6">{labelB}</span>
- <div className="flex-1 bg-dark-800 rounded-full h-2.5">
- <div
- className="h-2.5 rounded-full transition-all duration-700"
- style={{ width: `${widthB}%`, backgroundColor: barColor }}
- />
- </div>
- <span className="text-[10px] text-dark-500 font-mono w-12 text-right">{valueB.toFixed(1)}</span>
- </div>
+  <div className="flex items-center gap-2">
+  <span className="text-[10px] w-6" style={{ color: 'var(--color-text-dim)' }}>{labelA}</span>
+  <div className="flex-1 h-2.5" style={{ backgroundColor: 'rgba(87,83,78,0.35)', borderRadius: '2px', overflow: 'hidden' }}>
+   <div
+   className="h-2.5 transition-all duration-700"
+   style={{ width: `${widthA}%`, backgroundColor: 'var(--color-sand-400)', borderRadius: '2px' }}
+   />
+  </div>
+  <span className="text-[10px] font-mono w-12 text-right" style={{ color: 'var(--color-text-dim)' }}>{valueA.toFixed(1)}</span>
+  </div>
+  <div className="flex items-center gap-2">
+  <span className="text-[10px] w-6" style={{ color: 'var(--color-text-dim)' }}>{labelB}</span>
+  <div className="flex-1 h-2.5" style={{ backgroundColor: 'rgba(87,83,78,0.35)', borderRadius: '2px', overflow: 'hidden' }}>
+   <div
+   className="h-2.5 transition-all duration-700"
+   style={{ width: `${widthB}%`, backgroundColor: barColor, borderRadius: '2px' }}
+   />
+  </div>
+  <span className="text-[10px] font-mono w-12 text-right" style={{ color: 'var(--color-text-dim)' }}>{valueB.toFixed(1)}</span>
+  </div>
  </div>
  </div>
  )
