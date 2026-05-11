@@ -3,6 +3,10 @@ import { AppState, FileInfo, AnalysisResult } from './types'
 import { useTheme } from './ThemeContext'
 import { useModes } from './ModesContext'
 import HeaderV2 from './components/shell/HeaderV2'
+import { LearnModeProvider } from './context/LearnModeContext'
+import LearnModeToggle from './components/shell/LearnModeToggle'
+import GuidedFlowBar from './components/learn/GuidedFlowBar'
+import StudentWorkspace from './components/learn/StudentWorkspace'
 import EmptyStateV2 from './components/shell/EmptyStateV2'
 import { buildMetricCells } from './lib/buildMetricCells'
 import FileDropZone from './components/FileDropZone'
@@ -86,6 +90,8 @@ declare global {
  revealInFinder?: (filePath: string) => Promise<boolean>
  copyToClipboard?: (text: string) => Promise<boolean>
  // ISRC history / Releases store / Audit log — REMOVED (FLOW territory)
+ // Learn Mode — Student Report PDF export
+ generateStudentReport?: (payload: any) => Promise<{ ok: boolean; path?: string; error?: string }>
  // Integrity helpers for Ship-Ready PDF
  computeSha256?: (filePath: string) => Promise<string | { error: string }>
  writeSidecar?: (filePath: string, suffix: string, contents: string) => Promise<string | { error: string }>
@@ -840,6 +846,7 @@ export default function App() {
 
 
  return (
+ <LearnModeProvider>
  <div className="min-h-screen bg-sand-950 transition-colors duration-300">
  {/*
  * Header — sticky titlebar.
@@ -888,7 +895,20 @@ export default function App() {
  inDisabled: zoom >= 1.49,
  }}
  onNewSearch={handleReset}
+ learnToggle={<LearnModeToggle />}
  />
+
+ {/* Learn Mode — GuidedFlowBar renders sticky below the header when
+ learn mode is enabled. onNavigate dispatches a CustomEvent that
+ AnalysisView listens to, switching its active tab. StudentWorkspace
+ floats on the right for students (self-hides when role !== 'student'). */}
+ <GuidedFlowBar
+ onNavigate={(tabId) => {
+ window.dispatchEvent(new CustomEvent('rtm-learn-navigate', { detail: { tabId } }))
+ }}
+ referenceFilePath={fileA?.path ?? null}
+ />
+ <StudentWorkspace />
 
  <main className="max-w-5xl mx-auto px-8 py-6">
  {/* ReleaseCockpit removed — Label mode is shelved while we
@@ -1108,5 +1128,6 @@ export default function App() {
  title={libraryTargetSlot === 'B' ? 'Pick a Compare track' : 'Pick a Reference'}
  />
  </div>
+ </LearnModeProvider>
  )
 }

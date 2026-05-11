@@ -1,4 +1,6 @@
 import React from 'react'
+import { useLearnMode } from '../../context/LearnModeContext'
+import MetricExplainer from '../learn/MetricExplainer'
 
 /**
  * MetricCell — single column of the v5.2 metric strip.
@@ -28,6 +30,33 @@ import React from 'react'
  *     is the only place we need a richer tooltip layer; cells are
  *     read at a glance.
  */
+// Maps the `eyebrow` label (all-caps, as shown in the UI) to a METRIC_EXPLAINERS key.
+const EYEBROW_TO_KEY: Record<string, string> = {
+  'LUFS-I': 'lufs_i',
+  'TRUE PEAK': 'true_peak',
+  'TRUEPEAK': 'true_peak',
+  'LRA': 'lra',
+  'DR': 'dynamic_range',
+  'PLR': 'plr',
+  'MONO': 'mono_compat',
+  'MONO COMPAT': 'mono_compat',
+  'WIDTH': 'stereo_width',
+  'STEREO WIDTH': 'stereo_width',
+  'ΔL': 'loudness_diff',
+  'LOUDNESS DIFF': 'loudness_diff',
+  'MASK': 'masking_overlap',
+  'MASKING': 'masking_overlap',
+  'DIST': 'distortion',
+  'DISTORTION': 'distortion',
+  'CLICKS': 'click_count',
+  'CLICK COUNT': 'click_count',
+  'TONAL': 'tonal_deviation',
+  'HUM': 'hum_severity',
+  'DIALOG': 'dialog_gate',
+  'TRANS': 'transient_density',
+  'TRANSIENTS': 'transient_density',
+}
+
 interface Props {
  eyebrow: string
  value: string
@@ -37,6 +66,8 @@ interface Props {
 }
 
 export default function MetricCell({ eyebrow, value, delta, violation = false, tooltip }: Props) {
+ const { enabled } = useLearnMode()
+ const metricKey = EYEBROW_TO_KEY[eyebrow.toUpperCase()] ?? EYEBROW_TO_KEY[eyebrow] ?? ''
  // Build the SR phrase up front. Keep it natural-sounding. We avoid
  // embedding the unicode minus sign by transcribing to "minus" so
  // VoiceOver doesn't say "dash". Likewise "+" → "plus". Numbers
@@ -50,7 +81,7 @@ export default function MetricCell({ eyebrow, value, delta, violation = false, t
  .filter(Boolean)
  .join(', ')
 
- return (
+ const cell = (
  <div
  role="group"
  aria-label={sr}
@@ -119,6 +150,16 @@ export default function MetricCell({ eyebrow, value, delta, violation = false, t
  </div>
  </div>
  )
+
+ if (enabled && metricKey) {
+ return (
+ <MetricExplainer metricKey={metricKey} value={value} violation={violation}>
+ {cell}
+ </MetricExplainer>
+ )
+ }
+
+ return cell
 }
 
 // Replace common numeric punctuation so screen readers read values

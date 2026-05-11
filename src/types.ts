@@ -549,6 +549,15 @@ export interface EngineerTips {
  spectrum_file?: number[]
  spectrum_target?: number[]
  spectrum_corrected?: number[]
+ // 5.7.x: log-frequency Hann-smoothed counterparts of the raw spectra.
+ // These are what the recommender actually diffs (so a tuned-kick spike
+ // at 50 Hz doesn't read as a broad-band imbalance and trigger a phantom
+ // -7 dB cut). The Tonal Curve chart and the per-region tonal_diff bars
+ // both render off these so the visual matches the recommendations —
+ // before this we drew the raw lines and Mike (correctly) flagged that
+ // the chart looked way more dramatic than the tip set warranted.
+ spectrum_file_smoothed?: number[]
+ spectrum_target_smoothed?: number[]
  freqs?: string[]
  eq_filters?: { freq: number; gain_db: number; q: number; q_note?: string; region: string }[]
  match_score?: number
@@ -654,4 +663,64 @@ export interface DeclickResult {
  output_path: string | null
  samples_repaired: number
  duration_sec: number
+}
+
+// ─── Learn Mode Types ────────────────────────────────────────────────────────
+
+export type LearnRole = 'student' | 'teacher'
+
+export interface RubricCriteria {
+ id: string
+ metric: string        // e.g. 'lufs_i', 'lra', 'true_peak_dbtp'
+ label: string         // human label, e.g. 'Integrated Loudness'
+ target: number        // target value (e.g. -14 for LUFS-I)
+ tolerance: number     // acceptable deviation (e.g. 1.5)
+ weight: number        // 0–1, weights in rubric sum to 1
+ points?: number       // optional point value for this criterion
+}
+
+export interface AssignmentConfig {
+ title: string
+ instructor: string
+ course?: string
+ studentName: string
+ studentId?: string
+ dueDate?: string
+ lockedReferenceFile?: string | null   // absolute path or null
+ lockedTargetSpec?: string | null      // spec ID string or null
+ rubric: RubricCriteria[]
+}
+
+export interface LearnAnnotation {
+ id: string
+ text: string
+ tabId?: string          // which analysis tab this note belongs to
+ positionX?: number      // 0–1 relative horizontal position (waveform)
+ color?: 'gold' | 'red' | 'teal' | 'sand'
+ createdAt: string       // ISO string
+}
+
+export interface LearnGuidedStep {
+ id: string
+ label: string           // step name shown in progress bar
+ tabId: string           // App tab to navigate to
+ question: string        // question the student should answer
+ hint?: string           // optional hint text
+}
+
+export interface LearnModeState {
+ enabled: boolean
+ role: LearnRole
+ step: number                        // current guided step (0-indexed)
+ assignment: AssignmentConfig | null
+ annotations: LearnAnnotation[]
+ toggleLearnMode: () => void
+ setRole: (role: LearnRole) => void
+ nextStep: () => void
+ prevStep: () => void
+ setStep: (n: number) => void
+ setAssignment: (a: AssignmentConfig | null) => void
+ addAnnotation: (a: Omit<LearnAnnotation, 'id' | 'createdAt'>) => void
+ removeAnnotation: (id: string) => void
+ clearAnnotations: () => void
 }

@@ -55,6 +55,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   copyToClipboard: (text: string) => ipcRenderer.invoke('copy-to-clipboard', text),
 
   // ISRC history / Releases store / Audit log — REMOVED (FLOW territory).
+  // Learn Mode — Student Report PDF export.
+  // Returns { ok: true, path: string } or { ok: false, error: string }.
+  generateStudentReport: (payload: any) => ipcRenderer.invoke('generate-student-report', payload),
+
   // PDF integrity helpers — SHA-256 of an arbitrary file, and a generic
   // sidecar writer so we can drop `<file>.sha256` next to exports.
   computeSha256: (filePath: string) => ipcRenderer.invoke('compute-sha256', filePath),
@@ -134,4 +138,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
     widenMs: number
     mode: 'repair' | 'clicks' | 'list'
   }) => ipcRenderer.invoke('declick-preview', args),
+
+  // RTMsend bridge — push the EQ Preview's suggested move directly
+  // into the user's hosted plugin (Pro-Q, AUGraphicEQ, etc.) via the
+  // localhost JSON-RPC server in RTMsend 1.1.0+.
+  //
+  // rtmsendStatus() returns:
+  //   { running: false }                     ← RTMsend not loaded in any DAW
+  //   { running: true, loaded: null, ... }   ← RTMsend up but no plugin in its slot
+  //   { running: true, loaded: { name, ... }, profile: { name, kind } | null, ... }
+  //
+  // rtmsendSendEq(bands) pushes the bands; profile is auto-detected
+  // from the loaded plugin's name. Throws if no plugin is loaded or
+  // the loaded plugin has no profile in the registry yet.
+  rtmsendStatus: () => ipcRenderer.invoke('rtmsend-status'),
+  rtmsendSendEq: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) =>
+    ipcRenderer.invoke('rtmsend-send-eq', bands),
+
+  // Plugin Knowledge Base — long-term store of every EQ plugin we've
+  // probed, with archetype tags + recommendation engine. Powers
+  // tool-aware analysis and "best plugin for this move" suggestions.
+  rtmsendKnowledgeList: () => ipcRenderer.invoke('rtmsend-knowledge-list'),
+  rtmsendKnowledgeCapture: () => ipcRenderer.invoke('rtmsend-knowledge-capture'),
+  rtmsendKnowledgeRecapture: () => ipcRenderer.invoke('rtmsend-knowledge-recapture'),
+  rtmsendKnowledgeReadme: () => ipcRenderer.invoke('rtmsend-knowledge-readme'),
+  rtmsendBestPluginForMove: (band: { region: string; freq_hz: number; gain_db: number; q: number }) =>
+    ipcRenderer.invoke('rtmsend-best-plugin-for-move', band),
+  rtmsendBestPluginsForBands: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) =>
+    ipcRenderer.invoke('rtmsend-best-plugins-for-bands', bands),
 })

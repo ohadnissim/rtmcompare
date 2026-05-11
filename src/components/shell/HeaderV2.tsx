@@ -43,9 +43,13 @@ interface Props {
   *  App.tsx claimed this was "docked into the header link" but the
   *  link itself never existed. */
  onNewSearch?: () => void
+ /** Learn Mode toggle badge — rendered in the presence row left section,
+  *  after the wordmark. Injected by App so HeaderV2 stays unaware of
+  *  LearnModeContext internals. */
+ learnToggle?: React.ReactNode
 }
 
-export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpenShortcuts, onNewSearch }: Props) {
+export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpenShortcuts, onNewSearch, learnToggle }: Props) {
  // Hide the instrument row on upload (cover screen owns the field)
  // and processing (no analysis to surface yet). Show on results,
  // ref-only, batch — anywhere actual numbers exist to render.
@@ -72,11 +76,13 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  columnGap: 16,
  }}
  >
- {/* Left: wordmark, with breathing room from the macOS traffic
-   lights. The 64px paddingLeft mirrors the v1 `pl-16` so the
-   wordmark sits in the same X position as before. */}
- <div style={{ paddingLeft: 32, justifySelf: 'start' }}>
+ {/* Left: wordmark + Learn Mode toggle. The 64px paddingLeft mirrors
+   the v1 `pl-16` so the wordmark sits in the same X position as before.
+   learnToggle is rendered inline to the right of the wordmark without
+   affecting the centre-anchored SurfaceChips. */}
+ <div style={{ paddingLeft: 32, justifySelf: 'start', display: 'flex', alignItems: 'center', gap: 12 }}>
  <Wordmark size="md" />
+ {learnToggle}
  </div>
 
  {/* Centre: surface chips. justify-self center anchors them

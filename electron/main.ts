@@ -1783,6 +1783,78 @@ ipcMain.handle('render-pdf-direct', async (_event, folderPath: string, fileName:
   }
 })
 
+// ── Student Report PDF — Learn Mode ──────────────────────────────────────────
+// Spawns python/student_report.py with the payload JSON via stdin.
+// The script outputs a complete HTML document to stdout, which we render
+// to PDF using the same hidden-BrowserWindow printToPDF pattern as
+// render-pdf-direct. The PDF is saved to
+//   ~/Documents/RTMcompare/student-reports/<studentName>_<title>_<date>.pdf
+// Always returns { ok, path? } or { ok: false, error: string }.
+ipcMain.handle('generate-student-report', async (_event, payload: any) => {
+  try {
+    const basePath = app.isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
+    const pythonDir = path.join(basePath, 'python')
+    const isWin = process.platform === 'win32'
+    const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
+    const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+    const pyBin = (isWin && fs.existsSync(winBundled)) ? winBundled
+      : (fs.existsSync(macBundled) ? macBundled : (isWin ? 'python.exe' : '/usr/bin/python3'))
+    const scriptPath = path.join(pythonDir, 'student_report.py')
+
+    const { spawn } = require('child_process') as typeof import('child_process')
+    const proc = spawn(pyBin, [scriptPath], { cwd: pythonDir, env: pythonSpawnEnv() })
+
+    let html = ''
+    let stderr = ''
+    try {
+      const res = await watchdogSpawn(proc, 'generate-student-report', JSON.stringify(payload))
+      html = res.stdout
+      stderr = res.stderr
+      if (res.code !== 0) {
+        return { ok: false, error: `python exit ${res.code}: ${stderr.slice(-400)}` }
+      }
+    } catch (e: any) {
+      return { ok: false, error: e?.message || 'student_report.py timed out' }
+    }
+
+    if (!html.trim()) {
+      return { ok: false, error: `student_report.py produced no output. stderr: ${stderr.slice(-300)}` }
+    }
+
+    const os = require('os') as typeof import('os')
+    const docsDir = path.join(os.homedir(), 'Documents', 'RTMcompare', 'student-reports')
+    try { fs.mkdirSync(docsDir, { recursive: true }) } catch { /* ok */ }
+
+    const assignment = payload?.assignment ?? {}
+    const studentName  = (typeof assignment?.studentName === 'string' ? assignment.studentName : 'Student').replace(/[^A-Za-z0-9_\- ]/g, '_').slice(0, 40)
+    const assignTitle  = (typeof assignment?.title === 'string' ? assignment.title : 'Report').replace(/[^A-Za-z0-9_\- ]/g, '_').slice(0, 40)
+    const datePart     = new Date().toISOString().slice(0, 10)
+    const fileName     = `${studentName}_${assignTitle}_${datePart}.pdf`.replace(/\s+/g, '_')
+    const finalPath    = path.join(docsDir, fileName)
+
+    const hidden = new BrowserWindow({
+      show: false, width: 820, height: 1160,
+      webPreferences: { offscreen: false, sandbox: true, contextIsolation: true },
+    })
+    try {
+      const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
+      await hidden.loadURL(dataUrl)
+      const pdfBuf = await hidden.webContents.printToPDF({
+        printBackground: true, pageSize: 'A4',
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true,
+      })
+      fs.writeFileSync(finalPath, pdfBuf)
+      return { ok: true, path: finalPath }
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'PDF render failed' }
+    } finally {
+      hidden.close()
+    }
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'generate-student-report dispatch failed' }
+  }
+})
+
 // ── SHA-256 for Ship-Ready PDF integrity ─────────────────────────────────
 // Eli asked for a way to prove the PDF wasn't hand-edited post-export. We
 // hash the rendered PDF bytes and return the digest; the renderer writes

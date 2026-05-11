@@ -1,4 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { useLearnMode } from '../../context/LearnModeContext'
+import { METRIC_EXPLAINERS } from '../learn/METRIC_EXPLAINERS'
 
 /**
  * PanelVerdict — the hero typography moment at the top of each of
@@ -40,6 +42,8 @@ interface Props {
  size?: VerdictSize
  violation?: boolean
  className?: string
+ /** Key into METRIC_EXPLAINERS for the learn-mode inline explainer */
+ metricKey?: string
 }
 
 const HERO_SIZE: Record<VerdictSize, string> = {
@@ -54,7 +58,13 @@ export default function PanelVerdict({
  size = 'lg',
  violation = false,
  className,
+ metricKey,
 }: Props) {
+ const { enabled } = useLearnMode()
+ const [showExplainer, setShowExplainer] = useState(false)
+
+ const explainerContent = metricKey ? METRIC_EXPLAINERS[metricKey] : null
+
  return (
  <header
  // Use a <header> landmark so the verdict is announced first by
@@ -107,6 +117,7 @@ export default function PanelVerdict({
  </span>
 
  {caption && (
+ <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
  <span
  style={{
  fontFamily: 'var(--font-display)',
@@ -120,6 +131,236 @@ export default function PanelVerdict({
  >
  {caption}
  </span>
+
+ {enabled && explainerContent && (
+ <button
+ type="button"
+ aria-label={`Explain ${explainerContent.metric}`}
+ aria-expanded={showExplainer}
+ onClick={() => setShowExplainer(v => !v)}
+ style={{
+ flexShrink: 0,
+ width: 14,
+ height: 14,
+ display: 'inline-flex',
+ alignItems: 'center',
+ justifyContent: 'center',
+ border: '1px solid rgba(208,176,102,0.2)',
+ borderRadius: '2px',
+ background: 'transparent',
+ color: 'var(--color-sand-400)',
+ fontSize: 9,
+ fontFamily: 'var(--font-sans)',
+ fontWeight: 600,
+ cursor: 'pointer',
+ padding: 0,
+ lineHeight: 1,
+ }}
+ >
+ ?
+ </button>
+ )}
+ </div>
+ )}
+
+ {enabled && showExplainer && explainerContent && (
+ <div
+ style={{
+ width: '100%',
+ maxWidth: 380,
+ background: 'rgba(14,13,11,0.97)',
+ border: '1px solid rgba(208,176,102,0.18)',
+ borderRadius: '2px',
+ padding: '14px 16px',
+ marginTop: 4,
+ }}
+ >
+ {/* Header */}
+ <div
+ style={{
+ display: 'flex',
+ alignItems: 'baseline',
+ justifyContent: 'space-between',
+ gap: 8,
+ marginBottom: 8,
+ }}
+ >
+ <span
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontWeight: 600,
+ fontSize: 11,
+ letterSpacing: '0.1em',
+ textTransform: 'uppercase',
+ color: 'var(--color-accent)',
+ }}
+ >
+ {explainerContent.metric}
+ </span>
+ <span
+ style={{
+ fontFamily: 'var(--font-mono, monospace)',
+ fontSize: 13,
+ color: 'var(--color-text-primary)',
+ letterSpacing: '0.02em',
+ }}
+ >
+ {value}
+ </span>
+ </div>
+
+ {/* Full name */}
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 10,
+ color: 'var(--color-sand-400)',
+ marginBottom: 8,
+ letterSpacing: '0.03em',
+ }}
+ >
+ {explainerContent.fullName}
+ </div>
+
+ {/* One-liner */}
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 13,
+ color: 'var(--color-text-primary)',
+ lineHeight: 1.45,
+ marginBottom: 8,
+ }}
+ >
+ {explainerContent.oneLiner}
+ </div>
+
+ {/* Why */}
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 12,
+ color: 'var(--color-sand-400)',
+ lineHeight: 1.5,
+ marginBottom: 10,
+ }}
+ >
+ {explainerContent.why}
+ </div>
+
+ {/* Target range chip */}
+ <div
+ style={{
+ display: 'inline-block',
+ border: '1px solid rgba(208,176,102,0.35)',
+ borderRadius: '2px',
+ padding: '3px 7px',
+ marginBottom: violation ? 10 : 0,
+ }}
+ >
+ <span
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 10,
+ color: 'var(--color-sand-400)',
+ letterSpacing: '0.03em',
+ }}
+ >
+ {explainerContent.range}
+ </span>
+ </div>
+
+ {/* Violation guidance */}
+ {violation && (
+ <div
+ style={{
+ background: 'rgba(220,80,60,0.06)',
+ border: '1px solid rgba(220,80,60,0.3)',
+ borderRadius: '2px',
+ padding: '8px 10px',
+ marginTop: 10,
+ marginBottom: explainerContent.proTip ? 8 : 0,
+ }}
+ >
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 10,
+ fontWeight: 600,
+ letterSpacing: '0.08em',
+ textTransform: 'uppercase',
+ color: 'rgba(220,80,60,0.9)',
+ marginBottom: 4,
+ }}
+ >
+ Out of tolerance
+ </div>
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 11,
+ color: 'var(--color-text-primary)',
+ lineHeight: 1.5,
+ marginBottom: 4,
+ }}
+ >
+ ↑ {explainerContent.tooHigh}
+ </div>
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 11,
+ color: 'var(--color-text-primary)',
+ lineHeight: 1.5,
+ }}
+ >
+ ↓ {explainerContent.tooLow}
+ </div>
+ </div>
+ )}
+
+ {/* Pro tip */}
+ {explainerContent.proTip && (
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontStyle: 'italic',
+ fontSize: 11,
+ color: 'var(--color-sand-400)',
+ lineHeight: 1.5,
+ marginTop: 8,
+ }}
+ >
+ <span
+ style={{
+ fontStyle: 'normal',
+ color: 'var(--color-accent)',
+ fontWeight: 600,
+ marginRight: 4,
+ }}
+ >
+ Pro tip:
+ </span>
+ {explainerContent.proTip}
+ </div>
+ )}
+
+ {/* Standard footnote */}
+ {explainerContent.standard && (
+ <div
+ style={{
+ fontFamily: 'var(--font-sans)',
+ fontSize: 9,
+ color: 'var(--color-sand-400)',
+ letterSpacing: '0.05em',
+ marginTop: 8,
+ opacity: 0.7,
+ }}
+ >
+ {explainerContent.standard}
+ </div>
+ )}
+ </div>
  )}
  </header>
  )

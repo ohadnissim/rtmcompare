@@ -160,6 +160,14 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const onCustomOpen = () => setPaletteOpen(true)
  window.addEventListener('rtm-open-palette', onCustomOpen)
 
+ // Learn Mode guided flow — GuidedFlowBar dispatches this event to
+ // switch the active tab when the user clicks a step pill or Prev/Next.
+ const onLearnNavigate = (e: Event) => {
+ const tabId = (e as CustomEvent<{ tabId: string }>).detail?.tabId
+ if (tabId) setActiveTab(tabId as Tab)
+ }
+ window.addEventListener('rtm-learn-navigate', onLearnNavigate)
+
  const onKey = (e: KeyboardEvent) => {
  if (isEditableTarget(e)) return
  const mod = e.metaKey || e.ctrlKey
@@ -235,6 +243,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  return () => {
  window.removeEventListener('keydown', onKey)
  window.removeEventListener('rtm-open-palette', onCustomOpen)
+ window.removeEventListener('rtm-learn-navigate', onLearnNavigate)
  }
  }, [tabs, toggleBlind])
 
