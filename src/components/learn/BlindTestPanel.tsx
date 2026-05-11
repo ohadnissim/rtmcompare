@@ -416,9 +416,11 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
           break
         }
         case 'dynamics': {
-          // Higher LRA = less compressed; lower = more compressed
-          // Question asks "which is MORE compressed" → lower LRA = more compressed → B wins if lra_b < lra_a
-          metersText = deltaVerdict(result.lra_a, result.lra_b, 'B', 'A', false, 'more compressed ')
+          // Higher LRA = less compressed; lower LRA = more compressed.
+          // Question: "which is MORE compressed?" → lower LRA wins.
+          // higherMeansMore=false: when lra_a < lra_b (delta<0), winner = labelA = 'A'.
+          // NEW-03 fix: was ('B','A') which inverted the display label while matchDelta was correct.
+          metersText = deltaVerdict(result.lra_a, result.lra_b, 'A', 'B', false, 'more compressed ')
           verdict = matchDelta(choice ?? 'equal', result.lra_a, result.lra_b, false)
           break
         }

@@ -11,6 +11,7 @@ import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
 import AssignmentPanel from './AssignmentPanel'
 import ClassGradeBook from './ClassGradeBook'
 import BlindTestPanel from './BlindTestPanel'
+import { StudentReportButton } from './StudentReportButton'
 
 interface Props {
   /** Called when a step pill is clicked — callers use this to navigate tabs */
@@ -29,26 +30,8 @@ interface Props {
   analysisResult?: any
 }
 
-function StudentReportExportTrigger() {
-  return (
-    <button
-      onClick={() => window.dispatchEvent(new CustomEvent('rtm-learn-export-report'))}
-      style={{
-        background: 'rgba(208,176,102,0.1)',
-        border: '1px solid rgba(208,176,102,0.5)',
-        borderRadius: '2px',
-        color: 'var(--color-text-primary)',
-        fontSize: 10,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        padding: '5px 12px',
-        cursor: 'pointer',
-      }}
-    >
-      Export Report →
-    </button>
-  )
-}
+// StudentReportExportTrigger removed — NEW-01 fix: use StudentReportButton directly
+// (the old trigger dispatched an event but no listener was ever mounted).
 
 export default function GuidedFlowBar({
   onNavigate,
@@ -64,8 +47,10 @@ export default function GuidedFlowBar({
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
   const [helpOpen, setHelpOpen] = React.useState(false)
-  // BUG-20: teacher role-preview — tracks if teacher temporarily switched to student view
+  // BUG-20/NEW-04 fix: teacher role-preview uses LOCAL state only — does NOT call setRole()
+  // so the persisted role is never written. effectiveRole is used for all UI branching.
   const [previewingStudent, setPreviewingStudent] = React.useState(false)
+  const effectiveRole = previewingStudent ? 'student' : role
 
   // --- Derived values and memos MUST come before any early return (Rules of Hooks) ---
   const currentStep = GUIDED_STEPS[step]
@@ -317,18 +302,10 @@ export default function GuidedFlowBar({
           {/* Spacer */}
           <div style={{ flex: 1 }} />
 
-          {/* BUG-20: teacher preview-as-student toggle */}
-          {(role === 'teacher' || previewingStudent) && (
+          {/* BUG-20/NEW-04: teacher preview-as-student toggle — local state only, no setRole() */}
+          {(effectiveRole === 'teacher' || previewingStudent) && (
             <button
-              onClick={() => {
-                if (previewingStudent) {
-                  setPreviewingStudent(false)
-                  setRole('teacher')
-                } else {
-                  setPreviewingStudent(true)
-                  setRole('student')
-                }
-              }}
+              onClick={() => setPreviewingStudent(prev => !prev)}
               style={{
                 flexShrink: 0,
                 background: previewingStudent ? 'rgba(208,176,102,0.08)' : 'transparent',
@@ -348,7 +325,7 @@ export default function GuidedFlowBar({
           )}
 
           {/* Teacher setup button */}
-          {role === 'teacher' && (
+          {effectiveRole === 'teacher' && (
             <button
               onClick={() => setShowGradeBook(true)}
               style={{
@@ -368,7 +345,7 @@ export default function GuidedFlowBar({
               Grade Book
             </button>
           )}
-          {role === 'teacher' && (
+          {effectiveRole === 'teacher' && (
             <button
               onClick={() => setShowAssignmentPanel(true)}
               style={{
@@ -514,7 +491,7 @@ export default function GuidedFlowBar({
               >
                 Review Steps
               </button>
-              {role === 'teacher' && (
+              {effectiveRole === 'teacher' && (
                 <button
                   onClick={() => setShowGradeBook(true)}
                   style={{
@@ -532,7 +509,12 @@ export default function GuidedFlowBar({
                   Grade Book
                 </button>
               )}
-              <StudentReportExportTrigger />
+              {/* NEW-01 fix: mount StudentReportButton here so its IPC + event handler are live */}
+              <StudentReportButton
+                analysisResult={analysisResult}
+                fileAName={fileAName}
+                fileBName={fileBName}
+              />
             </div>
           </div>
         ) : (
@@ -580,8 +562,12 @@ export default function GuidedFlowBar({
                   </span>
                 </div>
               )}
-              {/* BUG-08: show rubric metrics relevant to this step when an assignment is active */}
-              {assignment && (assignment as any).rubricMetrics && (() => {
+              {/* BUG-08: show rubric metrics relevant to this step when an assignment is active.
+                  FIX (NEW-02): was checking non-existent `rubricMetrics` property; now uses
+                  assignment.rubric (RubricCriteria[]) and extracts metric IDs via .map(r=>r.metric). */}
+              {assignment && assignment.rubric && assignment.rubric.length > 0 && (() => {
+                // Derive metric IDs from the typed rubric array
+                const allRubricMetrics: string[] = assignment.rubric.map(r => r.metric)
                 // Map each guided step to the rubric metric IDs that a student should be thinking about
                 const STEP_RUBRIC_MAP: Record<string, string[]> = {
                   listening:  [],
@@ -592,10 +578,10 @@ export default function GuidedFlowBar({
                   dynamics:   ['lra', 'plr', 'transient_integrity'],
                   quality:    ['distortion', 'click_count', 'noise_floor', 'hum_detected'],
                   delivery:   ['true_peak_dbtp', 'dither_applied'],
-                  reflection: (assignment as any).rubricMetrics as string[],
+                  reflection: allRubricMetrics,
                 }
                 const relevantIds: string[] = STEP_RUBRIC_MAP[currentStep.id] ?? []
-                const activeMetrics: string[] = ((assignment as any).rubricMetrics as string[])
+                const activeMetrics: string[] = allRubricMetrics
                   .filter((m: string) => relevantIds.includes(m))
                 if (!activeMetrics.length) return null
                 const METRIC_LABELS: Record<string, string> = {

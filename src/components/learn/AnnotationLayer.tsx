@@ -163,8 +163,9 @@ export function AnnotationLayer({ tabId }: Props) {
         Add Note
       </button>
 
-      {/* Clear All button — only shown when annotations exist */}
-      {annotations.filter(a => a.tabId === tabId).length > 0 && (
+      {/* Clear All button — only shown when THIS STEP has annotations (NEW-06 fix:
+          was checking all-tab annotations, but action clears only current step) */}
+      {tabAnnotations.length > 0 && (
         <button
           onClick={() => setShowClearConfirm(true)}
           style={{
