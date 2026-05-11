@@ -488,10 +488,25 @@ ipcMain.handle('resolve-drop-path', async (_event, fileName: string) => {
   return result.filePaths[0]
 })
 
+// Streaming SHA-256 helper — avoids loading an entire audio file into memory
+// just to hash it. `readFileSync` on a 2 GB 32-bit-float WAV would fully
+// block the main-process event loop; streaming reads in fixed-size chunks
+// and is non-blocking.
+function streamSha256(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const crypto = require('crypto') as typeof import('crypto')
+    const hash = crypto.createHash('sha256')
+    const stream = fs.createReadStream(filePath)
+    stream.on('data', (chunk: Buffer | string) => hash.update(chunk))
+    stream.on('end', () => resolve(hash.digest('hex')))
+    stream.on('error', reject)
+  })
+}
+
 // File identity for deliverable-receipt PDFs — size, mtime, and a SHA-256
-// fingerprint. 30 MB WAV hashes in ~0.2s on an M1; acceptable for a manual
-// report export. Computed in the main process so the renderer doesn't have
-// to shuttle the bytes twice.
+// fingerprint. Computed in the main process so the renderer doesn't have
+// to shuttle the bytes twice. Uses streaming hash to avoid blocking on
+// large files (2 GB+ WAVs at 32-bit float / 96 kHz are not uncommon).
 ipcMain.handle('get-file-identity', async (_event, filePath: string) => {
   try {
     const safePath = assertSafeAudioPath(filePath, 'get-file-identity')
@@ -503,9 +518,7 @@ ipcMain.handle('get-file-identity', async (_event, filePath: string) => {
       throw new Error(`get-file-identity: refused for non-audio extension (${ext})`)
     }
     const stat = fs.statSync(safePath)
-    const crypto = require('crypto') as typeof import('crypto')
-    const buf = fs.readFileSync(safePath)
-    const sha256 = crypto.createHash('sha256').update(buf).digest('hex')
+    const sha256 = await streamSha256(safePath)
     return {
       path: safePath,
       size: stat.size,
@@ -1785,10 +1798,8 @@ ipcMain.handle('compute-sha256', async (_e, filePath: string) => {
   if (!AUDIO_EXT.has(ext)) {
     return { error: 'compute-sha256 only accepts audio files' }
   }
-  const crypto = require('crypto')
   try {
-    const data = fs.readFileSync(filePath)
-    return crypto.createHash('sha256').update(data).digest('hex')
+    return await streamSha256(filePath)
   } catch (err: any) {
     return { error: err?.message || 'hash failed' }
   }
