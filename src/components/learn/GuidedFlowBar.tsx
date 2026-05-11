@@ -58,6 +58,7 @@ export default function GuidedFlowBar({
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [completed, setCompleted] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
+  const [helpOpen, setHelpOpen] = React.useState(false)
 
   if (!enabled) return null
 
@@ -325,6 +326,25 @@ export default function GuidedFlowBar({
             </button>
           )}
 
+          {/* Help button */}
+          <button
+            onClick={() => setHelpOpen(v => !v)}
+            style={{
+              padding: '4px 9px',
+              background: 'none',
+              border: '1px solid rgba(208,176,102,0.25)',
+              borderRadius: '2px',
+              color: 'var(--color-sand-400)',
+              fontSize: 11,
+              cursor: 'pointer',
+              letterSpacing: '0.04em',
+              flexShrink: 0,
+            }}
+            aria-label="Open help"
+          >
+            ?
+          </button>
+
           {/* Prev / Next controls */}
           <div style={{ display: 'flex', gap: 6, marginLeft: 12, flexShrink: 0 }}>
             <button
@@ -490,6 +510,102 @@ export default function GuidedFlowBar({
           )
         )}
       </div>
+
+      {/* Help modal */}
+      {helpOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={e => { if (e.target === e.currentTarget) setHelpOpen(false) }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 400,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.65)',
+          }}
+        >
+          <div style={{
+            background: 'rgba(14,13,11,0.98)',
+            border: '1px solid rgba(208,176,102,0.3)',
+            borderRadius: '2px',
+            padding: '24px 28px',
+            maxWidth: 600,
+            width: '90%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            position: 'relative',
+          }}>
+            {/* Close button */}
+            <button onClick={() => setHelpOpen(false)} style={{
+              position: 'absolute', top: 12, right: 14,
+              background: 'none', border: 'none',
+              color: 'var(--color-sand-400)', cursor: 'pointer', fontSize: 16,
+            }}>×</button>
+
+            {/* Title */}
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 20, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              Learn Mode — Quick Start
+            </div>
+
+            {/* Getting Started section */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
+                Getting Started
+              </div>
+              {[
+                { n: 1, text: 'Drag your reference track onto the left drop zone (File A) and your mix onto the right (File B).' },
+                { n: 2, text: 'Click the "Learn Mode" toggle in the top bar to enable guided mode.' },
+                { n: 3, text: 'If your instructor gave you an assignment file (.rtm-assignment.json), click "Load Assignment" to load the rubric.' },
+                { n: 4, text: 'Enter your Student ID in the assignment panel — use the same format as your Canvas Student ID.' },
+                { n: 5, text: 'Work through the 9 guided steps in the bar at the bottom. Each step has explanations and what to look for.' },
+                { n: 6, text: 'Click "🎧 Blind Test" to test your ears — make predictions before the meters are revealed.' },
+                { n: 7, text: 'When you\'ve worked through the steps, click "Export Report" to generate your PDF.' },
+                { n: 8, text: 'Submit the PDF to your instructor as directed (email, folder, LMS upload).' },
+              ].map(({ n, text }) => (
+                <div key={n} style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, color: 'rgba(208,176,102,0.7)', minWidth: 16, marginTop: 1 }}>{n}.</span>
+                  <span style={{ fontSize: 12, color: 'var(--color-text-primary)', lineHeight: 1.5 }}>{text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Blind Test section */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
+                Blind Test Mode
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--color-text-primary)', lineHeight: 1.6, margin: 0 }}>
+                Before looking at any meters, pick which file wins on each dimension — loudness, low-end, brightness, stereo width, dynamics, translation, and overall. Lock your predictions, then reveal to see how your ears compare to the measurements. This is ear training in action.
+              </p>
+            </div>
+
+            {/* Troubleshooting section */}
+            <div>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
+                Troubleshooting
+              </div>
+              {[
+                { q: 'Export Report is greyed out', a: 'Complete at least the first guided step first.' },
+                { q: 'PDF shows no scores', a: 'Ask your instructor to share the assignment file (.rtm-assignment.json) with rubric metrics.' },
+                { q: 'Python not found error', a: 'Run: pip install reportlab pillow in your Terminal, then try again.' },
+              ].map(({ q, a }) => (
+                <div key={q} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-text-primary)', fontWeight: 600 }}>{q}</div>
+                  <div style={{ fontSize: 11, color: 'var(--color-sand-400)', marginTop: 2 }}>{a}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div style={{ marginTop: 24, paddingTop: 14, borderTop: '1px solid rgba(208,176,102,0.12)', fontSize: 10, color: 'var(--color-sand-400)', textAlign: 'center', letterSpacing: '0.04em' }}>
+              RTMcompare Learn Mode is built for Mixing &amp; Mastering courses · See docs/learn-mode/ for full guides
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assignment Panel (teacher only) — slide-in from right */}
       <AssignmentPanel
