@@ -109,9 +109,12 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     try {
       const result = await (window as any).electronAPI?.scanClassFolder(folderPath)
       if (result?.ok) {
-        const raw: GradeRecord[] = (result.records ?? []).map((r: GradeRecord) => ({
+        const raw: GradeRecord[] = (result.records ?? []).map((r: GradeRecord, idx: number) => ({
           ...r,
-          reportPath: r.pdfPath ?? '',
+          // Use pdfPath as the stable draft-override key. Fall back to a
+          // name+date composite so records without a pdfPath don't all collide
+          // on the empty-string key in draftOverrides.
+          reportPath: r.pdfPath || `__no-path__${r.studentName ?? ''}__${r.exportedAt ?? idx}`,
         }))
         const loadedRecords: GradeRecord[] = detectRevisions(raw)
         setRecords(loadedRecords)
@@ -681,7 +684,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                             onBlur={e => {
                               const text = e.target.value
                               if (rec.pdfPath) {
-                                ;(window as any).electronAPI.saveStudentFeedback(rec.pdfPath, text)
+                                ;(window as any).electronAPI?.saveStudentFeedback(rec.pdfPath, text)
                               }
                             }}
                             style={{

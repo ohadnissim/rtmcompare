@@ -179,6 +179,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   )
   const [templateOpen, setTemplateOpen]       = useState(false)
   const [templateApplied, setTemplateApplied] = useState('')
+  const [importError, setImportError]         = useState('')
 
   // Sync when `current` changes (e.g. loaded from context)
   useEffect(() => {
@@ -801,7 +802,11 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
               setLockSpec(!!cfg.lockedTargetSpec)
               if (cfg.lockedTargetSpec) setSelectedSpec(cfg.lockedTargetSpec)
               if (cfg.rubric?.length) setRubric(cfg.rubric)
-            } catch { /* invalid JSON — silently ignore */ }
+              setImportError('')
+            } catch (err: any) {
+              setImportError('Invalid assignment file — could not parse JSON.')
+              setTimeout(() => setImportError(''), 4000)
+            }
           }}
           style={{
             background: 'transparent',
@@ -817,6 +822,11 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         >
           Import (.json)
         </button>
+        {importError && (
+          <div style={{ fontSize: 10, color: 'rgba(220,80,60,0.9)', marginTop: 4 }}>
+            {importError}
+          </div>
+        )}
       </div>
     </div>
   )
