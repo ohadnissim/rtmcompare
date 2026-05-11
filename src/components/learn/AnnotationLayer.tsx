@@ -137,13 +137,14 @@ export function AnnotationLayer({ tabId }: Props) {
         })}
       </div>
 
-      {/* Add Note button — fixed position */}
+      {/* Add Note button — fixed position. `right` clears the student sidebar
+          when it's visible (CSS var falls back to 16px when not in student mode). */}
       <button
         onClick={() => setPopoverOpen(v => !v)}
         style={{
           position: 'fixed',
           bottom: 80,
-          right: 16,
+          right: 'calc(16px + var(--rtm-student-sidebar-width, 0px))',
           zIndex: 210,
           display: 'flex',
           alignItems: 'center',
@@ -171,7 +172,7 @@ export function AnnotationLayer({ tabId }: Props) {
           style={{
             position: 'fixed',
             bottom: 46,
-            right: 16,
+            right: 'calc(16px + var(--rtm-student-sidebar-width, 0px))',
             zIndex: 210,
             padding: '5px 12px',
             background: 'rgba(14,13,11,0.95)',
@@ -195,7 +196,7 @@ export function AnnotationLayer({ tabId }: Props) {
           style={{
             position: 'fixed',
             bottom: 120,
-            right: 16,
+            right: 'calc(16px + var(--rtm-student-sidebar-width, 0px))',
             zIndex: 220,
             width: 220,
             background: 'rgba(14,13,11,0.95)',

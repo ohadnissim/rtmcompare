@@ -345,16 +345,18 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </div>
  )}
 
- {/* Sticky tab nav — hidden in Learn Mode (GuidedFlowBar drives navigation).
- In normal mode: sits sticky above the player, always visible.
+ {/* Sticky tab nav + CockpitStrip — wrapper always renders so CockpitStrip
+ stays visible. Tab buttons themselves are hidden in Learn Mode
+ (GuidedFlowBar drives navigation). The always-on metrics dashboard
+ (LUFS-I / TP / LRA / mono-compat) is too valuable to hide.
  `--app-sticky-top` measured at runtime by App.tsx so it survives header reflows. */}
  <div
  role="tablist"
  aria-label="Analysis sections"
  className="sticky z-20 -mx-8 px-8 bg-sand-950/96 backdrop-blur-md border-b border-dark-700/30"
- style={{ top: 'var(--app-sticky-top, 100px)', display: learnEnabled ? 'none' : undefined }}
+ style={{ top: 'var(--app-sticky-top, 100px)' }}
  >
- <div className="flex">
+ <div className="flex" style={{ display: learnEnabled ? 'none' : 'flex' }}>
  {tabs.map(tab => (
  <button
  key={tab.id}

@@ -221,6 +221,10 @@ const LearnModeContext = createContext<LearnModeState | null>(null)
 
 export function LearnModeProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadFromStorage)
+  // NOT persisted — teacher preview-as-student is a local UI flag only.
+  // Consumers that want to render the "effective" role should check
+  // `previewingStudent || role === 'student'`.
+  const [previewingStudent, setPreviewingStudent] = React.useState(false)
 
   // Persist every state change.
   useEffect(() => {
@@ -270,6 +274,8 @@ export function LearnModeProvider({ children }: { children: React.ReactNode }) {
     assignment: state.assignment,
     annotations: state.annotations,
     blindTest: state.blindTest,
+    previewingStudent,
+    setPreviewingStudent,
     toggleLearnMode,
     setRole,
     nextStep,

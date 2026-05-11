@@ -29,7 +29,9 @@ function saveAnswer(stepId: string, text: string) {
 }
 
 export default function StudentWorkspace() {
-  const { enabled, role, step, assignment } = useLearnMode()
+  const { enabled, role, step, assignment, previewingStudent } = useLearnMode()
+  // Effective role: real student OR teacher previewing-as-student
+  const isStudent = role === 'student' || previewingStudent
   const [expanded, setExpanded] = useState(true)
   const [showHint, setShowHint] = useState(false)
   const [answer, setAnswer] = useState('')
@@ -60,10 +62,10 @@ export default function StudentWorkspace() {
   // Publish sidebar width as a CSS variable so App.tsx's <main> can
   // add matching padding-right without needing LearnModeContext access.
   useEffect(() => {
-    if (enabled && role === 'student') {
+    if (enabled && isStudent) {
       document.documentElement.style.setProperty(
         '--rtm-student-sidebar-width',
-        expanded ? '300px' : '40px'
+        expanded ? '260px' : '40px'
       )
     } else {
       document.documentElement.style.removeProperty('--rtm-student-sidebar-width')
@@ -71,7 +73,7 @@ export default function StudentWorkspace() {
     return () => { document.documentElement.style.removeProperty('--rtm-student-sidebar-width') }
   }, [enabled, role, expanded])
 
-  if (!enabled || role !== 'student') return null
+  if (!enabled || !isStudent) return null
 
   const handleAnswerChange = (text: string) => {
     setAnswer(text)

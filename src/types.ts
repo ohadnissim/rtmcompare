@@ -747,6 +747,11 @@ export interface LearnModeState {
  assignment: AssignmentConfig | null
  annotations: LearnAnnotation[]
  blindTest: BlindTestPredictions | null
+ /** Teacher previewing as student — NOT persisted, derived from local UI state.
+  *  When true, every consumer should treat the user as a student (sidebar,
+  *  hidden teacher buttons, etc.) without touching the actual persisted role. */
+ previewingStudent: boolean
+ setPreviewingStudent: (v: boolean) => void
  toggleLearnMode: () => void
  setRole: (role: LearnRole) => void
  nextStep: () => void

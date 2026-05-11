@@ -42,14 +42,13 @@ export default function GuidedFlowBar({
   fileBPath,
   analysisResult,
 }: Props) {
-  const { enabled, step, setStep, nextStep, prevStep, role, setRole, setAssignment, assignment, blindTest, completed, setCompleted } = useLearnMode()
+  const { enabled, step, setStep, nextStep, prevStep, role, setRole, setAssignment, assignment, blindTest, completed, setCompleted, previewingStudent, setPreviewingStudent } = useLearnMode()
   const [showAssignmentPanel, setShowAssignmentPanel] = React.useState(false)
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
   const [helpOpen, setHelpOpen] = React.useState(false)
-  // BUG-20/NEW-04 fix: teacher role-preview uses LOCAL state only — does NOT call setRole()
-  // so the persisted role is never written. effectiveRole is used for all UI branching.
-  const [previewingStudent, setPreviewingStudent] = React.useState(false)
+  // previewingStudent now lives in context so every consumer (StudentWorkspace,
+  // AnalysisView, etc.) sees the same value. effectiveRole drives UI branching.
   const effectiveRole = previewingStudent ? 'student' : role
 
   // --- Derived values and memos MUST come before any early return (Rules of Hooks) ---
@@ -344,7 +343,7 @@ export default function GuidedFlowBar({
           {/* BUG-20/NEW-04: teacher preview-as-student toggle — local state only, no setRole() */}
           {(effectiveRole === 'teacher' || previewingStudent) && (
             <button
-              onClick={() => setPreviewingStudent(prev => !prev)}
+              onClick={() => setPreviewingStudent(!previewingStudent)}
               style={{
                 flexShrink: 0,
                 background: previewingStudent ? 'rgba(208,176,102,0.08)' : 'transparent',

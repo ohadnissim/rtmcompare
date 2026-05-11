@@ -705,6 +705,50 @@ def build_html(payload):
             '</div>'
         )
 
+    # ── Step Answers section (per-step notes from StudentWorkspace) ──
+    step_answers = payload.get('stepAnswers') or {}
+    step_answers_section = ''
+    if step_answers and any(v.strip() for v in step_answers.values() if isinstance(v, str)):
+        STEP_LABELS = {
+            'listening':  'Step 1 — Methodology',
+            'metering':   'Step 2 — Loudness',
+            'breakdown':  'Step 3 — Mix Breakdown',
+            'stereo':     'Step 4 — Stereo & Phase',
+            'tonal':      'Step 5 — Tonal Balance',
+            'dynamics':   'Step 6 — Dynamics',
+            'quality':    'Step 7 — Artifact Check',
+            'delivery':   'Step 8 — Delivery',
+            'reflection': 'Step 9 — Reflection',
+        }
+        STEP_ORDER = ['listening', 'metering', 'breakdown', 'stereo', 'tonal',
+                      'dynamics', 'quality', 'delivery', 'reflection']
+        answer_rows = ''
+        for step_id in STEP_ORDER:
+            txt = step_answers.get(step_id, '').strip() if isinstance(step_answers.get(step_id), str) else ''
+            if not txt:
+                continue
+            label = STEP_LABELS.get(step_id, step_id)
+            # Preserve line breaks in student notes — convert \n to <br>
+            txt_html = esc(txt).replace('\n', '<br>')
+            answer_rows += (
+                '<tr>'
+                '<td style="padding:8px 10px;color:#a8a197;font-size:11px;width:170px;vertical-align:top;letter-spacing:0.04em;">' + esc(label) + '</td>'
+                '<td style="padding:8px 10px;font-size:12px;color:#c8c0b0;vertical-align:top;line-height:1.55;">' + txt_html + '</td>'
+                '</tr>'
+            )
+        if answer_rows:
+            step_answers_section = (
+                '<div style="margin-bottom:28px;">'
+                '<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#6b6560;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+                "Student's Step-by-Step Notes"
+                '</div>'
+                '<div style="font-size:11px;color:#7a7368;margin-bottom:10px;">Per-step observations the student typed in the Learn Mode workspace as they worked through the guided flow.</div>'
+                '<table style="width:100%;border-collapse:collapse;">'
+                + answer_rows +
+                '</table>'
+                '</div>'
+            )
+
     # ── Recommendations (top 3) ──────────────────────────────────────
     # Sort by priority field descending; fall back to order.
     # Guard: recs may contain non-dict items (strings, etc.) — skip them
@@ -893,6 +937,8 @@ def build_html(payload):
 {annotations_section}
 
 {blind_test_section}
+
+{step_answers_section}
 
 {recs_section}
 
