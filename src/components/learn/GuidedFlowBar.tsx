@@ -60,29 +60,8 @@ export default function GuidedFlowBar({
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
   const [helpOpen, setHelpOpen] = React.useState(false)
 
-  if (!enabled) return null
-
+  // --- Derived values and memos MUST come before any early return (Rules of Hooks) ---
   const currentStep = GUIDED_STEPS[step]
-  const isLastStep = step === GUIDED_STEPS.length - 1
-
-  const handleStepClick = (index: number) => {
-    setStep(index)
-    onNavigate(GUIDED_STEPS[index].tabId)
-  }
-
-  const handleNext = () => {
-    if (!isLastStep) {
-      nextStep()
-      onNavigate(GUIDED_STEPS[step + 1].tabId)
-    }
-  }
-
-  const handlePrev = () => {
-    if (step > 0) {
-      prevStep()
-      onNavigate(GUIDED_STEPS[step - 1].tabId)
-    }
-  }
 
   const stepQuestion = React.useMemo(() => {
     if (currentStep?.id === 'dynamics' && (assignment as any)?.genre) {
@@ -134,6 +113,30 @@ export default function GuidedFlowBar({
     }
     return { correct, total: measurable.length }
   }, [blindTest, analysisResult])
+
+  // Early return AFTER all hooks
+  if (!enabled) return null
+
+  const isLastStep = step === GUIDED_STEPS.length - 1
+
+  const handleStepClick = (index: number) => {
+    setStep(index)
+    onNavigate(GUIDED_STEPS[index].tabId)
+  }
+
+  const handleNext = () => {
+    if (!isLastStep) {
+      nextStep()
+      onNavigate(GUIDED_STEPS[step + 1].tabId)
+    }
+  }
+
+  const handlePrev = () => {
+    if (step > 0) {
+      prevStep()
+      onNavigate(GUIDED_STEPS[step - 1].tabId)
+    }
+  }
 
   return (
     <>
