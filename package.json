@@ -1,7 +1,7 @@
 {
   "name": "rtm",
-  "version": "5.7.2",
-  "description": "RTMcompare — Industry-standard A/B compare · Single-file QC · Album batch · Atmos",
+  "version": "7.5.0",
+  "description": "RTMcompare \u2014 Industry-standard A/B compare \u00b7 Single-file QC \u00b7 Album batch \u00b7 Atmos",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
@@ -24,7 +24,8 @@
         {
           "target": "dmg",
           "arch": [
-            "arm64"
+            "arm64",
+            "x64"
           ]
         }
       ],
