@@ -1,7 +1,7 @@
 {
   "name": "rtm",
   "version": "7.5.2",
-  "description": "RTMcompare \u2014 Industry-standard A/B compare \u00b7 Single-file QC \u00b7 Album batch \u00b7 Atmos",
+  "description": "RTMcompare — Industry-standard A/B compare · Single-file QC · Album batch · Atmos",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
@@ -167,7 +167,6 @@
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "@electron/packager": "^19.1.0",
     "@tailwindcss/cli": "^4.2.2",
     "@tailwindcss/postcss": "^4.2.2",
     "@tailwindcss/vite": "^4.2.2",
