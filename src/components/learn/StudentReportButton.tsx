@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
-import type { AssignmentConfig, LearnAnnotation } from '../../types'
+import type { AssignmentConfig, LearnAnnotation, BlindTestPredictions } from '../../types'
 
 interface StudentReportPayload {
   assignment: AssignmentConfig | null
@@ -9,6 +9,11 @@ interface StudentReportPayload {
   fileAName: string
   fileBName: string
   exportedAt: string
+  // BUG-01 fix: include blind test data in PDF payload
+  blindTest: BlindTestPredictions | null
+  // BUG-02 fix: carry student name from localStorage into the report
+  studentName: string
+  studentId: string
 }
 
 interface Props {
@@ -18,7 +23,7 @@ interface Props {
 }
 
 export function StudentReportButton({ analysisResult, fileAName = 'File A', fileBName = 'File B' }: Props) {
-  const { enabled, assignment, annotations } = useLearnMode()
+  const { enabled, assignment, annotations, blindTest } = useLearnMode()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,13 +31,26 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
     setLoading(true)
     setError(null)
 
+    // BUG-02/03: pull identity from localStorage (written by StudentWorkspace)
+    let studentName = ''
+    let studentId = ''
+    try {
+      studentName = localStorage.getItem('rtm-learn-student-name') ?? ''
+      studentId   = localStorage.getItem('rtm-learn-student-id')   ?? ''
+    } catch { /* storage unavailable */ }
+
     const payload: StudentReportPayload = {
-      assignment,
+      assignment: assignment
+        ? { ...assignment, studentName: studentName || assignment.studentName || '', studentId: studentId || (assignment as any).studentId || '' }
+        : null,
       annotations,
       analysisResult,
       fileAName,
       fileBName,
       exportedAt: new Date().toISOString(),
+      blindTest,
+      studentName,
+      studentId,
     }
 
     const TIMEOUT_MS = 30_000

@@ -12,10 +12,13 @@ import { useLearnMode } from '../../context/LearnModeContext'
 import { LmsExportPanel } from './LmsExportPanel'
 
 function detectRevisions(records: any[]): any[] {
-  // Group by studentName (case-insensitive, trimmed)
+  // BUG-11 fix: group by studentName + assignmentTitle so submissions for
+  // different assignments in the same folder aren't mislabeled as revisions.
   const groups: Record<string, any[]> = {}
   for (const r of records) {
-    const key = (r.studentName || '').trim().toLowerCase()
+    const name       = (r.studentName     || '').trim().toLowerCase()
+    const assignment = (r.assignmentTitle || '').trim().toLowerCase()
+    const key        = `${name}||${assignment}`
     if (!groups[key]) groups[key] = []
     groups[key].push(r)
   }
@@ -547,11 +550,17 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                   {hasBlindTest && (() => {
                     const btRecords = records.filter(r => (r as any).blindTest?.answers?.length > 0)
                     const btCount = btRecords.length
+                    // BUG-12 fix: `a.revealed` is not a per-answer field — it lives on
+                    // the top-level BlindTestPredictions. Use `a.isCorrect` (stored at
+                    // reveal time by BlindTestPanel) instead.
+                    const MEASURABLE = ['loudness', 'stereo_width', 'dynamics', 'translation']
                     const avgCorrect = btCount > 0
                       ? Math.round(btRecords.reduce((s, r) => {
                           const answers = (r as any).blindTest?.answers ?? []
-                          return s + answers.filter((a: any) => a.revealed === true).length
-                        }, 0) / btCount * 10) / 10
+                          const measurable = answers.filter((a: any) => MEASURABLE.includes(a.dimension))
+                          const correct = measurable.filter((a: any) => a.isCorrect === true).length
+                          return s + (measurable.length > 0 ? correct / measurable.length : 0)
+                        }, 0) / btCount * 100) / 100
                       : 0
 
                     // Dimension accuracy
@@ -559,10 +568,10 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                     btRecords.forEach(r => {
                       const answers: any[] = (r as any).blindTest?.answers ?? []
                       answers.forEach((a: any) => {
-                        if (!a.dimension) return
+                        if (!a.dimension || !MEASURABLE.includes(a.dimension)) return
                         if (!dimMap[a.dimension]) dimMap[a.dimension] = { correct: 0, total: 0 }
                         dimMap[a.dimension].total++
-                        if (a.revealed) dimMap[a.dimension].correct++
+                        if (a.isCorrect === true) dimMap[a.dimension].correct++
                       })
                     })
                     const dims = Object.entries(dimMap).map(([name, d]) => ({ name, pct: d.total > 0 ? d.correct / d.total : 0 }))

@@ -21,6 +21,10 @@ interface Props {
   fileAName?: string
   /** File B display name — forwarded to BlindTestPanel */
   fileBName?: string
+  /** File A absolute path — forwarded to BlindTestPanel audio player */
+  fileAPath?: string | null
+  /** File B absolute path — forwarded to BlindTestPanel audio player */
+  fileBPath?: string | null
   /** Current analysis result — forwarded to BlindTestPanel for reveal comparison */
   analysisResult?: any
 }
@@ -51,6 +55,8 @@ export default function GuidedFlowBar({
   referenceFilePath,
   fileAName,
   fileBName,
+  fileAPath,
+  fileBPath,
   analysisResult,
 }: Props) {
   const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment, blindTest } = useLearnMode()
@@ -147,6 +153,8 @@ export default function GuidedFlowBar({
           analysisResult={analysisResult}
           fileAName={fileAName ?? 'File A'}
           fileBName={fileBName ?? 'File B'}
+          fileAPath={fileAPath ?? null}
+          fileBPath={fileBPath ?? null}
         />
       )}
 

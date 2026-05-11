@@ -143,7 +143,7 @@ type Action =
   | { type: 'REMOVE_ANNOTATION'; id: string }
   | { type: 'CLEAR_ANNOTATIONS'; tabId: string }
   | { type: 'SUBMIT_BLIND_TEST'; predictions: BlindTestPredictions }
-  | { type: 'REVEAL_BLIND_TEST' }
+  | { type: 'REVEAL_BLIND_TEST'; analysisResult?: any }
   | { type: 'RESET_BLIND_TEST' }
 
 function reducer(state: PersistedState, action: Action): PersistedState {
@@ -168,9 +168,31 @@ function reducer(state: PersistedState, action: Action): PersistedState {
       return { ...state, annotations: state.annotations.filter(a => a.tabId !== action.tabId) }
     case 'SUBMIT_BLIND_TEST':
       return { ...state, blindTest: action.predictions }
-    case 'REVEAL_BLIND_TEST':
+    case 'REVEAL_BLIND_TEST': {
       if (!state.blindTest) return state
-      return { ...state, blindTest: { ...state.blindTest, revealed: true } }
+      // BUG-12 fix: stamp isCorrect on each measurable answer at reveal time
+      const ar = action.analysisResult ?? {}
+      const revealedAnswers = state.blindTest.answers.map(a => {
+        let isCorrect: boolean | undefined
+        const c = a.choice
+        const abs = (n: number) => Math.abs(n)
+        if (a.dimension === 'loudness') {
+          const d = (ar.lufs_i_a ?? ar.lufs_a) - (ar.lufs_i_b ?? ar.lufs_b)
+          if (!isNaN(d)) isCorrect = abs(d) < 0.5 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+        } else if (a.dimension === 'stereo_width') {
+          const d = ar.stereo_width_a - ar.stereo_width_b
+          if (!isNaN(d)) isCorrect = abs(d) < 0.1 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+        } else if (a.dimension === 'dynamics') {
+          const d = ar.lra_a - ar.lra_b
+          if (!isNaN(d)) isCorrect = abs(d) < 0.1 ? c === 'equal' : d < 0 ? c === 'A' : c === 'B'
+        } else if (a.dimension === 'translation') {
+          const d = ar.mono_compat_a - ar.mono_compat_b
+          if (!isNaN(d)) isCorrect = abs(d) < 0.1 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+        }
+        return { ...a, isCorrect }
+      })
+      return { ...state, blindTest: { ...state.blindTest, revealed: true, answers: revealedAnswers } }
+    }
     case 'RESET_BLIND_TEST':
       return { ...state, blindTest: null }
     default:
@@ -220,7 +242,7 @@ export function LearnModeProvider({ children }: { children: React.ReactNode }) {
   const clearAnnotations = useCallback((tabId: string) => dispatch({ type: 'CLEAR_ANNOTATIONS', tabId }), [])
 
   const submitBlindTest = useCallback((p: BlindTestPredictions) => dispatch({ type: 'SUBMIT_BLIND_TEST', predictions: p }), [])
-  const revealBlindTest = useCallback(() => dispatch({ type: 'REVEAL_BLIND_TEST' }), [])
+  const revealBlindTest = useCallback((analysisResult?: any) => dispatch({ type: 'REVEAL_BLIND_TEST', analysisResult }), [])
   const resetBlindTest = useCallback(() => dispatch({ type: 'RESET_BLIND_TEST' }), [])
 
   const value: LearnModeState = {

@@ -34,6 +34,8 @@ export default function StudentWorkspace() {
   const [showHint, setShowHint] = useState(false)
   const [answer, setAnswer] = useState('')
   const [studentName, setStudentName] = useState('')
+  // BUG-03: student ID field — needed for Canvas LMS grade upload
+  const [studentId, setStudentId] = useState('')
 
   const currentStep = GUIDED_STEPS[step]
 
@@ -45,11 +47,13 @@ export default function StudentWorkspace() {
     }
   }, [currentStep?.id])
 
-  // Load student name from localStorage
+  // Load student name + ID from localStorage
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('rtm-learn-student-name')
-      if (stored) setStudentName(stored)
+      const storedName = localStorage.getItem('rtm-learn-student-name')
+      if (storedName) setStudentName(storedName)
+      const storedId = localStorage.getItem('rtm-learn-student-id')
+      if (storedId) setStudentId(storedId)
     } catch {}
   }, [])
 
@@ -62,9 +66,13 @@ export default function StudentWorkspace() {
 
   const handleNameChange = (name: string) => {
     setStudentName(name)
-    try {
-      localStorage.setItem('rtm-learn-student-name', name)
-    } catch {}
+    try { localStorage.setItem('rtm-learn-student-name', name) } catch {}
+  }
+
+  // BUG-03: persist student ID so it's available in PDF + Canvas upload
+  const handleIdChange = (id: string) => {
+    setStudentId(id)
+    try { localStorage.setItem('rtm-learn-student-id', id) } catch {}
   }
 
   const progressPct = GUIDED_STEPS.length > 0
@@ -279,6 +287,37 @@ export default function StudentWorkspace() {
               value={studentName}
               onChange={e => handleNameChange(e.target.value)}
               placeholder="Student name"
+              style={{
+                width: '100%',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(168,161,150,0.15)',
+                borderRadius: '2px',
+                color: 'var(--color-text-primary)',
+                padding: '5px 8px',
+                fontSize: 11,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            {/* BUG-03: Student ID for Canvas LMS grade matching */}
+            <label
+              style={{
+                display: 'block',
+                fontSize: 10,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: 'var(--color-sand-400)',
+                marginTop: 6,
+                marginBottom: 3,
+              }}
+            >
+              Student ID
+            </label>
+            <input
+              type="text"
+              value={studentId}
+              onChange={e => handleIdChange(e.target.value)}
+              placeholder="e.g. 12345678"
               style={{
                 width: '100%',
                 background: 'rgba(255,255,255,0.04)',

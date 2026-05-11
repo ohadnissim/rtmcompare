@@ -45,7 +45,9 @@ def get_actual(metric, result):
     if metric == 'lufs_i':
         return overall.get('lufs_b') or overall.get('lufs_a')
     if metric == 'lra':
-        return overall.get('dynamics_b') or overall.get('lra_b') or overall.get('lra')
+        # BUG-17 fix: analysis result stores lra_b at top-level, not in overall sub-object
+        return (result.get('lra_b') or result.get('lra_a') or
+                overall.get('lra_b') or overall.get('lra') or overall.get('dynamics_b'))
     if metric == 'true_peak_dbtp':
         # Try headroom first, then true_peaks array, then overall
         headroom = overall.get('headroom_b') or overall.get('headroom')
@@ -55,9 +57,11 @@ def get_actual(metric, result):
         if isinstance(true_peaks, dict):
             return true_peaks.get('b') or true_peaks.get('a')
         return overall.get('true_peak_b') or overall.get('true_peak')
-    if metric == 'mono_compat':
+    if metric in ('mono_compat', 'mono_compat_pct'):
+        # BUG-04 fix: rubric uses 'mono_compat_pct' key; also accept 'mono_compat'
         mono = result.get('mono_compat', {}) if result else {}
-        return mono.get('mono_loss_b_pct') or mono.get('mono_loss_pct')
+        return (result.get('mono_compat_pct') or result.get('mono_compat_b') or
+                mono.get('mono_loss_b_pct') or mono.get('mono_loss_pct'))
     if metric == 'stereo_width':
         return overall.get('width_b') or overall.get('width')
 

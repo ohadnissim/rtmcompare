@@ -2335,17 +2335,19 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
       ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
       : Buffer.from(raw.encryptedToken, 'base64').toString('utf8')
 
-    // Build grade_data for Canvas bulk update API
-    // Canvas expects: { grade_data: { "sis_user_id:XXXXX": { posted_grade: "95" } } }
+    // Build grade_data for Canvas bulk update API.
+    // BUG-10 fix: send raw score points, not a percentage. Canvas scales the
+    // value against the assignment's own points_possible, so sending "85" on
+    // a 50-pt assignment would enter 85/50 = 170%. Send the raw earned points
+    // and ensure the Canvas assignment's point value matches the rubric total.
+    // Canvas expects: { grade_data: { "sis_user_id:XXXXX": { posted_grade: "85.5" } } }
     const gradeData: Record<string, { posted_grade: string }> = {}
     for (const g of payload.grades) {
       if (!g.studentId) continue
-      // Guard against division by zero — skip rows where totalPossible is 0
-      // (or non-numeric), which would produce NaN and an invalid Canvas grade.
-      if (!g.totalPossible || !Number.isFinite(g.totalPossible)) continue
-      const pct = Math.round((g.score / g.totalPossible) * 100)
-      if (!Number.isFinite(pct)) continue
-      gradeData[`sis_user_id:${g.studentId}`] = { posted_grade: String(pct) }
+      if (!Number.isFinite(g.score)) continue
+      // Round to 1 decimal to avoid floating-point noise
+      const rawScore = Math.round(g.score * 10) / 10
+      gradeData[`sis_user_id:${g.studentId}`] = { posted_grade: String(rawScore) }
     }
 
     if (Object.keys(gradeData).length === 0) {

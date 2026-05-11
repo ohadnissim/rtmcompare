@@ -715,6 +715,8 @@ export interface BlindTestAnswer {
   dimension: 'loudness' | 'tonal_low' | 'tonal_bright' | 'stereo_width' | 'dynamics' | 'translation' | 'overall'
   choice: 'A' | 'equal' | 'B'
   notes: string
+  /** BUG-12 fix: set to true/false when measurements are revealed; undefined if not yet revealed or dimension is unmeasurable */
+  isCorrect?: boolean
 }
 
 export interface EarTrainingAnswers {
@@ -750,6 +752,6 @@ export interface LearnModeState {
  removeAnnotation: (id: string) => void
  clearAnnotations: (tabId: string) => void
  submitBlindTest: (predictions: BlindTestPredictions) => void
- revealBlindTest: () => void
+ revealBlindTest: (analysisResult?: any) => void
  resetBlindTest: () => void
 }

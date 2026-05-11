@@ -910,6 +910,11 @@ export default function App() {
  window.dispatchEvent(new CustomEvent('rtm-learn-navigate', { detail: { tabId } }))
  }}
  referenceFilePath={fileA?.path ?? null}
+ fileAName={fileA?.name}
+ fileBName={fileB?.name}
+ fileAPath={fileA?.path ?? null}
+ fileBPath={fileB?.path ?? null}
+ analysisResult={results}
  />
  <StudentWorkspace />
 

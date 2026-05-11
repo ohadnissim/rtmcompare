@@ -802,6 +802,8 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
               setLockSpec(!!cfg.lockedTargetSpec)
               if (cfg.lockedTargetSpec) setSelectedSpec(cfg.lockedTargetSpec)
               if (cfg.rubric?.length) setRubric(cfg.rubric)
+              // BUG-15 fix: restore submissionsFolder so grade book can find submissions
+              if (cfg.submissionsFolder) setSubmissionsFolder(cfg.submissionsFolder)
               setImportError('')
             } catch (err: any) {
               setImportError('Invalid assignment file — could not parse JSON.')
