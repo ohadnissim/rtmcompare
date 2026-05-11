@@ -39,7 +39,9 @@ import StreamingPreview from './StreamingPreview'
 import StereoTimeline from './StereoTimeline'
 import HumPanel from './HumPanel'
 import TransientDensityPanel from './TransientDensityPanel'
-import WaveformDiffHeatmap from './WaveformDiffHeatmap'
+// WaveformDiffHeatmap was removed from Breakdown in 5.7.x (Mike review:
+// "get rid of mix diverge"). The component file still exists for any
+// future use; just no caller wires it up here.
 import ClientReportButton from './ClientReportButton'
 import AtmosObjectView from './AtmosObjectView'
 import SpecDriftBadge from './SpecDriftBadge'
@@ -412,7 +414,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const hasAnyLive = live.length > 0
  const hasAnyDeepOnly = deepOnly.length > 0
  return (
- <div className="rounded-lg border p-3 text-[11px] space-y-1.5" style={{ borderColor: 'rgba(124,164,163,0.35)', backgroundColor: 'rgba(124,164,163,0.06)' }}>
+ <div className="border p-3 text-[11px] space-y-1.5" style={{ borderRadius: '2px', borderColor: 'rgba(124,164,163,0.35)', backgroundColor: 'rgba(124,164,163,0.06)' }}>
  <div className="flex items-center justify-between gap-3">
  <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: '#7ca4a3' }}>
  Advanced QC enabled
@@ -534,7 +536,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  precision users. Hairline dividers, 11 px off-white body, no
  row backgrounds: reads as a specification sheet, not a
  dashboard. */}
- <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(168,161,150,0.06)' }}>
+ <div className="overflow-hidden" style={{ borderRadius: '2px', border: '1px solid rgba(168,161,150,0.06)' }}>
  <table className="w-full text-[11px]">
  <thead>
  <tr className="border-b border-dark-700/30">
@@ -864,8 +866,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  metadata and the backend skipping the streaming preview. Keep
  the tab present so the user learns the shortcut. */}
  {!(results.streaming_preview && !isAtmos && !isAtmosSolo) && !results.metadata && (
- <div className="rounded-2xl p-8 text-center space-y-2"
- style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="p-8 text-center space-y-2"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <p className="text-sm" style={{ color: '#a8a29e' }}>No delivery checks for this file</p>
  <p className="text-[11px]" style={{ color: '#8d867b' }}>
  Streaming normalization and embedded metadata appear here for stereo WAV/FLAC/AIFF files.
@@ -884,36 +886,66 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  without helping the mix decision. (Mood analyser was removed
  in v4.0 entirely; mood_detector.py no longer exists.) */}
 
- {/* Waveform diff heatmap — hidden behind Advanced QC. Every
- panel voice from round 3 flagged this as clutter. Kept
- accessible for researchers + anyone who toggled Advanced QC. */}
- {advancedQc && results.waveform_diff && results.waveform_diff.grid.length > 0 && !isSolo && (
+ {/* 5.7.x: Per-Element Breakdown moved to the top of the tab —
+ it's the most actionable section here, so it gets prime
+ real-estate above Transient Density / Masking / Tonal Issues.
+ Default-collapsed; the badge tells you whether anything's
+ above the 0.5 dB JND threshold without expanding. Punch /
+ Wideness / Air are cut per teacher-review — they're vibes
+ not measurements, but still reachable via `results.categories`
+ for anything that wants the raw set. */}
+ {(() => {
+ const CUT = new Set(['Punch', 'Wideness', 'Air'])
+ // 0.5 dB is the floor for human JND on wide-band level — below
+ // that, the two tracks are "the same" for the purposes of
+ // triage, so hiding them declutters without losing anything
+ // useful.
+ const THRESHOLD_DB = 0.5
+ const elements = results.categories.filter(c => !CUT.has(c.name))
+ const outliers = elements.filter(c => Math.abs(c.level_diff) > THRESHOLD_DB)
+ const balanced = elements.filter(c => Math.abs(c.level_diff) <= THRESHOLD_DB)
+ return (
  <CollapsibleSection
- title="Where does the mix diverge? · Advanced"
- tooltip="Time-vs-frequency heatmap of differences between the two files. Hidden by default; toggle Advanced QC in the header to see it."
- why="Averages hide section-level differences. This heatmap pinpoints the exact timestamp AND frequency where your mix drifts from the reference, usually just a single chorus or bridge."
+ title="Per-Element Breakdown"
+ tooltip="Level-matched comparison per element. Elements that differ by more than 0.5 dB show up by default; the rest are collapsed."
+ why="0.5 dB is the audibility threshold for wide-band level. Anything under that sounds identical, so hiding it stops the panel from reading like a spreadsheet."
  defaultOpen={false}
+ badge={
+ outliers.length > 0 ? (
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#c5a55a', backgroundColor: 'rgba(150,128,58,0.1)' }}>
+ {outliers.length} above ±0.5 dB
+ </span>
+ ) : (
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
+ All within ±0.5 dB
+ </span>
+ )
+ }
  >
- <WaveformDiffHeatmap diff={results.waveform_diff} labelA={labelA} labelB={labelB} />
+ <PerElementDrawer outliers={outliers} balanced={balanced} labelA={labelA} labelB={labelB} />
  </CollapsibleSection>
- )}
+ )
+ })()}
 
- {/* Transient density — bundled under Advanced QC. */}
- {advancedQc && results.transient_density && results.transient_density.timeline.length > 0 && (
- <CollapsibleSection
- title="Transient Density & Structure · Advanced"
- tooltip="Energy arc, rhythmic density, and auto-detected sections across the track."
- why="A drop that doesn't land, a bridge that drags, a chorus quieter than expected: all show up here before your ears notice."
- defaultOpen={false}
- >
- <TransientDensityPanel density={results.transient_density} durationSec={results.duration_sec} />
- </CollapsibleSection>
- )}
+ {/* 5.7.x: Mix-diverge waveform heatmap was removed per Mike's
+ review — overlapped with the per-region tonal_diff bars and
+ the time-vs-frequency view rarely produced an actionable
+ read in user testing. The data is still in the API response
+ (results.waveform_diff) for anyone wanting to revive it later;
+ just nothing visualises it.
 
- {/* Masking Overlap — bundled under Advanced QC. */}
- {advancedQc && results.masking && results.masking.overlaps && results.masking.overlaps.length > 0 && (
+ Same review folded these sections (Masking Overlap, Transient
+ Density) up to top-level Breakdown — they used to be gated
+ behind the Advanced QC toggle, but there's no value hiding
+ them. If the data is present, surface it.
+
+ Order: Masking before Transient. Masking diagnoses "why is
+ this muddy?" — actionable. Transient is more contextual /
+ navigational (sections + arc), so it sits below. */}
+
+ {results.masking && results.masking.overlaps && results.masking.overlaps.length > 0 && (
  <CollapsibleSection
- title="Masking Overlap · Advanced"
+ title="Masking Overlap"
  tooltip="Where elements compete for the same frequency range. In Deep Scan this is per-stem (kick vs bass, vocal vs instruments, etc.). Otherwise shows full-mix density flags."
  why="Masking is why mixes sound muddy, crowded, or 'never clear no matter how much I EQ'. Two elements fighting for the same frequency means neither wins; one has to move. Side-chain, cut, or LPF the interferer instead of adding more EQ to the victim."
  badge={
@@ -927,12 +959,23 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </CollapsibleSection>
  )}
 
- {/* Tonal Issues — collapsed by default and only shown at all
- when there's actually something detected OR the user
- enabled Advanced QC. Round-3 feedback: read-only AI flags
- aren't actionable on their own; engineers catch these by
- ear. Keep the surface quiet unless relevant. */}
- {(advancedQc || (results.tonal_issues && results.tonal_issues.length > 0)) && (
+ {results.transient_density && results.transient_density.timeline.length > 0 && (
+ <CollapsibleSection
+ title="Transient Density & Structure"
+ tooltip="Energy arc, rhythmic density, and auto-detected sections across the track."
+ why="A drop that doesn't land, a bridge that drags, a chorus quieter than expected: all show up here before your ears notice."
+ defaultOpen={false}
+ >
+ <TransientDensityPanel density={results.transient_density} durationSec={results.duration_sec} />
+ </CollapsibleSection>
+ )}
+
+ {/* Tonal Issues — collapsed by default and only shown when
+ there's something detected. 5.7.x: dropped the advancedQc
+ fallback — engineers catch these by ear, so showing an empty
+ "Clean" panel just adds visual weight to the page without
+ helping. If the detector finds nothing, the section is gone. */}
+ {results.tonal_issues && results.tonal_issues.length > 0 && (
  <CollapsibleSection
  title="Tonal Issues"
  defaultOpen={false}
@@ -958,44 +1001,6 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </CollapsibleSection>
  )}
 
- {/* Per-Element Breakdown — default-collapsed drawer. Auto-opens
- for categories that moved more than 0.5 dB; only <0.5 dB
- (perceptually indistinguishable) hides in the balanced
- drawer. Punch / Wideness / Air are cut per teacher-review —
- they're vibes not measurements, but still reachable via
- `results.categories` for anything that wants the raw set. */}
- {(() => {
- const CUT = new Set(['Punch', 'Wideness', 'Air'])
- // 0.5 dB is the floor for human JND on wide-band level — below
- // that, the two tracks are "the same" for the purposes of
- // triage, so hiding them declutters without losing anything
- // useful.
- const THRESHOLD_DB = 0.5
- const elements = results.categories.filter(c => !CUT.has(c.name))
- const outliers = elements.filter(c => Math.abs(c.level_diff) > THRESHOLD_DB)
- const balanced = elements.filter(c => Math.abs(c.level_diff) <= THRESHOLD_DB)
- return (
- <CollapsibleSection
- title="Per-Element Breakdown"
- tooltip="Level-matched comparison per element. Elements that differ by more than 0.5 dB show up by default; the rest are collapsed."
- why="0.5 dB is the audibility threshold for wide-band level. Anything under that sounds identical, so hiding it stops the panel from reading like a spreadsheet."
- defaultOpen={outliers.length > 0}
- badge={
- outliers.length > 0 ? (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#c5a55a', backgroundColor: 'rgba(150,128,58,0.1)' }}>
- {outliers.length} above ±0.5 dB
- </span>
- ) : (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
- All within ±0.5 dB
- </span>
- )
- }
- >
- <PerElementDrawer outliers={outliers} balanced={balanced} labelA={labelA} labelB={labelB} />
- </CollapsibleSection>
- )
- })()}
  </div>
  )}
 
@@ -1046,8 +1051,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  Length is critical for Atmos delivery (sync, broadcast slots,
  dialog timing) so it sits at the top of every Atmos view. */}
  {results.atmos && (
- <div className="flex flex-wrap items-center gap-3 px-4 py-2 rounded-xl"
- style={{ backgroundColor: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.18)' }}>
+ <div className="flex flex-wrap items-center gap-3 px-4 py-2"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.18)' }}>
  <span className="text-[10px] uppercase tracking-[0.2em]" style={{ color: '#a855f7' }}>
  Atmos · {results.atmos.channel_layout}
  </span>
@@ -1139,7 +1144,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <div className="mt-4 space-y-1.5">
  <span className="text-xs font-medium text-dark-300">Channel Content Analysis</span>
  {results.atmos_channels.map(ch => (
- <div key={ch.channel} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-dark-800/30">
+ <div key={ch.channel} className="flex items-center gap-3 px-3 py-2 bg-dark-800/30" style={{ borderRadius: '2px' }}>
  <span className="text-[11px] font-mono text-dark-400 w-8">{ch.channel}</span>
  <span className={`text-[10px] font-mono w-14 ${ch.is_active ? 'text-dark-300' : 'text-dark-600'}`}>
  {ch.is_active ? `${ch.level_db.toFixed(1)} dB` : 'silent'}
@@ -1506,7 +1511,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
 function MetricBox({ label, value, sub, tooltip }: { label: string; value: string; sub: string; tooltip?: string }) {
  return (
- <div className="rounded-xl p-5 text-center space-y-1.5" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
+ <div className="p-5 text-center space-y-1.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <div className="flex items-center justify-center gap-1">
  <p className="text-[10px] tracking-widest uppercase" style={{ color: '#968d7e' }}>{label}</p>
  {tooltip && <InfoTooltip text={tooltip} />}
@@ -1542,10 +1547,19 @@ function makeCurvePath(data: number[], w: number, h: number, maxDb: number): str
 }
 
 /**
- * Per-element drawer — outliers always visible, balanced elements hidden
- * behind a single "Show N balanced" button. Keeps the panel compact on
- * well-matched mixes but still lets the user see the full picture if they
- * want it.
+ * Per-element drawer — outliers always visible at top, balanced section
+ * expanded by default with a HIDE affordance.
+ *
+ * 5.7.x: this is the look Mike approved on iteration 3. Earlier:
+ *  - Original: balanced hidden behind "Show 7 balanced elements" CTA.
+ *    Reads as "still hidden" on well-matched mixes.
+ *  - Iter 2 (drawer rewrite): no fold UI at all, plain grid. Functional
+ *    but visually inconsistent with the "Balanced · within ±0.5 dB"
+ *    label Mike has in his head from earlier builds.
+ *  - This version (final): keep the labelled balanced section + HIDE
+ *    button on the right, but seed `showBalanced = true` so the rows
+ *    are visible the moment the panel renders. Click HIDE to collapse
+ *    back to a single "Show N balanced" link if the user wants compact.
  */
 function PerElementDrawer({ outliers, balanced, labelA, labelB }: {
  outliers: import('../types').Category[]
@@ -1553,7 +1567,9 @@ function PerElementDrawer({ outliers, balanced, labelA, labelB }: {
  labelA: string
  labelB: string
 }) {
- const [showBalanced, setShowBalanced] = useState(false)
+ // Default-visible — was `useState(false)` originally, that's the
+ // "still hidden" bug Mike caught.
+ const [showBalanced, setShowBalanced] = useState(true)
 
  if (outliers.length === 0 && balanced.length === 0) {
  return <p className="text-[11px] text-dark-500">No per-element data available.</p>
@@ -1804,7 +1820,6 @@ function RefStatusDot({ check, labelA }: { check: any; labelA: string }) {
  width: 8,
  height: 8,
  backgroundColor: colour,
- boxShadow: `0 0 0 2px rgba(14,13,11,0.9), 0 0 6px ${colour}55`,
  }}
  title={lines.join('\n')}
  aria-label={`Reference quality: ${status}`}
@@ -1814,7 +1829,7 @@ function RefStatusDot({ check, labelA }: { check: any; labelA: string }) {
 
 function StatBox({ label, value, sub, warn }: { label: string; value: string; sub?: string; warn?: boolean }) {
  return (
- <div className="rounded-lg p-3 text-center space-y-1" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
+ <div className="p-3 text-center space-y-1" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <p className="text-[9px] tracking-widest uppercase" style={{ color: '#78716c' }}>{label}</p>
  <p className="text-sm font-medium" style={{ color: warn ? '#e05a5a' : '#e7e5e4' }}>{value}</p>
  {sub && <p className="text-[9px]" style={{ color: '#8d867b' }}>{sub}</p>}

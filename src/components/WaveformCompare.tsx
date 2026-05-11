@@ -33,7 +33,7 @@ export default function WaveformCompare({ waveformA, waveformB, labelA, labelB, 
  }
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">{singleFile ? 'Waveform' : 'Waveform Compare'}</h2>
@@ -65,7 +65,7 @@ export default function WaveformCompare({ waveformA, waveformB, labelA, labelB, 
  )}
  </div>
 
- <div className="bg-dark-800 rounded-xl p-3 overflow-hidden">
+ <div className="bg-dark-800 p-3 overflow-hidden" style={{ borderRadius: '2px' }}>
  {view === 'overlay' ? (
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-28" preserveAspectRatio="none">
  <line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />

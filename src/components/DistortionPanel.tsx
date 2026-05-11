@@ -18,7 +18,7 @@ export default function DistortionPanel({ distortion, labelA, labelB, singleFile
  const style = severityStyles[distortion.severity]
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="space-y-1">
@@ -96,7 +96,7 @@ export default function DistortionPanel({ distortion, labelA, labelB, singleFile
  {distortion.issues.map((issue, i) => (
  <div
  key={i}
- className="flex items-start gap-2.5 px-3 py-2 rounded-lg text-xs"
+ className="flex items-start gap-2.5 px-3 py-2 text-xs" style={{ borderRadius: '2px' }}
  style={{ backgroundColor: style.bg }}
  >
  <span style={{ color: style.color }} className="mt-0.5">{style.icon}</span>
@@ -137,7 +137,7 @@ function MeterCard({
  const statusBg = status === 'good' ? 'rgba(52,211,153,0.08)' : status === 'warn' ? 'rgba(245,158,11,0.08)' : 'rgba(244,63,94,0.08)'
 
  return (
- <div className="rounded-lg p-3.5 space-y-2" style={{ backgroundColor: statusBg }}>
+ <div className="p-3.5 space-y-2" style={{ borderRadius: '2px', backgroundColor: statusBg }}>
  <div className="space-y-0.5">
  <p className="text-xs font-medium text-dark-200">{title}</p>
  <p className="text-[10px] text-dark-500">{description}</p>

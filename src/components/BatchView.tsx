@@ -8,6 +8,7 @@ import SongQuickSwitcher from './SongQuickSwitcher'
 import { inferRevisions } from '../singleFileHelpers'
 import { useModes } from '../ModesContext'
 import { streamingTpFloorDbtp } from '../dspProfiles'
+import { smoothLogSpectrum } from './MatchReferenceEQPanel'
 
 interface Props {
  results: BatchResult[]
@@ -791,8 +792,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  data-tour-batch="load-reference"
  onClick={loadCohortReference}
  disabled={cohortRefLoading}
- className="text-[11px] px-3 py-1.5 rounded-md transition-colors hover:bg-white/[0.03] disabled:cursor-wait"
+ className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03] disabled:cursor-wait"
  style={{
+ borderRadius: '2px',
  color: cohortRefLoading ? '#c5a55a' : '#a8a29e',
  border: `1px solid ${cohortRefLoading ? 'rgba(197,165,90,0.4)' : 'rgba(168,161,150,0.2)'}`,
  }}
@@ -826,8 +828,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  since it's a power-user mode. */}
  <button
  onClick={toggleReissueMode}
- className="text-[11px] px-3 py-1.5 rounded-md transition-colors hover:bg-white/[0.03]"
+ className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03]"
  style={{
+ borderRadius: '2px',
  color: reissueMode ? '#d0b066' : '#8d867b',
  border: `1px solid ${reissueMode ? 'rgba(208,176,102,0.4)' : 'rgba(168,161,150,0.2)'}`,
  }}
@@ -837,8 +840,8 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  </button>
  <button
  onClick={saveSession}
- className="text-[11px] px-3 py-1.5 rounded-md transition-colors hover:bg-white/[0.03]"
- style={{ color: '#a8a29e', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03]"
+ style={{ borderRadius: '2px', color: '#a8a29e', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Save this album session (results, notes, open tabs) to a .rtmalbum.json file you can reopen later without re-analysing."
  >
  Save session
@@ -848,8 +851,8 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  remains in the component for when Labels ships. */}
  <button
  onClick={loadSession}
- className="text-[11px] px-3 py-1.5 rounded-md transition-colors hover:bg-white/[0.03]"
- style={{ color: '#a8a29e', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03]"
+ style={{ borderRadius: '2px', color: '#a8a29e', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Load a previously-saved .rtmalbum.json session. Replaces the current batch view."
  >
  Load session
@@ -879,8 +882,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <div className="flex items-center gap-1 overflow-x-auto pb-1 -mx-1 px-1 border-b" data-tour-batch="tab-strip" style={{ scrollbarWidth: 'thin', borderColor: 'rgba(168,161,150,0.08)' }}>
  <button
  onClick={() => setActiveTab(OVERVIEW_TAB)}
- className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] tracking-[0.05em] whitespace-nowrap transition-colors flex-shrink-0"
+ className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] tracking-[0.05em] whitespace-nowrap transition-colors flex-shrink-0"
  style={{
+ borderRadius: '2px',
  backgroundColor: activeTab === OVERVIEW_TAB ? 'rgba(208,176,102,0.12)' : 'transparent',
  color: activeTab === OVERVIEW_TAB ? '#d0b066' : '#a8a29e',
  border: `1px solid ${activeTab === OVERVIEW_TAB ? 'rgba(208,176,102,0.4)' : 'transparent'}`,
@@ -903,8 +907,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  const ana = songAnalysis[activeSongPath]
  return (
  <div
- className="flex items-center rounded-md whitespace-nowrap transition-colors flex-shrink-0"
+ className="flex items-center whitespace-nowrap transition-colors flex-shrink-0"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(208,176,102,0.12)',
  border: '1px solid rgba(208,176,102,0.4)',
  }}
@@ -953,8 +958,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  DMR / table / song-tab rotation read together. */}
  {modes.educator && (
  <div
- className="rounded-lg px-3 py-2 text-[11px] leading-relaxed"
+ className="px-3 py-2 text-[11px] leading-relaxed"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(111,163,126,0.08)',
  border: '1px solid rgba(111,163,126,0.25)',
  color: '#b5afa4',
@@ -996,8 +1002,8 @@ export default function BatchView({ results, folderName, onBack, initialSession 
 
  {/* Album-level summary hero */}
  {stats.lufsMedian != null && (
- <div className="rounded-xl px-6 py-4"
- style={{ backgroundColor: 'rgba(30,28,24,0.6)', border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="px-6 py-4"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.6)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="grid grid-cols-3 gap-6">
  <StatCard label="Album LUFS · median" value={`${stats.lufsMedian.toFixed(1)} LUFS`} />
  {stats.tpMedian != null && <StatCard label="True peak · median" value={`${stats.tpMedian.toFixed(1)} dBTP`} />}
@@ -1012,7 +1018,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <span className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>
  Loudness anchor
  </span>
- <div className="flex gap-1 rounded-md p-0.5" style={{ backgroundColor: 'rgba(14,13,11,0.5)' }}>
+ <div className="flex gap-1 p-0.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.5)' }}>
  {([
  { v: 'median' as const, label: 'Median', title: 'Compare each track against the album\'s own median LUFS — catches outliers.' },
  { v: -14 as const, label: '−14 · Spotify', title: 'Anchor every track to Spotify\'s −14 LUFS target. Δ column shows headroom vs. that target.' },
@@ -1062,7 +1068,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  {/* Delivery Manifest Reconciler removed — that workflow lives in FLOW. */}
 
  {/* Main table */}
- <div className="rounded-xl overflow-hidden" data-tour-batch="main-table" style={{ border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="overflow-hidden" data-tour-batch="main-table" style={{ borderRadius: '2px', border: '1px solid rgba(168,161,150,0.08)' }}>
  <table className="w-full text-[11px]">
  <thead>
  <tr style={{ backgroundColor: 'rgba(30,28,24,0.6)' }}>
@@ -1201,7 +1207,14 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  {(() => {
  if (!reference.spectrum || !r.spectrum || reference.spectrum.length !== 31 || r.spectrum.length !== 31) return <span style={{ color: '#3e3a33' }}>—</span>
  if (r.path === reference.path) return <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: '#d0b066' }}>ref</span>
- const delta = r.spectrum.map((v, i) => v - reference.spectrum![i])
+ // 5.7.0: smooth both spectra before the cohort-distance calc.
+ // A kick fundamental in a different key reads as a narrow
+ // mismatch even when broad-band balance is close. Smoothing
+ // both equally cancels the narrow-feature noise; real broad-
+ // band drift survives.
+ const refSm = smoothLogSpectrum(reference.spectrum)
+ const rSm = smoothLogSpectrum(r.spectrum)
+ const delta = rSm.map((v, i) => v - refSm[i])
  const rms = Math.sqrt(delta.reduce((s, d) => s + d * d, 0) / delta.length)
  const warn = rms > 3
  return (
@@ -1384,7 +1397,7 @@ function NotesBlock({ label, placeholder, value, onChange }: {
  // loaded session (so engineers don't have to hunt for their notes).
  useEffect(() => { if (hasContent) setOpen(true) }, [hasContent])
  return (
- <div className="rounded-xl" style={{ backgroundColor: 'rgba(30,28,24,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <button
  onClick={() => setOpen(o => !o)}
  className="w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-white/[0.02]"
@@ -1405,8 +1418,9 @@ function NotesBlock({ label, placeholder, value, onChange }: {
  onChange={e => onChange(e.target.value)}
  placeholder={placeholder}
  rows={4}
- className="w-full rounded-lg px-3 py-2 text-[12px] resize-y focus:outline-none"
+ className="w-full px-3 py-2 text-[12px] resize-y focus:outline-none"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(18,16,14,0.6)',
  color: '#ebe7e0',
  border: '1px solid rgba(168,161,150,0.12)',
@@ -1849,8 +1863,8 @@ function ExportMenu({
  return (
  <details ref={detailsRef} className="relative">
  <summary
- className="list-none text-[11px] px-3 py-1.5 rounded-md transition-colors hover:bg-white/[0.03] cursor-pointer select-none flex items-center gap-1.5"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
+ className="list-none text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03] cursor-pointer select-none flex items-center gap-1.5"
+ style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
  title="Export. CSV for humans, JSON for pipelines, PDF for handoff, DDP for distributor preflight."
  >
  Export
@@ -1859,8 +1873,9 @@ function ExportMenu({
  </svg>
  </summary>
  <div
- className="absolute right-0 mt-2 min-w-[240px] rounded-md overflow-hidden shadow-xl z-40"
+ className="absolute right-0 mt-2 min-w-[240px] overflow-hidden z-40"
  style={{
+ borderRadius: '2px',
  backgroundColor: '#1f1b17',
  border: '1px solid rgba(168,161,150,0.2)',
  }}

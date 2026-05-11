@@ -102,15 +102,15 @@ export default function SongQuickSwitcher({ songs, displayName, onClose, onJump 
  return (
  <div
  className="fixed inset-0 z-[200] flex items-start justify-center pt-28"
- style={{ backgroundColor: 'rgba(10,9,8,0.72)', backdropFilter: 'blur(4px)' }}
+ style={{ backgroundColor: 'rgba(10,9,8,0.72)' }}
  onMouseDown={onClose}
  >
  <div
- className="w-[640px] max-w-[92vw] rounded-2xl overflow-hidden"
+ className="w-[640px] max-w-[92vw] overflow-hidden"
  style={{
+ borderRadius: '2px',
  backgroundColor: '#151411',
  border: '1px solid rgba(208,176,102,0.35)',
- boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
  }}
  onMouseDown={e => e.stopPropagation()}
  >

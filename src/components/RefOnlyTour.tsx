@@ -23,61 +23,81 @@ export interface RefOnlyTourStep {
 const STEPS: RefOnlyTourStep[] = [
  {
  placement: 'center',
- title: 'Single-file analysis',
- body: 'This surface is where a master gets finished. Drop the file yourself, or send it from your DAW via the RTM Send plugin. Either way, everything you need to ship lives on this page. Press Esc to dismiss this tour at any time.',
+ // 5.7.2 copy:
+ title: 'Just one file? You\'re in the right place.',
+ // 5.7.2 copy:
+ body: 'This is where a master gets finished. Drop a file, or send one over from your DAW. Everything you need to ship is on this page. Esc to close the tour any time.',
  },
  {
  selector: '[data-tour-ref="banner"]',
  placement: 'bottom',
- title: 'DAW origin',
- body: 'When the RTM Send plugin delivered this file, the gold banner at the top shows where it came from: DAW, region name, time range, source. Silent when you opened the file manually.',
+ // 5.7.2 copy:
+ title: 'Where it came from',
+ // 5.7.2 copy:
+ body: 'If your DAW sent this file, the gold banner shows you the source — which session, which region, what time. If you opened the file by hand, the banner stays out of the way.',
  },
  {
  selector: '[data-tour-ref="meta-strip"]',
  placement: 'bottom',
- title: 'Metadata strip',
- body: 'LUFS · True Peak · LRA · SR · Bit depth · ISRC at a glance. On broadcast / post tracks a Dialog LKFS read appears when the Python speech-gate detects speech.',
+ // 5.7.2 copy:
+ title: 'The numbers, at a glance',
+ // 5.7.2 copy:
+ body: 'Loudness, peaks, range, sample rate, bit depth, ISRC — all in one strip. If there\'s dialog, you\'ll see a Dialog LUFS read pop in too.',
  },
  {
  selector: '[data-tour-ref="verdict"]',
  placement: 'top',
- title: 'Ready-to-deliver verdict',
- body: 'Traffic-light diagnosis + a one-line action ("Ship it" / "Pull the limiter 0.5 dB" / "Fix the 12 clipped samples at 01:47"). Mono-loss badge in the same row. Compliance toggle opens a per-DSP pass/fail grid scoped to your current surface (Music / Broadcast / Post).',
+ // 5.7.2 copy:
+ title: 'Ship it, or fix what?',
+ // 5.7.2 copy:
+ body: 'Green light or one clear next move — "Ship it," "Pull the limiter 0.5 dB," or "Fix the 12 clipped samples at 01:47." Flip on Compliance for a pass/fail grid across every platform.',
  },
  {
  selector: '[data-tour-ref="attention"]',
  placement: 'top',
- title: 'Attention list · clickable',
- body: 'Every row with a timestamp jumps the player to that moment. TP breaches, clicks, audible hum, limiter artefacts, DSP-profile findings all route here so you don\'t scroll-hunt.',
+ // 5.7.2 copy:
+ title: 'Things worth a listen',
+ // 5.7.2 copy:
+ body: 'Click any row with a timestamp and the player jumps there. Peaks, clicks, hum, limiter pumping — all in one list, so you\'re not scroll-hunting.',
  },
  {
  selector: '[data-tour-ref="player"]',
  placement: 'top',
+ // 5.7.2 copy:
  title: 'A/B player',
- body: 'Live playback plus listen modes (mono / mid / side / phone). The EQ bank in the header audits whatever Master Assistant / Engineer Tips / Reference Match proposes: toggle bands, drag the Amount slider, hear the change over playback with no restart. Keyboard: Space / A / B / M / L.',
+ // 5.7.2 copy:
+ body: 'Listen in stereo, mono, mid, side, or "phone." The EQ bank in the header lets you audition any proposed move live — toggle bands, ride the Amount slider, hear it without restarting. Space / A / B / M / L on the keyboard.',
  },
  {
  selector: '[data-tour-ref="master-assistant"]',
  placement: 'top',
+ // 5.7.2 copy:
  title: 'Master Assistant',
- body: 'Three tabs: Chain (full delivery pipeline), Engineer Tips (profile-driven EQ), Reference Match (library-backed spectrum match). Pick a DSP target; RTM composes gain → HPF → EQ → compressor → TP limiter → dither and shows every decision. Preview live, render a delivery-ready WAV. RIAA toggle for vinyl; stem-level render for per-stem chains.',
+ // 5.7.2 copy:
+ body: 'Pick a target — Spotify, Apple, broadcast, vinyl. The Assistant builds a full chain (gain, HPF, EQ, comp, limiter, dither) and shows every decision. Hear it in the player, then render the WAV.',
  },
  {
  selector: '[data-tour-ref="streaming-preview"]',
  placement: 'top',
+ // 5.7.2 copy:
  title: 'Sound Check twin',
- body: 'Each DSP row has a ≋ button that plays the REAL AAC output of that platform\'s ingest chain: gain, 4× TP limiter, codec. The red Delta Heatmap under each row shows where the limiter fires on a 30-second window. "Twin starts at" lets you pick any section, not just the loudest.',
+ // 5.7.2 copy:
+ body: 'The ≋ button plays the actual codec output for each platform — limiter, AAC, all of it. The red strip shows where the limiter clamps. "Twin starts at" lets you audition any second, not just the loudest.',
  },
  {
  selector: '[data-tour-ref="metadata-panel"]',
  placement: 'top',
- title: 'Metadata editor',
- body: 'BEXT / iXML / LIST-INFO / ID3 tags inline. Edit Mode writes back atomically; audio bytes stay identical. Embed ISRC, BEXT originator, UMID before delivery without bouncing through a separate tool.',
+ // 5.7.2 copy:
+ title: 'Tags, in place',
+ // 5.7.2 copy:
+ body: 'Edit BEXT, iXML, ID3 right here. Write back without touching the audio bytes. ISRC, originator, UMID — all done before delivery, no second tool.',
  },
  {
  placement: 'center',
- title: 'Advanced QC + Learn mode',
- body: 'Header toggles: **Advanced QC** unlocks masking, phase per-band, transient density, waveform diff, tempo drift. **Learn mode** reveals "Why this matters" copy on every panel. Both stay off by default; turn them on when you want the deep dive.',
+ // 5.7.2 copy:
+ title: 'Want to go deeper?',
+ // 5.7.2 copy:
+ body: 'Two header toggles: **Advanced QC** unlocks masking, phase, transient density, waveform diff. **Learn mode** adds "why this matters" notes on every panel. Both off by default — flip them on when you want more.',
  },
 ]
 
@@ -221,8 +241,9 @@ export default function RefOnlyTour({
 
  {/* Popover */}
  <div
- className="absolute pointer-events-auto rounded-xl shadow-2xl"
+ className="absolute pointer-events-auto"
  style={{
+ borderRadius: '2px',
  left: popX, top: popY,
  width: POP_W, maxWidth: POP_W,
  backgroundColor: '#1a1815',
@@ -234,16 +255,18 @@ export default function RefOnlyTour({
  >
  <div className="p-4 space-y-2">
  <div className="flex items-center justify-between">
+ {/* 5.7.2 copy: */}
  <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: '#d0b066' }}>
- Single-file · {state.step + 1} / {STEPS.length}
+ Single file · {state.step + 1} / {STEPS.length}
  </span>
+ {/* 5.7.2 copy: */}
  <button
  onClick={stopTour}
  className="text-[10px] px-2 py-0.5 rounded hover:bg-white/[0.06]"
  style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
- title="Skip the tour (Esc)"
+ title="Close the tour (Esc)"
  >
- Skip
+ Close
  </button>
  </div>
  <h3 className="text-sm font-medium" style={{ color: '#ebe7e0' }}>{step.title}</h3>
@@ -252,15 +275,15 @@ export default function RefOnlyTour({
  <button
  onClick={prevStep}
  disabled={state.step === 0}
- className="text-[11px] px-3 py-1 rounded-md disabled:opacity-30"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[11px] px-3 py-1 disabled:opacity-30"
+ style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  ← Back
  </button>
  <button
  onClick={state.step + 1 >= STEPS.length ? stopTour : nextStep}
- className="text-[11px] px-4 py-1 rounded-md"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ className="text-[11px] px-4 py-1"
+ style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
  >
  {state.step + 1 >= STEPS.length ? 'Done' : 'Next →'}
  </button>

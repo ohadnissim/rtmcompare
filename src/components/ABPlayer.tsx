@@ -960,7 +960,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  : (activeFile === 'A' ? '#6b8cbb' : '#e07a4f')
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <h2 className="text-lg font-semibold">A/B Player</h2>
  <div className="flex items-center gap-3">
@@ -991,8 +991,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  </span>
  <button
  onClick={() => eq.setEnabled(!eq.enabled)}
- className="text-[10px] px-2 py-0.5 rounded-md transition-colors"
+ className="text-[10px] px-2 py-0.5 transition-colors"
  style={{
+  borderRadius: '2px',
  color: eq.enabled ? '#d0b066' : '#8d867b',
  backgroundColor: eq.enabled ? 'rgba(208,176,102,0.15)' : 'transparent',
  border: `1px solid ${eq.enabled ? 'rgba(208,176,102,0.45)' : 'rgba(87,83,78,0.35)'}`,
@@ -1022,7 +1023,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  <>
  {/* Mix / Stems tabs */}
  {stems && (
- <div className="flex gap-1 rounded-lg p-0.5" style={{ backgroundColor: 'rgba(51,48,44,0.3)' }}>
+ <div className="flex gap-1 p-0.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(51,48,44,0.3)' }}>
  <button
  onClick={() => {
  setPlayerMode('mix')
@@ -1032,8 +1033,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  startPlayback(pos, 'mix', activeStemRef.current)
  }
  }}
- className="px-4 py-1.5 rounded-md text-xs transition-all"
+ className="px-4 py-1.5 text-xs transition-all"
  style={{
+  borderRadius: '2px',
  backgroundColor: playerMode === 'mix' ? 'rgba(224,122,79,0.15)' : 'transparent',
  color: playerMode === 'mix' ? '#e07a4f' : '#8d867b',
  fontWeight: playerMode === 'mix' ? 500 : 400,
@@ -1051,8 +1053,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  startPlayback(pos, 'stems', activeStemRef.current)
  }
  }}
- className="px-4 py-1.5 rounded-md text-xs transition-all"
+ className="px-4 py-1.5 text-xs transition-all"
  style={{
+  borderRadius: '2px',
  backgroundColor: playerMode === 'stems' ? 'rgba(224,122,79,0.15)' : 'transparent',
  color: playerMode === 'stems' ? '#e07a4f' : '#8d867b',
  fontWeight: playerMode === 'stems' ? 500 : 400,
@@ -1091,7 +1094,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  startPlayback(pos, 'stems', name)
  }
  }}
- className="px-3 py-1.5 rounded-lg text-[11px] capitalize transition-all flex flex-col items-start gap-0.5"
+ className="px-3 py-1.5 text-[11px] capitalize transition-all flex flex-col items-start gap-0.5" style={{ borderRadius: '2px' }}
  style={{
  backgroundColor: activeStem === name ? stemColor(name, 0.2) : 'rgba(51,48,44,0.3)',
  color: activeStem === name ? stemColor(name, 1) : '#78716c',
@@ -1168,7 +1171,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setStemsLoaded(true)
  setStemDropMsg(`Loaded ${loaded} stem${loaded === 1 ? '' : 's'} into ${side}.`)
  }}
- className="rounded-lg px-3 py-2 text-[10px] text-center transition-colors"
+ className="px-3 py-2 text-[10px] text-center transition-colors" style={{ borderRadius: '2px' }}
  style={{
  border: `1px dashed ${stemDragging === side ? 'rgba(208,176,102,0.5)' : 'rgba(168,161,150,0.2)'}`,
  backgroundColor: stemDragging === side ? 'rgba(208,176,102,0.08)' : 'rgba(30,28,24,0.3)',
@@ -1187,7 +1190,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
 
  {/* Blind-test control bar — shuffle, guess, score */}
  {blindMode && (
- <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.25)' }}>
+ <div className="p-3 space-y-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.25)' }}>
  <div className="flex items-center justify-between gap-3">
  <div className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>
  Blind A/B · guess which is {realLabelB.slice(0, 24)}{realLabelB.length > 24 ? '…' : ''}
@@ -1207,8 +1210,8 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setShuffleKey(k => k + 1)
  setBlindRoundResult(null)
  }}
- className="text-[11px] px-3 py-1 rounded-md"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ className="text-[11px] px-3 py-1"
+ style={{ borderRadius: '2px', backgroundColor: 'transparent', border: '1px solid #d0b066', color: '#d0b066' }}
  >
  Next round
  </button>
@@ -1237,7 +1240,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  const correctLetter: 'A' | 'B' = wasCorrect ? letter : (letter === 'A' ? 'B' : 'A')
  setBlindRoundResult({ guess: letter, correctLetter, wasCorrect })
  }}
- className="flex-1 py-1.5 rounded-md text-xs font-medium"
+ className="flex-1 py-1.5 text-xs font-medium" style={{ borderRadius: '2px' }}
  style={{ backgroundColor: 'rgba(14,13,11,0.4)', color: '#ebe7e0', border: '1px solid rgba(208,176,102,0.3)' }}
  >
  "{letter}" is {realLabelB.slice(0, 20)}{realLabelB.length > 20 ? '…' : ''}
@@ -1248,7 +1251,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setShuffled(Math.random() < 0.5)
  setShuffleKey(k => k + 1)
  }}
- className="text-[10px] px-2 py-1 rounded-md text-dark-400"
+ className="text-[10px] px-2 py-1 text-dark-400" style={{ borderRadius: '2px' }}
  style={{ border: '1px solid rgba(87,83,78,0.3)' }}
  title="Re-shuffle which button plays which file"
  >
@@ -1266,8 +1269,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  onClick={() => switchFile('A')}
  aria-pressed={activeFile === 'A'}
  aria-label={`A — ${labelA}${activeFile === 'A' ? ' (active)' : ''}`}
- className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all"
+ className="flex-1 py-2.5 text-sm font-medium transition-all"
  style={{
+  borderRadius: '2px',
  backgroundColor: activeFile === 'A' ? 'rgba(107,140,187,0.2)' : 'rgba(51,48,44,0.3)',
  border: activeFile === 'A' ? '1px solid rgba(107,140,187,0.4)' : '1px solid transparent',
  color: activeFile === 'A' ? '#6b8cbb' : '#8d867b',
@@ -1280,7 +1284,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  <button
  onClick={() => switchFile(activeFile === 'A' ? 'B' : 'A')}
  aria-label="Flip A/B"
- className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all"
+ className="flex-shrink-0 w-10 h-10 flex items-center justify-center transition-all" style={{ borderRadius: '2px' }}
  style={{
  backgroundColor: 'rgba(224,122,79,0.12)',
  border: '1px solid rgba(224,122,79,0.25)',
@@ -1297,8 +1301,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  onClick={() => switchFile('B')}
  aria-pressed={activeFile === 'B'}
  aria-label={`B — ${labelB}${activeFile === 'B' ? ' (active)' : ''}`}
- className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all"
+ className="flex-1 py-2.5 text-sm font-medium transition-all"
  style={{
+  borderRadius: '2px',
  backgroundColor: activeFile === 'B' ? 'rgba(224,122,79,0.15)' : 'rgba(51,48,44,0.3)',
  border: activeFile === 'B' ? '1px solid rgba(224,122,79,0.3)' : '1px solid transparent',
  color: activeFile === 'B' ? '#e07a4f' : '#8d867b',
@@ -1330,7 +1335,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  {/* Waveform with loop region */}
  <div
  ref={waveformRef}
- className="relative h-16 bg-dark-800 rounded-lg cursor-pointer overflow-hidden select-none"
+ className="relative h-16 bg-dark-800 cursor-pointer overflow-hidden select-none" style={{ borderRadius: '2px' }}
  onMouseDown={handleWaveformMouseDown}
  onMouseMove={handleWaveformMouseMove}
  onMouseUp={handleWaveformMouseUp}
@@ -1545,8 +1550,8 @@ function InlineRefCurve({ referenceCurve, currentCurve, referenceLabel }: {
  const tickFreqs = [100, 1000, 10000]
  return (
  <div
- className="rounded-lg overflow-hidden"
- style={{ backgroundColor: 'rgba(14,13,11,0.55)', border: '1px solid rgba(168,161,150,0.08)' }}
+ className="overflow-hidden"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.55)', border: '1px solid rgba(168,161,150,0.08)' }}
  title={referenceLabel
  ? `Reference spectrum overlay. Gold curve is ${referenceLabel}. Scrub the master underneath to hear tonal alignment in context.`
  : 'Reference spectrum overlay'}
@@ -1744,7 +1749,7 @@ function LiveTpMeter({ liveRef, peakRef, isPlaying }: {
  if (!show) return null
  return (
  <div
- className="flex items-center gap-3 px-3 py-1.5 rounded-md self-end"
+ className="flex items-center gap-3 px-3 py-1.5 self-end" style={{ borderRadius: '2px' }}
  style={{
  backgroundColor: 'rgba(14,13,11,0.55)',
  border: '1px solid rgba(168,161,150,0.18)',

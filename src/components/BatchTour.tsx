@@ -32,44 +32,59 @@ export interface BatchTourStep {
 const STEPS: BatchTourStep[] = [
  {
  placement: 'center',
- title: 'Album Batch',
- body: 'You\'ve dropped a folder. Every track is analysed for LUFS / TP / LRA / ISRC hygiene plus outlier flags. Click any row to open the song in a rotating tab: one slot, B tracks whatever row you pick, ← / → step between tracks.',
+ // 5.7.2 copy:
+ title: 'A whole album, in one view',
+ // 5.7.2 copy:
+ body: 'You dropped a folder — every track is now measured. Loudness, peaks, length, ISRCs, with outliers flagged. Click any row to open a song; arrow keys step between them.',
  },
  {
  selector: '[data-tour-batch="header-actions"]',
  placement: 'bottom',
- title: 'Session header',
- body: 'Save session writes a .rtmalbum.json with every measurement, note, A/B favorite, and open tab. Load session reopens where you left it; no re-analysis. Reissue mode anchors "old master" as the A-side across every track for reissue workflows.',
+ // 5.7.2 copy:
+ title: 'Save your session',
+ // 5.7.2 copy:
+ body: 'Save Session keeps every measurement, note, and favourite. Load it later and you\'re right back where you were. Reissue mode pins the old master as A across every track — handy for re-releases.',
  },
  {
  selector: '[data-tour-batch="load-reference"]',
  placement: 'bottom',
- title: 'Cohort Mode',
- body: 'Load a reference file, or promote any row via ref ↑ in the table. Cohort Mode then gives you a per-track drift heatmap across 31 bands plus an RMS distance column. Sort by distance to see which track strays most from the family resemblance.',
+ // 5.7.2 copy:
+ title: 'Make the album sound like one album',
+ // 5.7.2 copy:
+ body: 'Load a reference, or promote any track to be the reference. You\'ll get a heatmap showing which tracks drift from the family sound, and a distance column you can sort.',
  },
  {
  selector: '[data-tour-batch="album-notes"]',
  placement: 'top',
- title: 'Album notes',
- body: 'Free-form notes scoped to the whole album. Persist in the session, embedded in every PDF export you hand off. Per-song notes live inside each song tab; both show up in the Ship-Ready PDF under their own sections.',
+ // 5.7.2 copy:
+ title: 'Notes that travel with the album',
+ // 5.7.2 copy:
+ body: 'Jot anything you want about the record as a whole. Notes save with the session and land in the PDF you hand off. Each song has its own notes too.',
  },
  {
  selector: '[data-tour-batch="main-table"]',
  placement: 'top',
- title: 'Sortable table',
- body: 'Click any column header to sort. Red LUFS marks a drift outlier vs the album median. TP is shown as a number — no warning colour. Click a row to open that song\'s detail tab.',
+ // 5.7.2 copy:
+ title: 'The table',
+ // 5.7.2 copy:
+ body: 'Click any column to sort. Red LUFS means that track is louder or quieter than the rest. Click a row to dive into that song.',
  },
  {
  selector: '[data-tour-batch="tab-strip"]',
  placement: 'bottom',
- title: 'Tab strip · single-slot rotation',
- body: 'Overview is always pinned first. The song-tab slot rotates; clicking a different row replaces it in place rather than stacking tabs. × closes back to overview. ← / → step between songs inside a song tab.',
+ // 5.7.2 copy:
+ title: 'One song tab, always',
+ // 5.7.2 copy:
+ body: 'Overview stays pinned. Click another track and the song tab swaps in place — no clutter, no twenty tabs. × takes you back to Overview.',
  },
  {
  placement: 'center',
- title: 'Inside a song tab',
- body: 'Pick any row to open a song. Inside: a full A/B player (same engine as Compare mode) with a reference picker (Revisions auto-detected from filenames pinned at the top, starred favorites persisted across sessions, cohort ref if set, session uploads, all album tracks). Live TP meter on the transport. Triage Mode toggle plus DSP-spec profile picker (Apple / Spotify / Amazon / Tidal / YouTube) for the QC-ops view. Loudness over time with section overlays. Mono-compat waterfall per 1/3-octave band. Click-timeline "F" button for frequency-isolated solo playback. Key / BPM / harmonic ladder. Per-song notes that land in the PDF. Phase bands. Vectorscope. A/B favorites persist across sessions via a star button.',
- hint: 'Close this tour, open a song, then re-trigger via the Tour button to walk those surfaces.',
+ // 5.7.2 copy:
+ title: 'Inside a song',
+ // 5.7.2 copy:
+ body: 'Open any track and you get the full A/B player, a reference picker (revisions, favourites, other album tracks), live peak meter, loudness over time, mono check, key and BPM, and per-song notes. Star a favourite and it sticks across sessions.',
+ // 5.7.2 copy:
+ hint: 'Close the tour, open a song, then hit Tour again to walk those surfaces.',
  },
 ]
 
@@ -240,32 +255,35 @@ export default function BatchTour({ tour, autoStart = false, labelMode = false }
 
  {/* Popover */}
  <div
- className="fixed z-[100] rounded-2xl p-5 space-y-3"
+ className="fixed z-[100] p-5 space-y-3"
  style={{
+ borderRadius: '2px',
  ...popoverStyle,
  backgroundColor: '#151411',
  border: '1px solid rgba(208,176,102,0.35)',
- boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
  // Glide between steps — matches the spotlight rect below.
  transition: 'left 300ms cubic-bezier(0.2, 0.8, 0.2, 1), top 300ms cubic-bezier(0.2, 0.8, 0.2, 1), width 300ms ease',
  }}
  onClick={e => e.stopPropagation()}
  >
  <div className="flex items-center justify-between">
+ {/* 5.7.2 copy: */}
  <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>
- Batch tour · step {stepIndex + 1} of {totalSteps}
+ Album tour · {stepIndex + 1} of {totalSteps}
  </span>
+ {/* 5.7.2 copy: */}
  <button
  onClick={stopTour}
  className="text-[10px]"
  style={{ color: '#a8a29e' }}
- >End tour</button>
+ >Close tour</button>
  </div>
  <h3 className="text-base" style={{ color: '#f5f2ed', fontWeight: 500 }}>{step.title}</h3>
  <p className="text-[12px] leading-relaxed" style={{ color: '#a8a196' }}>{step.body}</p>
  {!rect && (
+ // 5.7.2 copy:
  <p className="text-[10px] italic pt-1" style={{ color: '#8d867b' }}>
- The highlighted area isn't on this screen yet. Continue, or skip to explore.
+ You&apos;ll see this one once it shows up on screen. Keep going, or close and explore.
  </p>
  )}
  {step.hint && (
@@ -281,14 +299,14 @@ export default function BatchTour({ tour, autoStart = false, labelMode = false }
  {!isFirst && (
  <button
  onClick={prevStep}
- className="text-[10px] px-3 py-1.5 rounded-md"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[10px] px-3 py-1.5"
+ style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  >Back</button>
  )}
  <button
  onClick={nextStep}
- className="text-[10px] px-4 py-1.5 rounded-md"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ className="text-[10px] px-4 py-1.5"
+ style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
  >
  {isLast ? 'Got it' : 'Next'}
  </button>

@@ -416,7 +416,7 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  <div className="flex items-center justify-between pt-1">
  <div className="flex items-center gap-1">
  {Array.from({ length: totalSteps }).map((_, i) => (
- <span key={i} className="w-1.5 h-1.5" style={{ borderRadius: '2px', backgroundColor: i === stepIndex ? '#d0b066' : '#3e3a33' }} />
+ <span key={i} className="w-1.5 h-1.5" style={{ borderRadius: '2px', backgroundColor: i === stepIndex ? 'var(--color-terra)' : 'var(--color-sand-600)' }} />
  ))}
  </div>
  <div className="flex items-center gap-2">

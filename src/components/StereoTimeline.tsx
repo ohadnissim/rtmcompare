@@ -20,7 +20,7 @@ export default function StereoTimeline({ timelineA, timelineB, labelA, labelB, d
  const twoCol = !soloA && timelineB && timelineB.width && timelineB.width.length >= 2
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Stereo Image Over Time</h2>
  <p className="text-xs text-dark-400">
@@ -86,7 +86,7 @@ function StereoLane({ title, a, b, labelA, labelB, durationSec, range, colorA, c
  <span className="text-dark-300 uppercase tracking-[0.1em]">{title}</span>
  <span className="text-dark-500 font-mono">{interpret(medianA)}</span>
  </div>
- <div className="bg-dark-800 rounded-lg p-2">
+ <div className="bg-dark-800 p-2" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-10" preserveAspectRatio="none">
  <line x1={0} x2={w} y1={scaleY(mid)} y2={scaleY(mid)} stroke="#4c4d52" strokeWidth="0.5" strokeDasharray="4 3" opacity="0.6" />
  <path d={path(a)} fill="none" stroke={colorA} strokeWidth="1.5" opacity="0.85" />

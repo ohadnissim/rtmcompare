@@ -127,8 +127,8 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  onClick={onClose}
  >
  <div
- className="rounded-2xl overflow-hidden max-w-5xl w-full max-h-[90vh] flex flex-col"
- style={{ backgroundColor: '#151411', border: '1px solid rgba(208,176,102,0.3)' }}
+ className="overflow-hidden max-w-5xl w-full max-h-[90vh] flex flex-col"
+ style={{ borderRadius: '2px', backgroundColor: '#151411', border: '1px solid rgba(208,176,102,0.3)' }}
  onClick={e => e.stopPropagation()}
  >
  {/* Header */}
@@ -144,16 +144,16 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  <button
  onClick={handleAdd}
  disabled={adding}
- className="text-[11px] px-4 py-1.5 rounded-md transition-colors disabled:opacity-50"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ className="text-[11px] px-4 py-1.5 transition-colors disabled:opacity-50"
+ style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
  title="Pick an audio file and add it to the library. Quick-scan runs automatically."
  >
  {adding ? 'Scanning…' : '+ Add reference'}
  </button>
  <button
  onClick={onClose}
- className="text-[11px] px-3 py-1.5 rounded-md"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ className="text-[11px] px-3 py-1.5"
+ style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  Close
  </button>
@@ -167,7 +167,7 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  value={search}
  onChange={e => setSearch(e.target.value)}
  placeholder="Search by filename, tag, note, BPM, key…"
- className="flex-1 text-[12px] px-3 py-1.5 rounded-md outline-none"
+ className="flex-1 text-[12px] px-3 py-1.5 outline-none" style={{ borderRadius: '2px' }}
  style={{
  backgroundColor: 'rgba(30,28,24,0.6)',
  color: '#ebe7e0',
@@ -219,8 +219,8 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  <button
  onClick={handleAdd}
  disabled={adding}
- className="text-[11px] px-4 py-1.5 rounded-md"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ className="text-[11px] px-4 py-1.5"
+ style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
  >
  {adding ? 'Scanning…' : '+ Add your first reference'}
  </button>
@@ -276,8 +276,9 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
 
  return (
  <div
- className="rounded-xl p-3 space-y-2 transition-colors"
+ className="p-3 space-y-2 transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(30,28,24,0.5)',
  border: '1px solid rgba(168,161,150,0.1)',
  }}

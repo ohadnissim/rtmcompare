@@ -89,8 +89,8 @@ export default function LimiterArtefactsPanel({ artefacts, compact }: Props) {
 
   return (
     <div
-      className="rounded-lg border px-3 py-2.5 space-y-2"
-      style={{ borderColor: 'rgba(168,161,150,0.18)', backgroundColor: 'rgba(31,27,23,0.35)' }}
+      className="border px-3 py-2.5 space-y-2"
+      style={{ borderRadius: '2px', borderColor: 'rgba(168,161,150,0.18)', backgroundColor: 'rgba(31,27,23,0.35)' }}
     >
       {/* Severity headline + confidence pill */}
       <div className="flex items-center gap-2 flex-wrap">

@@ -41,7 +41,7 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  const svgB = useMemo(() => toSvgPoints(pointsB), [pointsB])
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Stereo Vectorscope</h2>
  <p className="text-xs text-dark-400">Lissajous display — compare stereo image shape and width</p>
@@ -51,7 +51,7 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  {/* File A */}
  <div className="space-y-2">
  <span className="text-xs text-dark-400">{labelA}</span>
- <div className="bg-dark-800 rounded-xl p-2 flex items-center justify-center">
+ <div className="bg-dark-800 p-2 flex items-center justify-center" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[200px]" style={{ aspectRatio: '1' }}>
  {/* Grid */}
  <line x1={center} y1={0} x2={center} y2={size} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
@@ -79,7 +79,7 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  {/* File B */}
  <div className="space-y-2">
  <span className="text-xs text-amber-400">{labelB}</span>
- <div className="bg-dark-800 rounded-xl p-2 flex items-center justify-center">
+ <div className="bg-dark-800 p-2 flex items-center justify-center" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[200px]" style={{ aspectRatio: '1' }}>
  {/* Grid */}
  <line x1={center} y1={0} x2={center} y2={size} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />

@@ -30,6 +30,19 @@ function clampEqFilter<T extends { freq: number; gain_db: number }>(f: T): T {
 export default function EngineerTipsPanel({ tips, fileB }: Props) {
  const filters = (tips.eq_filters || []).map(clampEqFilter)
  const [bandEnabled, setBandEnabled] = useState<boolean[]>(filters.map(() => false))
+ // 5.7.x: reset bandEnabled when the filter set changes (new analysis,
+ // new reference profile, new file). useState's initializer runs once
+ // at mount, so without this effect the previous analysis's toggle
+ // states would persist into the new one — and any NEW bands beyond
+ // the old length would fall through `bandEnabled[i] ?? true` in the
+ // send code below, getting auto-pushed to the hosted plugin even
+ // though the user never enabled them. That's the "random curve"
+ // bug Mike reported. We trigger on filter-array reference change,
+ // which happens when `tips.eq_filters` is replaced by a new analysis.
+ useEffect(() => {
+  setBandEnabled(filters.map(() => false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [tips.eq_filters])
  // EQ amount lives at the panel level so the export / apply-and-bounce
  // buttons can scale their bands by it too.
  const [eqAmount, setEqAmount] = useState(100)
@@ -68,12 +81,17 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  gain_db: Math.round((f.gain_db * (eqAmount / 100)) * 10) / 10,
  })), [filters, eqAmount])
 
- // Compute live corrected spectrum based on which bands are enabled
+ // Compute live corrected spectrum based on which bands are enabled.
+ // 5.7.x: prefer the smoothed file spectrum as the base so the corrected
+ // line lives in the same "tonal-balance" world as the file + target lines
+ // drawn below (which now also use smoothed). Raw still works as fallback
+ // for older API responses that haven't shipped the smoothed fields yet.
  const liveCorrected = useMemo(() => {
- if (!tips.spectrum_file || !tips.spectrum_target || !filters.length) return tips.spectrum_corrected
+ const baseFile = tips.spectrum_file_smoothed ?? tips.spectrum_file
+ if (!baseFile || !tips.spectrum_target || !filters.length) return tips.spectrum_corrected
  // Start with file spectrum, apply only enabled filter corrections
  const FREQS = [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000]
- const result = [...tips.spectrum_file]
+ const result = [...baseFile]
  for (let fi = 0; fi < filters.length; fi++) {
  if (!bandEnabled[fi]) continue
  const f = filters[fi]
@@ -87,7 +105,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  }
  }
  return result.map(v => Math.round(v * 10) / 10)
- }, [tips.spectrum_file, tips.spectrum_target, filters, bandEnabled])
+ }, [tips.spectrum_file, tips.spectrum_file_smoothed, tips.spectrum_target, filters, bandEnabled])
 
  return (
  <div className="space-y-6">
@@ -102,8 +120,8 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  {/* Prominent "Load custom target" action — discoverable here next to the
  EQ preview where users actually care about tonal targets. */}
  {(window as any).electronAPI?.loadCustomProfile && (
- <div className="flex items-center justify-between rounded-xl px-4 py-3"
- style={{ backgroundColor: 'rgba(124,164,163,0.06)', border: '1px solid rgba(124,164,163,0.25)' }}>
+ <div className="flex items-center justify-between px-4 py-3"
+ style={{ backgroundColor: 'rgba(124,164,163,0.06)', border: '1px solid rgba(124,164,163,0.25)', borderRadius: '2px' }}>
  <div className="flex-1 pr-3">
  <div className="text-xs font-medium" style={{ color: '#7ca4a3' }}>
  Swap the target curve · use your own reference
@@ -125,8 +143,8 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  alert(err?.message || 'Could not load profile')
  }
  }}
- className="text-[11px] px-3 py-1.5 rounded-md transition-colors"
- style={{ backgroundColor: 'rgba(124,164,163,0.15)', color: '#7ca4a3', border: '1px solid rgba(124,164,163,0.35)' }}
+ className="text-[11px] px-3 py-1.5 transition-colors"
+ style={{ backgroundColor: 'rgba(124,164,163,0.15)', color: '#7ca4a3', border: '1px solid rgba(124,164,163,0.35)', borderRadius: '2px' }}
  >
  Load target curve…
  </button>
@@ -184,13 +202,22 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  />
  )}
 
- {/* Spectrum: File B vs Target vs Live Corrected */}
- {tips.spectrum_file && tips.spectrum_target && (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-3">
+ {/* Spectrum: File B vs Target vs Live Corrected.
+   5.7.x: render the *smoothed* (log-Hann, 3-band) contours when
+   available — that's the view the recommender diffs against, so the
+   chart now visually agrees with the tip set + chip values + per-
+   region tonal_diff bars. Raw spectra still ride along as fallback
+   for older API responses. Mike's note "difference looks really
+   big" was the tell: pre-fix the chart drew narrow tonal features
+   (kick fundamental, etc.) at full amplitude while the recommender
+   correctly ignored them, so the chart and the tips visually
+   disagreed by 4–7 dB. */}
+ {(tips.spectrum_file || tips.spectrum_file_smoothed) && (tips.spectrum_target || tips.spectrum_target_smoothed) && (
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-3" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2">
  <span className="text-xs font-medium text-dark-300">Tonal Curve</span>
- <InfoTooltip text="Shows how File B's frequency balance compares to the engineer's target curve. The green 'After EQ' line updates live as you toggle EQ bands above." />
+ <InfoTooltip text="Smoothed tonal balance — narrow features (single-note resonances, tuned kick fundamentals) are filtered out so the comparison reads as 'is the overall tilt right?' rather than 'do these two tracks share the same key?'. The green 'After EQ' line updates live as you toggle EQ bands above." />
  </div>
  <div className="flex items-center gap-3 text-[9px]">
  <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#6b8cbb' }} /> File B</span>
@@ -199,8 +226,8 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  </div>
  </div>
  <SpectrumChart
- specFile={tips.spectrum_file}
- specTarget={tips.spectrum_target}
+ specFile={(tips.spectrum_file_smoothed ?? tips.spectrum_file) as number[]}
+ specTarget={(tips.spectrum_target_smoothed ?? tips.spectrum_target) as number[]}
  specCorrected={liveCorrected}
  freqs={tips.freqs || []}
  />
@@ -209,7 +236,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
 
  {/* Tonal differences bar chart */}
  {tips.tonal_diff.length > 0 && (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-3">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-3" style={{ borderRadius: '2px' }}>
  <div className="flex items-center gap-2">
  <span className="text-xs font-medium text-dark-300">Tonal Differences by Region</span>
  <InfoTooltip text="Shows how each frequency region of your file differs from the engineer's target. Positive = louder than target (may need a cut), Negative = quieter (may need a boost)." />
@@ -255,7 +282,7 @@ function MatchScore({ score, engineer }: { score: number; engineer: string }) {
  { label: 'Meaningful gap', sub: 'Work through the tips below before delivery.' }
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 flex flex-col items-center justify-center gap-3">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 flex flex-col items-center justify-center gap-3" style={{ borderRadius: '2px' }}>
  <div className="relative w-24 h-24">
  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#2a2927" strokeWidth="2.5" />
@@ -287,8 +314,12 @@ function RadarChart({ tips }: { tips: EngineerTips }) {
  { label: 'Loudness', file: normalize(tips.file_stats.lufs, -16, -4), target: normalize(tips.target_stats.lufs, -16, -4) },
  { label: 'Dynamics', file: normalize(tips.file_stats.dynamic_range, 1, 12), target: normalize(tips.target_stats.dynamic_range, 1, 12) },
  { label: 'Width', file: normalize(tips.file_stats.width * 100, 0, 30), target: normalize(tips.target_stats.width * 100, 0, 30) },
- { label: 'Low End', file: tips.spectrum_file ? normalize(avg(tips.spectrum_file, 3, 6), -5, 15) : 0.5, target: tips.spectrum_target ? normalize(avg(tips.spectrum_target, 3, 6), -5, 15) : 0.5 },
- { label: 'High End', file: tips.spectrum_file ? normalize(avg(tips.spectrum_file, 23, 28), -15, 0) : 0.5, target: tips.spectrum_target ? normalize(avg(tips.spectrum_target, 23, 28), -15, 0) : 0.5 },
+ // 5.7.x: Low/High End axes pull from the smoothed spectrum when
+ // available, matching the Tonal Curve chart + tonal_diff bars. Pre-fix
+ // the radar would show "Low End is huge!" because of a single tuned
+ // bass note while the recommender (correctly) ignored it.
+ { label: 'Low End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 3, 6), -5, 15) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 3, 6), -5, 15) : 0.5 },
+ { label: 'High End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 23, 28), -15, 0) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 23, 28), -15, 0) : 0.5 },
  ]
 
  const n = axes.length
@@ -303,7 +334,7 @@ function RadarChart({ tips }: { tips: EngineerTips }) {
  const targetPath = axes.map((a, i) => getPoint(a.target, i)).map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + ' Z'
 
  return (
- <div className="bg-dark-900 rounded-2xl p-4 border border-dark-700/50 flex flex-col items-center justify-center gap-2">
+ <div className="bg-dark-900 p-4 border border-dark-700/50 flex flex-col items-center justify-center gap-2" style={{ borderRadius: '2px' }}>
  <div className="flex items-center gap-1.5 self-start pl-2">
  <span className="text-[10px] text-dark-400">Profile Radar</span>
  <InfoTooltip text="Blue = your file, Orange = engineer's target. The closer the blue shape matches the orange, the more your file aligns with the engineer's style across loudness, dynamics, stereo width, low-end and high-end balance." />
@@ -457,6 +488,73 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // length / phase stays identical, the band keeps its position — hence
  // "in place"). Esc clears.
  const [soloBand, setSoloBand] = useState<number | null>(null)
+ // 5.6.0: "Send to plugin" pill. Talks to the localhost JSON-RPC
+ // server inside RTMsend (1.1.0+) and pushes the current EQ moves
+ // into whatever plugin the engineer has loaded in its slot.
+ // sendStatus reflects the last call's lifecycle for the pill UI.
+ const [sendStatus, setSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+ const [sendDetail, setSendDetail] = useState<string>('')
+ const sendStatusResetRef = useRef<number | null>(null)
+ // 5.7.x: live Compare ↔ RTMsend connection indicator. Polls every 4s
+ // (cheap — single localhost RPC call) so the user always sees whether
+ // the bridge is alive and which plugin is loaded. The state pill sits
+ // next to the Send button and disambiguates "is RTMsend running?",
+ // "is a plugin loaded?", and "is the loaded plugin one we have a
+ // profile for?". When disconnected, the Send button is disabled and
+ // tells the user how to fix it (load RTMsend in your DAW).
+ type RtmConn =
+   | { state: 'unknown' }
+   | { state: 'disconnected' }
+   | { state: 'no-plugin' }
+   | { state: 'connected'; plugin: string; hasProfile: boolean; isAuto: boolean }
+ const [conn, setConn] = useState<RtmConn>({ state: 'unknown' })
+ useEffect(() => {
+   const api = (window as any).electronAPI
+   if (!api?.rtmsendStatus) return
+   let cancelled = false
+   let timeoutId: number | null = null
+   // 5.7.1 v5 HIGH fix: self-rescheduling poll instead of setInterval.
+   // Pre-fix `setInterval(poll, 4000)` fired every 4 s regardless of
+   // whether the prior poll had completed — when a poll took 5+ s
+   // (slow rpc, dead port, big set_parameters), N concurrent calls
+   // stacked, fought `cachedResolved`, and the indicator flipped
+   // connected ↔ offline as each parallel call observed the cache
+   // mid-transition. Each poll now schedules its OWN next tick after
+   // it returns, so there's never more than one in flight.
+   const poll = async () => {
+     if (cancelled) return
+     try {
+       const s = await api.rtmsendStatus()
+       if (cancelled) return
+       if (!s?.running) setConn({ state: 'disconnected' })
+       else if (!s.loaded) setConn({ state: 'no-plugin' })
+       else setConn({
+         state: 'connected',
+         plugin: s.loaded.name,
+         hasProfile: !!s.profile,
+         isAuto: !!s.profile?.auto,
+       })
+     } catch {
+       if (!cancelled) setConn({ state: 'disconnected' })
+     } finally {
+       if (!cancelled) {
+         timeoutId = window.setTimeout(poll, 4000)
+       }
+     }
+   }
+   poll()
+   return () => {
+     cancelled = true
+     if (timeoutId != null) window.clearTimeout(timeoutId)
+   }
+ }, [])
+
+ // 5.6.0: archetype-aware recommendation. We ask the main process
+ // to score the user's full plugin library against the current EQ
+ // moves and surface the single best fit. The hint shows up next
+ // to the Send pill so the engineer can switch plugins if a better
+ // match is available. Recomputes when filters or eqAmount change.
+ const [bestPlugin, setBestPlugin] = useState<{ name: string; reasoning: string } | null>(null)
  const gainForBand = useCallback((i: number): number => {
  if (bypassed) return 0
  if (soloBand != null) return i === soloBand ? filters[i].gain_db * (eqAmount / 100) : 0
@@ -816,6 +914,102 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  }
  }, [tpLimit])
 
+ // 5.6.0: send the live EQ-Preview move into the user's hosted plugin
+ // via RTMsend's localhost RPC. Honours BOTH the per-band enable
+ // toggles AND the eqAmount %, so the engineer can dial in exactly
+ // which moves they want pushed and at what intensity. Disabled
+ // bands are filtered out before send, not zeroed — the host plugin
+ // will simply not place a dot for them, leaving the engineer's
+ // existing band layout untouched on those frequencies.
+ const sendToHostedPlugin = useCallback(async () => {
+   const api = (window as any).electronAPI
+   if (!api?.rtmsendSendEq) {
+     setSendStatus('error')
+     setSendDetail('RTMsend bridge not available in this build')
+     return
+   }
+   // 5.7.x: default to FALSE (not true) for any band whose toggle
+   // state isn't tracked. Matches the initial-mount semantic
+   // (bandEnabled starts all-false). Safer fallback than the prior
+   // `?? true` which silently shipped untracked bands to the plugin.
+   const bands = filters
+     .map((f, i) => ({ f, enabled: bandEnabled[i] ?? false }))
+     .filter(({ enabled }) => enabled)
+     .map(({ f }) => ({
+       region: f.region,
+       freq_hz: f.freq,
+       gain_db: f.gain_db * (eqAmount / 100),
+       q: f.q,
+     }))
+   if (bands.length === 0) {
+     setSendStatus('error')
+     setSendDetail('No bands enabled — toggle at least one band on first')
+     if (sendStatusResetRef.current) window.clearTimeout(sendStatusResetRef.current)
+     sendStatusResetRef.current = window.setTimeout(() => {
+       setSendStatus('idle'); setSendDetail('')
+     }, 3000)
+     return
+   }
+   setSendStatus('sending')
+   setSendDetail('')
+   let errored = false
+   try {
+     const r = await api.rtmsendSendEq(bands)
+     setSendStatus('sent')
+     setSendDetail(`${r.applied} of ${r.applied + r.rejected} sent to ${r.plugin}`)
+   } catch (e: any) {
+     errored = true
+     setSendStatus('error')
+     const msg = String(e?.message ?? e)
+     // 5.7.1 fix: surface the underlying failure verbosely so support
+     // can debug "send fails silently" reports. The renderer console
+     // shows the full stack; the UI pill shows the trimmed message.
+     // eslint-disable-next-line no-console
+     console.error('[rtmsend-send-eq] failed:', e)
+     setSendDetail(msg.replace(/^Error invoking remote method '[^']+': Error: /, ''))
+   }
+   if (sendStatusResetRef.current) window.clearTimeout(sendStatusResetRef.current)
+   // 5.7.1 fix: keep error pills visible 20s (was 4s) so the user has
+   // time to read the message before it auto-clears. Success pills
+   // stay at 4s — their content (count of writes) doesn't need long.
+   const resetMs = errored ? 20000 : 4000
+   sendStatusResetRef.current = window.setTimeout(() => {
+     setSendStatus('idle')
+     setSendDetail('')
+   }, resetMs)
+ }, [filters, eqAmount, bandEnabled])
+
+ // 5.6.0: ask the main process which plugin from the user's library
+ // best fits the CURRENT EQ moves. Re-runs whenever the band set or
+ // amount changes. The recommendation engine scores all 28 indexed
+ // plugins against the move-category profile (warm-lf-boost, mud-cut,
+ // air-shimmer, surgical-cut, etc.) and returns the best overall.
+ useEffect(() => {
+   const api = (window as any).electronAPI
+   if (!api?.rtmsendBestPluginsForBands) { setBestPlugin(null); return }
+   const enabledBands = filters
+     .map((f, i) => ({ f, on: bandEnabled[i] ?? false }))
+     .filter(({ on }) => on)
+     .map(({ f }) => ({ region: f.region, freq_hz: f.freq, gain_db: f.gain_db * (eqAmount / 100), q: f.q }))
+   if (enabledBands.length === 0) { setBestPlugin(null); return }
+   let cancelled = false
+   ;(async () => {
+     try {
+       const r = await api.rtmsendBestPluginsForBands(enabledBands)
+       if (cancelled) return
+       const best = r?.best_overall
+       if (best && best.score >= 0.5) {
+         setBestPlugin({ name: best.plugin_name, reasoning: best.reasoning })
+       } else {
+         setBestPlugin(null)
+       }
+     } catch {
+       if (!cancelled) setBestPlugin(null)
+     }
+   })()
+   return () => { cancelled = true }
+ }, [filters, eqAmount, bandEnabled])
+
  // Master bypass — mutes all EQ without losing individual band states
  const toggleBypass = useCallback(() => {
  const newBypassed = !bypassed
@@ -849,7 +1043,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  }, [filters, setBandEnabled])
 
  return (
- <div className="relative bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-5">
+ <div className="relative bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  {/* ── Header row — title + "Hear in main player" toggle + Listening
  gear. The main-player toggle is the FabFilter-killer: flip it
  on and every band-toggle / Amount nudge is audible over the
@@ -871,11 +1065,12 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
      audible change is tonal. */}
  <button
  onClick={() => setLevelMatch(v => !v)}
- className="text-[10px] px-2.5 py-1 rounded-md transition-colors"
+ className="text-[10px] px-2.5 py-1 transition-colors"
  style={{
  color: levelMatch ? '#6ec577' : '#8d867b',
  backgroundColor: levelMatch ? 'rgba(110,197,119,0.10)' : 'transparent',
  border: `1px solid ${levelMatch ? 'rgba(110,197,119,0.40)' : 'rgba(168,161,150,0.20)'}`,
+ borderRadius: '2px',
  }}
  title={levelMatch
  ? 'Level-matched A/B is ON. Auto-RMS compensation makes EQ on / off hit the same perceived loudness so you judge tone, not volume. Press L to toggle.'
@@ -886,11 +1081,12 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  </button>
  <button
  onClick={() => eq.setEnabled(!eq.enabled)}
- className="text-[10px] px-2.5 py-1 rounded-md transition-colors"
+ className="text-[10px] px-2.5 py-1 transition-colors"
  style={{
  color: eq.enabled ? '#d0b066' : '#8d867b',
  backgroundColor: eq.enabled ? 'rgba(208,176,102,0.12)' : 'transparent',
  border: `1px solid ${eq.enabled ? 'rgba(208,176,102,0.45)' : 'rgba(168,161,150,0.2)'}`,
+ borderRadius: '2px',
  }}
  title={eq.enabled
  ? 'EQ live in the main player. Toggle bands to hear changes over playback. Click to bypass.'
@@ -899,6 +1095,101 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  >
  {eq.enabled ? '● Live in main player' : 'Live in main player'}
  </button>
+ {/* 5.7.x: Compare ↔ RTMsend connection indicator. A coloured dot
+     plus the loaded plugin name. Click any time to see the live
+     state without trying to send. Disconnected = no port file or
+     RPC failed; No plugin = RTMsend running but slot empty;
+     Connected = RPC alive AND plugin loaded (green if profiled,
+     amber if auto-detected, blue/grey if no profile match yet). */}
+ <span
+   className="text-[10px] px-2 py-1 flex items-center gap-1.5"
+   style={{
+     border: '1px solid rgba(168,161,150,0.18)',
+     backgroundColor: 'rgba(168,161,150,0.04)',
+     color: '#8d867b',
+     fontFamily: 'monospace',
+     borderRadius: '2px',
+   }}
+   title={
+     conn.state === 'connected'
+       ? `RTMsend connected · Hosting "${conn.plugin}"${conn.hasProfile ? (conn.isAuto ? ' · auto-detected profile' : ' · profile loaded') : ' · no profile (Send-to-Plugin will fail)'}`
+       : conn.state === 'no-plugin'
+       ? 'RTMsend running but no plugin loaded in its slot. Pick a plugin in RTMsend to enable Send-to-Plugin.'
+       : conn.state === 'disconnected'
+       ? 'RTMsend not reachable. Open RTMsend on a track in your DAW and the indicator will turn green.'
+       : 'Checking RTMsend connection…'
+   }
+ >
+   <span
+     className="inline-block w-2 h-2 rounded-full"
+     style={{
+       backgroundColor:
+         conn.state === 'connected' && conn.hasProfile && !conn.isAuto ? '#6ec577'
+         : conn.state === 'connected' && conn.isAuto ? '#d0b066'
+         : conn.state === 'connected' ? '#6b8cbb'
+         : conn.state === 'no-plugin' ? '#d0b066'
+         : conn.state === 'disconnected' ? '#5a5a5a'
+         : '#3a3835',
+     }}
+   />
+   {conn.state === 'connected' ? `RTMsend · ${conn.plugin}`
+     : conn.state === 'no-plugin' ? 'RTMsend · no plugin'
+     : conn.state === 'disconnected' ? 'RTMsend · offline'
+     : 'RTMsend · …'}
+ </span>
+ <button
+ onClick={sendToHostedPlugin}
+ disabled={sendStatus === 'sending' || conn.state !== 'connected'}
+ className="text-[10px] px-2.5 py-1 transition-colors"
+ style={{
+ color: sendStatus === 'sent' ? '#6ec577'
+   : sendStatus === 'error' ? '#e07a4f'
+   : sendStatus === 'sending' ? '#d0b066'
+   : conn.state !== 'connected' ? '#5a5a5a'
+   : '#8d867b',
+ backgroundColor: sendStatus === 'sent' ? 'rgba(110,197,119,0.10)'
+   : sendStatus === 'error' ? 'rgba(224,122,79,0.10)'
+   : sendStatus === 'sending' ? 'rgba(208,176,102,0.12)'
+   : 'transparent',
+ border: `1px solid ${
+   sendStatus === 'sent' ? 'rgba(110,197,119,0.40)'
+   : sendStatus === 'error' ? 'rgba(224,122,79,0.40)'
+   : sendStatus === 'sending' ? 'rgba(208,176,102,0.45)'
+   : conn.state !== 'connected' ? 'rgba(168,161,150,0.10)'
+   : 'rgba(168,161,150,0.20)'
+ }`,
+ cursor: sendStatus === 'sending' ? 'wait'
+   : conn.state !== 'connected' ? 'not-allowed'
+   : 'pointer',
+ opacity: conn.state !== 'connected' && sendStatus === 'idle' ? 0.55 : 1,
+ borderRadius: '2px',
+ }}
+ title={
+   conn.state === 'disconnected'
+     ? 'RTMsend is not running. Open RTMsend on a track in your DAW and the Send button will activate.'
+     : conn.state === 'no-plugin'
+     ? 'RTMsend is running but no plugin is loaded in its slot. Pick a plugin in RTMsend first.'
+     : sendStatus === 'error'
+     ? `Send failed: ${sendDetail}. Make sure RTMsend is loaded in your DAW with a supported EQ in its slot (Pro-Q 4, Pro-Q 3, AUGraphicEQ).`
+     : sendStatus === 'sent'
+     ? sendDetail
+     : 'Push these EQ moves into the plugin you have loaded inside RTMsend (in your DAW). Requires RTMsend 1.1.0+ and a supported plugin in its slot.'
+ }
+ >
+ {sendStatus === 'sending' ? '… Sending'
+   : sendStatus === 'sent' ? '✓ Sent'
+   : sendStatus === 'error' ? '⚠ Send failed'
+   : 'Send to plugin'}
+ </button>
+ {bestPlugin && (
+   <span
+     className="text-[10px] italic"
+     style={{ color: '#a89572', marginLeft: 4 }}
+     title={bestPlugin.reasoning}
+   >
+     Best for this move: {bestPlugin.name}
+   </span>
+ )}
  <button
  onClick={() => setListeningOpen(v => !v)}
  className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-white/[0.05]"
@@ -950,11 +1241,12 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  <div
  key={i}
  onClick={() => toggleBand(i)}
- className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-white/[0.03]"
+ className="flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:bg-white/[0.03]"
  style={{
  backgroundColor: isSoloed ? 'rgba(208,176,102,0.12)' : enabled ? 'rgba(208,176,102,0.05)' : 'transparent',
  borderLeft: `2px solid ${isSoloed ? '#d0b066' : enabled ? (isBoost ? '#6ec577' : '#e07a4f') : 'transparent'}`,
  opacity: isMuted ? 0.45 : 1,
+ borderRadius: '2px',
  }}
  role="button"
  tabIndex={0}
@@ -995,11 +1287,12 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  <button
  type="button"
  onClick={(e) => { e.stopPropagation(); toggleSolo(i) }}
- className="w-6 h-6 rounded text-[9px] tracking-[0.08em] uppercase font-mono flex-shrink-0 flex items-center justify-center transition-colors"
+ className="w-6 h-6 text-[9px] tracking-[0.08em] uppercase font-mono flex-shrink-0 flex items-center justify-center transition-colors"
  style={{
- color: isSoloed ? '#0e0d0b' : '#8d867b',
- backgroundColor: isSoloed ? '#d0b066' : 'transparent',
+ color: isSoloed ? '#d0b066' : '#8d867b',
+ backgroundColor: 'transparent',
  border: `1px solid ${isSoloed ? '#d0b066' : 'rgba(168,161,150,0.25)'}`,
+ borderRadius: '2px',
  }}
  title={isSoloed ? 'Clear solo (Esc)' : 'Solo in place — only this band sounds; others stay in the chain at 0 dB'}
  aria-pressed={isSoloed}
@@ -1064,11 +1357,12 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  A/B framing. The button IS the A (dry) vs B (wet) toggle. */}
  <button
  onClick={toggleBypass}
- className="px-4 py-2 rounded-md text-[11px] font-semibold tracking-[0.1em] uppercase transition-colors flex-shrink-0"
+ className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase transition-colors flex-shrink-0"
  style={{
  backgroundColor: 'rgba(208,176,102,0.08)',
  color: bypassed ? '#8d867b' : '#d0b066',
  border: '1px solid rgba(208,176,102,0.3)',
+ borderRadius: '2px',
  }}
  title={bypassed ? 'Hearing dry signal — click to engage EQ' : 'Hearing EQ\'d signal — click to bypass'}
  >
@@ -1086,11 +1380,11 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  {/* Listening settings popover — anchored top-right, click ⚙ to toggle */}
  {listeningOpen && (
  <div
- className="absolute right-6 top-14 z-20 rounded-xl p-4 space-y-3 min-w-[260px]"
+ className="absolute right-6 top-14 z-20 p-4 space-y-3 min-w-[260px]"
  style={{
  backgroundColor: '#1e1c18',
  border: '1px solid rgba(208,176,102,0.3)',
- boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+ borderRadius: '2px',
  }}
  >
  <div className="flex items-center justify-between">
@@ -1208,8 +1502,8 @@ function WaveformLoopPicker({ envelope, duration, loopStart, loopEnd, onChange }
 
  if (!envelope || !duration) {
  return (
- <div className="h-20 rounded-lg flex items-center justify-center text-[11px]"
- style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)', color: '#a8a29e' }}>
+ <div className="h-20 flex items-center justify-center text-[11px]"
+ style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)', color: '#a8a29e', borderRadius: '2px' }}>
  Press Play to analyse the file — waveform will appear here.
  </div>
  )
@@ -1220,8 +1514,8 @@ function WaveformLoopPicker({ envelope, duration, loopStart, loopEnd, onChange }
  <div
  ref={ref}
  onMouseDown={onMouseDown}
- className="relative h-20 rounded-lg select-none cursor-crosshair overflow-hidden"
- style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}
+ className="relative h-20 select-none cursor-crosshair overflow-hidden"
+ style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)', borderRadius: '2px' }}
  >
  {/* Envelope bars */}
  <div className="absolute inset-0 flex items-center gap-[1px] px-0.5">
@@ -1332,7 +1626,7 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
  hz >= 1000 ? `${(hz / 1000).toFixed(1).replace(/\.0$/, '')} kHz` : `${Math.round(hz)} Hz`
 
  return (
- <div className="rounded-xl overflow-hidden" style={{ backgroundColor: config.bg, border: `1px solid ${config.color}15` }}>
+ <div className="overflow-hidden" style={{ backgroundColor: config.bg, border: `1px solid ${config.color}15`, borderRadius: '2px' }}>
  <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
  <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full flex-shrink-0" style={{ color: config.color, backgroundColor: `${config.color}20` }}>{config.label}</span>
  <span className="text-[10px] text-dark-500 w-24 flex-shrink-0">{tip.category}</span>
@@ -1341,8 +1635,8 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
  {/* Machine-readable EQ move chip — so the user sees freq + gain + Q
  right on the row without expanding or cross-referencing a chart. */}
  {move && (
- <span className="flex items-center gap-1.5 flex-shrink-0 px-2 py-1 rounded-md font-mono text-[10px]"
- style={{ backgroundColor: 'rgba(14,13,11,0.4)', border: '1px solid rgba(168,161,150,0.15)' }}
+ <span className="flex items-center gap-1.5 flex-shrink-0 px-2 py-1 font-mono text-[10px]"
+ style={{ backgroundColor: 'rgba(14,13,11,0.4)', border: '1px solid rgba(168,161,150,0.15)', borderRadius: '2px' }}
  title={move.q_note ? `Q ${move.q.toFixed(1)} — ${move.q_note}` : `Q ${move.q.toFixed(1)}`}
  >
  <span style={{ color: '#8d867b' }}>{fmtFreq(move.freq)}</span>
@@ -1379,7 +1673,7 @@ function StatCompare({ label, current, target, diff, unit }: { label: string; cu
  const isClose = Math.abs(diff) < 1.5
  const color = isClose ? '#6ec577' : Math.abs(diff) > 3 ? '#e05a5a' : '#e07a4f'
  return (
- <div className="rounded-lg p-3 text-center space-y-1.5" style={{ backgroundColor: 'rgba(26,25,24,0.5)' }}>
+ <div className="p-3 text-center space-y-1.5" style={{ backgroundColor: 'rgba(26,25,24,0.5)', borderRadius: '2px' }}>
  <p className="text-[9px] text-dark-600 uppercase tracking-wider">{label}</p>
  <p className="text-sm font-mono" style={{ color }}>{current}</p>
  <p className="text-[9px] text-dark-500">target: {target}</p>

@@ -388,8 +388,8 @@ export default function SongDetailPanel({
 
  return (
  <div
- className="rounded-xl p-5 space-y-5"
- style={{ backgroundColor: 'rgba(30,28,24,0.55)', border: '1px solid rgba(208,176,102,0.2)' }}
+ className="p-5 space-y-5"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.55)', border: '1px solid rgba(208,176,102,0.2)' }}
  >
  {/* Song header: prev / name / next arrows + close. The arrows match
  the ← / → keyboard shortcuts bound above; disabled look when at
@@ -470,8 +470,8 @@ export default function SongDetailPanel({
  • Done → hidden (the panels below render instead). */}
  {!full && !loading && !error && (
  <div
- className="rounded-xl px-4 py-4 flex items-center justify-between gap-4 flex-wrap"
- style={{ backgroundColor: 'rgba(30,28,24,0.5)', border: '1px solid rgba(168,161,150,0.15)' }}
+ className="px-4 py-4 flex items-center justify-between gap-4 flex-wrap"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.5)', border: '1px solid rgba(168,161,150,0.15)' }}
  >
  <div className="flex-1 min-w-[16rem]">
  <div className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>
@@ -483,7 +483,7 @@ export default function SongDetailPanel({
  </div>
  <button
  onClick={runDeepAnalysis}
- className="text-[11px] px-4 py-2 rounded-md transition-colors hover:bg-white/[0.03]"
+ className="text-[11px] px-4 py-2 transition-colors hover:bg-white/[0.03]" style={{ borderRadius: '2px' }}
  style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)' }}
  title="Run the full single-file deep analysis for this song. Result is cached for the rest of the session."
  >
@@ -494,8 +494,8 @@ export default function SongDetailPanel({
 
  {loading && (
  <div
- className="rounded-xl px-4 py-3"
- style={{ backgroundColor: 'rgba(197,165,90,0.08)', border: '1px solid rgba(197,165,90,0.25)' }}
+ className="px-4 py-3"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(197,165,90,0.08)', border: '1px solid rgba(197,165,90,0.25)' }}
  role="progressbar"
  aria-valuenow={progressPct}
  aria-valuemin={0}
@@ -527,13 +527,13 @@ export default function SongDetailPanel({
 
  {error && !loading && (
  <div
- className="rounded-xl px-4 py-3 flex items-center justify-between gap-3"
- style={{ backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
+ className="px-4 py-3 flex items-center justify-between gap-3"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
  >
  <span className="text-[11px]" style={{ color: '#e05a5a' }}>⚠ Deep analysis failed — {error}</span>
  <button
  onClick={runDeepAnalysis}
- className="text-[10px] px-3 py-1 rounded-md"
+ className="text-[10px] px-3 py-1" style={{ borderRadius: '2px' }}
  style={{ color: '#e05a5a', border: '1px solid rgba(224,90,90,0.4)' }}
  >
  Try again
@@ -953,7 +953,7 @@ export default function SongDetailPanel({
 
 function StatCard({ label, value, unit, warn }: { label: string; value: string; unit: string; warn?: boolean }) {
  return (
- <div className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'rgba(48,44,39,0.5)', border: '1px solid rgba(168,161,150,0.06)' }}>
+ <div className="px-3 py-2.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)', border: '1px solid rgba(168,161,150,0.06)' }}>
  <div className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>{label}</div>
  <div className="flex items-baseline gap-1.5 mt-1">
  <span className="font-mono tabular-nums text-base" style={{ color: warn ? '#e07a4f' : '#e7e5e4', fontWeight: 300 }}>
@@ -1007,7 +1007,7 @@ function SpectrumCurve({ spectrum, compareSpectrum, compareLabel }: {
  const labels = ['20', '100', '1k', '10k']
  const labelAt = [0, 8, 17, 27]
  return (
- <div className="rounded-lg px-4 py-3 space-y-2" style={{ backgroundColor: 'rgba(48,44,39,0.35)', border: '1px solid rgba(168,161,150,0.06)' }}>
+ <div className="px-4 py-3 space-y-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.35)', border: '1px solid rgba(168,161,150,0.06)' }}>
  <svg viewBox={`0 0 ${width} ${height + 18}`} className="w-full" preserveAspectRatio="none">
  {[-20, -40].map(db => (
  <line key={db} x1={0} x2={width} y1={toY(db)} y2={toY(db)} stroke="#3e3a33" strokeWidth={0.5} strokeDasharray="2 3" />
@@ -1072,7 +1072,7 @@ function SongInfoBlock({ info }: { info: any }) {
  </span>
  </div>
  {/* Full log-scaled harmonic ladder, matching RefOnlyView. */}
- <div className="rounded-lg p-4 overflow-hidden" style={{ backgroundColor: 'rgba(48,44,39,0.4)' }}>
+ <div className="p-4 overflow-hidden" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.4)' }}>
  <div className="relative h-16">
  <div className="absolute inset-x-0 top-1/2 h-px" style={{ backgroundColor: 'rgba(87,83,78,0.3)' }} />
  {harmonics.map((h, i) => {
@@ -1124,7 +1124,7 @@ function SongInfoBlock({ info }: { info: any }) {
 
 function MiniStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
  return (
- <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
+ <div className="p-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <div className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>{label}</div>
  <div className="text-sm font-medium mt-0.5" style={{ color: '#e7e5e4' }}>{value}</div>
  {sub && <div className="text-[9px] mt-0.5" style={{ color: '#8d867b' }}>{sub}</div>}
@@ -1141,7 +1141,7 @@ function MiniStat({ label, value, sub }: { label: string; value: string; sub?: s
 function SongNotes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
  const hasContent = !!value && value.trim().length > 0
  return (
- <div className="rounded-xl" style={{ backgroundColor: 'rgba(18,16,14,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="" style={{ borderRadius: '2px', backgroundColor: 'rgba(18,16,14,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="flex items-center justify-between px-3 py-2">
  <div className="flex items-center gap-2">
  <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>Notes</span>
@@ -1157,7 +1157,7 @@ function SongNotes({ value, onChange }: { value: string; onChange: (v: string) =
  onChange={e => onChange(e.target.value)}
  placeholder="Notes for this track. Revision requests, what's fixed since last pass, anything you want attached to the PDF."
  rows={3}
- className="w-full rounded-lg px-3 py-2 text-[12px] resize-y focus:outline-none"
+ className="w-full px-3 py-2 text-[12px] resize-y focus:outline-none" style={{ borderRadius: '2px' }}
  style={{
  backgroundColor: 'rgba(12,10,8,0.6)',
  color: '#ebe7e0',

@@ -93,8 +93,9 @@ export default function ClientReportButton({ results, fileA, fileB }: Props) {
  <button
  onClick={() => !busy && setOpen(v => !v)}
  disabled={!!busy}
- className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[11px] font-medium transition-colors"
+ className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(124,164,163,0.12)',
  color: '#7ca4a3',
  border: '1px solid rgba(124,164,163,0.35)',
@@ -109,8 +110,8 @@ export default function ClientReportButton({ results, fileA, fileB }: Props) {
 
  {open && !busy && (
  <div
- className="absolute right-0 top-full mt-1 z-50 rounded-lg shadow-xl py-1 min-w-[300px]"
- style={{ backgroundColor: '#1e1c18', border: '1px solid rgba(168,161,150,0.15)' }}
+ className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[300px]"
+ style={{ borderRadius: '2px', backgroundColor: '#1e1c18', border: '1px solid rgba(168,161,150,0.15)' }}
  >
  {/* "Layman" report — beta-tester ask (5.0.6): an engineer needs to
      send results to an artist / manager who can't read LUFS / TP

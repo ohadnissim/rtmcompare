@@ -199,7 +199,8 @@ export default function AtmosPreflightPanel({ result }: Props) {
  block: { color: '#e05a5a', bg: 'rgba(224,90,90,0.08)', tag: 'HOLD' },
  }[worst]
  return (
- <div className="rounded-xl p-5 space-y-3" style={{
+ <div className="p-5 space-y-3" style={{
+ borderRadius: '2px',
  backgroundColor: palette.bg,
  borderLeft: `3px solid ${palette.color}`,
  }}>

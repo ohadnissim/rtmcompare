@@ -48,7 +48,7 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
  const avgB = phaseOverTimeB.reduce((a, b) => a + b, 0) / phaseOverTimeB.length
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Phase Correlation</h2>
@@ -60,7 +60,7 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
  </div>
  </div>
 
- <div className="bg-dark-800 rounded-xl p-3 overflow-hidden">
+ <div className="bg-dark-800 p-3 overflow-hidden" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-32" preserveAspectRatio="none">
  {/* Zone backgrounds */}
  <rect x={padX} y={padY} width={w - padX * 2} height={(h - padY * 2) / 2} fill="#34d399" opacity="0.03" />

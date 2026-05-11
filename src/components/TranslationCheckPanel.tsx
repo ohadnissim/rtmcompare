@@ -168,7 +168,7 @@ export default function TranslationCheckPanel({ file }: Props) {
   const fmtSigned = (v?: number) => (typeof v === 'number' ? `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB` : '—')
 
   return (
-    <div className="rounded-lg border p-3 space-y-3" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
+    <div className="border p-3 space-y-3" style={{ borderRadius: '2px', borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: '#d0b066' }}>
           Translation check

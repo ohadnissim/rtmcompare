@@ -28,7 +28,7 @@ export default function TempoDriftPanel({ drift }: Props) {
  }).join(' ')
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Tempo Over Time</h2>
@@ -50,7 +50,7 @@ export default function TempoDriftPanel({ drift }: Props) {
  </div>
  </div>
 
- <div className="bg-dark-800 rounded-xl p-3">
+ <div className="bg-dark-800 p-3" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-24" preserveAspectRatio="none">
  {/* Median reference line */}
  <line
@@ -77,7 +77,7 @@ export default function TempoDriftPanel({ drift }: Props) {
  </div>
 
  {drift.drift && (
- <div className="text-[11px] px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(208,176,102,0.10)', color: '#d0b066' }}>
+ <div className="text-[11px] px-3 py-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.10)', color: '#d0b066' }}>
  Tempo range {drift.range_bpm.toFixed(1)} BPM — this track varies in tempo across the timeline. Expect beat-grid misalignment if you're DJ-syncing or re-cutting.
  </div>
  )}

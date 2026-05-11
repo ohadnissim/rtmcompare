@@ -38,7 +38,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  }
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
  <h2 className="text-lg font-semibold">Hum / Buzz Check</h2>
@@ -55,7 +55,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  <p className="text-xs text-dark-300">{hum.summary}</p>
 
  {hum.harmonics.length > 0 && (
- <div className="rounded-xl p-3 space-y-2" style={{ backgroundColor: 'rgba(26,25,24,0.5)' }}>
+ <div className="p-3 space-y-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(26,25,24,0.5)' }}>
  <div className="flex items-center justify-between text-[10px] text-dark-500 px-2 pb-1 border-b border-dark-700/30">
  <span className="flex-1">Frequency ({hum.mains} Hz mains + harmonics)</span>
  <span className="w-24 text-right">Prominence</span>
@@ -90,14 +90,14 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  )}
  <button
  onClick={copyPreset}
- className="text-[10px] px-2 py-1 rounded-md transition-colors"
+ className="text-[10px] px-2 py-1 transition-colors" style={{ borderRadius: '2px' }}
  style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
  >
  Copy preset
  </button>
  </div>
  </div>
- <div className="rounded-xl p-3 font-mono text-[11px] space-y-0.5" style={{ backgroundColor: 'rgba(26,25,24,0.6)' }}>
+ <div className="p-3 font-mono text-[11px] space-y-0.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(26,25,24,0.6)' }}>
  {hum.notch_preset.map((n, i) => (
  <div key={i} className="flex gap-4">
  <span className="text-dark-300">{n.freq.toFixed(1)} Hz</span>

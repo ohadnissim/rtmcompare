@@ -117,7 +117,7 @@ export default function SpectrumOverlay({
  const hasMidSide = !!(midSpectrumA && midSpectrumB && sideSpectrumA && sideSpectrumB)
 
  return (
- <div className="bg-dark-900 rounded-2xl p-6 border border-dark-700/50 space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="space-y-1">
@@ -140,7 +140,7 @@ export default function SpectrumOverlay({
 
  {/* View tabs */}
  {(hasMidSide || !singleFile) && (
- <div className="flex gap-1 bg-dark-800 rounded-lg p-1">
+ <div className="flex gap-1 bg-dark-800 p-1" style={{ borderRadius: '2px' }}>
  {(hasMidSide
  ? (singleFile ? (['stereo','mid','side'] as ViewMode[]) : (['stereo','mid','side','delta'] as ViewMode[]))
  : (singleFile ? (['stereo'] as ViewMode[]) : (['stereo','delta'] as ViewMode[]))
@@ -151,7 +151,7 @@ export default function SpectrumOverlay({
  <button
  key={v}
  onClick={() => setView(v)}
- className="flex-1 py-1.5 rounded-md text-xs font-medium transition-all"
+ className="flex-1 py-1.5 text-xs font-medium transition-all" style={{ borderRadius: '2px' }}
  style={{
  backgroundColor: active ? 'rgba(255,255,255,0.08)' : 'transparent',
  color: active ? vc.colorB : '#84858c',
@@ -213,7 +213,7 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
  }, [diffs, denom])
 
  return (
- <div className="relative bg-dark-800 rounded-xl p-3">
+ <div className="relative bg-dark-800 p-3" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48" preserveAspectRatio="none" role="img" aria-label="Frequency spectrum chart — see the table below this chart for the underlying band values">
  {/* Gridlines at ±3 / ±1.5 / 0 dB */}
  {[-3, -1.5, 0, 1.5, 3].map(d => {
@@ -377,7 +377,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
 
  return (
  <>
- <div className="relative bg-dark-800 rounded-xl p-3">
+ <div className="relative bg-dark-800 p-3" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48" preserveAspectRatio="none" role="img" aria-label="Frequency spectrum chart — see the table below this chart for the underlying band values">
  {[0.25, 0.5, 0.75].map(pct => (
  <line
