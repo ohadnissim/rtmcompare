@@ -59,11 +59,13 @@ export default function GuidedFlowBar({
   fileBPath,
   analysisResult,
 }: Props) {
-  const { enabled, step, setStep, nextStep, prevStep, role, setAssignment, assignment, blindTest, completed, setCompleted } = useLearnMode()
+  const { enabled, step, setStep, nextStep, prevStep, role, setRole, setAssignment, assignment, blindTest, completed, setCompleted } = useLearnMode()
   const [showAssignmentPanel, setShowAssignmentPanel] = React.useState(false)
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
   const [helpOpen, setHelpOpen] = React.useState(false)
+  // BUG-20: teacher role-preview — tracks if teacher temporarily switched to student view
+  const [previewingStudent, setPreviewingStudent] = React.useState(false)
 
   // --- Derived values and memos MUST come before any early return (Rules of Hooks) ---
   const currentStep = GUIDED_STEPS[step]
@@ -314,6 +316,36 @@ export default function GuidedFlowBar({
 
           {/* Spacer */}
           <div style={{ flex: 1 }} />
+
+          {/* BUG-20: teacher preview-as-student toggle */}
+          {(role === 'teacher' || previewingStudent) && (
+            <button
+              onClick={() => {
+                if (previewingStudent) {
+                  setPreviewingStudent(false)
+                  setRole('teacher')
+                } else {
+                  setPreviewingStudent(true)
+                  setRole('student')
+                }
+              }}
+              style={{
+                flexShrink: 0,
+                background: previewingStudent ? 'rgba(208,176,102,0.08)' : 'transparent',
+                border: previewingStudent ? '1px solid rgba(208,176,102,0.7)' : '1px solid rgba(168,161,150,0.25)',
+                borderRadius: '2px',
+                color: previewingStudent ? 'var(--color-accent)' : 'var(--color-sand-400)',
+                fontSize: 10,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                padding: '5px 10px',
+                cursor: 'pointer',
+                marginLeft: 8,
+              }}
+            >
+              {previewingStudent ? '← Back to Teacher' : 'Preview as Student'}
+            </button>
+          )}
 
           {/* Teacher setup button */}
           {role === 'teacher' && (

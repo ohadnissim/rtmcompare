@@ -79,8 +79,15 @@ export function LmsExportPanel({ records }: Props) {
         setConfig(res.config)
         setFormUrl(res.config.baseUrl)
         setFormCourseId(res.config.courseId)
+      } else {
+        // BUG-19: auto-expand config form for first-time users so they can see
+        // the setup form without having to discover the "⚙ Configure" button
+        setConfigOpen(true)
       }
-    }).catch(() => {})
+    }).catch(() => {
+      // BUG-19: also expand on load failure so the form is visible
+      setConfigOpen(true)
+    })
   }, [])
 
   // Pre-select assignment by name when assignments load
@@ -216,17 +223,17 @@ export function LmsExportPanel({ records }: Props) {
         <button
           onClick={() => setConfigOpen(o => !o)}
           style={{
-            background: 'none',
-            border: '1px solid rgba(255,255,255,0.12)',
+            background: config?.hasToken ? 'none' : 'rgba(208,176,102,0.05)',
+            border: config?.hasToken ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(208,176,102,0.4)',
             borderRadius: '2px',
-            color: 'var(--color-sand-400)',
+            color: config?.hasToken ? 'var(--color-sand-400)' : 'var(--color-accent)',
             fontSize: 10,
             letterSpacing: '0.06em',
             padding: '3px 8px',
             cursor: 'pointer',
           }}
         >
-          ⚙ Configure
+          {config?.hasToken ? '⚙ Configure' : '⚙ Set Up Canvas'}
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
