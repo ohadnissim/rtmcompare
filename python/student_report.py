@@ -703,7 +703,10 @@ def build_html(payload):
 
     # ── Recommendations (top 3) ──────────────────────────────────────
     # Sort by priority field descending; fall back to order.
-    sorted_recs = sorted(recs, key=lambda r: -(r.get('priority') or r.get('score') or 0))[:3]
+    # Guard: recs may contain non-dict items (strings, etc.) — skip them
+    # to prevent AttributeError on .get().
+    dict_recs = [r for r in recs if isinstance(r, dict)]
+    sorted_recs = sorted(dict_recs, key=lambda r: -(r.get('priority') or r.get('score') or 0))[:3]
     rec_rows = ''
     for rec in sorted_recs:
         text = esc(rec.get('text') or rec.get('message') or rec.get('description') or str(rec))
@@ -718,7 +721,10 @@ def build_html(payload):
     </section>"""
 
     # ── Assemble HTML ────────────────────────────────────────────────
-    student_id_str = f' ({student_id})' if student_id else ''
+    # student_id is already esc()-processed above; build raw string from
+    # the un-escaped original so we don't double-escape special chars.
+    _raw_student_id = assignment.get('studentId') or ''
+    student_id_str = f' ({esc(_raw_student_id)})' if _raw_student_id else ''
     genre_cell = f'<div class="meta-item"><label>Genre</label>{esc(genre)}</div>' if genre else ''
 
     html = f"""<!DOCTYPE html>
@@ -843,7 +849,7 @@ def build_html(payload):
 </header>
 
 <div class="meta-grid">
-  <div class="meta-item"><label>Student</label>{student_name}{esc(student_id_str)}</div>
+  <div class="meta-item"><label>Student</label>{student_name}{student_id_str}</div>
   <div class="meta-item"><label>Course</label>{course}</div>
   <div class="meta-item"><label>Instructor</label>{instructor}</div>
   <div class="meta-item"><label>Due Date</label>{due_date}</div>
