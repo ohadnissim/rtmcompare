@@ -188,6 +188,15 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
     if (clearPendingTimerRef.current !== undefined) clearTimeout(clearPendingTimerRef.current)
     if (defaultsPendingTimerRef.current !== undefined) clearTimeout(defaultsPendingTimerRef.current)
   }, [])
+  // Panel uses CSS show/hide (not unmount) — reset confirmation states on close
+  useEffect(() => {
+    if (!open) {
+      setClearPending(false)
+      setDefaultsPending(false)
+      if (clearPendingTimerRef.current !== undefined) { clearTimeout(clearPendingTimerRef.current); clearPendingTimerRef.current = undefined }
+      if (defaultsPendingTimerRef.current !== undefined) { clearTimeout(defaultsPendingTimerRef.current); defaultsPendingTimerRef.current = undefined }
+    }
+  }, [open])
 
   // Sync when `current` changes (e.g. loaded from context)
   useEffect(() => {
@@ -227,6 +236,9 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   const weightOk = Math.abs(totalWeight - 1) < 0.01
 
   const handleSave = () => {
+    // Clear any in-flight confirmation prompts so they don't leak into next open
+    setClearPending(false)
+    if (clearPendingTimerRef.current !== undefined) { clearTimeout(clearPendingTimerRef.current); clearPendingTimerRef.current = undefined }
     const cfg: AssignmentConfig = {
       title,
       course,

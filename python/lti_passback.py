@@ -83,10 +83,10 @@ class LtiConfig:
     """LTI 1.3 tool registration parameters for one LMS deployment."""
     client_id: str               # LMS-assigned client ID for this tool
     deployment_id: str           # Deployment-specific ID
-    oidc_auth_url: str           # LMS OIDC authorisation endpoint
     token_url: str               # LMS OAuth 2.0 token endpoint
     ags_lineitem_url: str        # AGS LineItem endpoint for this assignment
     private_key_path: str        # Path to PEM RSA private key
+    oidc_auth_url: Optional[str] = None  # LMS OIDC authorisation endpoint (optional)
     key_id: str = "rtm-key-1"   # Key ID (kid) for the JWK
     lms_type: str = "generic"   # 'canvas' | 'moodle' | 'blackboard' | 'brightspace' | 'generic'
 

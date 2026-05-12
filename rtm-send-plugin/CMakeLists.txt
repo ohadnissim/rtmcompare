@@ -116,7 +116,7 @@ juce_add_plugin(RtmSend
     # the \"...\" escaping.
     ARA_FACTORY_ID            "\"com.rtmcompare.rtmsend.arafactory\""
     ARA_DOCUMENT_ARCHIVE_ID   "\"com.rtmcompare.rtmsend.archive.v1\""
-    ARA_COMPATIBLE_ARCHIVE_IDS "\"com.rtmcompare.rtmsend.archive.v1\""
+    ARA_COMPATIBLE_ARCHIVE_IDS "\"com.rtmcompare.rtmsend.archive.v1\";\"com.rtmsuite.rtmsend.archive.v1\""
 )
 
 juce_generate_juce_header(RtmSend)

@@ -464,7 +464,7 @@ ipcMain.handle('history-append', async (_event, entry: any) => {
     duration_sec: typeof entry?.duration_sec === 'number'  ? entry.duration_sec : null,
     ref_name:     typeof entry?.ref_name     === 'string'  ? entry.ref_name     : undefined,
     mode:         typeof entry?.mode         === 'string'  ? entry.mode         : null,
-    spec_versions: entry?.spec_versions != null && typeof entry.spec_versions === 'object' ? entry.spec_versions : undefined,
+    spec_versions: entry?.spec_versions != null && typeof entry.spec_versions === 'object' && !Array.isArray(entry.spec_versions) ? entry.spec_versions : undefined,
     ts:           now,
   }
   const sha = sanitized.sha256
@@ -859,6 +859,7 @@ ipcMain.handle('delete-custom-profile', async (_event, profileId: string) => {
 // directly to a provided path.
 ipcMain.handle('render-pdf', async (_event, html: string, suggestedName: string) => {
   if (typeof html !== 'string' || html.length > 10 * 1024 * 1024) {
+    dialog.showMessageBox({ type: 'error', title: 'Report Too Large', message: 'The report HTML exceeds the 10 MB limit and cannot be saved as PDF.' }).catch(() => {})
     return null
   }
   const result = await dialog.showSaveDialog({

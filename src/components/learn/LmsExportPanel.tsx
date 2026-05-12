@@ -542,11 +542,13 @@ export function LmsExportPanel({ records }: Props) {
                 <select
                   value={selectedAssignmentId}
                   onChange={e => { setSelectedAssignmentId(e.target.value); setStatus('idle'); setUploadResult(null) }}
+                  disabled={status === 'uploading'}
                   style={{
                     ...inputStyle,
                     width: 'auto',
                     flex: 1,
                     maxWidth: 320,
+                    opacity: status === 'uploading' ? 0.5 : 1,
                   }}
                 >
                   <option value="">— Select assignment —</option>
