@@ -183,5 +183,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('rtmsend-best-plugins-for-bands', bands),
 
   // RTMcertify — generate a signed pre-delivery compliance certificate.
-  rtmCertify: (fileA: string, fileB: string) => ipcRenderer.invoke('rtm-certify', fileA, fileB),
+  rtmCertify: (fileA: string, fileB: string): Promise<{
+    ok: boolean
+    certificate?: {
+      version: string
+      generated_at: string
+      file_a: { path: string; sha256: string; duration_s: number; lufs_i: number | null }
+      file_b: { path: string; sha256: string; duration_s: number; lufs_i: number | null }
+      analysis: {
+        lufs_i_delta: number | null
+        true_peak_dbtp: number | null
+        lra: number | null
+        mono_compat_pct: number | null
+        tonal_deviation: number | null
+        generation_loss_probability: number | null
+      }
+      compliance: {
+        streaming_ready: boolean
+        true_peak_ok: boolean
+        lufs_range_ok: boolean
+        generation_loss_ok: boolean
+      }
+      certificate_id: string
+      hmac_sha256: string
+    }
+    error?: string
+  }> => ipcRenderer.invoke('rtm-certify', fileA, fileB),
 })

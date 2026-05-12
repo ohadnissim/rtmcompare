@@ -260,13 +260,34 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
           break
         }
         case 'tonal_low': {
-          metersText = 'See Tonal Balance tab for detail'
-          verdict = 'neutral'
+          const sa: number[] | undefined = result.spectrum_a
+          const sb: number[] | undefined = result.spectrum_b
+          if (sa && sb && sa.length > 0 && sb.length === sa.length) {
+            const nLow = Math.max(1, Math.floor(sa.length * 0.30))
+            const meanA = sa.slice(0, nLow).reduce((s, v) => s + v, 0) / nLow
+            const meanB = sb.slice(0, nLow).reduce((s, v) => s + v, 0) / nLow
+            metersText = deltaVerdict(meanA, meanB, 'A', 'B', true, 'more low-end ')
+            verdict = matchDelta(choice ?? 'equal', meanA, meanB, true)
+          } else {
+            metersText = 'See Tonal Balance tab for detail'
+            verdict = 'neutral'
+          }
           break
         }
         case 'tonal_bright': {
-          metersText = 'See Tonal Balance tab for detail'
-          verdict = 'neutral'
+          const sa: number[] | undefined = result.spectrum_a
+          const sb: number[] | undefined = result.spectrum_b
+          if (sa && sb && sa.length > 0 && sb.length === sa.length) {
+            const nHigh = Math.max(1, Math.floor(sa.length * 0.30))
+            const startIdx = sa.length - nHigh
+            const meanA = sa.slice(startIdx).reduce((s, v) => s + v, 0) / nHigh
+            const meanB = sb.slice(startIdx).reduce((s, v) => s + v, 0) / nHigh
+            metersText = deltaVerdict(meanA, meanB, 'A', 'B', true, 'brighter ')
+            verdict = matchDelta(choice ?? 'equal', meanA, meanB, true)
+          } else {
+            metersText = 'See Tonal Balance tab for detail'
+            verdict = 'neutral'
+          }
           break
         }
         case 'stereo_width': {

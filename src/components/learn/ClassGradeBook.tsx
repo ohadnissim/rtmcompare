@@ -208,13 +208,13 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   if (!open) return null
 
-  // NIT-3: memoize allLabels — was rebuilt O(N×M) on every keystroke render
-  // (feedback textarea is a controlled component; each character triggers a
-  // re-render that previously re-scanned every record's rubric row).
+  // NIT-3 + NIT-24: memoize allLabels with Set-based deduplication — was O(N²)
+  // (Array.includes scans the growing array per label); Set.has is O(1).
   const allLabels = useMemo(() => {
+    const seen = new Set<string>()
     const labels: string[] = []
     records.forEach(r => r.rubric?.forEach(row => {
-      if (!labels.includes(row.label)) labels.push(row.label)
+      if (!seen.has(row.label)) { seen.add(row.label); labels.push(row.label) }
     }))
     return labels
   }, [records])

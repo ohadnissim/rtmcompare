@@ -655,7 +655,9 @@ export function LmsExportPanel({ records }: Props) {
               )}
               {uploadResult.rejected > 0 && (
                 <div style={{ fontSize: 10, color: 'var(--color-sand-400)', lineHeight: 1.5, marginTop: 2 }}>
-                  Canvas requires Student IDs prefixed with <code style={{ fontFamily: 'monospace', fontSize: 10 }}>sis_user_id:</code>. Check the Student ID field in each affected student's report.
+                  Canvas SIS IDs must be numeric (e.g. <code style={{ fontFamily: 'monospace', fontSize: 10 }}>123456</code>).
+                  In Canvas: People → student row → SIS Login ID column.
+                  Enter that number in the Student ID field inside each affected student's report, then ask them to resubmit.
                 </div>
               )}
             </div>

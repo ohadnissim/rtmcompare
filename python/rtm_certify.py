@@ -45,11 +45,7 @@ def _file_duration(path: str) -> float | None:
         info = sf.info(path)
         return float(info.duration)
     except Exception:
-        try:
-            info = sf.info(path)
-            return float(info.frames) / float(info.samplerate)
-        except Exception:
-            return None
+        return None
 
 
 def _compute_lufs(path: str) -> float | None:
