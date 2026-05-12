@@ -121,12 +121,15 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const [lmsOpen, setLmsOpen] = useState(false)
   const [hasLmsConfig, setHasLmsConfig] = useState(false)
 
-  // Sync folder when assignment changes
+  // Sync folder when assignment changes.
+  // LOW fix: include `folder` in deps so the closure isn't stale if folder
+  // mutates externally before the effect runs. The body still guards on
+  // `!folder` so we don't clobber a user-typed folder mid-edit.
   useEffect(() => {
     if (assignment?.submissionsFolder && !folder) {
       setFolder(assignment.submissionsFolder)
     }
-  }, [assignment?.submissionsFolder])
+  }, [assignment?.submissionsFolder, folder])
 
   const scan = useCallback(async (folderPath: string) => {
     if (!folderPath) return

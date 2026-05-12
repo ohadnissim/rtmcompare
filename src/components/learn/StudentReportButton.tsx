@@ -93,15 +93,11 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
     }
   }
 
-  React.useEffect(() => {
-    const handler = () => {
-      // BUG-13: don't fire while the Blind Test overlay is visible
-      if (document.querySelector('[data-blind-test-open="true"]')) return
-      if (!loading) handleExport()
-    }
-    window.addEventListener('rtm-learn-export-report', handler)
-    return () => window.removeEventListener('rtm-learn-export-report', handler)
-  }, [loading, assignment, annotations, analysisResult, fileAName, fileBName])
+  // LOW fix: removed the rtm-learn-export-report window event listener. The
+  // legacy StudentReportExportTrigger that dispatched it was deleted in the
+  // earlier paranoia pass; nothing dispatches this event now. Keeping the
+  // listener around was dead code + an unnecessary re-attach cost on every
+  // state change of loading/assignment/annotations/analysisResult.
 
   if (!enabled) return null
 

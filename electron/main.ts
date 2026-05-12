@@ -2060,7 +2060,16 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
       try {
         const sidecarPath = finalPath.replace(/\.pdf$/i, '.rtm-report.json')
         const sidecar = buildGradeRecord(payload, finalPath)
-        // Include blind test predictions and ear training progress if present
+        // Include blind test predictions and ear training progress if present.
+        //
+        // LOW integrity note: earTraining is client-supplied — a student who
+        // edits their localStorage `rtm-eartraining-progress-*` JSON could
+        // claim 100% accuracy. There's no server-side recomputation in a
+        // desktop-only product. Teachers using this metric for graded
+        // contexts should treat it as self-reported / honor-system data,
+        // same as a written reflection. Blind-test predictions have the
+        // same property — they're useful as formative feedback but should
+        // not be the sole basis for a summative grade.
         const blindTest = payload?.blindTest ?? null
         const earTraining = (payload as any)?.earTraining ?? null
         const fullSidecar: Record<string, unknown> = { ...sidecar as Record<string, unknown> }
