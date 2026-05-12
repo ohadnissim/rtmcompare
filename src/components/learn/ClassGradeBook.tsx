@@ -108,6 +108,11 @@ interface Props {
   initialFolder?: string | null
 }
 
+// MED-4: hoisted to module scope — was inside the component body, causing a
+// new array to be allocated on every render. Keeping it outside the component
+// also means useMemo dep arrays don't need to list it (the ref is stable).
+const MEASURABLE_DIMS = ['loudness', 'stereo_width', 'dynamics', 'translation']
+
 export default function ClassGradeBook({ open, onClose, initialFolder }: Props) {
   const { assignment } = useLearnMode()
   const [folder, setFolder] = useState(initialFolder ?? assignment?.submissionsFolder ?? '')
@@ -266,7 +271,8 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   // MED: extract expensive Class Insights computations from IIFE-in-JSX into
   // useMemo so they don't re-run on every keypress in the feedback textarea.
-  const MEASURABLE_DIMS = ['loudness', 'stereo_width', 'dynamics', 'translation']
+  // MED-4: MEASURABLE_DIMS hoisted to module scope (below) — avoids
+  // recreating the array on every render and keeps it out of useMemo dep arrays.
   const hasBlindTest = useMemo(() => records.some(r => (r as any).blindTest?.answers?.length > 0), [records])
 
   const blindTestInsights = useMemo(() => {

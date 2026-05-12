@@ -2302,9 +2302,29 @@ ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback:
 
 ipcMain.handle('load-student-feedback', async (_e, reportPath: string) => {
   try {
-    const feedbackPath = reportPath.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
+    // MED-3 hardening: mirror the same path-validation applied to
+    // save-student-feedback. Without this, a renderer could pass any
+    // path ending in .rtm-report.json (or .pdf) to read an arbitrary
+    // .rtm-feedback.json file anywhere on disk.
+    if (typeof reportPath !== 'string' || reportPath.length === 0 || reportPath.length > 4096) {
+      return { ok: false, error: 'reportPath invalid.' }
+    }
+    let resolved = path.resolve(reportPath)
+    if (!fs.existsSync(resolved)) return { ok: true, text: '' }
+    try { resolved = fs.realpathSync(resolved) } catch {
+      return { ok: false, error: 'reportPath could not be resolved.' }
+    }
+    const lst = fs.lstatSync(resolved)
+    if (!lst.isFile()) return { ok: false, error: 'reportPath must be a regular file.' }
+    if (!/\.(rtm-report\.json|pdf)$/i.test(resolved)) {
+      return { ok: false, error: 'reportPath must end in .rtm-report.json or .pdf' }
+    }
+    const feedbackPath = resolved.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
       .replace(/\.pdf$/i, '.rtm-feedback.json')
     if (!fs.existsSync(feedbackPath)) return { ok: true, text: '' }
+    // Guard the feedback file itself against symlink attacks.
+    const fbLst = fs.lstatSync(feedbackPath)
+    if (fbLst.isSymbolicLink()) return { ok: false, error: 'Feedback path is a symlink.' }
     const raw = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'))
     return { ok: true, text: raw.feedback ?? '' }
   } catch {

@@ -71,7 +71,7 @@ export default function GuidedFlowBar({
   const currentStep = GUIDED_STEPS[step]
 
   const stepQuestion = React.useMemo(() => {
-    if (currentStep?.id === 'dynamics' && (assignment as any)?.genre) {
+    if (currentStep?.id === 'dynamics' && assignment?.genre) {
       const genreLraGuide: Record<string, string> = {
         'Pop': '4–7 LU',
         'EDM / Electronic': '4–6 LU',
@@ -82,11 +82,12 @@ export default function GuidedFlowBar({
         'Folk / Acoustic': '10–16 LU',
         'Podcast / Spoken Word': '6–12 LU',
       }
-      const target = genreLraGuide[(assignment as any).genre] ?? '6–12 LU'
-      return `What is the LRA and PLR of your mix? For ${(assignment as any).genre}, a typical LRA is ${target}. Is your mix within that range, or has limiting eroded the punch?`
+      const target = genreLraGuide[assignment.genre!] ?? '6–12 LU'
+      // MED-8: removed (assignment as any) casts — assignment.genre is typed in AssignmentConfig
+      return `What is the LRA and PLR of your mix? For ${assignment.genre}, a typical LRA is ${target}. Is your mix within that range, or has limiting eroded the punch?`
     }
     return currentStep?.question ?? ''
-  }, [currentStep, (assignment as any)?.genre])
+  }, [currentStep, assignment?.genre])
 
   // BUG-06: sync step pill when user manually clicks a tab in AnalysisView
   // Only sync for tabs that map unambiguously to a single step (not 'overview'

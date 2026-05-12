@@ -280,13 +280,18 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  <>
  {/* LOW: in-app confirm replaces window.confirm for remove-from-library */}
  {confirmRemove && (
-   <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+   <div
+     style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+     tabIndex={-1}
+     onKeyDown={e => { if (e.key === 'Escape') setConfirmRemove(false) }}
+     ref={el => el?.focus()}
+   >
      <div style={{ background: 'rgba(28,26,22,0.98)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: 4, padding: '24px 28px', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 14 }}>
        <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>Remove <strong style={{ fontWeight: 600 }}>{record.filename}</strong> from the library?</div>
        <div style={{ fontSize: 11, color: 'var(--color-sand-400)' }}>The audio file stays on disk.</div>
        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
          <button onClick={() => setConfirmRemove(false)} style={{ background: 'transparent', border: '1px solid rgba(168,161,150,0.3)', borderRadius: 2, color: 'var(--color-sand-400)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Cancel</button>
-         <button onClick={() => { setConfirmRemove(false); onDelete() }} style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Remove</button>
+         <button autoFocus onClick={() => { setConfirmRemove(false); onDelete() }} style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Remove</button>
        </div>
      </div>
    </div>
