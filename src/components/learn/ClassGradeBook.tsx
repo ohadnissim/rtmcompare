@@ -7,7 +7,7 @@
  *
  * Triggered by the "Grade Book" button in GuidedFlowBar (teacher role only).
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import { LmsExportPanel } from './LmsExportPanel'
 
@@ -128,6 +128,8 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const [lmsOpen, setLmsOpen] = useState(false)
   const [hasLmsConfig, setHasLmsConfig] = useState(false)
   const [csvStatus, setCsvStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+  const csvTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => { if (csvTimerRef.current !== undefined) clearTimeout(csvTimerRef.current) }, [])
 
   // Sync folder when assignment changes.
   // LOW fix: include `folder` in deps so the closure isn't stale if folder
@@ -206,15 +208,14 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   async function exportCsv() {
     if (!records.length) return
-    let timer: ReturnType<typeof setTimeout> | undefined
     try {
       const res = await (window as any).electronAPI?.exportGradebookCsv(records)
       setCsvStatus(res?.ok === false ? 'error' : 'ok')
     } catch {
       setCsvStatus('error')
     }
-    timer = setTimeout(() => setCsvStatus('idle'), 3000)
-    return () => { if (timer !== undefined) clearTimeout(timer) }
+    if (csvTimerRef.current !== undefined) clearTimeout(csvTimerRef.current)
+    csvTimerRef.current = setTimeout(() => setCsvStatus('idle'), 3000)
   }
 
   if (!open) return null

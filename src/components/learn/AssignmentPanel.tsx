@@ -9,7 +9,7 @@
  * - Save / Clear / Export / Import buttons
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { AssignmentConfig, RubricCriteria } from '../../types'
 
 // ─── Default rubric rows ─────────────────────────────────────────────────────
@@ -181,6 +181,13 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   const [templateApplied, setTemplateApplied] = useState('')
   const [importError, setImportError]         = useState('')
   const [clearPending, setClearPending]       = useState(false)
+  const [defaultsPending, setDefaultsPending] = useState(false)
+  const clearPendingTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const defaultsPendingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => {
+    if (clearPendingTimerRef.current !== undefined) clearTimeout(clearPendingTimerRef.current)
+    if (defaultsPendingTimerRef.current !== undefined) clearTimeout(defaultsPendingTimerRef.current)
+  }, [])
 
   // Sync when `current` changes (e.g. loaded from context)
   useEffect(() => {
@@ -590,10 +597,19 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             )}
           </div>
           <button
-            onClick={() => setRubric(DEFAULT_RUBRIC)}
+            onClick={() => {
+              if (defaultsPending) {
+                if (defaultsPendingTimerRef.current !== undefined) clearTimeout(defaultsPendingTimerRef.current)
+                setRubric(DEFAULT_RUBRIC); setDefaultsPending(false)
+              } else {
+                setDefaultsPending(true)
+                if (defaultsPendingTimerRef.current !== undefined) clearTimeout(defaultsPendingTimerRef.current)
+                defaultsPendingTimerRef.current = setTimeout(() => setDefaultsPending(false), 3000)
+              }
+            }}
             style={{
-              background: 'none',
-              border: '1px solid rgba(208,176,102,0.3)',
+              background: defaultsPending ? 'rgba(208,176,102,0.08)' : 'none',
+              border: `1px solid ${defaultsPending ? 'rgba(208,176,102,0.6)' : 'rgba(208,176,102,0.3)'}`,
               borderRadius: '2px',
               color: 'var(--color-accent)',
               fontSize: 9,
@@ -603,7 +619,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
               cursor: 'pointer',
             }}
           >
-            Load Defaults
+            {defaultsPending ? '⚠ Confirm reset?' : 'Load Defaults'}
           </button>
         </div>
       </div>
@@ -759,7 +775,16 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           Save Assignment
         </button>
         <button
-          onClick={() => { if (clearPending) { onClear(); setClearPending(false) } else { setClearPending(true); setTimeout(() => setClearPending(false), 3000) } }}
+          onClick={() => {
+            if (clearPending) {
+              if (clearPendingTimerRef.current !== undefined) clearTimeout(clearPendingTimerRef.current)
+              onClear(); setClearPending(false)
+            } else {
+              setClearPending(true)
+              if (clearPendingTimerRef.current !== undefined) clearTimeout(clearPendingTimerRef.current)
+              clearPendingTimerRef.current = setTimeout(() => setClearPending(false), 3000)
+            }
+          }}
           style={{
             background: clearPending ? 'rgba(220,80,60,0.08)' : 'transparent',
             border: `1px solid ${clearPending ? 'rgba(220,80,60,0.5)' : 'rgba(168,161,150,0.2)'}`,

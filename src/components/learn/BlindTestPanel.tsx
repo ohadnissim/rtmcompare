@@ -183,6 +183,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   const [submitted, setSubmitted] = React.useState<boolean>(() => blindTest != null)
   const [resetPending, setResetPending] = React.useState(false)
   const resetPendingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  React.useEffect(() => () => { if (resetPendingTimer.current) clearTimeout(resetPendingTimer.current) }, [])
 
   const labelA = truncate(fileAName)
   const labelB = truncate(fileBName)

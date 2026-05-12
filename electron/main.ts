@@ -330,8 +330,8 @@ function createWindow() {
         e.preventDefault()
       }
     } else {
-      // Dev: allow Vite HMR localhost and file:// for hot-reload edge cases
-      if (!url.startsWith('http://localhost:5173') && !url.startsWith('file://')) {
+      // Dev: only allow Vite HMR localhost — file:// navigation is not needed
+      if (!url.startsWith('http://localhost:5173')) {
         e.preventDefault()
       }
     }
@@ -464,6 +464,7 @@ ipcMain.handle('history-append', async (_event, entry: any) => {
     duration_sec: typeof entry?.duration_sec === 'number'  ? entry.duration_sec : null,
     ref_name:     typeof entry?.ref_name     === 'string'  ? entry.ref_name     : undefined,
     mode:         typeof entry?.mode         === 'string'  ? entry.mode         : null,
+    spec_versions: entry?.spec_versions != null && typeof entry.spec_versions === 'object' ? entry.spec_versions : undefined,
     ts:           now,
   }
   const sha = sanitized.sha256
@@ -857,6 +858,9 @@ ipcMain.handle('delete-custom-profile', async (_event, profileId: string) => {
 // Returns the PDF bytes so the renderer can save via dialog, OR writes
 // directly to a provided path.
 ipcMain.handle('render-pdf', async (_event, html: string, suggestedName: string) => {
+  if (typeof html !== 'string' || html.length > 10 * 1024 * 1024) {
+    return null
+  }
   const result = await dialog.showSaveDialog({
     defaultPath: suggestedName.endsWith('.pdf') ? suggestedName : `${suggestedName}.pdf`,
     filters: [{ name: 'PDF', extensions: ['pdf'] }],
@@ -1992,6 +1996,9 @@ ipcMain.handle('write-file-direct', async (_event, folderPath: string, fileName:
 })
 ipcMain.handle('render-pdf-direct', async (_event, folderPath: string, fileName: string, html: string) => {
   if (!folderPath || !fileName) return { error: 'missing folderPath or fileName' }
+  if (typeof html !== 'string' || html.length > 10 * 1024 * 1024) {
+    return { error: 'html payload exceeds 10 MB limit' }
+  }
   let safeDir: string
   try { safeDir = assertSafeDir(folderPath, 'render-pdf-direct') }
   catch (err: any) { return { error: err?.message || 'invalid folder' } }
@@ -2472,8 +2479,6 @@ ipcMain.handle('write-sidecar', async (_e, filePath: string, suffix: string, con
 const CANVAS_HOST_ALLOWLIST = [
   '.instructure.com',
   '.canvaslms.com',
-  'localhost',
-  '127.0.0.1',
 ]
 function assertCanvasBaseUrl(baseUrl: unknown): string {
   if (typeof baseUrl !== 'string' || baseUrl.length === 0 || baseUrl.length > 2048) {
@@ -2483,9 +2488,7 @@ function assertCanvasBaseUrl(baseUrl: unknown): string {
   try { url = new URL(baseUrl) } catch {
     throw new Error('Canvas baseUrl is not a valid URL.')
   }
-  // localhost OK on http for QA; everything else must be https
-  const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
-  if (!isLocal && url.protocol !== 'https:') {
+  if (url.protocol !== 'https:') {
     throw new Error('Canvas baseUrl must use HTTPS.')
   }
   const host = url.hostname.toLowerCase()
