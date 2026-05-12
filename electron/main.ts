@@ -100,6 +100,19 @@ function canvasRequest(opts: {
 }): Promise<{ ok: boolean; status: number; body: unknown }> {
   return new Promise((resolve) => {
     try {
+      // CRIT-9 belt-and-braces: even if a tampered config file made it past
+      // save-lms-config, re-validate the host allowlist before sending the
+      // bearer token. assertCanvasBaseUrl is defined further down; declare
+      // a guard here that uses it lazily so module-load order is safe.
+      try {
+        // assertCanvasBaseUrl will throw if hostname isn't on the allowlist.
+        // We don't reuse its return value because the original baseUrl already
+        // had whatever path suffix it needs; we only care that the host is OK.
+        assertCanvasBaseUrl(opts.baseUrl)
+      } catch (e: any) {
+        resolve({ ok: false, status: 0, body: { error: e?.message ?? 'baseUrl rejected by allowlist' } })
+        return
+      }
       const url = new URL(opts.path, opts.baseUrl)
       const isHttps = url.protocol === 'https:'
       const lib = isHttps ? https : http
@@ -2043,38 +2056,53 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
 })
 
 // ── Learn Mode — scan a folder for .rtm-report.json grade files ──────────
+// CRIT-1 hardening: previously used `path.resolve` only, so a symlinked entry
+// inside the folder (e.g. linking to ~/.ssh) was followed and contents slurped
+// into the renderer payload. Now:
+//   1. assertSafeDir resolves the folder via realpathSync (symlink-safe)
+//   2. each entry is lstatSync'd — symlinks are skipped
+//   3. file size cap of 10 MB per .rtm-report.json (poisoned 100 MB junk
+//      can no longer OOM the main process)
+//   4. async fs.promises throughout — no longer blocks main thread when
+//      scanning N=100+ student submissions (MED-10)
+const MAX_REPORT_JSON_BYTES = 10 * 1024 * 1024  // 10 MB hard cap per file
 ipcMain.handle('scan-class-folder', async (_e, folderPath: string) => {
   try {
-    // Validate path exists and is a directory.
-    // BUG-18: also allow /Volumes (external drives on macOS) — the old homeDir
-    // restriction was too tight and blocked legitimate external drive submissions.
-    const resolved = path.resolve(folderPath)
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-      return { ok: false, error: 'Folder not found or is not a directory.' }
+    let resolved: string
+    try {
+      resolved = assertSafeDir(folderPath, 'scan-class-folder')
+    } catch (e: any) {
+      return { ok: false, error: e?.message ?? 'Folder not found or is not a directory.' }
     }
-    const files = fs.readdirSync(resolved)
-    const jsonFiles = files.filter((f: string) => f.endsWith('.rtm-report.json'))
-    const records = jsonFiles
-      .map((f: string) => {
+
+    const files = await fs.promises.readdir(resolved)
+    const jsonFiles = files.filter(f => f.endsWith('.rtm-report.json'))
+
+    const records = (await Promise.all(jsonFiles.map(async (f) => {
+      const teacherFilePath = path.join(resolved, f)
+      try {
+        // lstat — do NOT follow symlinks. Skip anything that isn't a regular file.
+        const lst = await fs.promises.lstat(teacherFilePath)
+        if (!lst.isFile()) return null
+        if (lst.size > MAX_REPORT_JSON_BYTES) return null  // refuse oversize files
+        const raw = await fs.promises.readFile(teacherFilePath, 'utf8')
+        const record = JSON.parse(raw)
+        // BUG-09 fix: stamp the teacher's actual file path so ClassGradeBook can
+        // key feedback to THIS machine's path, not the student's machine path.
+        record._reportFilePath = teacherFilePath
+        // Load sibling .rtm-feedback.json if present — same symlink + size guards.
+        const feedbackPath = teacherFilePath.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
         try {
-          const raw = fs.readFileSync(path.join(resolved, f), 'utf8')
-          const record = JSON.parse(raw)
-          // BUG-09 fix: stamp the teacher's actual file path so ClassGradeBook can
-          // key feedback to THIS machine's path, not the student's machine path.
-          const teacherFilePath = path.join(resolved, f)
-          record._reportFilePath = teacherFilePath
-          // Load sibling .rtm-feedback.json if present
-          const feedbackPath = teacherFilePath.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
-          if (fs.existsSync(feedbackPath)) {
-            try {
-              const fb = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'))
-              record.feedback = fb.feedback ?? ''
-            } catch { /* ignore */ }
+          const fblst = await fs.promises.lstat(feedbackPath)
+          if (fblst.isFile() && fblst.size <= MAX_REPORT_JSON_BYTES) {
+            const fb = JSON.parse(await fs.promises.readFile(feedbackPath, 'utf8'))
+            record.feedback = fb.feedback ?? ''
           }
-          return record
-        } catch { return null }
-      })
-      .filter(Boolean)
+        } catch { /* sidecar missing — fine */ }
+        return record
+      } catch { return null }
+    }))).filter(Boolean)
+
     return { ok: true, records, count: records.length }
   } catch (e: any) {
     return { ok: false, error: e?.message ?? 'scan-class-folder failed' }
@@ -2244,6 +2272,45 @@ ipcMain.handle('write-sidecar', async (_e, filePath: string, suffix: string, con
 
 // ── Canvas LMS Integration ──────────────────────────────────────────
 
+// CRIT-9 defense-in-depth: validate baseUrl against an allowlist of known
+// Canvas-LMS host suffixes before storing it or sending the bearer token.
+// A compromised renderer that could rewrite baseUrl would otherwise leak the
+// teacher's Canvas API token to an attacker-controlled host (SSRF + creds-leak).
+//
+// Accepted: HTTPS only, host ends with one of: instructure.com, canvaslms.com,
+// or a localhost test domain (for QA only).
+const CANVAS_HOST_ALLOWLIST = [
+  '.instructure.com',
+  '.canvaslms.com',
+  'localhost',
+  '127.0.0.1',
+]
+function assertCanvasBaseUrl(baseUrl: unknown): string {
+  if (typeof baseUrl !== 'string' || baseUrl.length === 0 || baseUrl.length > 2048) {
+    throw new Error('Canvas baseUrl is required.')
+  }
+  let url: URL
+  try { url = new URL(baseUrl) } catch {
+    throw new Error('Canvas baseUrl is not a valid URL.')
+  }
+  // localhost OK on http for QA; everything else must be https
+  const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1'
+  if (!isLocal && url.protocol !== 'https:') {
+    throw new Error('Canvas baseUrl must use HTTPS.')
+  }
+  const host = url.hostname.toLowerCase()
+  const ok = CANVAS_HOST_ALLOWLIST.some(suffix =>
+    suffix.startsWith('.') ? host.endsWith(suffix) : host === suffix
+  )
+  if (!ok) {
+    throw new Error(
+      `Canvas baseUrl host "${host}" is not on the allowlist. ` +
+      'Expected a *.instructure.com or *.canvaslms.com URL.'
+    )
+  }
+  return `${url.protocol}//${url.host}${url.pathname.replace(/\/$/, '')}`
+}
+
 ipcMain.handle('save-lms-config', async (_e, config: {
   baseUrl: string
   apiToken: string
@@ -2251,11 +2318,13 @@ ipcMain.handle('save-lms-config', async (_e, config: {
   assignmentName?: string
 }) => {
   try {
+    // CRIT-9: validate baseUrl BEFORE storing it.
+    const safeBaseUrl = assertCanvasBaseUrl(config.baseUrl)
     const encrypted = safeStorage.isEncryptionAvailable()
       ? safeStorage.encryptString(config.apiToken).toString('base64')
       : Buffer.from(config.apiToken).toString('base64')  // fallback: base64 only (no OS keychain)
     const toSave = {
-      baseUrl: config.baseUrl.replace(/\/$/, ''),
+      baseUrl: safeBaseUrl,
       courseId: config.courseId,
       assignmentName: config.assignmentName ?? '',
       encryptedToken: encrypted,
