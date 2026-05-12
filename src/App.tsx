@@ -230,6 +230,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timer])
 }
 
+function debounce<T extends (...args: any[]) => void>(fn: T, wait: number): T {
+  let id: ReturnType<typeof setTimeout> | undefined
+  return ((...args: Parameters<T>) => {
+    if (id !== undefined) clearTimeout(id)
+    id = setTimeout(() => fn(...args), wait)
+  }) as T
+}
+
 function dismissNativeTooltip(e: React.MouseEvent<HTMLElement>) {
  try {
  const el = e.currentTarget as HTMLElement
@@ -618,7 +626,7 @@ export default function App() {
  let unsubProgress: (() => void) | void = undefined
  try {
  if (window.electronAPI) {
- unsubProgress = window.electronAPI.onProgress((msg: string) => setProgress(msg)) || undefined
+ unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 50)) || undefined
  const result = await withTimeout(
   window.electronAPI.analyzeFiles(fileA.path, fileA.path, true, profile),
   5 * 60 * 1000,
@@ -725,7 +733,7 @@ export default function App() {
  let unsubProgress: (() => void) | void = undefined
  try {
  if (window.electronAPI) {
- unsubProgress = window.electronAPI.onProgress((msg: string) => setProgress(msg)) || undefined
+ unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 50)) || undefined
  const result = await withTimeout(
   window.electronAPI.analyzeFiles(fileA.path, fileB.path, !deepScan, profile),
   5 * 60 * 1000,

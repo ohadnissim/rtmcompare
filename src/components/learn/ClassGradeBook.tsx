@@ -189,9 +189,11 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   // Check if LMS is configured
   useEffect(() => {
+    let mounted = true
     ;(window as any).electronAPI?.loadLmsConfig?.().then((res: any) => {
-      setHasLmsConfig(res?.ok && res.config?.hasToken)
+      if (mounted) setHasLmsConfig(res?.ok && res.config?.hasToken)
     }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   async function pickFolder() {
@@ -204,13 +206,15 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   async function exportCsv() {
     if (!records.length) return
+    let timer: ReturnType<typeof setTimeout> | undefined
     try {
       const res = await (window as any).electronAPI?.exportGradebookCsv(records)
       setCsvStatus(res?.ok === false ? 'error' : 'ok')
     } catch {
       setCsvStatus('error')
     }
-    setTimeout(() => setCsvStatus('idle'), 3000)
+    timer = setTimeout(() => setCsvStatus('idle'), 3000)
+    return () => { if (timer !== undefined) clearTimeout(timer) }
   }
 
   if (!open) return null

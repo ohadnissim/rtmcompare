@@ -603,18 +603,18 @@ export function LmsExportPanel({ records }: Props) {
           <div>
             <button
               onClick={handleUpload}
-              disabled={!selectedAssignmentId || status === 'uploading'}
+              disabled={!selectedAssignmentId || status === 'uploading' || status === 'done'}
               style={{
                 background: 'none',
                 border: '1px solid rgba(208,176,102,0.6)',
                 borderRadius: '2px',
-                color: (!selectedAssignmentId || status === 'uploading') ? 'rgba(208,176,102,0.4)' : 'var(--color-accent)',
+                color: (!selectedAssignmentId || status === 'uploading' || status === 'done') ? 'rgba(208,176,102,0.4)' : 'var(--color-accent)',
                 fontSize: 11,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 padding: '6px 16px',
-                cursor: (!selectedAssignmentId || status === 'uploading') ? 'not-allowed' : 'pointer',
-                opacity: (!selectedAssignmentId || status === 'uploading') ? 0.5 : 1,
+                cursor: (!selectedAssignmentId || status === 'uploading' || status === 'done') ? 'not-allowed' : 'pointer',
+                opacity: (!selectedAssignmentId || status === 'uploading' || status === 'done') ? 0.5 : 1,
               }}
             >
               {status === 'uploading'

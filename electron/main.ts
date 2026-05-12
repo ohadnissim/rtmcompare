@@ -433,9 +433,24 @@ function writeHistorySync(list: any[]) {
   // CRIT-7 fix: atomic write via temp-file + rename
   try { atomicWriteFileSync(HISTORY_PATH, JSON.stringify(list, null, 2)) } catch {}
 }
-ipcMain.handle('history-read', async () => readHistorySync())
+
+// In-memory cache so history-append doesn't re-read the full JSON on every call.
+let _historyCache: any[] | null = null
+function readHistoryCached(): any[] {
+  if (_historyCache === null) _historyCache = readHistorySync()
+  return _historyCache
+}
+function writeHistoryCached(list: any[]) {
+  _historyCache = list
+  writeHistorySync(list)
+}
+
+ipcMain.handle('history-read', async () => {
+  _historyCache = null  // force fresh disk read when explicitly requested
+  return readHistorySync()
+})
 ipcMain.handle('history-append', async (_event, entry: any) => {
-  const list = readHistorySync()
+  const list = readHistoryCached()
   // Dedupe: if the same sha256 was logged within the last 60 s keep only
   // the latest — prevents double-entries on tab-bounce.
   const now = Date.now()
@@ -464,11 +479,11 @@ ipcMain.handle('history-append', async (_event, entry: any) => {
     if (n > 200) filtered.splice(i, 1)
   }
   const trimmed = filtered.slice(-2000)
-  writeHistorySync(trimmed)
+  writeHistoryCached(trimmed)
   return trimmed.length
 })
 ipcMain.handle('history-clear', async () => {
-  writeHistorySync([])
+  writeHistoryCached([])
   return true
 })
 
