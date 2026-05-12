@@ -243,7 +243,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         position: 'fixed',
         right: 0,
         top: 28,
-        width: 320,
+        width: 380, // NIT-4: was 320 — too narrow for the rubric grid (5 cols ~250px content). 380 lets metric labels render fully.
         height: 'calc(100vh - 28px)',
         background: 'rgba(21,20,17,0.98)',
         borderLeft: '1px solid rgba(208,176,102,0.25)',

@@ -131,7 +131,13 @@ export function recordAttempt(
   optionId: string,
   correct: boolean
 ): EarTrainingProgress {
-  const next: EarTrainingProgress = JSON.parse(JSON.stringify(progress))
+  // NIT-3 fix: structuredClone preserves more types (Date, Map, Set) than
+  // JSON.parse(JSON.stringify(…)) and is faster. Falls back to the JSON
+  // approach if structuredClone is unavailable (older Node — unlikely with
+  // Electron 42 but defensive).
+  const next: EarTrainingProgress = typeof structuredClone === 'function'
+    ? structuredClone(progress)
+    : JSON.parse(JSON.stringify(progress))
   const stats = next.drills[drill]
   stats.attempts++
   stats.lastDifficulty = difficulty

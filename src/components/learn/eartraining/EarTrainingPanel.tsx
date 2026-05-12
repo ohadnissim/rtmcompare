@@ -335,8 +335,17 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
       )}
 
       {!sourceLoaded && !loadError && (
-        <div style={{ color: 'rgba(168,161,150,0.7)', fontSize: 13, fontStyle: 'italic' }}>
-          Loading audio source…
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(168,161,150,0.7)', fontSize: 13, fontStyle: 'italic' }}>
+          <span style={{
+            display: 'inline-block', width: 14, height: 14, borderRadius: '50%',
+            border: '2px solid rgba(208,176,102,0.25)',
+            borderTopColor: 'rgba(208,176,102,0.85)',
+            animation: 'rtm-et-spin 0.9s linear infinite',
+          }} aria-hidden="true" />
+          Loading audio source… (procedural clips are always instant — switch source above if your file is large)
+          {/* NIT-6: spinner + timeout hint. Was a bare italic string with no
+              animation and no fallback CTA — slow loads looked frozen. */}
+          <style>{`@keyframes rtm-et-spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
 
