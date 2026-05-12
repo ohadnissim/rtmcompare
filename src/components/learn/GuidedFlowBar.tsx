@@ -258,7 +258,12 @@ export default function GuidedFlowBar({
           </div>
         )}
 
-        {/* Step pills row */}
+        {/* Step pills row.
+            MED-31 fix: overflow-x was on with `scrollbarWidth: none` and no
+            edge-fade affordance — students on narrow screens couldn't tell
+            steps 7-9 even existed. Now uses a horizontal fade-mask on the
+            right edge so users see content disappearing into the fade and
+            know there's more to scroll. */}
         <div
           style={{
             display: 'flex',
@@ -267,6 +272,8 @@ export default function GuidedFlowBar({
             padding: '8px 0 0',
             overflowX: 'auto',
             scrollbarWidth: 'none',
+            WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 32px), transparent 100%)',
+            maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 32px), transparent 100%)',
           }}
         >
           {/* Ear Training button */}
@@ -398,7 +405,11 @@ export default function GuidedFlowBar({
           )}
 
           {/* Teacher setup button */}
-          {effectiveRole === 'teacher' && (
+          {/* MED-29 fix: keep teacher controls visible while previewing as
+              student. Otherwise the teacher loses the path back to Grade Book
+              or Set Up Assignment mid-preview. The role gate is now `actual
+              role is teacher` (state.role) rather than `effectiveRole`. */}
+          {role === 'teacher' && (
             <button
               onClick={() => setShowGradeBook(true)}
               style={{
@@ -418,7 +429,11 @@ export default function GuidedFlowBar({
               Grade Book
             </button>
           )}
-          {effectiveRole === 'teacher' && (
+          {/* MED-29 fix: keep teacher controls visible while previewing as
+              student. Otherwise the teacher loses the path back to Grade Book
+              or Set Up Assignment mid-preview. The role gate is now `actual
+              role is teacher` (state.role) rather than `effectiveRole`. */}
+          {role === 'teacher' && (
             <button
               onClick={() => setShowAssignmentPanel(true)}
               style={{
@@ -564,7 +579,11 @@ export default function GuidedFlowBar({
               >
                 Review Steps
               </button>
-              {effectiveRole === 'teacher' && (
+              {/* MED-29 fix: keep teacher controls visible while previewing as
+              student. Otherwise the teacher loses the path back to Grade Book
+              or Set Up Assignment mid-preview. The role gate is now `actual
+              role is teacher` (state.role) rather than `effectiveRole`. */}
+          {role === 'teacher' && (
                 <button
                   onClick={() => setShowGradeBook(true)}
                   style={{
@@ -711,6 +730,19 @@ export default function GuidedFlowBar({
               >
                 {stepQuestion}
               </p>
+              {/* MED-24 fix: Export Report was only mounted on the completion
+                  banner. Students couldn't export from inside a step. Now it
+                  also sits in the question card for student role, so the
+                  PDF can be generated at any point in the flow. */}
+              {effectiveRole === 'student' && (
+                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                  <StudentReportButton
+                    analysisResult={analysisResult}
+                    fileAName={fileAName}
+                    fileBName={fileBName}
+                  />
+                </div>
+              )}
             </div>
           )
         )}

@@ -777,8 +777,13 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           onClick={async () => {
             const cfg: AssignmentConfig = { title, course, instructor, studentName: '', dueDate: dueDate || undefined, genre: genre || undefined, lockedReferenceFile: lockRef ? (referenceFilePath ?? current?.lockedReferenceFile ?? null) : null, lockedTargetSpec: lockSpec ? selectedSpec : null, rubric }
             const json = JSON.stringify(cfg, null, 2)
+            // MED-28 fix: default filename was `<title>.rtm-assignment.json`
+            // AND extensions:['rtm-assignment.json'] — Electron appended the
+            // extension AGAIN on some platforms, producing
+            // `<title>.rtm-assignment.json.json`. Bare title now; the dialog
+            // adds the extension exactly once.
             await (window as any).electronAPI?.saveFileDialog(
-              `${title || 'assignment'}.rtm-assignment.json`,
+              `${title || 'assignment'}`,
               json,
               [{ name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json'] }]
             )

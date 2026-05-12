@@ -238,7 +238,67 @@ export default function StudentWorkspace() {
           />
         </div>
 
-        {/* Assignment info (when active) */}
+        {/* MED-11 fix: Student identity (Name + ID) was nested INSIDE the
+            assignment box, which only rendered when `assignment` was set. A
+            solo student with no assignment had no way to enter their name,
+            so the PDF report exported with empty identity. Identity now
+            renders unconditionally; the assignment box renders separately
+            below it with just the assignment-specific metadata. */}
+        <div
+          style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(168,161,150,0.12)',
+            borderRadius: '2px',
+            padding: '8px 10px',
+            marginBottom: 12,
+          }}
+        >
+          <div style={{
+            fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: 'var(--color-sand-400)', marginBottom: 6,
+          }}>
+            Your Identity
+          </div>
+          <label style={{
+            display: 'block', fontSize: 10, letterSpacing: '0.06em',
+            textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 3,
+          }}>
+            Your Name
+          </label>
+          <input
+            type="text"
+            value={studentName}
+            onChange={e => handleNameChange(e.target.value)}
+            placeholder="Student name"
+            style={{
+              width: '100%', background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(168,161,150,0.15)', borderRadius: '2px',
+              color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: 11,
+              outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          <label style={{
+            display: 'block', fontSize: 10, letterSpacing: '0.06em',
+            textTransform: 'uppercase', color: 'var(--color-sand-400)',
+            marginTop: 6, marginBottom: 3,
+          }}>
+            Student ID
+          </label>
+          <input
+            type="text"
+            value={studentId}
+            onChange={e => handleIdChange(e.target.value)}
+            placeholder="e.g. 12345678"
+            style={{
+              width: '100%', background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(168,161,150,0.15)', borderRadius: '2px',
+              color: 'var(--color-text-primary)', padding: '5px 8px', fontSize: 11,
+              outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Assignment info (when active) — title / course / due-date only */}
         {assignment && (
           <div
             style={{
@@ -266,70 +326,10 @@ export default function StudentWorkspace() {
               </div>
             )}
             {assignment.dueDate && (
-              <div style={{ fontSize: 10, color: 'var(--color-sand-400)', marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: 'var(--color-sand-400)' }}>
                 Due: {assignment.dueDate}
               </div>
             )}
-            <label
-              style={{
-                display: 'block',
-                fontSize: 10,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: 'var(--color-sand-400)',
-                marginBottom: 3,
-              }}
-            >
-              Your Name
-            </label>
-            <input
-              type="text"
-              value={studentName}
-              onChange={e => handleNameChange(e.target.value)}
-              placeholder="Student name"
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(168,161,150,0.15)',
-                borderRadius: '2px',
-                color: 'var(--color-text-primary)',
-                padding: '5px 8px',
-                fontSize: 11,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-            {/* BUG-03: Student ID for Canvas LMS grade matching */}
-            <label
-              style={{
-                display: 'block',
-                fontSize: 10,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                color: 'var(--color-sand-400)',
-                marginTop: 6,
-                marginBottom: 3,
-              }}
-            >
-              Student ID
-            </label>
-            <input
-              type="text"
-              value={studentId}
-              onChange={e => handleIdChange(e.target.value)}
-              placeholder="e.g. 12345678"
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(168,161,150,0.15)',
-                borderRadius: '2px',
-                color: 'var(--color-text-primary)',
-                padding: '5px 8px',
-                fontSize: 11,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
           </div>
         )}
 

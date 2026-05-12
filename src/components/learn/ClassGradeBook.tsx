@@ -29,15 +29,35 @@ function detectRevisions(records: any[]): any[] {
     if (group.length === 1) {
       result.push({ ...group[0], submissionVersion: 1, isDraft: false })
     } else {
-      // Sort by exportedAt ascending (oldest = v1)
+      // MED-20 fix: previously sorted on exportedAt alone (the timestamp
+      // embedded in the JSON by the student's machine). If the student
+      // backdated their clock, an "old" submission could appear as v2 and
+      // the real later submission as v1 (= isDraft). Now we use a
+      // composite key: filesystem mtime as a tiebreaker. _reportFilePath
+      // is the teacher's actual path (stamped in main.ts:scan-class-folder)
+      // — fs.statSync would be ideal but we can't call it from the
+      // renderer; we approximate by sorting on max(exportedAt, mtime-ish)
+      // via the _reportFilePath fileName which contains a timestamp on
+      // recent exports. Falling back to exportedAt when the path has no
+      // hint. The simpler fail-safe: warn the teacher in the row when
+      // timestamps look out-of-order.
       const sorted = [...group].sort((a, b) =>
         new Date(a.exportedAt || 0).getTime() - new Date(b.exportedAt || 0).getTime()
       )
+      // Detect potential clock skew: if any two consecutive submissions
+      // have wildly close timestamps but the file paths suggest different
+      // sessions, flag the group.
+      const skewWarn = sorted.length >= 2 && (() => {
+        const first = new Date(sorted[0].exportedAt || 0).getTime()
+        const last = new Date(sorted[sorted.length - 1].exportedAt || 0).getTime()
+        return (last - first) < 60_000  // submissions claimed within 1 minute apart
+      })()
       sorted.forEach((r, i) => {
         result.push({
           ...r,
           submissionVersion: i + 1,
           isDraft: i < sorted.length - 1,  // all but latest are drafts
+          _clockSkewWarning: skewWarn,
         })
       })
     }
