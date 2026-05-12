@@ -56,9 +56,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   revealInFinder: (filePath: string) => ipcRenderer.invoke('reveal-in-finder', filePath),
   saveStudentFeedback: (reportPath: string, feedback: string) =>
     ipcRenderer.invoke('save-student-feedback', reportPath, feedback),
-  loadStudentFeedback: (reportPath: string) =>
-    ipcRenderer.invoke('load-student-feedback', reportPath),
-  saveLmsConfig: (config: { baseUrl: string; apiToken: string; courseId: string; assignmentName?: string }) =>
+  // LOW-22: loadStudentFeedback removed — no call sites; handler also removed from main.ts
+saveLmsConfig: (config: { baseUrl: string; apiToken: string; courseId: string; assignmentName?: string }) =>
     ipcRenderer.invoke('save-lms-config', config),
   loadLmsConfig: () => ipcRenderer.invoke('load-lms-config'),
   canvasTestConnection: (overrideToken?: string) => ipcRenderer.invoke('canvas-test-connection', overrideToken),

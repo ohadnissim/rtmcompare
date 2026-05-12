@@ -15,6 +15,8 @@ import json
 import logging
 import tempfile
 import shutil
+import time
+import uuid
 from datetime import datetime, timezone
 
 # Windows: the bundled embeddable Python uses a `_pth` file that does NOT
@@ -309,14 +311,23 @@ def main():
 
     tmp_dir = tempfile.mkdtemp(prefix="rtm_")
 
-    # Persistent directory for stems (survives after analysis)
-    stems_dir = os.path.join(os.path.expanduser("~"), ".rtm", "stems")
+    # CRIT-16: use a per-analysis subdirectory so concurrent analyses don't
+    # stomp each other's stems. Each run gets a unique ID; old runs (>2 h)
+    # are pruned rather than deleting everything at startup.
+    _stems_root = os.path.join(os.path.expanduser("~"), ".rtm", "stems")
+    os.makedirs(_stems_root, exist_ok=True)
+    stems_dir = os.path.join(_stems_root, f"run_{uuid.uuid4().hex[:8]}")
     os.makedirs(stems_dir, exist_ok=True)
-    # Clean old stems
-    for f in os.listdir(stems_dir):
-        p = os.path.join(stems_dir, f)
-        if os.path.isdir(p):
-            shutil.rmtree(p)
+    # Prune stale runs older than 2 h
+    _prune_cutoff = time.time() - 7200
+    for _entry in os.listdir(_stems_root):
+        _p = os.path.join(_stems_root, _entry)
+        if os.path.isdir(_p) and _p != stems_dir:
+            try:
+                if os.path.getmtime(_p) < _prune_cutoff:
+                    shutil.rmtree(_p, ignore_errors=True)
+            except OSError:
+                pass
 
     try:
         # Check reference quality first
@@ -373,7 +384,11 @@ def main():
             from masking import analyze_masking
             if not fast_mode:
                 progress("Analysing masking between stems...")
-                result["masking"] = analyze_masking(stems_dir=stems_dir, file_path=file_b)
+                # MED-11: pass stems_b explicitly so masking never relies on
+                # mtime ordering to pick between stems_a and stems_b.
+                stems_b_for_masking = os.path.join(stems_dir, "stems_b")
+                _msk_dir = stems_b_for_masking if os.path.isdir(stems_b_for_masking) else stems_dir
+                result["masking"] = analyze_masking(stems_dir=_msk_dir, file_path=file_b)
             else:
                 result["masking"] = analyze_masking(file_path=file_b)
         except Exception as e:

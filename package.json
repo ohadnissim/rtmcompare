@@ -49,6 +49,20 @@
             "!**/*.a",
             "!**/*.dylib.dSYM/**"
           ]
+        },
+        {
+          "from": "python-bundle-intel",
+          "to": "python-bundle-intel",
+          "filter": [
+            "**/*",
+            "!**/__pycache__/**",
+            "!**/*.pyc",
+            "!**/test/**",
+            "!**/tests/**",
+            "!**/include/**",
+            "!**/*.a",
+            "!**/*.dylib.dSYM/**"
+          ]
         }
       ]
     },

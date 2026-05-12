@@ -134,7 +134,10 @@ interface BuildArgs {
 let activeBuild: ChildProcess | null = null
 
 ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
-  if (activeBuild && !activeBuild.killed) {
+  // NIT-4: guard is on `activeBuild !== null` (set to null on 'close').
+  // `.killed` is false for normally-exited processes, so `&& !activeBuild.killed`
+  // was always true when activeBuild was non-null — dead condition removed.
+  if (activeBuild !== null) {
     return { ok: false, error: 'A profile build is already in progress. Wait for it to finish or cancel it first.' }
   }
   if (!args.files || args.files.length === 0) {

@@ -418,6 +418,10 @@ def _third_octave_widths(y_stereo: np.ndarray, sr: int) -> list[float]:
 
 def _true_peak_and_overs(y: np.ndarray) -> tuple[float, int]:
     from scipy.signal import resample_poly
+    # CRIT-19: process in 10-second chunks to avoid ~850 MB/channel allocation
+    # for long tracks. A 10-min stereo file at 44.1 kHz × float64 × 4 would
+    # need ~1.7 GB in one shot; chunked it peaks at ~14 MB/chunk.
+    CHUNK = 441_000  # 10 s at 44.1 kHz
     if y.ndim == 1:
         channels = [y]
     else:
@@ -425,12 +429,15 @@ def _true_peak_and_overs(y: np.ndarray) -> tuple[float, int]:
     worst = 0.0
     events = 0
     for ch in channels:
-        up = resample_poly(ch, 4, 1)
-        abs_up = np.abs(up)
-        worst = max(worst, float(np.max(abs_up)))
-        over = abs_up > 1.0
-        if over.any():
-            events += int((np.diff(over.astype(np.int8), prepend=0) == 1).sum())
+        n = len(ch)
+        for start in range(0, n, CHUNK):
+            segment = ch[start:start + CHUNK]
+            up = resample_poly(segment, 4, 1)
+            abs_up = np.abs(up)
+            worst = max(worst, float(np.max(abs_up)))
+            over = abs_up > 1.0
+            if over.any():
+                events += int((np.diff(over.astype(np.int8), prepend=0) == 1).sum())
     tp_db = 20 * np.log10(max(worst, 1e-10))
     return round(float(tp_db), 1), events
 
@@ -703,12 +710,21 @@ def compute_plr(y: np.ndarray, sr: int) -> float | None:
         # readings in the same UI disagreed by 1 dB. PLR is computed
         # once per analysis, not on the hot DSP path, so the speed
         # difference is negligible.
+        # CRIT-19: chunked resample to avoid OOM on long tracks (same fix as
+        # _true_peak_and_overs). PLR is called on the full track; chunked
+        # peak-finding is correct because we only need max(abs(up)).
+        _PLR_CHUNK = 441_000  # 10 s at 44.1 kHz
         per_channel_tp = []
         for ch in channels:
             try:
                 from scipy.signal import resample_poly
-                up = resample_poly(ch, 4, 1)
-                per_channel_tp.append(float(20 * np.log10(max(np.max(np.abs(up)), 1e-10))))
+                ch_peak = 0.0
+                n = len(ch)
+                for _start in range(0, n, _PLR_CHUNK):
+                    _seg = ch[_start:_start + _PLR_CHUNK]
+                    _up = resample_poly(_seg, 4, 1)
+                    ch_peak = max(ch_peak, float(np.max(np.abs(_up))))
+                per_channel_tp.append(float(20 * np.log10(max(ch_peak, 1e-10))))
             except Exception:
                 # Last-ditch raw peak; better than emitting -inf.
                 peak = float(np.max(np.abs(ch))) if ch.size else 1e-10

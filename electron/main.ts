@@ -308,14 +308,19 @@ function createWindow() {
       try {
         const parsedUrl = new URL(url)
         // Decode the URL-encoded pathname for accurate comparison
-        const decodedPath = decodeURIComponent(parsedUrl.pathname)
+        // LOW-17: normalize decodedPath the same way we normalize expectedPath
+        // (backslash→forward-slash) so the comparison is symmetric on Windows.
+        const decodedPath = decodeURIComponent(parsedUrl.pathname).replace(/\\/g, '/')
         // Expected packaged path: <resourcesPath>/app.asar/dist/index.html
         // (electron-builder convention; app.getAppPath() returns the asar root)
         const expectedPath = path.join(app.getAppPath(), 'dist', 'index.html')
-          // URL pathnames use forward slashes even on Windows
           .replace(/\\/g, '/')
+        // LOW-16: removed the `|| decodedPath === \`/\${expectedPath}\`` branch —
+        // on macOS it produced "//Applications/..." which never matches, and on
+        // Windows the expectedPath already has a leading "/" from the file: URL,
+        // making the double-slash form equally unreachable.
         allow = parsedUrl.protocol === 'file:'
-          && (decodedPath === expectedPath || decodedPath === `/${expectedPath}`)
+          && decodedPath === expectedPath
           && !decodedPath.includes('..')
       } catch {
         allow = false
@@ -591,7 +596,12 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
   const pythonDir = path.join(basePath, 'python')
   const isWin = process.platform === 'win32'
   const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
-  const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  // CRIT-18: select the correct Python bundle for the running CPU arch.
+  // Prior code always used python-bundle (arm64); on Intel Macs it would
+  // attempt to exec the arm64 binary and fail with "bad CPU type".
+  const macArmBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  const macIntelBundled = path.join(basePath, 'python-bundle-intel', 'python', 'bin', 'python3')
+  const macBundled = process.arch === 'arm64' ? macArmBundled : macIntelBundled
   const pythonCmd = isWin
     ? (fs.existsSync(winBundled) ? winBundled : 'python.exe')
     : (fs.existsSync(macBundled) ? macBundled : '/usr/bin/python3')
@@ -875,7 +885,12 @@ ipcMain.handle('render-corrected-eq', async (
   // Cross-platform python path resolution (same logic as python-bridge.ts)
   const isWin = process.platform === 'win32'
   const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
-  const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  // CRIT-18: select the correct Python bundle for the running CPU arch.
+  // Prior code always used python-bundle (arm64); on Intel Macs it would
+  // attempt to exec the arm64 binary and fail with "bad CPU type".
+  const macArmBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  const macIntelBundled = path.join(basePath, 'python-bundle-intel', 'python', 'bin', 'python3')
+  const macBundled = process.arch === 'arm64' ? macArmBundled : macIntelBundled
   const pythonCmd = isWin
     ? (fs.existsSync(winBundled) ? winBundled : 'python.exe')
     : (fs.existsSync(macBundled) ? macBundled : '/usr/bin/python3')
@@ -1431,7 +1446,12 @@ ipcMain.handle('references-add', async (_e, srcPath: string) => {
   const basePath = app.isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
   const pythonDir = path.join(basePath, 'python')
   const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
-  const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  // CRIT-18: select the correct Python bundle for the running CPU arch.
+  // Prior code always used python-bundle (arm64); on Intel Macs it would
+  // attempt to exec the arm64 binary and fail with "bad CPU type".
+  const macArmBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  const macIntelBundled = path.join(basePath, 'python-bundle-intel', 'python', 'bin', 'python3')
+  const macBundled = process.arch === 'arm64' ? macArmBundled : macIntelBundled
   const pyBin = (process.platform === 'win32' && fs.existsSync(winBundled)) ? winBundled
     : (fs.existsSync(macBundled) ? macBundled : 'python3')
   const scriptPath = path.join(pythonDir, 'reference_quickscan.py')
@@ -1719,7 +1739,12 @@ ipcMain.handle('master-chain-render', async (_event, srcPath: string, config: an
     const basePath = app.isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
     const pythonDir = path.join(basePath, 'python')
     const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
-    const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+    // CRIT-18: select the correct Python bundle for the running CPU arch.
+  // Prior code always used python-bundle (arm64); on Intel Macs it would
+  // attempt to exec the arm64 binary and fail with "bad CPU type".
+  const macArmBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  const macIntelBundled = path.join(basePath, 'python-bundle-intel', 'python', 'bin', 'python3')
+  const macBundled = process.arch === 'arm64' ? macArmBundled : macIntelBundled
     const pyBin = (process.platform === 'win32' && fs.existsSync(winBundled)) ? winBundled
       : (fs.existsSync(macBundled) ? macBundled : 'python3')
     const scriptPath = path.join(pythonDir, 'master_chain.py')
@@ -1764,9 +1789,14 @@ ipcMain.handle('master-chain-render', async (_event, srcPath: string, config: an
 // `${sha1(srcPath+mtime+dsp+lufs)}.m4a` so repeated auditions of the same
 // (file, DSP) pair hit disk once.  Cache cleared on app quit.
 const ENCODED_PREVIEW_DIR = path.join(require('os').tmpdir(), 'rtm-encoded-preview')
+// MED-9: allowlist for dsp argv — only known platform IDs accepted.
+const VALID_DSP_IDS = new Set(['none','spotify','apple_music','youtube','tidal','amazon_hd','soundcloud','deezer'])
 ipcMain.handle('encoded-preview-render', async (_event, srcPath: string, dsp: string, integratedLufs: number | null, windowStartSec?: number | null) => {
   try { assertSafeAudioPath(srcPath, 'encoded-preview-render') }
   catch (err: any) { return { ok: false, error: err?.message || 'invalid source path' } }
+  if (typeof dsp !== 'string' || !VALID_DSP_IDS.has(dsp)) {
+    return { ok: false, error: `invalid dsp value: ${String(dsp).slice(0, 40)}` }
+  }
   try {
     if (!fs.existsSync(ENCODED_PREVIEW_DIR)) fs.mkdirSync(ENCODED_PREVIEW_DIR, { recursive: true })
     const crypto = require('crypto')
@@ -1780,7 +1810,12 @@ ipcMain.handle('encoded-preview-render', async (_event, srcPath: string, dsp: st
     const basePath = app.isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
     const pythonDir = path.join(basePath, 'python')
     const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
-    const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+    // CRIT-18: select the correct Python bundle for the running CPU arch.
+  // Prior code always used python-bundle (arm64); on Intel Macs it would
+  // attempt to exec the arm64 binary and fail with "bad CPU type".
+  const macArmBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  const macIntelBundled = path.join(basePath, 'python-bundle-intel', 'python', 'bin', 'python3')
+  const macBundled = process.arch === 'arm64' ? macArmBundled : macIntelBundled
     const pyBin = (process.platform === 'win32' && fs.existsSync(winBundled)) ? winBundled
       : (fs.existsSync(macBundled) ? macBundled : 'python3')
     const scriptPath = path.join(pythonDir, 'encoded_preview.py')
@@ -1822,9 +1857,14 @@ app.on('will-quit', () => {
 // not "what does each streaming platform serve". Same caching shape:
 // hash the (path, mtime, env, start) and reuse the .m4a if it exists.
 const TRANSLATION_RENDER_DIR = path.join(require('os').tmpdir(), 'rtm-translation-render')
+// MED-10: allowlist for envId argv — must match playback_env.py ENVS keys.
+const VALID_ENV_IDS = new Set(['phone_speaker','earbuds','club_pa','car_cabin'])
 ipcMain.handle('translation-render', async (_event, srcPath: string, envId: string, windowStartSec?: number | null) => {
   try { assertSafeAudioPath(srcPath, 'translation-render') }
   catch (err: any) { return { ok: false, error: err?.message || 'invalid source path' } }
+  if (typeof envId !== 'string' || !VALID_ENV_IDS.has(envId)) {
+    return { ok: false, error: `invalid envId: ${String(envId).slice(0, 40)}` }
+  }
   try {
     if (!fs.existsSync(TRANSLATION_RENDER_DIR)) fs.mkdirSync(TRANSLATION_RENDER_DIR, { recursive: true })
     const crypto = require('crypto')
@@ -1837,7 +1877,12 @@ ipcMain.handle('translation-render', async (_event, srcPath: string, envId: stri
     const basePath = app.isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
     const pythonDir = path.join(basePath, 'python')
     const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
-    const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+    // CRIT-18: select the correct Python bundle for the running CPU arch.
+  // Prior code always used python-bundle (arm64); on Intel Macs it would
+  // attempt to exec the arm64 binary and fail with "bad CPU type".
+  const macArmBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  const macIntelBundled = path.join(basePath, 'python-bundle-intel', 'python', 'bin', 'python3')
+  const macBundled = process.arch === 'arm64' ? macArmBundled : macIntelBundled
     const pyBin = (process.platform === 'win32' && fs.existsSync(winBundled)) ? winBundled
       : (fs.existsSync(macBundled) ? macBundled : 'python3')
     const scriptPath = path.join(pythonDir, 'translation_render.py')
@@ -2043,7 +2088,12 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
     const pythonDir = path.join(basePath, 'python')
     const isWin = process.platform === 'win32'
     const winBundled = path.join(basePath, 'python-bundle-win', 'python', 'python.exe')
-    const macBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+    // CRIT-18: select the correct Python bundle for the running CPU arch.
+  // Prior code always used python-bundle (arm64); on Intel Macs it would
+  // attempt to exec the arm64 binary and fail with "bad CPU type".
+  const macArmBundled = path.join(basePath, 'python-bundle', 'python', 'bin', 'python3')
+  const macIntelBundled = path.join(basePath, 'python-bundle-intel', 'python', 'bin', 'python3')
+  const macBundled = process.arch === 'arm64' ? macArmBundled : macIntelBundled
     const pyBin = (isWin && fs.existsSync(winBundled)) ? winBundled
       : (fs.existsSync(macBundled) ? macBundled : (isWin ? 'python.exe' : '/usr/bin/python3'))
     const scriptPath = path.join(pythonDir, 'student_report.py')
@@ -2206,7 +2256,8 @@ ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
   function csvCell(v: unknown): string {
     if (v == null) return ''
     const s = String(v)
-    return s.includes(',') || s.includes('"') || s.includes('\n')
+    // MED-13: also quote \r-only line endings (Excel/Numbers treat \r as row break)
+    return s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')
       ? `"${s.replace(/"/g, '""')}"` : s
   }
 
@@ -2305,37 +2356,10 @@ ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback:
   }
 })
 
-ipcMain.handle('load-student-feedback', async (_e, reportPath: string) => {
-  try {
-    // MED-3 hardening: mirror the same path-validation applied to
-    // save-student-feedback. Without this, a renderer could pass any
-    // path ending in .rtm-report.json (or .pdf) to read an arbitrary
-    // .rtm-feedback.json file anywhere on disk.
-    if (typeof reportPath !== 'string' || reportPath.length === 0 || reportPath.length > 4096) {
-      return { ok: false, error: 'reportPath invalid.' }
-    }
-    let resolved = path.resolve(reportPath)
-    if (!fs.existsSync(resolved)) return { ok: true, text: '' }
-    try { resolved = fs.realpathSync(resolved) } catch {
-      return { ok: false, error: 'reportPath could not be resolved.' }
-    }
-    const lst = fs.lstatSync(resolved)
-    if (!lst.isFile()) return { ok: false, error: 'reportPath must be a regular file.' }
-    if (!/\.(rtm-report\.json|pdf)$/i.test(resolved)) {
-      return { ok: false, error: 'reportPath must end in .rtm-report.json or .pdf' }
-    }
-    const feedbackPath = resolved.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
-      .replace(/\.pdf$/i, '.rtm-feedback.json')
-    if (!fs.existsSync(feedbackPath)) return { ok: true, text: '' }
-    // Guard the feedback file itself against symlink attacks.
-    const fbLst = fs.lstatSync(feedbackPath)
-    if (fbLst.isSymbolicLink()) return { ok: false, error: 'Feedback path is a symlink.' }
-    const raw = JSON.parse(fs.readFileSync(feedbackPath, 'utf8'))
-    return { ok: true, text: raw.feedback ?? '' }
-  } catch {
-    return { ok: true, text: '' }
-  }
-})
+// LOW-22: load-student-feedback handler removed — no renderer caller exists
+// (grep src/ + preload confirms zero call sites). Removing it shrinks the
+// IPC attack surface. Re-add if/when ClassGradeBook needs to pre-populate
+// the feedback textarea on load from disk.
 
 // ── SHA-256 for Ship-Ready PDF integrity ─────────────────────────────────
 // Eli asked for a way to prove the PDF wasn't hand-edited post-export. We
@@ -2606,7 +2630,17 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     }
 
     if (Object.keys(gradeData).length === 0) {
-      return { ok: false, error: 'No students with valid Student IDs found in the records. Students must enter their Canvas Student ID when exporting their report.' }
+      // LOW-23: give a diagnostic that matches the actual failure mode.
+      // Before: always said "Students must enter Canvas ID" even when the
+      // grade book was empty or all scores were NaN.
+      const hasAnyId = payload.grades.some((g: any) => g.studentId)
+      const hasAnyScore = payload.grades.some((g: any) => Number.isFinite(g.score))
+      let errMsg = 'Nothing to submit: '
+      if (!payload.grades.length) errMsg += 'the grade book is empty — scan a submissions folder first.'
+      else if (!hasAnyId) errMsg += 'no students have a Canvas Student ID in their report. Students must enter their ID when exporting.'
+      else if (!hasAnyScore) errMsg += 'all students have a missing or invalid score (check rubric configuration).'
+      else errMsg += 'all Student IDs failed format validation or all scores are non-finite.'
+      return { ok: false, error: errMsg }
     }
 
     const res = await canvasRequest({
