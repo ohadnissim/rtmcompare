@@ -215,6 +215,20 @@ declare global {
  * tooltip dismisses while the button still exists. Apply to any CTA that
  * unmounts on click.
  */
+/** Wrap a Promise with a 5-minute timeout.
+ * Throws an Error with `message` if the promise doesn't resolve in time.
+ * This guards against the Python daemon silently hanging — without it the
+ * UI stays on the processing screen forever with no feedback or recovery.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    ),
+  ])
+}
+
 function dismissNativeTooltip(e: React.MouseEvent<HTMLElement>) {
  try {
  const el = e.currentTarget as HTMLElement
@@ -603,7 +617,11 @@ export default function App() {
  try {
  if (window.electronAPI) {
  unsubProgress = window.electronAPI.onProgress((msg: string) => setProgress(msg)) || undefined
- const result = await window.electronAPI.analyzeFiles(fileA.path, fileA.path, true, profile)
+ const result = await withTimeout(
+  window.electronAPI.analyzeFiles(fileA.path, fileA.path, true, profile),
+  5 * 60 * 1000,
+  'Analysis timed out after 5 minutes. The audio file may be too large or the backend may have hung — please try again.'
+ )
 
  // If this was a multichannel / ADM file, backend returns
  // comparison_mode === 'atmos_solo'. Route to the full AnalysisView
@@ -702,7 +720,11 @@ export default function App() {
  try {
  if (window.electronAPI) {
  unsubProgress = window.electronAPI.onProgress((msg: string) => setProgress(msg)) || undefined
- const result = await window.electronAPI.analyzeFiles(fileA.path, fileB.path, !deepScan, profile)
+ const result = await withTimeout(
+  window.electronAPI.analyzeFiles(fileA.path, fileB.path, !deepScan, profile),
+  5 * 60 * 1000,
+  'Analysis timed out after 5 minutes. The audio file may be too large or the backend may have hung — please try again.'
+ )
  setResults(result)
  setState('results')
  // Log the target (B) to local history — fires in the background.
@@ -999,6 +1021,7 @@ export default function App() {
       canBegin={!!fileA}
       onBegin={fileA && fileB ? handleCompare : handleRefOnly}
       onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
+      error={error}
     >
       {/* 5.7.0: engineer profile picker. Restored to the cover so the
           user can switch profiles before kicking off an analysis. The

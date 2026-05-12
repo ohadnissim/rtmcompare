@@ -70,6 +70,7 @@ interface Props {
  // Container / sample-rate / length warnings surfaced by analyze.py.
  // Rendered above the results so the engineer sees them first.
  file_warnings?: { type: string; message: string }[]
+ generation_loss?: AnalysisResult['generation_loss']
  limiter_artefacts?: any
  headroom?: any
  lufs_over_time_b?: number[]
@@ -349,6 +350,35 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </div>
  ))}
  </div>
+ )}
+
+ {/* Generation-loss warning badge — mirrors the AnalysisView badge. */}
+ {data.generation_loss && data.generation_loss.verdict !== 'likely_lossless' && (
+  <div
+   role="alert"
+   className="px-3 py-2 text-[11px] flex items-start gap-2"
+   style={{
+    backgroundColor: data.generation_loss.verdict === 'likely_prior_lossy'
+     ? 'rgba(224,82,82,0.08)' : 'rgba(150,128,58,0.08)',
+    border: `1px solid ${data.generation_loss.verdict === 'likely_prior_lossy'
+     ? 'rgba(224,82,82,0.25)' : 'rgba(150,128,58,0.2)'}`,
+    color: data.generation_loss.verdict === 'likely_prior_lossy' ? '#e05252' : '#c5a55a',
+    borderRadius: '2px',
+   }}
+  >
+   <span className="text-[13px] leading-none" aria-hidden>
+    {data.generation_loss.verdict === 'likely_prior_lossy' ? '🔴' : '⚠'}
+   </span>
+   <span className="flex-1">
+    <span className="uppercase tracking-[0.15em] text-[9px] mr-2">GENERATION LOSS</span>
+    <span style={{ color: '#d9d4c8' }}>
+     {data.generation_loss.verdict === 'likely_prior_lossy'
+      ? 'Prior lossy encode detected' : 'Possible prior lossy encode'}
+     {' '}({Math.round(data.generation_loss.probability * 100)}% probability)
+     {data.generation_loss.summary ? ` — ${data.generation_loss.summary}` : ''}
+    </span>
+   </span>
+  </div>
  )}
 
  {/* ── 2. DAW plugin origin banner ───────────────────────────

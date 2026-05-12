@@ -309,6 +309,36 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </div>
  )}
 
+ {/* Generation-loss warning — only shown when the detector flags the
+   master as likely having been through a prior lossy encode (e.g.
+   MP3 re-encoded to WAV). Surfaced as an amber badge so it's
+   visible before the user reads any metric detail. */}
+ {results.generation_loss && results.generation_loss.verdict !== 'likely_lossless' && (
+  <div className="flex justify-center">
+   <div
+    className="flex items-center gap-2 text-xs px-4 py-2 rounded-full"
+    style={{
+     backgroundColor: results.generation_loss.verdict === 'likely_prior_lossy'
+      ? 'rgba(224,82,82,0.08)' : 'rgba(150,128,58,0.08)',
+     color: results.generation_loss.verdict === 'likely_prior_lossy'
+      ? '#e05252' : '#c5a55a',
+     border: `1px solid ${results.generation_loss.verdict === 'likely_prior_lossy'
+      ? 'rgba(224,82,82,0.2)' : 'rgba(150,128,58,0.15)'}`,
+    }}
+    title={results.generation_loss.summary}
+   >
+    <span>{results.generation_loss.verdict === 'likely_prior_lossy' ? '🔴' : '⚠'}</span>
+    <span>
+     {results.generation_loss.verdict === 'likely_prior_lossy'
+      ? 'Prior lossy encode detected'
+      : 'Possible prior lossy encode'}
+     {' '}— {Math.round(results.generation_loss.probability * 100)}% probability.{' '}
+     {results.generation_loss.summary}
+    </span>
+   </div>
+  </div>
+ )}
+
  {/* Level match badge — in Atmos vs Stereo the downmix IS B, so the note is
  "downmix in player · level balanced" rather than the dB-delta number. */}
  {!isSolo && results.level_matched && !isAtmos && (

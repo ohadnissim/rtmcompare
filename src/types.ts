@@ -347,6 +347,15 @@ export interface AnalysisResult {
  tonal_issues?: TonalIssue[]
  reference_check?: ReferenceCheck
  file_warnings?: { type: string; message: string }[]
+ /** Generation-loss detector result — populated by python/generation_loss_detector.py.
+  * Absent when the detector is not installed or skipped for non-lossy inputs. */
+ generation_loss?: {
+  probability: number      // 0–1
+  verdict: 'likely_lossless' | 'suspect' | 'likely_prior_lossy'
+  summary: string
+  checks: { name: string; score: number; detail: string }[]
+  deployment_ready: boolean
+ } | null
  phase_bands_a?: { name: string; freq_range: string; correlation: number }[]
  phase_bands_b?: { name: string; freq_range: string; correlation: number }[]
  stereo_timeline_a?: { width: number[]; correlation: number[]; balance: number[] }

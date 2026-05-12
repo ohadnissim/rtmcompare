@@ -236,6 +236,15 @@ def certify(file_a: str, file_b: str) -> dict:
     sha_b = _sha256_file(file_b)
     dur_a = _file_duration(file_a)
     dur_b = _file_duration(file_b)
+
+    # Duration is a mandatory field — if soundfile can't read either file
+    # the analysis would be meaningless and the certificate would be
+    # misleading.  Refuse to sign rather than emit a null-duration cert.
+    if dur_a is None:
+        return {"error": f"Cannot read duration of reference file: {file_a}"}
+    if dur_b is None:
+        return {"error": f"Cannot read duration of comparison file: {file_b}"}
+
     lufs_a = _compute_lufs(file_a)
     lufs_b = _compute_lufs(file_b)
 

@@ -23,11 +23,33 @@ This module provides:
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Optional
+
+# ── Security: allowed directory for LTI private keys ─────────────────────────
+# All private key files MUST be stored under this directory.
+# Paths that escape via .. or absolute paths to other directories are rejected.
+_LTI_KEY_DIR = os.path.expanduser("~/.rtm/lti")
+
+
+def _validate_key_path(path: str) -> str:
+    """Resolve and validate that *path* is within _LTI_KEY_DIR.
+
+    Returns the resolved absolute path on success.
+    Raises ValueError with a safe message (no raw path in exception) on failure.
+    """
+    resolved = os.path.realpath(os.path.abspath(os.path.expanduser(path)))
+    allowed = os.path.realpath(_LTI_KEY_DIR)
+    if not resolved.startswith(allowed + os.sep) and resolved != allowed:
+        raise ValueError(
+            "private_key_path must be located inside ~/.rtm/lti/ — "
+            "path traversal or external key paths are not allowed."
+        )
+    return resolved
 
 
 @dataclass
@@ -79,7 +101,8 @@ def _build_client_assertion_jwt(config: LtiConfig) -> str:
     """
     try:
         import jwt  # type: ignore  (PyJWT)
-        with open(config.private_key_path, "r") as f:
+        safe_key_path = _validate_key_path(config.private_key_path)
+        with open(safe_key_path, "r") as f:
             private_key = f.read()
         now = int(time.time())
         claims = {
@@ -165,10 +188,17 @@ def save_config(config: LtiConfig, path: str) -> None:
 
 
 def load_config(path: str) -> LtiConfig:
-    """Load LTI config from a JSON file."""
+    """Load LTI config from a JSON file.
+
+    Validates private_key_path is within the allowed directory before
+    returning — prevents a tampered config from causing path traversal.
+    """
     with open(path) as f:
         data = json.load(f)
-    return LtiConfig(**data)
+    cfg = LtiConfig(**data)
+    # Validate early; raises ValueError if path escapes ~/.rtm/lti/
+    _validate_key_path(cfg.private_key_path)
+    return cfg
 
 
 if __name__ == "__main__":

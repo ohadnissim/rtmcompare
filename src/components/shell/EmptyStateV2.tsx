@@ -48,6 +48,10 @@ interface Props {
  /** Recent analyses count (for the "Recent ↘" link). */
  recents?: HistoryEntry[]
  onOpenRecents?: () => void
+ /** Non-null when the previous analysis attempt failed. Shown as a
+  * red callout above the drop frame so the user knows what went
+  * wrong before they try again. */
+ error?: string | null
 }
 
 export default function EmptyStateV2({
@@ -57,6 +61,7 @@ export default function EmptyStateV2({
  onBatch,
  recents,
  onOpenRecents,
+ error,
 }: Props) {
  const [recentsOpen, setRecentsOpen] = useState(false)
  const recentCount = recents?.length ?? 0
@@ -130,6 +135,31 @@ export default function EmptyStateV2({
  </span>
  </div>
  </header>
+
+ {/* Error callout — only visible after a failed analysis attempt.
+   Sits above the drop frame so the user sees it before re-dropping
+   files. Red left-border card keeps it visually distinct from the
+   editorial cover layout without being modal-level disruptive. */}
+ {error && (
+  <div
+   role="alert"
+   style={{
+    width: 'min(840px, 92%)',
+    marginInline: 'auto',
+    marginBottom: 16,
+    padding: '10px 16px',
+    borderLeft: '3px solid var(--color-error, #e05252)',
+    borderRadius: 'var(--radius-card)',
+    backgroundColor: 'color-mix(in srgb, var(--color-error, #e05252) 8%, transparent)',
+    color: 'var(--color-error, #e05252)',
+    fontFamily: 'var(--font-sans)',
+    fontSize: 'var(--text-sm, 0.875rem)',
+    lineHeight: 1.5,
+   }}
+  >
+   {error}
+  </div>
+ )}
 
  {/* The drop frame — a single dashed rectangle around the two
    FileDropZones (passed via children). Sized like a record

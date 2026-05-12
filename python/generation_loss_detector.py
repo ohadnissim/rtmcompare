@@ -29,6 +29,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 from dataclasses import dataclass, asdict
 
 try:
@@ -37,6 +38,14 @@ try:
 except ImportError:
     np = None  # type: ignore
     sf = None  # type: ignore
+
+# ── ArtifactNet ONNX session singleton ────────────────────────────────────────
+# Creating an ort.InferenceSession is expensive (~8 s for large models).
+# We cache the session and the model path it was loaded from so that
+# repeated calls within a daemon session pay only the first-load cost.
+_artifactnet_session: "object | None" = None
+_artifactnet_model_path: str | None = None
+_artifactnet_lock = threading.Lock()
 
 
 @dataclass
@@ -253,27 +262,51 @@ def check_vibrato_periodicity(mono: "np.ndarray", sr: int) -> GenerationLossChec
                                        "Audio too short or sample rate too low for vibrato check.")
 
         pitches = []
+        # Pre-compute FFT size for autocorrelation (reused every frame)
+        _fft_size = 1 << (frame_size.bit_length() + 1)  # next power-of-2 >= 2*frame_size
+        _taus = np.arange(max_period)
+
         for start in range(0, n - frame_size, hop):
             frame = chunk[start:start + frame_size]
-            # Difference function (YIN step 2)
-            d = np.zeros(max_period)
-            for tau in range(1, max_period):
-                diff = frame[:frame_size - tau] - frame[tau:frame_size]
-                d[tau] = float(np.dot(diff, diff))
-            # Cumulative mean normalised difference (YIN step 3)
+
+            # ── Vectorized YIN difference function (step 2) ──────────────────
+            # d[tau] = ||frame[:N-tau] - frame[tau:]||^2
+            #        = E_fwd[tau] + E_bwd[tau] - 2 * r[tau]
+            # where r[tau] is the unbiased autocorrelation at lag tau,
+            # computed in O(N log N) via FFT instead of O(N·max_period).
+            sqr = frame ** 2
+            cum_sqr = np.empty(frame_size + 1)
+            cum_sqr[0] = 0.0
+            np.cumsum(sqr, out=cum_sqr[1:])
+
+            # Autocorrelation at lags 0..max_period-1 via FFT
+            F = np.fft.rfft(frame, n=_fft_size)
+            r_full = np.fft.irfft(F * np.conj(F))[:max_period].real
+
+            e_fwd = cum_sqr[frame_size - _taus]   # sum x[0..N-tau-1]^2
+            e_bwd = cum_sqr[frame_size] - cum_sqr[_taus]  # sum x[tau..N-1]^2
+            d = e_fwd + e_bwd - 2.0 * r_full
+            d[0] = 0.0  # tau=0: d is always 0
+
+            # ── Vectorized CMND (step 3) ──────────────────────────────────────
+            # cmnd[0] = 1; cmnd[tau] = d[tau] * tau / cumsum(d)[tau]
+            d_cumsum = np.cumsum(d)
             cmnd = np.ones(max_period)
-            running = 0.0
-            for tau in range(1, max_period):
-                running += d[tau]
-                cmnd[tau] = d[tau] * tau / max(running, 1e-12)
-            # Find first minimum below threshold 0.1
-            found = False
-            for tau in range(min_period, max_period - 1):
-                if cmnd[tau] < 0.1 and cmnd[tau] < cmnd[tau - 1] and cmnd[tau] < cmnd[tau + 1]:
-                    pitches.append(sr / tau)
-                    found = True
-                    break
-            if not found:
+            valid = d_cumsum[1:] > 1e-12
+            cmnd[1:][valid] = d[1:][valid] * np.arange(1, max_period)[valid] / d_cumsum[1:][valid]
+
+            # ── Find first minimum below threshold 0.1 ────────────────────────
+            window_cmnd = cmnd[min_period:max_period - 1]
+            is_min = (
+                (window_cmnd < 0.1)
+                & (window_cmnd < cmnd[min_period - 1:max_period - 2])
+                & (window_cmnd < cmnd[min_period + 1:max_period])
+            )
+            indices = np.nonzero(is_min)[0]
+            if indices.size > 0:
+                tau = min_period + int(indices[0])
+                pitches.append(float(sr) / tau)
+            else:
                 pitches.append(0.0)  # unvoiced
 
         voiced = [p for p in pitches if p > 0]
@@ -358,8 +391,15 @@ def check_artifactnet(mono: "np.ndarray", sr: int) -> "GenerationLossCheck | Non
         return None
     try:
         import onnxruntime as ort  # type: ignore
-        # Load model (cached by ONNX Runtime's session cache after first load)
-        sess = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        # Reuse the module-level singleton session; create it once under a lock.
+        global _artifactnet_session, _artifactnet_model_path
+        with _artifactnet_lock:
+            if _artifactnet_session is None or _artifactnet_model_path != model_path:
+                _artifactnet_session = ort.InferenceSession(
+                    model_path, providers=["CPUExecutionProvider"]
+                )
+                _artifactnet_model_path = model_path
+        sess = _artifactnet_session
 
         # Resample to 16 kHz using linear interpolation (no librosa)
         target_sr = 16000

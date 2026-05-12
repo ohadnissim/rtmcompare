@@ -11,13 +11,15 @@ SDR ~10.5 (MUSDB18HQ) vs BS-RoFormer's SDR 9.66.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import shutil
+import sys
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import Dict, Optional, Type
+from typing import Callable, Dict, Optional, Tuple, Type
 
 from ._protocol import StemBackend
 
@@ -37,6 +39,15 @@ MEL_BAND_ROFORMER_4STEM_CONFIG_URL = (
     "config_large.yaml"
 )
 EXPECTED_4STEM_STEMS = ("drums", "bass", "other", "vocals")
+
+# SHA-256 digests of official model assets.  When a digest is present here
+# the downloader verifies the file after each download and raises
+# RuntimeError on mismatch — preventing silently corrupt checkpoints.
+# Leave as None to skip verification for a URL.
+_ASSET_SHA256: Dict[str, Optional[str]] = {
+    MEL_BAND_ROFORMER_4STEM_MODEL_URL: None,   # fill in once hash is confirmed
+    MEL_BAND_ROFORMER_4STEM_CONFIG_URL: None,  # fill in once hash is confirmed
+}
 
 
 def _default_model_dir() -> str:
@@ -90,21 +101,83 @@ class MelBandRoformer4StemBackend(StemBackend):
             if not self.download:
                 raise FileNotFoundError(f"Missing Mel-Band RoFormer checkpoint: {self.model_path}")
             logger.info("Downloading Mel-Band RoFormer 4-stem checkpoint to %s", self.model_path)
-            self._download_file(MEL_BAND_ROFORMER_4STEM_MODEL_URL, self.model_path)
+            self._download_file(
+                MEL_BAND_ROFORMER_4STEM_MODEL_URL,
+                self.model_path,
+                expected_sha256=_ASSET_SHA256.get(MEL_BAND_ROFORMER_4STEM_MODEL_URL),
+            )
 
         if not self.config_path.exists():
             if not self.download:
                 raise FileNotFoundError(f"Missing Mel-Band RoFormer config: {self.config_path}")
             logger.info("Downloading Mel-Band RoFormer 4-stem config to %s", self.config_path)
-            self._download_file(MEL_BAND_ROFORMER_4STEM_CONFIG_URL, self.config_path)
+            self._download_file(
+                MEL_BAND_ROFORMER_4STEM_CONFIG_URL,
+                self.config_path,
+                expected_sha256=_ASSET_SHA256.get(MEL_BAND_ROFORMER_4STEM_CONFIG_URL),
+            )
 
     @staticmethod
-    def _download_file(url: str, destination: Path) -> None:
+    def _download_file(
+        url: str,
+        destination: Path,
+        progress_cb: Optional[Callable[[int, int], None]] = None,
+        expected_sha256: Optional[str] = None,
+    ) -> None:
+        """Download *url* to *destination* with chunked progress and optional hash verification.
+
+        Args:
+            url: HTTPS URL of the asset to download.
+            destination: Final file path (written atomically via .part file).
+            progress_cb: Optional callback invoked as ``progress_cb(bytes_downloaded, total_bytes)``
+                every ~1 MiB.  ``total_bytes`` is -1 if Content-Length is absent.
+            expected_sha256: If supplied, the SHA-256 of the downloaded file is verified
+                against this hex digest.  RuntimeError is raised on mismatch and the
+                partial file is removed.
+        """
         tmp_path = destination.with_suffix(destination.suffix + ".part")
+        chunk_size = 1024 * 1024  # 1 MiB
         try:
             with urllib.request.urlopen(url, timeout=300) as response:
+                total = int(response.headers.get("Content-Length", -1))
+                downloaded = 0
+                hasher = hashlib.sha256()
+
                 with tmp_path.open("wb") as handle:
-                    shutil.copyfileobj(response, handle, length=1024 * 1024)
+                    while True:
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        handle.write(chunk)
+                        hasher.update(chunk)
+                        downloaded += len(chunk)
+                        if progress_cb is not None:
+                            try:
+                                progress_cb(downloaded, total)
+                            except Exception:
+                                pass  # never let a progress callback crash the download
+                        # Emit a stderr tick so the daemon's log shows activity
+                        if total > 0:
+                            pct = downloaded * 100 // total
+                            sys.stderr.write(
+                                f"\r[mel_band_roformer4stem] Downloading … {pct}%   "
+                            )
+                        sys.stderr.flush()
+
+            if total > 0:
+                sys.stderr.write("\n")
+                sys.stderr.flush()
+
+            if expected_sha256 is not None:
+                actual = hasher.hexdigest()
+                if actual != expected_sha256.lower():
+                    tmp_path.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"SHA-256 mismatch for {destination.name}: "
+                        f"expected {expected_sha256}, got {actual}. "
+                        "File removed — please retry."
+                    )
+
             tmp_path.replace(destination)
         except Exception:
             tmp_path.unlink(missing_ok=True)
