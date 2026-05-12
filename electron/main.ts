@@ -2023,12 +2023,13 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
       try {
         const sidecarPath = finalPath.replace(/\.pdf$/i, '.rtm-report.json')
         const sidecar = buildGradeRecord(payload, finalPath)
-        // Include blind test predictions if present
+        // Include blind test predictions and ear training progress if present
         const blindTest = payload?.blindTest ?? null
-        const sidecarWithBlindTest = blindTest
-          ? { ...sidecar as Record<string, unknown>, blindTest }
-          : sidecar
-        fs.writeFileSync(sidecarPath, JSON.stringify(sidecarWithBlindTest, null, 2), 'utf8')
+        const earTraining = (payload as any)?.earTraining ?? null
+        const fullSidecar: Record<string, unknown> = { ...sidecar as Record<string, unknown> }
+        if (blindTest) fullSidecar.blindTest = blindTest
+        if (earTraining) fullSidecar.earTraining = earTraining
+        fs.writeFileSync(sidecarPath, JSON.stringify(fullSidecar, null, 2), 'utf8')
       } catch { /* sidecar write is best-effort, never fail the PDF */ }
       return { ok: true, path: finalPath }
     } catch (err: any) {

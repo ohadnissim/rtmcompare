@@ -599,6 +599,76 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                     )
                   })()}
 
+                  {/* Sub-section C: Ear Training class-wide stats */}
+                  {(() => {
+                    const etRecords = records.filter(r => {
+                      const et = (r as any).earTraining
+                      return et && et.totalAttempts > 0
+                    })
+                    if (etRecords.length === 0) return null
+                    const etCount = etRecords.length
+
+                    // Average overall accuracy across the class
+                    const avgAccuracy = etRecords.reduce((s, r) => {
+                      const et = (r as any).earTraining
+                      const acc = et.totalAttempts > 0 ? et.totalCorrect / et.totalAttempts : 0
+                      return s + acc
+                    }, 0) / etCount
+
+                    // Total drills practised across the class
+                    const totalDrills = etRecords.reduce((s, r) => {
+                      const et = (r as any).earTraining
+                      return s + (et.totalAttempts ?? 0)
+                    }, 0)
+
+                    // Class-wide weak bands — aggregate perOption across frequency_id drill
+                    const bandAgg: Record<string, { correct: number; attempts: number }> = {}
+                    etRecords.forEach(r => {
+                      const et = (r as any).earTraining
+                      const freqDrill = et?.drills?.frequency_id
+                      if (!freqDrill?.perOption) return
+                      for (const [band, stats] of Object.entries(freqDrill.perOption)) {
+                        const s = stats as { correct: number; attempts: number }
+                        if (!bandAgg[band]) bandAgg[band] = { correct: 0, attempts: 0 }
+                        bandAgg[band].correct += s.correct
+                        bandAgg[band].attempts += s.attempts
+                      }
+                    })
+                    const weakBandsClass = Object.entries(bandAgg)
+                      .filter(([, v]) => v.attempts >= 5)
+                      .map(([band, v]) => ({ band, acc: v.correct / v.attempts, attempts: v.attempts }))
+                      .sort((a, b) => a.acc - b.acc)
+                      .slice(0, 5)
+
+                    return (
+                      <div>
+                        <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                          Ear Training (Golden Ears Curriculum)
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <div>{etCount} student{etCount !== 1 ? 's' : ''} practised ear training</div>
+                          <div>Class avg accuracy: <span style={{ color: 'var(--color-accent)' }}>{(avgAccuracy * 100).toFixed(0)}%</span></div>
+                          <div>Total drills completed: <span style={{ color: 'var(--color-sand-400)' }}>{totalDrills}</span></div>
+                          {weakBandsClass.length > 0 && (
+                            <div style={{ marginTop: 6 }}>
+                              <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(220,80,60,0.85)', marginBottom: 4 }}>
+                                Class-wide weakest bands (Frequency ID)
+                              </div>
+                              {weakBandsClass.map(b => (
+                                <div key={b.band} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '2px 0' }}>
+                                  <span style={{ color: 'rgba(168,161,150,0.85)' }}>{b.band}</span>
+                                  <span style={{ color: b.acc >= 0.7 ? '#7bc49e' : b.acc >= 0.4 ? 'rgba(208,176,102,0.85)' : '#e07060', fontWeight: 600 }}>
+                                    {(b.acc * 100).toFixed(0)}% ({b.attempts})
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
                 </div>
               )}
             </div>

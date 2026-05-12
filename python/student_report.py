@@ -749,6 +749,96 @@ def build_html(payload):
                 '</div>'
             )
 
+    # ── Ear Training progress section ──────────────────────────────
+    ear_training = payload.get('earTraining') or {}
+    ear_training_section = ''
+    if ear_training and ear_training.get('totalAttempts', 0) > 0:
+        DRILL_LABELS = {
+            'frequency_id': 'Frequency ID',
+            'eq_direction': 'EQ Direction',
+            'q_width':      'Q Width',
+            'compression':  'Compression',
+            'reverb_time':  'Reverb Time',
+            'distortion':   'Distortion',
+        }
+        total_attempts = ear_training.get('totalAttempts', 0)
+        total_correct = ear_training.get('totalCorrect', 0)
+        overall = (total_correct / total_attempts * 100) if total_attempts > 0 else 0
+        unlocked = ear_training.get('unlocked', [])
+        drills = ear_training.get('drills', {}) or {}
+
+        # Per-drill rows
+        drill_rows = ''
+        for drill_id in ['frequency_id', 'eq_direction', 'q_width', 'compression', 'reverb_time', 'distortion']:
+            stats = drills.get(drill_id) or {}
+            attempts = stats.get('attempts', 0)
+            correct = stats.get('correct', 0)
+            if attempts == 0:
+                continue
+            acc = (correct / attempts * 100) if attempts > 0 else 0
+            best_streak = stats.get('bestStreak', 0)
+            level = stats.get('lastDifficulty', 'beginner')
+            color = '#7bc49e' if acc >= 70 else '#d0b066' if acc >= 40 else '#e07060'
+            drill_rows += (
+                '<tr>'
+                f'<td style="padding:6px 10px;color:#a8a197;font-size:11px;width:170px;">{esc(DRILL_LABELS.get(drill_id, drill_id))}</td>'
+                f'<td style="padding:6px 10px;font-size:11px;color:#7a7368;width:80px;">{esc(level)}</td>'
+                f'<td style="padding:6px 10px;font-size:11px;color:#c8c0b0;text-align:right;width:90px;">{correct}/{attempts}</td>'
+                f'<td style="padding:6px 10px;font-size:11px;text-align:right;width:80px;color:{color};font-weight:600;">{acc:.0f}%</td>'
+                f'<td style="padding:6px 10px;font-size:11px;color:#7a7368;text-align:right;">best streak {best_streak}</td>'
+                '</tr>'
+            )
+
+        # Weak-bands heat-map for frequency_id (top 5)
+        freq_drill = drills.get('frequency_id') or {}
+        per_option = freq_drill.get('perOption') or {}
+        weak_bands_html = ''
+        weak_list = [
+            (band, v.get('correct', 0) / v.get('attempts', 1), v.get('attempts', 0))
+            for band, v in per_option.items()
+            if v.get('attempts', 0) >= 3
+        ]
+        weak_list.sort(key=lambda t: t[1])
+        weak_list = weak_list[:5]
+        if weak_list:
+            wrows = ''
+            for band, acc, attempts in weak_list:
+                pct = acc * 100
+                color = '#7bc49e' if acc >= 0.7 else '#d0b066' if acc >= 0.4 else '#e07060'
+                wrows += (
+                    '<tr>'
+                    f'<td style="padding:4px 10px;font-size:11px;color:#c8c0b0;">{esc(band)}</td>'
+                    f'<td style="padding:4px 10px;font-size:11px;color:#7a7368;text-align:right;">{attempts} attempts</td>'
+                    f'<td style="padding:4px 10px;font-size:11px;text-align:right;color:{color};font-weight:600;">{pct:.0f}%</td>'
+                    '</tr>'
+                )
+            weak_bands_html = (
+                '<div style="margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.05);">'
+                '<div style="font-size:10px;color:#6b6560;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">Weakest bands (Frequency ID)</div>'
+                '<table style="width:100%;border-collapse:collapse;">'
+                + wrows +
+                '</table>'
+                '</div>'
+            )
+
+        ear_training_section = (
+            '<div style="margin-bottom:28px;">'
+            '<div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#6b6560;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);">'
+            'Ear Training Progress (Golden Ears Curriculum)'
+            f'<span style="color:#d0b066;font-size:10px;margin-left:8px;">{overall:.0f}% overall · {total_attempts} drills · {len(unlocked)}/6 unlocked</span>'
+            '</div>'
+            '<div style="font-size:11px;color:#7a7368;margin-bottom:10px;">'
+            "Cumulative ear-training drill performance across all sessions. The student practiced "
+            f'<strong style="color:#c8c0b0;">{total_attempts}</strong> identification questions '
+            f'with <strong style="color:#c8c0b0;">{overall:.0f}%</strong> accuracy.'
+            '</div>'
+            '<table style="width:100%;border-collapse:collapse;">'
+            + drill_rows +
+            '</table>'
+            + weak_bands_html +
+            '</div>'
+        )
+
     # ── Recommendations (top 3) ──────────────────────────────────────
     # Sort by priority field descending; fall back to order.
     # Guard: recs may contain non-dict items (strings, etc.) — skip them
@@ -939,6 +1029,8 @@ def build_html(payload):
 {blind_test_section}
 
 {step_answers_section}
+
+{ear_training_section}
 
 {recs_section}
 

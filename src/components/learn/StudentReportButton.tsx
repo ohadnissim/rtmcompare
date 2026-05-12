@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
-import type { AssignmentConfig, LearnAnnotation, BlindTestPredictions } from '../../types'
+import type { AssignmentConfig, LearnAnnotation, BlindTestPredictions, EarTrainingProgress } from '../../types'
+import { loadProgress as loadEarTrainingProgress } from './eartraining/progressStore'
 
 const STORAGE_PREFIX = 'rtm-learn-answer-'
 
@@ -28,6 +29,8 @@ interface StudentReportPayload {
   studentId: string
   /** Per-step written answers from StudentWorkspace — keyed by step ID */
   stepAnswers: Record<string, string>
+  /** Golden Ears-style ear training progress (cumulative across all sessions) */
+  earTraining: EarTrainingProgress
 }
 
 interface Props {
@@ -66,6 +69,7 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
       studentName,
       studentId,
       stepAnswers: loadAllStepAnswers(),
+      earTraining: loadEarTrainingProgress(),
     }
 
     const TIMEOUT_MS = 30_000
