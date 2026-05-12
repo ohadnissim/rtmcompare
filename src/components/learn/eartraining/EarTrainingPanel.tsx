@@ -40,7 +40,7 @@ import {
   pickRandom,
   REFERENCE_CLIPS,
 } from './audioEngine'
-import type { ReferenceClipId } from './audioEngine'
+import type { ReferenceClipId, PlayHandle } from './audioEngine'
 
 interface Props {
   onClose: () => void
@@ -137,6 +137,12 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   const engine = React.useMemo(() => getEarTrainingEngine(), [])
 
   // Load File A only when the user picks it as the source (procedural clips don't need a file).
+  // MED-21 fix: track the current activeClip via ref so the resolved `then` callback can
+  // bail if the user switched clips mid-load. Previously the stale callback would call
+  // engine.setActiveClip('loaded_file_a') even after the user picked pink_noise, desyncing
+  // the engine from the UI.
+  const activeClipRef = React.useRef<ReferenceClipId>(activeClip)
+  React.useEffect(() => { activeClipRef.current = activeClip }, [activeClip])
   React.useEffect(() => {
     if (activeClip !== 'loaded_file_a') {
       engine.setActiveClip(activeClip)
@@ -151,7 +157,14 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
       return
     }
     engine.loadSource(fileAPath, fileAName).then(
-      () => { if (!cancelled) { engine.setActiveClip('loaded_file_a'); setSourceLoaded(true); setLoadError(null) } },
+      () => {
+        if (cancelled) return
+        // MED-21: only commit the load if the user is STILL on loaded_file_a.
+        if (activeClipRef.current !== 'loaded_file_a') return
+        engine.setActiveClip('loaded_file_a')
+        setSourceLoaded(true)
+        setLoadError(null)
+      },
       (err) => { if (!cancelled) setLoadError(err?.message || 'Failed to load audio') }
     )
     return () => { cancelled = true; engine.stop() }
@@ -197,40 +210,57 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   }
 
   // ── Audio playback handlers ────────────────────────────────────
+  // MED-23 fix: wrap every play in try/finally so playingLabel always clears,
+  // even if the engine throws (e.g. AudioContext was closed by an external dispose).
   async function playReference() {
     setPlayingLabel('Reference')
-    await engine.playReference(6).done
-    setPlayingLabel(null)
+    try {
+      await engine.playReference(6).done
+    } finally {
+      setPlayingLabel(null)
+    }
   }
 
+  // MED-22 fix: explicit type annotation on `handle` + exhaustiveness default.
+  // Previously `let handle` was implicit any; if a new drill kind was added to the
+  // type but not handled here, `handle` stayed undefined and `await handle.done`
+  // threw a TypeError. Now TS enforces the discriminated-union check and the
+  // default branch throws a clear error.
   async function playProcessed() {
     if (!question) return
     setPlayingLabel('Modified')
-    let handle
-    switch (question.kind) {
-      case 'frequency_id':
-      case 'eq_direction':
-        handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: DEFAULT_Q })
-        break
-      case 'q_width':
-        handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: question.q })
-        break
-      case 'compression':
-        handle = question.isCompressed
-          ? engine.playWithCompression({ threshold: -20, ratio: 8, attack: 0.003, release: 0.1, makeup: 6 })
-          : engine.playReference()
-        break
-      case 'reverb_time':
-        handle = engine.playWithReverb({ decaySec: question.decaySec, mix: 0.45 })
-        break
-      case 'distortion':
-        handle = question.isDistorted
-          ? engine.playWithDistortion({ drive: question.drive })
-          : engine.playReference()
-        break
+    try {
+      let handle: PlayHandle
+      switch (question.kind) {
+        case 'frequency_id':
+        case 'eq_direction':
+          handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: DEFAULT_Q })
+          break
+        case 'q_width':
+          handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: question.q })
+          break
+        case 'compression':
+          handle = question.isCompressed
+            ? engine.playWithCompression({ threshold: -20, ratio: 8, attack: 0.003, release: 0.1, makeup: 6 })
+            : engine.playReference()
+          break
+        case 'reverb_time':
+          handle = engine.playWithReverb({ decaySec: question.decaySec, mix: 0.45 })
+          break
+        case 'distortion':
+          handle = question.isDistorted
+            ? engine.playWithDistortion({ drive: question.drive })
+            : engine.playReference()
+          break
+        default: {
+          const _exhaustive: never = question
+          throw new Error(`Unhandled drill kind: ${(_exhaustive as { kind: string }).kind}`)
+        }
+      }
+      await handle.done
+    } finally {
+      setPlayingLabel(null)
     }
-    if (handle) await handle.done
-    setPlayingLabel(null)
   }
 
   // ── Render ─────────────────────────────────────────────────────
