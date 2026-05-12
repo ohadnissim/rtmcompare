@@ -430,6 +430,10 @@ def _true_peak_and_overs(y: np.ndarray) -> tuple[float, int]:
     events = 0
     for ch in channels:
         n = len(ch)
+        # LOW iter-4: carry the last upsampled sample's over-threshold state
+        # across chunks so a sustained clip spanning two chunks isn't
+        # double-counted as two rising-edge events.
+        prev_last_over = np.int8(0)
         for start in range(0, n, CHUNK):
             segment = ch[start:start + CHUNK]
             up = resample_poly(segment, 4, 1)
@@ -437,7 +441,9 @@ def _true_peak_and_overs(y: np.ndarray) -> tuple[float, int]:
             worst = max(worst, float(np.max(abs_up)))
             over = abs_up > 1.0
             if over.any():
-                events += int((np.diff(over.astype(np.int8), prepend=0) == 1).sum())
+                over_i8 = over.astype(np.int8)
+                events += int((np.diff(over_i8, prepend=prev_last_over) == 1).sum())
+            prev_last_over = np.int8(1) if (len(over) > 0 and over[-1]) else np.int8(0)
     tp_db = 20 * np.log10(max(worst, 1e-10))
     return round(float(tp_db), 1), events
 

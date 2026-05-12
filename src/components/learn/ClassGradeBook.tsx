@@ -235,6 +235,18 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     return sortDir === 'asc' ? cmp : -cmp
   }), [records, draftOverrides, sortCol, sortDir])
 
+  // ITER4-PERF: pre-index rubric rows by criterion label so the Insights
+  // section can do O(1) lookups instead of O(N) .find() per criterion per render.
+  // Previously: criterionNames.map → records.map(r => r.rubric?.find(…)) = O(N×C) every keystroke.
+  const criterionRowsMap = useMemo(() => {
+    const map = new Map<string, RubricRow[]>()
+    records.forEach(r => r.rubric?.forEach(row => {
+      if (!map.has(row.label)) map.set(row.label, [])
+      map.get(row.label)!.push(row)
+    }))
+    return map
+  }, [records])
+
   const submitted = records.length
   const avgPct = records.length > 0
     ? Math.round(records.reduce((s, r) => s + (r.pct ?? 0), 0) / records.length * 10) / 10
@@ -567,6 +579,9 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
         {/* Class Insights */}
         {records.length > 0 && (() => {
           // Per-criterion analytics
+          // ITER4-PERF: criterionNames derived from records[0] is cheap.
+          // rowsForCriterion is computed inline below using the memoized
+          // criterionRowsMap to avoid O(N×C) .find() per criterion per render.
           const criterionNames: string[] = records[0]?.rubric?.map(r => r.label) ?? []
           // hasBlindTest computed by useMemo above — use directly
 
@@ -610,7 +625,8 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                         Per-Criterion Performance
                       </div>
                       {criterionNames.map((criterion, idx) => {
-                        const rowsForCriterion = records.map(r => r.rubric?.find(row => row.label === criterion)).filter(Boolean) as RubricRow[]
+                        // ITER4-PERF: O(1) lookup via pre-indexed map instead of O(N) .find() per criterion
+                        const rowsForCriterion = criterionRowsMap.get(criterion) ?? []
                         if (!rowsForCriterion.length) return null
                         let full = 0, partial = 0, zero = 0, totalPct = 0
                         rowsForCriterion.forEach(row => {

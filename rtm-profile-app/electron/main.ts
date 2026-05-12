@@ -20,15 +20,20 @@ function resolvePython(): { python: string; reason: string } {
   // In dev (unpackaged), `process.resourcesPath` points at electron's own
   // resources dir — no bundle there. Fall back to the project's
   // ../python-bundle so dev runs work without install.
-  const inAppMac = path.join(process.resourcesPath, 'python-bundle', 'python', 'bin', 'python3')
+  // ITER4: arch-aware bundle selection — arm64 uses python-bundle, Intel uses python-bundle-intel.
+  const isArm = process.arch === 'arm64'
+  const inAppMacBundleName = isArm ? 'python-bundle' : 'python-bundle-intel'
+  const inAppMac = path.join(process.resourcesPath, inAppMacBundleName, 'python', 'bin', 'python3')
   const inAppWin = path.join(process.resourcesPath, 'python-bundle-win', 'python', 'python.exe')
-  const devMac = path.resolve(__dirname, '..', '..', '..', 'python-bundle', 'python', 'bin', 'python3')
+  const devMacBundleName = isArm ? 'python-bundle' : 'python-bundle-intel'
+  const devMac = path.resolve(__dirname, '..', '..', '..', devMacBundleName, 'python', 'bin', 'python3')
   const devWin = path.resolve(__dirname, '..', '..', '..', 'python-bundle-win', 'python', 'python.exe')
 
   const candidates = process.platform === 'darwin'
     ? [
         inAppMac,
         devMac,
+        // Legacy fallback: RTMcompare's arm64 bundle (may fail on Intel)
         '/Applications/RTMcompare.app/Contents/Resources/python-bundle/python/bin/python3',
       ]
     : process.platform === 'win32'

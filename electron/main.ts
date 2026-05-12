@@ -590,6 +590,10 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
   if (!Array.isArray(filePaths) || filePaths.length === 0) {
     throw new Error('analyze-batch: filePaths must be a non-empty array')
   }
+  // ITER4-SEC: cap to 500 files to prevent unbounded Python process spawning
+  if (filePaths.length > 500) {
+    throw new Error('analyze-batch: too many files (max 500)')
+  }
   for (const p of filePaths) assertSafeAudioPath(p, 'analyze-batch')
   const isPackaged = app.isPackaged
   const basePath = isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
@@ -1789,8 +1793,9 @@ ipcMain.handle('master-chain-render', async (_event, srcPath: string, config: an
 // `${sha1(srcPath+mtime+dsp+lufs)}.m4a` so repeated auditions of the same
 // (file, DSP) pair hit disk once.  Cache cleared on app quit.
 const ENCODED_PREVIEW_DIR = path.join(require('os').tmpdir(), 'rtm-encoded-preview')
-// MED-9: allowlist for dsp argv — only known platform IDs accepted.
-const VALID_DSP_IDS = new Set(['none','spotify','apple_music','youtube','tidal','amazon_hd','soundcloud','deezer'])
+// CRIT-20: allowlist for dsp argv — IDs must match _DSP_TARGETS in encoded_preview.py exactly.
+// Previous list used wrong IDs (apple_music, amazon_hd, etc.) — Python accepts the short forms.
+const VALID_DSP_IDS = new Set(['apple','spotify','spotifyLoud','amazon','tidal','youtube'])
 ipcMain.handle('encoded-preview-render', async (_event, srcPath: string, dsp: string, integratedLufs: number | null, windowStartSec?: number | null) => {
   try { assertSafeAudioPath(srcPath, 'encoded-preview-render') }
   catch (err: any) { return { ok: false, error: err?.message || 'invalid source path' } }
@@ -2612,6 +2617,10 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     // else is rejected before the request is built. Same charset Canvas itself
     // accepts for SIS user IDs.
 
+    // ITER4-SEC: cap grades array to prevent main-process heap pressure + oversized Canvas POST
+    if (!Array.isArray(payload.grades) || payload.grades.length > 1000) {
+      return { ok: false, error: 'grades array invalid or exceeds 1000 entries.' }
+    }
     const gradeData: Record<string, { posted_grade: string }> = {}
     const rejected: string[] = []
     for (const g of payload.grades) {

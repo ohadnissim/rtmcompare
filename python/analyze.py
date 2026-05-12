@@ -318,16 +318,21 @@ def main():
     os.makedirs(_stems_root, exist_ok=True)
     stems_dir = os.path.join(_stems_root, f"run_{uuid.uuid4().hex[:8]}")
     os.makedirs(stems_dir, exist_ok=True)
-    # Prune stale runs older than 2 h
+    # Prune stale runs older than 2 h; also cap at 10 dirs to bound disk use
+    # in rapid-succession deep-scan scenarios.
     _prune_cutoff = time.time() - 7200
-    for _entry in os.listdir(_stems_root):
-        _p = os.path.join(_stems_root, _entry)
-        if os.path.isdir(_p) and _p != stems_dir:
-            try:
-                if os.path.getmtime(_p) < _prune_cutoff:
-                    shutil.rmtree(_p, ignore_errors=True)
-            except OSError:
-                pass
+    _existing = sorted(
+        [_p for _entry in os.listdir(_stems_root)
+         if os.path.isdir(_p := os.path.join(_stems_root, _entry)) and _p != stems_dir],
+        key=lambda _p: os.path.getmtime(_p)
+    )
+    for _p in _existing:
+        try:
+            if os.path.getmtime(_p) < _prune_cutoff or len(_existing) > 10:
+                shutil.rmtree(_p, ignore_errors=True)
+                _existing.remove(_p)
+        except OSError:
+            pass
 
     try:
         # Check reference quality first

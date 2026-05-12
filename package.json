@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
     "build": "python3 scripts/generate_specs.py && tsc -p tsconfig.electron.json && vite build",
-    "pack": "npm run build && electron-builder --mac",
+    "pack": "node -e \"const fs=require('fs');if(!fs.existsSync('python-bundle/python')){console.error('ERROR: python-bundle/python missing (arm64 bundle).');process.exit(1);}if(!fs.existsSync('python-bundle-intel/python')){console.error('ERROR: python-bundle-intel/python missing (Intel bundle). Run scripts/setup-python-bundle-intel.sh or ask the release team.');process.exit(1);}\" && npm run build && electron-builder --mac",
     "pack:win": "node -e \"const fs=require('fs');if(!fs.existsSync('python-bundle-win/python')){console.error('ERROR: python-bundle-win/python missing. See python-bundle-win/README.txt for setup instructions.');process.exit(1);}\" && npm run build && electron-builder --win --publish=never",
     "dev:vite": "vite",
     "dev:electron": "tsc -p tsconfig.electron.json && electron ."
