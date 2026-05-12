@@ -179,9 +179,12 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   }, [])
 
   // Auto-scan when opened with a folder
+  // LOW-21: include `scan` in deps — it is stable (useCallback) but the
+  // linter correctly flags its absence.
   useEffect(() => {
     if (open && folder) scan(folder)
-  }, [open, folder])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, folder, scan])
 
   // Check if LMS is configured
   useEffect(() => {
@@ -205,11 +208,16 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   if (!open) return null
 
-  // Derive unified column headers from all records' rubric labels
-  const allLabels: string[] = []
-  records.forEach(r => r.rubric?.forEach(row => {
-    if (!allLabels.includes(row.label)) allLabels.push(row.label)
-  }))
+  // NIT-3: memoize allLabels — was rebuilt O(N×M) on every keystroke render
+  // (feedback textarea is a controlled component; each character triggers a
+  // re-render that previously re-scanned every record's rubric row).
+  const allLabels = useMemo(() => {
+    const labels: string[] = []
+    records.forEach(r => r.rubric?.forEach(row => {
+      if (!labels.includes(row.label)) labels.push(row.label)
+    }))
+    return labels
+  }, [records])
 
   // MED-25 fix: memoize the sort. Before this, every render (including every
   // keystroke in the feedback textarea — which is a controlled component on
@@ -835,11 +843,17 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                             onClick={() => {
                               const currentIsDraft = draftOverrides[rec.reportPath ?? ''] ?? rec.isDraft ?? false
                               setDraftOverrides(prev => ({ ...prev, [rec.reportPath ?? '']: !currentIsDraft }))
-                              // If there are exactly 2 records for this student, flip the sibling too
-                              const siblings = records.filter(r =>
-                                (r.studentName || '').trim().toLowerCase() === (rec.studentName || '').trim().toLowerCase()
-                                && r.reportPath !== rec.reportPath
-                              )
+                              // LOW-20: match on studentId first (unique), fall back to
+                              // studentName only when id is absent. Matching on name alone
+                              // broke multi-assignment folders where two different students
+                              // share a first name or a teacher has duplicate name entries.
+                              const siblings = records.filter(r => {
+                                if (r.reportPath === rec.reportPath) return false
+                                if (rec.studentId && r.studentId) {
+                                  return r.studentId.trim() === rec.studentId.trim()
+                                }
+                                return (r.studentName || '').trim().toLowerCase() === (rec.studentName || '').trim().toLowerCase()
+                              })
                               if (siblings.length === 1) {
                                 setDraftOverrides(prev => ({ ...prev, [siblings[0].reportPath ?? '']: currentIsDraft }))
                               }

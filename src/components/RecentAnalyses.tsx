@@ -153,7 +153,8 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
        <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>Clear the entire history log?</div>
        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
          <button onClick={() => setConfirmClear(false)} style={{ background: 'transparent', border: '1px solid rgba(168,161,150,0.3)', borderRadius: 2, color: 'var(--color-sand-400)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Cancel</button>
-         <button autoFocus onClick={() => { setConfirmClear(false); try { onClear?.() } catch { /* ignore */ } }} style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Clear</button>
+         {/* LOW-18: don't swallow onClear errors silently — let them surface */}
+         <button autoFocus onClick={() => { setConfirmClear(false); onClear?.() }} style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Clear</button>
        </div>
      </div>
    </div>

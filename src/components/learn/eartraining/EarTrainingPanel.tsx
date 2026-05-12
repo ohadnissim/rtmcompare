@@ -321,7 +321,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
         style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         tabIndex={-1}
         onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false) }}
-        ref={el => el?.focus()}
+        ref={React.useCallback((el: HTMLDivElement | null) => el?.focus(), [])}
       >
         <div style={{ background: 'rgba(28,26,22,0.98)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: 4, padding: '24px 28px', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>Reset all ear training progress?</div>

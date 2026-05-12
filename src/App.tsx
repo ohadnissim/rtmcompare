@@ -31,6 +31,7 @@ import ShortcutHelp from './components/ShortcutHelp'
 import AnalysisTour, { useAnalysisTourState } from './components/AnalysisTour'
 import RefOnlyTour, { useRefOnlyTourState } from './components/RefOnlyTour'
 import ProfileDropdown from './components/ProfileDropdown'
+import ErrorBoundary from './components/ErrorBoundary'
 
 interface ProfileInfo {
  id: string
@@ -937,7 +938,11 @@ export default function App() {
  fileBPath={fileB?.path ?? null}
  analysisResult={results}
  />
- <StudentWorkspace />
+ {/* MED-12: ErrorBoundary isolates Learn Mode so a render crash
+      in ClassGradeBook/LmsExportPanel doesn't unmount the whole app. */}
+ <ErrorBoundary label="Learn Mode">
+   <StudentWorkspace />
+ </ErrorBoundary>
 
  <main className="max-w-5xl mx-auto px-8 py-6" style={{ paddingRight: 'calc(32px + var(--rtm-student-sidebar-width, 0px))', transition: 'padding-right 0.2s ease' }}>
  {/* ReleaseCockpit removed — Label mode is shelved while we
