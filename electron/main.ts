@@ -2598,11 +2598,15 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     const rejectedSuffix = rejected.length > 0
       ? ` ${rejected.length} student${rejected.length !== 1 ? 's' : ''} rejected for invalid Student ID format: ${rejected.slice(0, 3).join(', ')}${rejected.length > 3 ? '…' : ''}.`
       : ''
+    // LOW fix: skipped previously included rejected (double-counted). Now
+    // skipped = students with no SIS ID at all; rejected = students with an
+    // invalid SIS ID format. Both are non-overlapping subsets of (total - submitted).
+    const noSisId = payload.grades.length - Object.keys(gradeData).length - rejected.length
     return {
       ok: true,
       submitted: Object.keys(gradeData).length,
       total: payload.grades.length,
-      skipped: payload.grades.length - Object.keys(gradeData).length,
+      skipped: noSisId,
       rejected: rejected.length,
       message: `Submitted ${Object.keys(gradeData).length} grades to Canvas. Grades may take a moment to appear.${rejectedSuffix}`,
     }

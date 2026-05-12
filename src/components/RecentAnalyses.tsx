@@ -23,6 +23,7 @@ interface Props {
  */
 export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  const [expanded, setExpanded] = useState(false)
+ const [confirmClear, setConfirmClear] = useState(false)
 
  // Collapse to the most recent entry per file-SHA so a track analysed 10
  // times in a row doesn't drown the list. Sorted newest first, capped at
@@ -59,6 +60,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  }
 
  return (
+ <>
  <div className="space-y-2">
  <div className="flex items-center justify-between">
  <span className="text-[10px] uppercase tracking-[0.15em] text-sand-500">Recent analyses</span>
@@ -68,7 +70,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  </span>
  {onClear && (
  <button
- onClick={() => { if (confirm('Clear the entire history log?')) onClear() }}
+ onClick={() => setConfirmClear(true)}
  className="text-[10px] text-sand-400 hover:text-warm-red transition-colors"
  title="Clear the whole history log"
  >
@@ -139,5 +141,18 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  </button>
  )}
  </div>
+ {/* LOW: in-app confirm replaces window.confirm for clear history */}
+ {confirmClear && (
+   <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+     <div style={{ background: 'rgba(28,26,22,0.98)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: 4, padding: '24px 28px', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14 }}>
+       <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>Clear the entire history log?</div>
+       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+         <button onClick={() => setConfirmClear(false)} style={{ background: 'transparent', border: '1px solid rgba(168,161,150,0.3)', borderRadius: 2, color: 'var(--color-sand-400)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Cancel</button>
+         <button onClick={() => { setConfirmClear(false); onClear?.() }} style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Clear</button>
+       </div>
+     </div>
+   </div>
+ )}
+ </>
  )
 }

@@ -135,6 +135,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   // Pink noise is the default — it's the Golden Ears standard for frequency ID
   // and doesn't require File A to be loaded.
   const [activeClip, setActiveClipState] = React.useState<ReferenceClipId>('pink_noise')
+  const [confirmReset, setConfirmReset] = React.useState(false)  // LOW: replace confirm()
 
   const engine = React.useMemo(() => getEarTrainingEngine(), [])
 
@@ -309,6 +310,20 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
 
   // ── Render ─────────────────────────────────────────────────────
   return (
+    <>
+    {/* LOW: in-app confirm replaces bare confirm() for reset progress */}
+    {confirmReset && (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: 'rgba(28,26,22,0.98)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: 4, padding: '24px 28px', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>Reset all ear training progress?</div>
+          <div style={{ fontSize: 11, color: 'var(--color-sand-400)' }}>All drill scores and unlock progress will be cleared.</div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={() => setConfirmReset(false)} style={{ background: 'transparent', border: '1px solid rgba(168,161,150,0.3)', borderRadius: 2, color: 'var(--color-sand-400)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { setConfirmReset(false); setProgress(resetProgress()) }} style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Reset</button>
+          </div>
+        </div>
+      </div>
+    )}
     <div
       data-eartraining-open="true"
       style={{
@@ -371,7 +386,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
           onClipChange={(id) => setActiveClipState(id)}
           onStartDrill={startDrill}
           onOpenHeatMap={() => setScreen('heatmap')}
-          onReset={() => { if (confirm('Reset all ear training progress?')) setProgress(resetProgress()) }}
+          onReset={() => setConfirmReset(true)}
         />
       )}
 
@@ -395,6 +410,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
         <HeatMapScreen progress={progress} />
       )}
     </div>
+    </>
   )
 }
 
