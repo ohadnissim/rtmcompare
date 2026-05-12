@@ -69,6 +69,8 @@ declare global {
  selectFolder?: () => Promise<string | null>
  listAudioFiles?: (dirPath: string) => Promise<{ path: string; name: string; size: number }[]>
  analyzeBatch?: (filePaths: string[], options?: { deep?: boolean; deepWorkers?: number }) => Promise<{
+ ok: boolean
+ error?: string
  results: import('./types').BatchResult[]
  /** Populated when options.deep = true. Keyed by absolute path;
  * each value is the full single-file AnalysisResult (same shape
@@ -820,6 +822,7 @@ export default function App() {
  // a different workflow needs it.
  const res = await window.electronAPI.analyzeBatch(files.map(f => f.path))
  unsubBatchProgress?.()
+ if (!res.ok) throw new Error(res.error || 'Batch analysis failed')
  setBatchResults(res.results)
  setBatchFolderName(folder.split(/[\\/]/).pop() || folder)
  // Fresh analysis — drop any previously-loaded session so the new

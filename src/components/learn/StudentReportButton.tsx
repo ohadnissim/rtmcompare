@@ -105,19 +105,21 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
       <button
         onClick={handleExport}
-        disabled={loading}
+        disabled={loading || !analysisResult}
+        title={!analysisResult ? 'Run an analysis first before exporting your report' : undefined}
         style={{
           border: '1px solid rgba(208,176,102,0.4)',
           borderRadius: '2px',
           background: 'none',
-          color: loading ? 'var(--color-sand-400)' : 'var(--color-text-primary)',
+          color: (loading || !analysisResult) ? 'var(--color-sand-400)' : 'var(--color-text-primary)',
           fontSize: 11,
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
           padding: '6px 14px',
-          cursor: loading ? 'not-allowed' : 'pointer',
+          cursor: (loading || !analysisResult) ? 'not-allowed' : 'pointer',
           fontFamily: 'inherit',
           transition: 'border-color 0.15s',
+          opacity: !analysisResult ? 0.45 : 1,
         }}
       >
         {loading ? 'Exporting…' : 'Export Report'}

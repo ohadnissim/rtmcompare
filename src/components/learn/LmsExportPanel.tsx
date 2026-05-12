@@ -118,9 +118,7 @@ export function LmsExportPanel({ records }: Props) {
     setStatus('testing')
     setTestResult(null)
     try {
-      const res = await (window as any).electronAPI?.canvasTestConnection(
-        formToken || undefined
-      )
+      const res = await (window as any).electronAPI?.canvasTestConnection()
       if (res?.ok) {
         setTestResult({ ok: true, courseName: res.courseName })
       } else {
@@ -445,7 +443,8 @@ export function LmsExportPanel({ records }: Props) {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
             <button
               onClick={handleTestConnection}
-              disabled={status === 'testing'}
+              disabled={status === 'testing' || !!formToken}
+              title={formToken ? 'Save your credentials first, then test' : 'Test connection to Canvas'}
               style={{
                 background: 'none',
                 border: '1px solid rgba(255,255,255,0.15)',
@@ -454,8 +453,8 @@ export function LmsExportPanel({ records }: Props) {
                 fontSize: 10,
                 letterSpacing: '0.06em',
                 padding: '5px 12px',
-                cursor: status === 'testing' ? 'not-allowed' : 'pointer',
-                opacity: status === 'testing' ? 0.6 : 1,
+                cursor: (status === 'testing' || !!formToken) ? 'not-allowed' : 'pointer',
+                opacity: (status === 'testing' || !!formToken) ? 0.4 : 1,
               }}
             >
               {status === 'testing' ? 'Testing…' : 'Test Connection'}

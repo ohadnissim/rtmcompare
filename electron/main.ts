@@ -440,14 +440,16 @@ ipcMain.handle('history-append', async (_event, entry: any) => {
   // the latest — prevents double-entries on tab-bounce.
   const now = Date.now()
   const sanitized = {
-    sha256:   typeof entry?.sha256   === 'string'  ? entry.sha256   : '',
-    filename: typeof entry?.filename === 'string'  ? entry.filename : '',
-    path:     typeof entry?.path     === 'string'  ? entry.path     : '',
-    lufs:     typeof entry?.lufs     === 'number'  ? entry.lufs     : null,
-    bpm:      typeof entry?.bpm      === 'number'  ? entry.bpm      : null,
-    key:      typeof entry?.key      === 'string'  ? entry.key      : null,
-    mode:     typeof entry?.mode     === 'string'  ? entry.mode     : null,
-    ts:       now,
+    sha256:       typeof entry?.sha256       === 'string'  ? entry.sha256       : '',
+    name:         typeof entry?.name         === 'string'  ? entry.name         : '',
+    path:         typeof entry?.path         === 'string'  ? entry.path         : '',
+    lufs:         typeof entry?.lufs         === 'number'  ? entry.lufs         : null,
+    true_peak:    typeof entry?.true_peak    === 'number'  ? entry.true_peak    : null,
+    lra:          typeof entry?.lra          === 'number'  ? entry.lra          : null,
+    duration_sec: typeof entry?.duration_sec === 'number'  ? entry.duration_sec : null,
+    ref_name:     typeof entry?.ref_name     === 'string'  ? entry.ref_name     : undefined,
+    mode:         typeof entry?.mode         === 'string'  ? entry.mode         : null,
+    ts:           now,
   }
   const sha = sanitized.sha256
   const filtered = list.filter(e => !(e.sha256 === sha && (now - (e.ts || 0)) < 60 * 1000))

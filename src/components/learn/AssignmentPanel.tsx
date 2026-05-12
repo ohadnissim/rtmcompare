@@ -811,12 +811,12 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         </button>
         <button
           onClick={async () => {
-            const text = await (window as any).electronAPI?.openTextFileDialog([
+            const picked = await (window as any).electronAPI?.openTextFileDialog([
               { name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json', 'json'] }
             ])
-            if (!text) return
+            if (!picked) return
             try {
-              const cfg = JSON.parse(text) as AssignmentConfig
+              const cfg = JSON.parse(picked.contents) as AssignmentConfig
               setTitle(cfg.title ?? '')
               setCourse(cfg.course ?? '')
               setInstructor(cfg.instructor ?? '')
