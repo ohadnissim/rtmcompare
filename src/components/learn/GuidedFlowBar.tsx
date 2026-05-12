@@ -48,6 +48,20 @@ export default function GuidedFlowBar({
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
   const [earTrainingOpen, setEarTrainingOpen] = React.useState(false)
+
+  // MED-12: first-run role prompt. The role pill in the header is too subtle —
+  // teachers opening Learn Mode for the first time get dropped into the
+  // student-default view and don't notice the role switch. This flag tracks
+  // whether the user has explicitly chosen a role at least once.
+  const [roleChosen, setRoleChosen] = React.useState<boolean>(() => {
+    try { return localStorage.getItem('rtm-learn-role-chosen') === 'true' } catch { return true }
+  })
+  function chooseRole(r: 'student' | 'teacher') {
+    setRole(r)
+    setPreviewingStudent(false)
+    try { localStorage.setItem('rtm-learn-role-chosen', 'true') } catch {}
+    setRoleChosen(true)
+  }
   const [helpOpen, setHelpOpen] = React.useState(false)
   // previewingStudent now lives in context so every consumer (StudentWorkspace,
   // AnalysisView, etc.) sees the same value. effectiveRole drives UI branching.
@@ -190,6 +204,59 @@ export default function GuidedFlowBar({
           padding: '0 24px',
         }}
       >
+        {/* MED-12: first-run role prompt. Forces the user to pick a role
+            explicitly the first time they enable Learn Mode. Otherwise teachers
+            default to student-view and never find the role switch. */}
+        {!roleChosen && (
+          <div style={{
+            background: 'rgba(208,176,102,0.08)',
+            border: '1px solid rgba(208,176,102,0.4)',
+            borderRadius: 2,
+            padding: '14px 16px',
+            margin: '12px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}>
+            <span style={{
+              fontSize: 13, color: 'var(--color-text-primary)',
+              fontFamily: 'var(--font-display, serif)', fontStyle: 'italic',
+            }}>
+              Welcome to Learn Mode. Are you a student or a teacher?
+            </span>
+            <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+              <button
+                onClick={() => chooseRole('student')}
+                style={{
+                  padding: '7px 16px',
+                  background: 'rgba(208,176,102,0.12)',
+                  border: '1px solid rgba(208,176,102,0.6)',
+                  borderRadius: 2,
+                  color: 'var(--color-text-primary)',
+                  fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                🎧 I'm a Student
+              </button>
+              <button
+                onClick={() => chooseRole('teacher')}
+                style={{
+                  padding: '7px 16px',
+                  background: 'rgba(123,196,158,0.12)',
+                  border: '1px solid rgba(123,196,158,0.6)',
+                  borderRadius: 2,
+                  color: 'var(--color-text-primary)',
+                  fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                🎓 I'm a Teacher
+              </button>
+            </div>
+          </div>
+        )}
         {/* Role banner — always visible so user knows exactly which mode they're in */}
         <div style={{
           display: 'flex',

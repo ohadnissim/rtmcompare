@@ -166,16 +166,65 @@ export function LmsExportPanel({ records }: Props) {
 
   async function handleUpload() {
     if (!selectedAssignmentId || status === 'uploading') return
+
+    // MED-13 fix: preview + confirmation before the upload commits.
+    // Previously we sent grades straight to Canvas with no preview, no
+    // points-possible sanity check, and silently skipped records missing
+    // a studentId. Now we:
+    //   1. Show a sorted preview (top 5 students by score) with totals
+    //   2. Hard-block when records are missing studentId
+    //   3. Warn if rubric totalPossible doesn't match the selected
+    //      Canvas assignment's pointsPossible (off-by-2x bug magnet)
+    const grades = records.map((r: GradeRecord) => ({
+      studentId: r.studentId ?? '',
+      studentName: r.studentName ?? '',
+      score: r.totalEarned ?? 0,
+      totalPossible: r.totalPossible ?? 100,
+    }))
+    const missingId = grades.filter(g => !g.studentId).map(g => g.studentName || '(no name)')
+    if (missingId.length > 0) {
+      const proceed = window.confirm(
+        `⚠ ${missingId.length} student(s) have no Canvas Student ID set:\n\n` +
+        missingId.slice(0, 8).join('\n') +
+        (missingId.length > 8 ? `\n…and ${missingId.length - 8} more` : '') +
+        '\n\nThese students will be SKIPPED on upload. ' +
+        'Have them re-export their report with a Student ID filled in. ' +
+        '\n\nContinue with the upload anyway?'
+      )
+      if (!proceed) return
+    }
+    const valid = grades.filter(g => g.studentId)
+    const selectedAssignment = assignments.find(a => a.id === selectedAssignmentId)
+    // Points-mismatch warning: students' rubrics may total a different number of
+    // points than the Canvas assignment expects, leading to wildly off grades.
+    const rubricTotals = Array.from(new Set(valid.map(g => g.totalPossible)))
+    const canvasPoints = selectedAssignment?.pointsPossible
+    if (canvasPoints != null && rubricTotals.length === 1 && rubricTotals[0] !== canvasPoints) {
+      const proceed = window.confirm(
+        `⚠ Points-possible mismatch.\n\n` +
+        `Your rubric totals ${rubricTotals[0]} points but the Canvas assignment ` +
+        `"${selectedAssignment?.name}" is configured for ${canvasPoints} points.\n\n` +
+        `Canvas will scale: a student who earned ${rubricTotals[0]} pts (100%) will appear ` +
+        `as ${rubricTotals[0]} / ${canvasPoints} = ${((rubricTotals[0] / canvasPoints) * 100).toFixed(0)}% in Canvas.\n\n` +
+        `Update the Canvas assignment to ${rubricTotals[0]} points first?`
+      )
+      if (!proceed) return
+    }
+    // Final preview before commit
+    const top5 = [...valid].sort((a, b) => b.score - a.score).slice(0, 5)
+    const previewLines = top5.map(g => `  ${g.studentName || g.studentId}: ${g.score}/${g.totalPossible}`).join('\n')
+    const ok = window.confirm(
+      `Upload ${valid.length} grade${valid.length !== 1 ? 's' : ''} to "${selectedAssignment?.name ?? selectedAssignmentId}"?\n\n` +
+      `Top 5 scores being submitted:\n${previewLines}\n\n` +
+      `${missingId.length > 0 ? `(${missingId.length} student(s) without Student IDs will be skipped.)\n\n` : ''}` +
+      `This action cannot be undone.`
+    )
+    if (!ok) return
+
     setStatus('uploading')
     setMessage('')
     setUploadResult(null)
     try {
-      const grades = records.map((r: GradeRecord) => ({
-        studentId: r.studentId ?? '',
-        studentName: r.studentName ?? '',
-        score: r.totalEarned ?? 0,
-        totalPossible: r.totalPossible ?? 100,
-      }))
       const res = await (window as any).electronAPI?.canvasUploadGrades({
         assignmentId: selectedAssignmentId,
         grades,
