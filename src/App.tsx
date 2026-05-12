@@ -626,7 +626,7 @@ export default function App() {
  let unsubProgress: (() => void) | void = undefined
  try {
  if (window.electronAPI) {
- unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 50)) || undefined
+ unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 16)) || undefined
  const result = await withTimeout(
   window.electronAPI.analyzeFiles(fileA.path, fileA.path, true, profile),
   5 * 60 * 1000,
@@ -681,7 +681,7 @@ export default function App() {
  // Assistant + Metadata editor + broadcast rows without
  // refetching. Keep the whole analysis result around so the
  // Master Assistant's proposer has everything it needs.
- metadata: (result as any).metadata || (result as any).metadata || null,
+ metadata: (result as any).metadata || null,
  headroom: (result as any).headroom,
  dialog_gate: (result as any).dialog_gate,
  limiter_artefacts: (result as any).limiter_artefacts,
@@ -733,7 +733,7 @@ export default function App() {
  let unsubProgress: (() => void) | void = undefined
  try {
  if (window.electronAPI) {
- unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 50)) || undefined
+ unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 16)) || undefined
  const result = await withTimeout(
   window.electronAPI.analyzeFiles(fileA.path, fileB.path, !deepScan, profile),
   5 * 60 * 1000,

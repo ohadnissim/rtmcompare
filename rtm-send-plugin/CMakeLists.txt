@@ -88,7 +88,7 @@ endif()
 
 juce_add_plugin(RtmSend
     COMPANY_NAME              "RTMcompare"
-    BUNDLE_ID                 "com.rtmsuite.rtmsend"
+    BUNDLE_ID                 "com.rtmcompare.rtmsend"
     PLUGIN_MANUFACTURER_CODE  RTMS
     PLUGIN_CODE               Rtms
     FORMATS                   ${_rtm_formats}
@@ -114,9 +114,9 @@ juce_add_plugin(RtmSend
     # JUCE emits these verbatim as C preprocessor macro values, so
     # the quote characters must be inside the CMake string - hence
     # the \"...\" escaping.
-    ARA_FACTORY_ID            "\"com.rtmsuite.rtmsend.arafactory\""
-    ARA_DOCUMENT_ARCHIVE_ID   "\"com.rtmsuite.rtmsend.archive.v1\""
-    ARA_COMPATIBLE_ARCHIVE_IDS "\"com.rtmsuite.rtmsend.archive.v1\""
+    ARA_FACTORY_ID            "\"com.rtmcompare.rtmsend.arafactory\""
+    ARA_DOCUMENT_ARCHIVE_ID   "\"com.rtmcompare.rtmsend.archive.v1\""
+    ARA_COMPATIBLE_ARCHIVE_IDS "\"com.rtmcompare.rtmsend.archive.v1\""
 )
 
 juce_generate_juce_header(RtmSend)
