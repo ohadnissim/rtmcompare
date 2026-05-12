@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import * as path from 'path'
 import * as fs from 'fs'
-import { spawn } from 'child_process'
+import { spawn, type ChildProcess } from 'child_process'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -126,7 +126,17 @@ interface BuildArgs {
   deep?: boolean
 }
 
+// 5.7.x audit fix: serialise concurrent build-profile IPC calls. Pre-fix
+// two presses (or a renderer reload mid-build) would spawn two Python
+// procs that both wrote to ~/.rtm/profiles/<slug>.json — last writer
+// wins, possibly mid-flush, leaving a truncated/invalid JSON. Now we
+// reject a second invocation while one is in flight.
+let activeBuild: ChildProcess | null = null
+
 ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
+  if (activeBuild && !activeBuild.killed) {
+    return { ok: false, error: 'A profile build is already in progress. Wait for it to finish or cancel it first.' }
+  }
   if (!args.files || args.files.length === 0) {
     return { ok: false, error: 'no files supplied' }
   }
@@ -163,7 +173,13 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
   if (args.outPath) {
     const profilesDir = path.resolve(require('os').homedir(), '.rtm', 'profiles')
     const resolved = path.resolve(args.outPath)
-    if (!resolved.startsWith(profilesDir + path.sep) && resolved !== profilesDir) {
+    // 5.7.x audit fix: case-insensitive prefix check on Windows.
+    // `os.homedir()` and renderer-supplied paths can disagree on
+    // case (`C:\Users\Foo` vs `c:\users\foo`), failing the original
+    // case-sensitive comparison and rejecting legitimate paths.
+    const dirNorm = process.platform === 'win32' ? profilesDir.toLowerCase() : profilesDir
+    const resNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
+    if (!resNorm.startsWith(dirNorm + path.sep) && resNorm !== dirNorm) {
       return { ok: false, error: 'outPath must live under ~/.rtm/profiles/' }
     }
     safeOutPath = resolved
@@ -188,6 +204,7 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
         PYTHONDONTWRITEBYTECODE: '1',
       },
     })
+    activeBuild = proc  // 5.7.x: register so a second IPC call sees we're busy
     let stdout = ''
     let stderr = ''
     proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
@@ -207,6 +224,7 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
       }
     })
     proc.on('close', (code: number | null) => {
+      activeBuild = null  // 5.7.x: release the slot for the next build
       if (code !== 0) {
         // Map common stderr shapes to friendly one-liners. Bundled Python
         // means xcode-select / pip-install errors should never fire in a
@@ -254,6 +272,7 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
       }
     })
     proc.on('error', (err: Error) => {
+      activeBuild = null  // 5.7.x
       resolve({
         ok: false,
         error: `Couldn't start the analysis engine. This is a packaging issue — please report.`,

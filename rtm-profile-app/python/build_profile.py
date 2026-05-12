@@ -67,7 +67,68 @@ THIRD_OCTAVE_HZ: list[float] = [
 def _to_mono(y: np.ndarray) -> np.ndarray:
     if y.ndim == 1:
         return y
+    if y.shape[1] == 1:
+        return y[:, 0]
     return np.mean(y, axis=1)
+
+
+# ── Numerical-stability guards (5.7.1) ────────────────────────────────
+#
+# Audit Task 4: rather than letting bad inputs detonate deep inside DSP
+# (Welch on zero-length, log10 of zero, etc.), reject upfront with a
+# clear diagnostic. The caller (measure_file) treats a None as "skip
+# this file" and aggregate() raises if no valid files survive.
+MIN_SR = 22050
+MAX_SR = 192000
+MIN_SAMPLES = 2048    # ~46 ms at 44.1 k — anything shorter fails Welch anyway
+
+
+def _validate_signal(data: np.ndarray, sr: int, path: str) -> tuple[np.ndarray, int, dict[str, Any]] | None:
+    """Sanity-check `data, sr` before measurement. Returns
+    `(data, sr, flags)` if usable, or None to skip. `flags` carries
+    optional metadata tags (e.g. clip_warning) for downstream JSON.
+    """
+    flags: dict[str, Any] = {}
+
+    # Zero-length / empty array — fast reject.
+    if data is None or data.size == 0:
+        sys.stderr.write(f"[skip] {path}: empty signal\n")
+        return None
+
+    # Zero-length per-channel after potential reshape.
+    if data.ndim >= 1 and data.shape[0] < MIN_SAMPLES:
+        sys.stderr.write(
+            f"[skip] {path}: too short ({data.shape[0]} samples; need >= {MIN_SAMPLES})\n"
+        )
+        return None
+
+    # Sample-rate sanity. Welch's nperseg + third-octave centres assume
+    # a "normal" audio sr; <22 k breaks the high bands and >192 k is
+    # almost certainly a corrupt header.
+    if not isinstance(sr, (int, np.integer)) or sr < MIN_SR or sr > MAX_SR:
+        sys.stderr.write(
+            f"[skip] {path}: sample rate {sr} Hz out of range [{MIN_SR}, {MAX_SR}]\n"
+        )
+        return None
+
+    # Replace NaN/Inf with zeros so downstream math doesn't silently
+    # poison the cohort. A track that is mostly NaN will fail the LUFS
+    # gate later anyway.
+    if not np.all(np.isfinite(data)):
+        n_bad = int(np.sum(~np.isfinite(data)))
+        sys.stderr.write(
+            f"[warn] {path}: {n_bad} non-finite samples replaced with 0\n"
+        )
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # Clip detection: tag (don't reject). Threshold tightened from
+    # 0.99999 to a slightly looser float-domain check so 24-bit fixed
+    # masters near-but-not-at full scale don't trip a false alarm.
+    abs_max = float(np.max(np.abs(data))) if data.size else 0.0
+    if abs_max >= 0.99999:
+        flags["clip_warning"] = True
+
+    return data, int(sr), flags
 
 
 def _peak_dbtp(y: np.ndarray) -> float:
@@ -114,11 +175,15 @@ def _loudness_range(y: np.ndarray, sr: int) -> float:
     pyloudnorm is too old to expose it.
     """
     try:
-        meter = pyln.Meter(sr, block_size=3.0)
-        if y.ndim == 1:
-            data = y.reshape(-1, 1)
-        else:
-            data = y
+        # 5.7.x correctness fix: drop the `block_size=3.0` argument.
+        # Per BS.1770-4 §B.2, LRA is computed from 400 ms momentary
+        # blocks with internal short-term gating. Forcing block_size=3.0
+        # made pyloudnorm meter every 3 s, producing values ~30–40%
+        # smaller than every other R128 meter. Audit CRITICAL #2.
+        meter = pyln.Meter(sr)
+        # 5.7.x: pyloudnorm < 0.1.1 raises on (N,1) shaped mono. Pass
+        # mono as 1-D; pyloudnorm accepts it directly. Audit HIGH #3.
+        data = y if y.ndim == 1 else y
         return float(meter.loudness_range(data))
     except Exception:
         # Older pyloudnorm or pathological input — return 0 rather
@@ -129,9 +194,30 @@ def _loudness_range(y: np.ndarray, sr: int) -> float:
 
 def _third_octave_curve(y: np.ndarray, sr: int) -> list[float]:
     """31-band third-octave spectrum in dB (relative to RMS reference).
-    Mean-centred so it represents tonal SHAPE, not absolute level."""
+    Mean-centred so it represents tonal SHAPE, not absolute level.
+
+    5.7.x audit fixes:
+      - nperseg capped to signal length so very short files (<0.2 s)
+        don't produce a degenerate one-bin Welch PSD.
+      - Out-of-Nyquist bands return NaN instead of -90.0 so cohort
+        aggregation can use np.nanmedian (mixed-sample-rate corpora
+        used to skew the median toward -90 dB at 16/20 kHz when even
+        one 44.1 k file was present alongside 96 k files).
+    """
     mono = _to_mono(y)
-    n_fft = 8192
+    # All-zero / all-NaN frame — the Welch PSD would be uniformly tiny
+    # and the resulting curve would centre to all zeros, which is not
+    # informative. Return all-NaN so cohort aggregation skips this file.
+    if mono.size == 0 or not np.any(np.isfinite(mono)) or float(np.max(np.abs(mono))) == 0.0:
+        return [float('nan')] * len(THIRD_OCTAVE_HZ)
+    # Cap nperseg to signal length — Welch warns + truncates internally,
+    # but the resulting PSD is too coarse to populate third-octave masks
+    # above ~3 kHz. Better to use a smaller window and accept reduced
+    # frequency resolution than to let scipy silently degrade.
+    n_fft = min(8192, len(mono))
+    if n_fft < 64:
+        # Shorter than ~1.5 ms at 44.1k — refuse to analyse.
+        return [float('nan')] * len(THIRD_OCTAVE_HZ)
     # Use Welch's method for a smooth spectrum
     from scipy.signal import welch
     f, psd = welch(mono, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, average="median")
@@ -143,28 +229,39 @@ def _third_octave_curve(y: np.ndarray, sr: int) -> list[float]:
         lower = centre / (2 ** (1 / 6))
         upper = centre * (2 ** (1 / 6))
         if upper > sr / 2:
-            band_levels.append(-90.0)
+            # NaN — caller's nanmedian will skip this file's contribution
+            # in cohort aggregation rather than averaging in -90 dB.
+            band_levels.append(float('nan'))
             continue
         mask = (f >= lower) & (f <= upper)
         if not np.any(mask):
-            band_levels.append(-90.0)
+            band_levels.append(float('nan'))
             continue
         band_power = float(np.mean(psd[mask]))
         band_levels.append(10.0 * math.log10(max(band_power, 1e-20)))
 
     # Mean-centre so the curve is shape-only (engineer fingerprint),
     # not affected by absolute level. Matches what RTMcompare's Match
-    # tab compares against.
+    # tab compares against. Use nanmean so out-of-Nyquist bands don't
+    # corrupt the centring.
     arr = np.array(band_levels)
-    centred = arr - np.mean(arr)
-    return [round(float(v), 1) for v in centred]
+    finite_mean = float(np.nanmean(arr)) if np.any(np.isfinite(arr)) else 0.0
+    centred = arr - finite_mean
+    # Round but preserve NaN markers so cohort aggregation can skip
+    # them — JSON serialisation handles NaN via float; downstream
+    # aggregator below uses np.nanmedian.
+    return [round(float(v), 1) if np.isfinite(v) else float('nan') for v in centred]
 
 
 def _crest_db(y: np.ndarray) -> float:
     """Crest factor in dB (peak / RMS). Higher = more dynamic."""
     mono = _to_mono(y)
+    if mono.size == 0 or not np.any(np.isfinite(mono)):
+        return 0.0
     rms = float(np.sqrt(np.mean(mono * mono) + 1e-20))
     peak = float(np.max(np.abs(mono)) + 1e-20)
+    if rms <= 1e-20 or peak <= 1e-20:
+        return 0.0
     return 20.0 * math.log10(peak / rms)
 
 
@@ -282,19 +379,30 @@ def _separate_with_bs_roformer(data: np.ndarray, sr: int) -> tuple[dict[str, np.
     # ...` path or the first-run download.
     here = Path(__file__).resolve().parent.parent
     here_python = Path(__file__).resolve().parent
+    # 5.7.x audit fix: only generate walked_up paths for directories
+    # that ALREADY EXIST. Pre-fix, the loop appended candidate paths
+    # like `<random_sibling>/model-cache/uai_stems/models/` and the
+    # later `mkdir(parents=True)` would create that directory tree
+    # in unrelated locations on disk (e.g. installing into
+    # ~/Applications/RTMprofile.app spawned ~/Applications/model-cache/
+    # on first deep-scan). We never want to create new model-cache
+    # dirs while searching — only consume existing ones.
     walked_up = []
     cur = here
     for _ in range(4):
-        walked_up.append(cur / "model-cache" / "uai_root" / "models")
-        walked_up.append(cur / "model-cache" / "uai_stems" / "models")
+        candidate_root = cur / "model-cache"
+        if candidate_root.is_dir():
+            walked_up.append(candidate_root / "uai_root" / "models")
+            walked_up.append(candidate_root / "uai_stems" / "models")
         if cur.parent == cur:
             break
         cur = cur.parent
     candidates = [
         here / "model-cache" / "uai_stems" / "models",  # RTMprofile's own cache
-        *walked_up,                                     # dev sibling-app cache
+        *walked_up,                                     # dev sibling-app cache (verified to exist)
         Path("/Applications/RTMcompare.app/Contents/Resources/model-cache/uai_root/models"),
         Path("/Applications/RTMcompare.app/Contents/Resources/model-cache/uai_stems/models"),
+        Path.home() / "Library" / "Caches" / "RTMprofile" / "uai_models",  # canonical user-writable
         Path.home() / ".cache" / "audio-separator",     # audio-separator's default
     ]
     model_dir = None
@@ -404,10 +512,20 @@ def measure_file(path: Path, deep: bool = False) -> dict[str, Any] | None:
     except Exception as e:
         sys.stderr.write(f"[skip] {path}: read failed ({e})\n")
         return None
-    if data.size == 0:
+
+    # 5.7.1 audit Task 4: validate up-front instead of crashing in DSP.
+    validated = _validate_signal(data, sr, str(path))
+    if validated is None:
         return None
+    data, sr, flags = validated
 
     out: dict[str, Any] = _measure_audio(data, sr)
+    # Carry forward any signal-level flags (clip_warning) into the
+    # per-file dict — aggregated upward by aggregate() into the
+    # profile's "warnings" list so the consumer can show them.
+    out["_source_path"] = str(path)
+    if flags:
+        out["_flags"] = flags
 
     if deep:
         try:
@@ -448,31 +566,92 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     spread wasn't being respected).
     """
     lufs_arr = np.array([m["lufs"] for m in valid])
+    # 5.7.x correctness fix: dynamic_range_avg must be LRA (BS.1770 LU),
+    # not crest factor (peak/RMS dB). RTMcompare's engineer_profile.py
+    # compares the candidate's LRA against this field and emits "Over-
+    # compressed" / "Very dynamic" tips at ±2/4 LU thresholds. Pre-fix
+    # the profile shipped crest factor (8–18 dB range) where the
+    # consumer expected LRA (4–9 LU range), so every analysis vs a
+    # custom RTMprofile-built profile fired phantom dynamics tips.
+    # Audit CRITICAL #1.
+    lra_arr   = np.array([m["lra"] for m in valid])
     crest_arr = np.array([m["crest_db"] for m in valid])
     width_arr = np.array([m["width"] for m in valid])
     peak_arr  = np.array([m["peak_db"] for m in valid])
     curves    = np.array([m["curve"]  for m in valid])
-    curve_median = np.median(curves, axis=0)
-    # Median Absolute Deviation — robust spread measure; doesn't blow up
-    # on a single outlier track. One MAD ≈ 0.6745 σ for normal data.
-    curve_mad = np.median(np.abs(curves - curve_median), axis=0)
-    return {
-        "curve":             [round(float(v), 1) for v in curve_median],
-        "curve_mad":         [round(float(v), 1) for v in curve_mad],
-        "lufs_avg":          round(float(np.mean(lufs_arr)), 1),
-        "lufs_std":          round(float(np.std(lufs_arr)), 1),
-        "lufs_range":        [round(float(np.min(lufs_arr)), 1), round(float(np.max(lufs_arr)), 1)],
-        "dynamic_range_avg": round(float(np.mean(crest_arr)), 1),
-        "dynamic_range_std": round(float(np.std(crest_arr)), 1),
-        "width_avg":         round(float(np.mean(width_arr)), 3),
-        "width_std":         round(float(np.std(width_arr)), 3),
-        "peak_avg":          round(float(np.mean(peak_arr)), 1),
+    # 5.7.x audit fix: nanmedian instead of median. Per-track curves
+    # now mark out-of-Nyquist bands with NaN (mixed-sr corpus) — so a
+    # 16/20 kHz band median across 4×96k + 1×44.1k previously skewed
+    # toward -90 dB; nanmedian skips the 44.1 k file's missing bands.
+    curve_median = np.nanmedian(curves, axis=0)
+    # 5.7.x audit fix: gate curve_mad on cohort size. With a single
+    # track, MAD collapses to all zeros, defeating RTMcompare's
+    # variance-aware EQ dead-zone (engineer_profile.py:_compute_eq_filters).
+    # Require ≥3 tracks before publishing curve_mad; below that, omit
+    # the field entirely (the consumer already handles missing curve_mad
+    # by falling back to the legacy 1 dB threshold).
+    if len(valid) >= 3:
+        curve_mad = np.nanmedian(np.abs(curves - curve_median), axis=0)
+        # Identical cohort (all curves equal) -> MAD all zeros which is
+        # legitimate; round and ship. NaN can leak in only if a band is
+        # NaN in *every* track, in which case 0.0 is the safe fallback.
+        curve_mad_field = [round(float(v), 1) if np.isfinite(v) else 0.0 for v in curve_mad]
+    else:
+        curve_mad_field = None  # omitted from output dict — see below
+
+    # 5.7.1 audit Task 4: guard mean/std against single-element NaN
+    # propagation. With one valid file, np.std is 0.0; with all-identical
+    # files, std is also 0.0. Both are acceptable and we round through.
+    # The risk is when LRA is reported as NaN (very short / silent
+    # segments inside pyloudnorm) — strip those before stats.
+    def _safe_mean(arr: np.ndarray, default: float = 0.0) -> float:
+        finite = arr[np.isfinite(arr)]
+        if finite.size == 0:
+            return default
+        return float(np.mean(finite))
+
+    def _safe_std(arr: np.ndarray) -> float:
+        finite = arr[np.isfinite(arr)]
+        if finite.size <= 1:
+            return 0.0
+        return float(np.std(finite))
+
+    def _safe_minmax(arr: np.ndarray, default: float = 0.0) -> tuple[float, float]:
+        finite = arr[np.isfinite(arr)]
+        if finite.size == 0:
+            return default, default
+        return float(np.min(finite)), float(np.max(finite))
+
+    lufs_min, lufs_max = _safe_minmax(lufs_arr)
+
+    out: dict[str, Any] = {
+        "curve":             [round(float(v), 1) if np.isfinite(v) else 0.0 for v in curve_median],
+        "lufs_avg":          round(_safe_mean(lufs_arr), 1),
+        "lufs_std":          round(_safe_std(lufs_arr), 1),
+        "lufs_range":        [round(lufs_min, 1), round(lufs_max, 1)],
+        # LRA in LU — the unit RTMcompare expects.
+        "dynamic_range_avg": round(_safe_mean(lra_arr), 1),
+        "dynamic_range_std": round(_safe_std(lra_arr), 1),
+        # Crest factor kept as a separate field for diagnostic purposes;
+        # not consumed by RTMcompare's tip thresholds.
+        "crest_factor_avg":  round(_safe_mean(crest_arr), 1),
+        "crest_factor_std":  round(_safe_std(crest_arr), 1),
+        "width_avg":         round(_safe_mean(width_arr), 3),
+        "width_std":         round(_safe_std(width_arr), 3),
+        "peak_avg":          round(_safe_mean(peak_arr), 1),
     }
+    if curve_mad_field is not None:
+        out["curve_mad"] = curve_mad_field
+    return out
 
 
 def aggregate(per_file: list[dict[str, Any]],
               name: str, role: str,
-              deep: bool = False) -> dict[str, Any]:
+              deep: bool = False,
+              target_min_version: str | None = None,
+              target_max_version: str | None = None,
+              target_fingerprint: str | None = None,
+              target_plugin: dict[str, Any] | None = None) -> dict[str, Any]:
     # 5.2.2 (audit P2): finite-LUFS alone isn't enough. A digital-silence
     # file passes pyloudnorm's gate at ~-70 LUFS and finite — but its
     # spectrum is noise floor and pulls `curve_mad` toward garbage,
@@ -496,17 +675,48 @@ def aggregate(per_file: list[dict[str, Any]],
     if not valid:
         raise SystemExit("no valid measurements — every input file failed to read or was silent")
 
-    # 5.3.0: explicit `schema_version`. Tolerant additive — readers
-    # tolerate unknown fields and warn on a higher major. Stamp here
-    # so every profile from this build forward carries the version.
-    # 5.2.3: "genres" removed from the schema.
+    # 5.7.1: bump schema_version to 2. New optional fields:
+    #   - min_version / max_version: semver range the profile was tuned
+    #     against (RTMcompare bridge clamps incompatibility warnings)
+    #   - target_fingerprint: sha256 of "<format>|<uid>|<version>|<param_count>"
+    #     of the targeted plugin (lets RTMcompare detect plugin-version
+    #     drift between profile build and consumption)
+    #   - target_plugin: full descriptor of the plugin the profile was
+    #     tuned for (display name + format + uid + param_count)
+    # All four are OMITTED if the caller didn't supply them — RTMcompare
+    # treats absent metadata as "no constraint". v1 profile readers
+    # ignore unknown top-level keys, so this is forward-and-backward
+    # compatible. Audit Task 1.
     profile: dict[str, Any] = {
-        "schema_version":    1,
+        "schema_version":    2,
         "name":              name,
         "role":              role,
         "description":       f"{role} — {len(valid)}-track profile",
         "sample_count":      len(valid),
     }
+    if target_min_version:
+        profile["min_version"] = target_min_version
+    if target_max_version:
+        profile["max_version"] = target_max_version
+    if target_fingerprint:
+        profile["target_fingerprint"] = target_fingerprint
+    if target_plugin:
+        profile["target_plugin"] = target_plugin
+
+    # Surface clip warnings collected from the per-file pass. We only
+    # report file basenames, never absolute paths, so the saved profile
+    # doesn't leak the user's filesystem layout to anyone they share it
+    # with. Audit Task 4.
+    clipped = [
+        Path(m["_source_path"]).name
+        for m in valid
+        if isinstance(m.get("_flags"), dict)
+        and m["_flags"].get("clip_warning")
+        and m.get("_source_path")
+    ]
+    if clipped:
+        profile["warnings"] = {"clipped_files": clipped}
+
     profile.update(_aggregate_scalar_block(valid))
 
     if deep:
@@ -520,7 +730,13 @@ def aggregate(per_file: list[dict[str, Any]],
                 if "stems" in m and stem in m["stems"]
                 and np.isfinite(m["stems"][stem]["lufs"])
             ]
-            if len(stem_measurements) >= 2:
+            # 5.7.x audit fix: was `>= 2` — but with two samples MAD is
+            # |x1−median| ≈ |x2−median| ≈ half the inter-track distance,
+            # i.e. half random noise. Raise to ≥4 so cohort spread has
+            # statistical meaning. Below that, the per-stem block is
+            # omitted; downstream stem-aware tips just don't fire for
+            # under-sampled stems.
+            if len(stem_measurements) >= 4:
                 stems_block[stem] = {
                     "sample_count": len(stem_measurements),
                     **_aggregate_scalar_block(stem_measurements),
@@ -552,8 +768,51 @@ def main() -> int:
                    help="Deep Scan: also separate each track via Demucs and "
                         "build per-stem profiles (vocals/drums/bass/other). "
                         "Adds ~30s-2min per track on M-series CPU.")
+    # 5.7.1 schema-v2 metadata. All four are optional; when absent the
+    # consumer (RTMcompare bridge) treats the profile as unbounded /
+    # generic, matching pre-v2 behaviour.
+    p.add_argument("--target-min-version", default="",
+                   help="Lowest RTMcompare/plugin version this profile targets (semver).")
+    p.add_argument("--target-max-version", default="",
+                   help="Highest RTMcompare/plugin version this profile targets (semver).")
+    p.add_argument("--target-fingerprint", default="",
+                   help="sha256 hex of '<format>|<plugin uid>|<plugin version>|<param count>' "
+                        "for the targeted plugin. Lets RTMcompare detect plugin-version drift.")
+    p.add_argument("--target-plugin-json", default="",
+                   help="Path to a JSON file describing the target plugin: "
+                        '{"name":"…","format":"vst3|au","uid":"…","param_count":<int>}')
     p.add_argument("files", nargs="+", help="Audio files to analyse")
     args = p.parse_args()
+
+    # Parse + validate the optional plugin descriptor.
+    target_plugin: dict[str, Any] | None = None
+    if args.target_plugin_json:
+        try:
+            with open(Path(args.target_plugin_json).expanduser(), encoding="utf-8") as fh:
+                raw = json.load(fh)
+            if not isinstance(raw, dict):
+                raise ValueError("not a JSON object")
+            # Whitelist + coerce the four expected keys; ignore extras.
+            target_plugin = {}
+            if "name" in raw:
+                target_plugin["name"] = str(raw["name"])[:120]
+            if "format" in raw:
+                fmt = str(raw["format"]).lower()
+                if fmt not in ("vst3", "au", "aax", "vst"):
+                    sys.stderr.write(f"[warn] target_plugin.format '{fmt}' is unusual; passing through.\n")
+                target_plugin["format"] = fmt
+            if "uid" in raw:
+                target_plugin["uid"] = str(raw["uid"])[:120]
+            if "param_count" in raw:
+                try:
+                    target_plugin["param_count"] = int(raw["param_count"])
+                except (TypeError, ValueError):
+                    sys.stderr.write("[warn] target_plugin.param_count not an int; dropping.\n")
+            if not target_plugin:
+                target_plugin = None
+        except Exception as e:
+            sys.stderr.write(f"[warn] couldn't read --target-plugin-json: {e}\n")
+            target_plugin = None
 
     # 5.2.3: --genres ignored if passed (back-compat shim only)
     if args.out:
@@ -561,26 +820,68 @@ def main() -> int:
     else:
         slug = _slugify(args.name) or "profile"
         out_path = Path.home() / ".rtm" / "profiles" / f"{slug}.json"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    # 5.7.1 audit Task 5: surface clearer error if the target dir is
+    # not writable rather than letting Python raise PermissionError
+    # mid-write. We try to mkdir up-front and translate failure into
+    # the same SystemExit shape the rest of the script uses.
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise SystemExit(
+            f"output directory not writable: {out_path.parent} ({e})"
+        )
+    # Probe writability — on Windows a read-only flag on the dir gives
+    # a non-OSError success on mkdir but fails on open(). Test a tmp.
+    try:
+        probe = out_path.parent / ".rtmprofile-write-probe"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink()
+    except OSError as e:
+        raise SystemExit(
+            f"cannot write to {out_path.parent} — check folder permissions ({e})"
+        )
 
     measurements: list[dict[str, Any] | None] = []
     total = len(args.files)
+    # 5.7.1 audit Task 5: normalise to NFC on macOS. HFS+/APFS may store
+    # filenames in NFD (decomposed) form ("café" -> "café"); the
+    # renderer / shell may pass NFC. soundfile/libsndfile resolve both
+    # in practice, but downstream string comparisons (e.g. logging
+    # against the input path) drift. Coerce to NFC for stable display.
+    import unicodedata as _ucd
     for i, f in enumerate(args.files, 1):
+        f_norm = _ucd.normalize("NFC", f) if isinstance(f, str) else f
         if args.progress:
             sys.stderr.write(json.dumps({
                 "type": "progress",
                 "i": i,
                 "total": total,
-                "file": f,
+                "file": f_norm,
                 "deep": bool(args.deep),
             }) + "\n")
             sys.stderr.flush()
-        m = measure_file(Path(f).expanduser(), deep=args.deep)
+        m = measure_file(Path(f_norm).expanduser(), deep=args.deep)
         measurements.append(m)
 
-    profile = aggregate(measurements, name=args.name, role=args.role,
-                        deep=args.deep)
-    out_path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    profile = aggregate(
+        measurements,
+        name=args.name,
+        role=args.role,
+        deep=args.deep,
+        target_min_version=args.target_min_version or None,
+        target_max_version=args.target_max_version or None,
+        target_fingerprint=args.target_fingerprint or None,
+        target_plugin=target_plugin,
+    )
+    # 5.7.x audit fix: atomic write. write_text() is non-atomic — a
+    # crash, disk-full, or kill mid-flush leaves a truncated JSON
+    # file that engineer_profile.load_profile silently fails to
+    # parse (returning None — the dropdown shows no profile but no
+    # error). Write to .tmp then os.replace for an atomic swap.
+    import os as _os
+    tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    _os.replace(tmp_path, out_path)
 
     sys.stdout.write(json.dumps({
         "ok": True,
