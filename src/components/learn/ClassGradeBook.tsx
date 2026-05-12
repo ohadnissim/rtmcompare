@@ -97,6 +97,8 @@ interface GradeRecord {
   submissionVersion?: number
   isDraft?: boolean
   reportPath?: string
+  /** CRIT-6: set when multiple submissions share timestamps within 60 s of each other */
+  _clockSkewWarning?: boolean
 }
 
 interface Props {
@@ -759,6 +761,24 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                               textTransform: 'uppercase', letterSpacing: '0.06em',
                             }}>
                               [draft]
+                            </span>
+                          )}
+                          {/* CRIT-6 fix: _clockSkewWarning was computed and stored but
+                              never rendered. Show a ⚠ badge when multiple submissions
+                              from the same student are all within 60 s of each other —
+                              a likely sign of a backdated or duplicated clock. */}
+                          {rec._clockSkewWarning && (
+                            <span
+                              title="⚠ All submissions from this student share nearly identical timestamps — possible clock skew or duplicate export. Verify manually."
+                              style={{
+                                marginLeft: 5, fontSize: 9, padding: '1px 4px',
+                                border: '1px solid rgba(220,130,0,0.5)',
+                                borderRadius: '2px', color: 'rgba(220,130,0,0.9)',
+                                letterSpacing: '0.04em', verticalAlign: 'middle',
+                                cursor: 'help',
+                              }}
+                            >
+                              ⚠ clock?
                             </span>
                           )}
                         </div>

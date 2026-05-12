@@ -727,6 +727,12 @@ export default function App() {
  setError('Batch mode requires the Electron host')
  return
  }
+ // CRIT-2: in-flight guard — same pattern as handleCompare / handleRefOnly.
+ // Without this, spam-clicking "Analyze Batch" before setState('processing')
+ // flushes spawns multiple Python subprocesses, each overwriting activeProc
+ // so only the last is cancellable and results race into the same handler.
+ if (analysisInFlight.current) return
+ analysisInFlight.current = true
  let unsubBatchProgress: (() => void) | undefined
  try {
  const folder = await window.electronAPI.selectFolder()
@@ -770,6 +776,8 @@ export default function App() {
  unsubBatchProgress?.()
  setError(err?.message || 'Batch analysis failed')
  setState('upload')
+ } finally {
+ analysisInFlight.current = false
  }
  }, [userMode])
 

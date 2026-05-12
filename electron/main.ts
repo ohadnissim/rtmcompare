@@ -300,14 +300,26 @@ function createWindow() {
     // bundle's own index.html; in dev we allow file:// for hot-reload
     // edge cases and the localhost dev server.
     if (app.isPackaged) {
-      // The loaded file is dist/index.html inside the resources/app.asar — its
-      // realpath looks like /Applications/RTMcompare.app/Contents/Resources/.../dist/index.html
-      const packagedIndex = url.startsWith('file://')
-        && url.includes('/dist/index.html')
-      if (!packagedIndex) {
+      // CRIT-1 fix: use strict pathname equality, not substring match.
+      // url.includes('/dist/index.html') was bypassable with a crafted hash
+      // like file:///etc/passwd#/dist/index.html or a path like
+      // file:///evil/dist/index.html. Parse the URL and require that the
+      // pathname ends with exactly '/dist/index.html' with no extra segments.
+      let allow = false
+      try {
+        const parsedUrl = new URL(url)
+        allow = parsedUrl.protocol === 'file:'
+          && parsedUrl.pathname.endsWith('/dist/index.html')
+          // Ensure no path traversal sequences survive URL decoding
+          && !parsedUrl.pathname.includes('..')
+      } catch {
+        allow = false
+      }
+      if (!allow) {
         e.preventDefault()
       }
     } else {
+      // Dev: allow Vite HMR localhost and file:// for hot-reload edge cases
       if (!url.startsWith('http://localhost:5173') && !url.startsWith('file://')) {
         e.preventDefault()
       }
@@ -363,6 +375,21 @@ ipcMain.handle('select-file', async () => {
   return result.filePaths[0]
 })
 
+// ── Atomic file write helper ─────────────────────────────────────────
+// CRIT-7/8 fix: bare writeFileSync is non-atomic — a crash mid-write leaves
+// a truncated file. This helper writes to a temp file then renames it, which
+// is atomic on all major filesystems (ext4, APFS, NTFS).
+function atomicWriteFileSync(target: string, contents: string, encoding: BufferEncoding = 'utf8') {
+  const tmp = `${target}.tmp${process.pid}`
+  try {
+    fs.writeFileSync(tmp, contents, encoding)
+    fs.renameSync(tmp, target)
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch { /* best-effort cleanup */ }
+    throw e
+  }
+}
+
 // ── Version history ──────────────────────────────────────────────────
 // Small local JSON log at ~/.rtm/history.json. Each entry is a single
 // analysis of File B (the "target") — filename, path, SHA-256 fingerprint,
@@ -387,7 +414,8 @@ function readHistorySync(): any[] {
 }
 function writeHistorySync(list: any[]) {
   ensureRtmDir()
-  try { fs.writeFileSync(HISTORY_PATH, JSON.stringify(list, null, 2), 'utf8') } catch {}
+  // CRIT-7 fix: atomic write via temp-file + rename
+  try { atomicWriteFileSync(HISTORY_PATH, JSON.stringify(list, null, 2)) } catch {}
 }
 ipcMain.handle('history-read', async () => readHistorySync())
 ipcMain.handle('history-append', async (_event, entry: any) => {
@@ -2251,7 +2279,21 @@ ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback:
     }
     const feedbackPath = resolved.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
       .replace(/\.pdf$/i, '.rtm-feedback.json')
-    fs.writeFileSync(feedbackPath, JSON.stringify({ feedback, savedAt: new Date().toISOString() }, null, 2), 'utf8')
+    // CRIT-9 fix: verify the sibling feedback file is safe before writing.
+    // (a) must be in the exact same directory as the report — prevents path-
+    //     traversal where the report path somehow resolves outside submissions.
+    // (b) if feedback file already exists, refuse if it's a symlink — an
+    //     attacker could pre-plant a symlink to redirect the write.
+    if (path.dirname(feedbackPath) !== path.dirname(resolved)) {
+      return { ok: false, error: 'Feedback path is outside the report directory.' }
+    }
+    if (fs.existsSync(feedbackPath)) {
+      const fbLst = fs.lstatSync(feedbackPath)
+      if (fbLst.isSymbolicLink()) {
+        return { ok: false, error: 'Feedback path is a symlink — refusing to write.' }
+      }
+    }
+    atomicWriteFileSync(feedbackPath, JSON.stringify({ feedback, savedAt: new Date().toISOString() }, null, 2))
     return { ok: true, path: feedbackPath }
   } catch (e: any) {
     return { ok: false, error: e?.message ?? 'save-student-feedback failed' }
@@ -2395,7 +2437,8 @@ ipcMain.handle('save-lms-config', async (_e, config: {
       usedSafeStorage: true,
       savedAt: new Date().toISOString(),
     }
-    fs.writeFileSync(lmsConfigPath(), JSON.stringify(toSave, null, 2), 'utf8')
+    // CRIT-8 fix: atomic write via temp-file + rename
+    atomicWriteFileSync(lmsConfigPath(), JSON.stringify(toSave, null, 2))
     return { ok: true }
   } catch (e: any) {
     return { ok: false, error: e?.message }

@@ -916,18 +916,29 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  return () => { unsubs.forEach(u => u()) }
  }, [isLoaded, togglePlay, switchFile, toggleMono, isPlaying])
 
- // CRIT-7: also pause the outer ABPlayer when BlindTestPanel opens
- // mid-playback (the effect above only runs on isLoaded change).
- // Poll the DOM for the data attribute; cheap (every 250ms while open).
+ // CRIT-4 fix: replaced 250ms setInterval DOM poll with a MutationObserver.
+ // The interval ran unconditionally every 250ms for the lifetime of every
+ // mounted ABPlayer, accumulating intervals when multiple players are visible.
+ // MutationObserver fires only when the attribute actually changes — zero cost
+ // at rest, immediate response on open/close.
  useEffect(() => {
- const interval = setInterval(() => {
+ const check = () => {
  const blindOpen = !!document.querySelector('[data-blind-test-open="true"]')
  const isInside = !!playerRef.current?.closest('[data-blind-test-open="true"]')
  if (blindOpen && !isInside && isPlaying) {
  togglePlay()
  }
- }, 250)
- return () => clearInterval(interval)
+ }
+ const observer = new MutationObserver(check)
+ observer.observe(document.body, {
+ attributes: true,
+ attributeFilter: ['data-blind-test-open'],
+ subtree: true,
+ })
+ // Run once immediately in case the attribute is already set when this
+ // effect fires (e.g. the panel was open when the player mounted).
+ check()
+ return () => observer.disconnect()
  }, [isPlaying, togglePlay])
 
  // Listen for external seek requests (e.g., from ClickTimeline)

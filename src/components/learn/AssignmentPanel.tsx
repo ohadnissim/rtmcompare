@@ -773,8 +773,14 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         >
           Clear Assignment
         </button>
+        {/* CRIT-5 fix: Export is gated on weightOk. Previously a teacher could
+            export an invalid rubric (weights ≠ 100%) and students would receive
+            a broken assignment. Now disabled + visual feedback same as Save. */}
         <button
+          disabled={!weightOk}
+          title={!weightOk ? 'Rubric weights must equal 100% before exporting' : 'Export assignment as .rtm-assignment.json'}
           onClick={async () => {
+            if (!weightOk) return  // defensive — disabled should prevent this
             const cfg: AssignmentConfig = { title, course, instructor, studentName: '', dueDate: dueDate || undefined, genre: genre || undefined, lockedReferenceFile: lockRef ? (referenceFilePath ?? current?.lockedReferenceFile ?? null) : null, lockedTargetSpec: lockSpec ? selectedSpec : null, rubric }
             const json = JSON.stringify(cfg, null, 2)
             // MED-28 fix: default filename was `<title>.rtm-assignment.json`
@@ -792,12 +798,13 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             background: 'transparent',
             border: '1px solid rgba(168,161,150,0.2)',
             borderRadius: '2px',
-            color: 'var(--color-sand-400)',
+            color: weightOk ? 'var(--color-sand-400)' : '#e05a5a',
             fontSize: 11,
             letterSpacing: '0.06em',
             padding: '7px 14px',
-            cursor: 'pointer',
+            cursor: weightOk ? 'pointer' : 'not-allowed',
             textTransform: 'uppercase',
+            opacity: weightOk ? 1 : 0.5,
           }}
         >
           Export (.json)

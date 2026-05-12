@@ -142,6 +142,9 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   // engine.setActiveClip('loaded_file_a') even after the user picked pink_noise, desyncing
   // the engine from the UI.
   const activeClipRef = React.useRef<ReferenceClipId>(activeClip)
+  // CRIT-3: ref that always holds the latest progress so the unmount flush
+  // can write it without capturing a stale closure value.
+  const latestProgressRef = React.useRef(progress)
   React.useEffect(() => { activeClipRef.current = activeClip }, [activeClip])
   React.useEffect(() => {
     if (activeClip !== 'loaded_file_a') {
@@ -190,21 +193,30 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
     return () => { try { cic(id) } catch {} }
   }, [sourceLoaded, activeClip, engine])
 
-  // Persist progress on every change.
-  // MED-26 fix: debounce saveProgress. Previously fired on every render that
-  // mutated progress — every drill answer triggered a sync localStorage write
-  // (5-20ms stall). Now waits 300ms; if the user racks up answers quickly only
-  // the final state is written. The cleanup also fires saveProgress so we
-  // don't lose state on rapid panel close.
+  // CRIT-3 fix: real debounce — the old cleanup wrote saveProgress synchronously,
+  // which fired on every progress change (not just unmount), defeating the
+  // debounce entirely and keeping the 5-20ms sync localStorage stall.
+  // Fix: keep the latest value in a ref; the effect cleanup only cancels the
+  // timer; the unmount flush below (empty-dep effect) writes once on teardown.
   React.useEffect(() => {
+    latestProgressRef.current = progress
     const t = setTimeout(() => saveProgress(progress), 300)
     return () => {
       clearTimeout(t)
-      // best-effort: write immediately on cleanup so closing the panel doesn't
-      // discard the most recent answer
-      saveProgress(progress)
+      // DO NOT call saveProgress here — this cleanup runs on every progress
+      // change (not only unmount), so writing here is the no-op bug we're fixing.
     }
   }, [progress])
+
+  // Unmount-only flush: write the latest progress exactly once when the panel
+  // closes. Empty dep array guarantees this runs only on actual unmount, not
+  // on re-renders.
+  React.useEffect(() => {
+    return () => {
+      saveProgress(latestProgressRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Drill helpers ──────────────────────────────────────────────
   function startDrill(drillId: EarTrainingDrillId, difficulty: EarTrainingDifficulty) {
