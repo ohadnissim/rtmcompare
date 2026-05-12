@@ -118,7 +118,9 @@ function loadFromStorage(): PersistedState {
     return {
       enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : false,
       role: parsed.role === 'teacher' ? 'teacher' : 'student',
-      step: typeof parsed.step === 'number' ? Math.min(parsed.step, GUIDED_STEPS.length - 1) : 0,
+      // CRIT-5 fix: lower-clamp too — a tampered localStorage value of -999999 used
+      // to crash the renderer because GUIDED_STEPS[state.step] returned undefined.
+      step: typeof parsed.step === 'number' ? Math.max(0, Math.min(parsed.step, GUIDED_STEPS.length - 1)) : 0,
       completed: typeof parsed.completed === 'boolean' ? parsed.completed : false,
       assignment: parsed.assignment ?? null,
       annotations: Array.isArray(parsed.annotations) ? parsed.annotations : [],
@@ -171,38 +173,59 @@ function reducer(state: PersistedState, action: Action): PersistedState {
     case 'REMOVE_ANNOTATION':
       return { ...state, annotations: state.annotations.filter(a => a.id !== action.id) }
     case 'CLEAR_ANNOTATIONS':
-      // BUG-16 fix: when stepId is provided, only clear annotations for that step
+      // BUG-16 + CRIT-2 fix: when stepId is provided, only clear annotations for that
+      // step. Legacy annotations (no stepId) are shown on EVERY step by AnnotationLayer,
+      // so we must keep them — the previous predicate `a.stepId !== undefined && …`
+      // silently deleted legacy notes from all steps. Now we keep:
+      //   - any different-tab annotation (untouched)
+      //   - any legacy/no-stepId annotation (still visible on other steps)
+      //   - any same-tab annotation whose stepId differs from the cleared step
       return {
         ...state,
         annotations: state.annotations.filter(a => {
-          if (a.tabId !== action.tabId) return true  // different tab — keep
-          if (!action.stepId) return false             // no stepId → clear all for this tab
-          // stepId provided → clear only if annotation's stepId matches (or annotation has no stepId)
-          return a.stepId !== undefined && a.stepId !== action.stepId
+          if (a.tabId !== action.tabId) return true        // different tab — keep
+          if (!action.stepId) return false                  // no stepId → clear everything for this tab
+          if (a.stepId === undefined) return true           // legacy annotation — keep (shown on every step)
+          return a.stepId !== action.stepId                 // keep if it belongs to a different step
         }),
       }
     case 'SUBMIT_BLIND_TEST':
       return { ...state, blindTest: action.predictions }
     case 'REVEAL_BLIND_TEST': {
       if (!state.blindTest) return state
-      // BUG-12 fix: stamp isCorrect on each measurable answer at reveal time
+      // BUG-12 + CRIT-3 fix: stamp isCorrect on each measurable answer.
+      // Explicit null/undefined guard before subtracting — previously `null - null === 0`
+      // passed the isNaN check and produced meaningless isCorrect flags that ended up in
+      // the teacher's Class Insights aggregation. Now we leave isCorrect = undefined when
+      // either side of the comparison is missing.
       const ar = action.analysisResult ?? {}
+      const isNum = (v: unknown): v is number => typeof v === 'number' && !isNaN(v)
       const revealedAnswers = state.blindTest.answers.map(a => {
         let isCorrect: boolean | undefined
         const c = a.choice
         const abs = (n: number) => Math.abs(n)
         if (a.dimension === 'loudness') {
-          const d = (ar.lufs_i_a ?? ar.lufs_a) - (ar.lufs_i_b ?? ar.lufs_b)
-          if (!isNaN(d)) isCorrect = abs(d) < 0.5 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+          const aVal = ar.lufs_i_a ?? ar.lufs_a
+          const bVal = ar.lufs_i_b ?? ar.lufs_b
+          if (isNum(aVal) && isNum(bVal)) {
+            const d = aVal - bVal
+            isCorrect = abs(d) < 0.5 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+          }
         } else if (a.dimension === 'stereo_width') {
-          const d = ar.stereo_width_a - ar.stereo_width_b
-          if (!isNaN(d)) isCorrect = abs(d) < 0.1 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+          if (isNum(ar.stereo_width_a) && isNum(ar.stereo_width_b)) {
+            const d = ar.stereo_width_a - ar.stereo_width_b
+            isCorrect = abs(d) < 0.1 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+          }
         } else if (a.dimension === 'dynamics') {
-          const d = ar.lra_a - ar.lra_b
-          if (!isNaN(d)) isCorrect = abs(d) < 0.1 ? c === 'equal' : d < 0 ? c === 'A' : c === 'B'
+          if (isNum(ar.lra_a) && isNum(ar.lra_b)) {
+            const d = ar.lra_a - ar.lra_b
+            isCorrect = abs(d) < 0.1 ? c === 'equal' : d < 0 ? c === 'A' : c === 'B'
+          }
         } else if (a.dimension === 'translation') {
-          const d = ar.mono_compat_a - ar.mono_compat_b
-          if (!isNaN(d)) isCorrect = abs(d) < 0.1 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+          if (isNum(ar.mono_compat_a) && isNum(ar.mono_compat_b)) {
+            const d = ar.mono_compat_a - ar.mono_compat_b
+            isCorrect = abs(d) < 0.1 ? c === 'equal' : d > 0 ? c === 'A' : c === 'B'
+          }
         }
         return { ...a, isCorrect }
       })
