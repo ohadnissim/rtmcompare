@@ -15,6 +15,7 @@ import json
 import logging
 import tempfile
 import shutil
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
@@ -39,19 +40,51 @@ if not _log.handlers:
     _log.addHandler(_h)
     _log.setLevel(logging.WARNING)
 
+_optional_failures_local = threading.local()
+
+
+def _get_optional_failures() -> list:
+    """Return the per-thread _optional_failures list, creating it on first access."""
+    if not hasattr(_optional_failures_local, 'failures'):
+        _optional_failures_local.failures = []
+    return _optional_failures_local.failures
+
+
 def _warn_optional(stage: str, err: BaseException) -> None:
     """Log a failed optional analyser with its stage name so users can
     tell what went missing from the result dict.  Also attaches the
-    error into `_optional_failures` for the caller to include in the
-    final result JSON when appropriate."""
+    error into the per-thread _optional_failures list so concurrent daemon
+    requests don't bleed warnings across each other."""
     _log.warning("%s skipped: %s", stage, err)
     try:
-        _optional_failures.append({"stage": stage, "error": str(err)[:300]})
+        _get_optional_failures().append({"stage": stage, "error": str(err)[:300]})
     except Exception:
         pass
 
-# Populated during the run; caller appends to `result["analysis_warnings"]`.
-_optional_failures: list = []
+
+# Module-level alias kept for backward compatibility with rtm_daemon.py's
+# `_analyze_mod._optional_failures.clear()` call.  Points at the current
+# thread's list via the property; callers that hold _analyze_lock can
+# safely clear it before each run.
+class _OptionalFailuresProxy:
+    """Proxy that forwards attribute access to the current thread's list."""
+    def clear(self) -> None:
+        _get_optional_failures().clear()
+
+    def append(self, item: object) -> None:
+        _get_optional_failures().append(item)
+
+    def __iter__(self):
+        return iter(_get_optional_failures())
+
+    def __len__(self) -> int:
+        return len(_get_optional_failures())
+
+    def __bool__(self) -> bool:
+        return bool(_get_optional_failures())
+
+
+_optional_failures: "_OptionalFailuresProxy" = _OptionalFailuresProxy()  # type: ignore[assignment]
 
 def sanitize(obj):
     """Convert numpy types to Python natives for JSON serialization."""

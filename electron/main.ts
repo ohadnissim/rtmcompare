@@ -2739,30 +2739,25 @@ ipcMain.handle('rtm-certify', async (_event, fileA: string, fileB: string) => {
   const scriptPath = path.join(pythonDir, 'rtm_certify.py')
   if (!fs.existsSync(scriptPath)) return { ok: false, error: 'rtm_certify.py not found' }
 
-  return new Promise((resolve) => {
+  try {
     const { spawn } = require('child_process') as typeof import('child_process')
     const proc = spawn(pythonCmd, [scriptPath, '--certify', fileA, fileB], {
       cwd: pythonDir,
       env: pythonSpawnEnv(),
     })
-    let stdout = ''
-    let stderr = ''
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
-    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
-    proc.on('close', (code: number | null) => {
-      try {
-        const lines = stdout.split('\n')
-        let result: any = null
-        for (let i = lines.length - 1; i >= 0; i--) {
-          const t = lines[i].trim()
-          if (t.startsWith('{')) { try { result = JSON.parse(t); break } catch {} }
-        }
-        if (!result) throw new Error('no JSON output')
-        resolve({ ok: true, certificate: result })
-      } catch (e: any) {
-        resolve({ ok: false, error: `parse failed: ${e?.message}; stderr: ${stderr.slice(-200)}` })
-      }
-    })
-    proc.on('error', (err: Error) => resolve({ ok: false, error: err.message }))
-  })
+    // watchdogSpawn enforces the same 5-minute timeout + 64 MB output cap as
+    // every other secondary Python spawn, and kills the process automatically
+    // so it can never become an orphan on app-quit.
+    const { stdout, stderr } = await watchdogSpawn(proc, 'rtm-certify')
+    const lines = stdout.split('\n')
+    let result: any = null
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const t = lines[i].trim()
+      if (t.startsWith('{')) { try { result = JSON.parse(t); break } catch {} }
+    }
+    if (!result) throw new Error(`no JSON output; stderr: ${stderr.slice(-200)}`)
+    return { ok: true, certificate: result }
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'rtm-certify failed' }
+  }
 })

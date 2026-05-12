@@ -812,16 +812,18 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                 </div>
                 <button
                   onClick={() => revealBlindTest(analysisResult)}
+                  disabled={!analysisResult}
+                  title={!analysisResult ? 'Analysis result not yet available — please wait for analysis to complete' : undefined}
                   style={{
-                    background: 'rgba(208,176,102,0.07)',
-                    border: '1px solid rgba(208,176,102,0.6)',
+                    background: analysisResult ? 'rgba(208,176,102,0.07)' : 'rgba(208,176,102,0.03)',
+                    border: `1px solid ${analysisResult ? 'rgba(208,176,102,0.6)' : 'rgba(208,176,102,0.2)'}`,
                     borderRadius: '2px',
-                    color: 'rgba(208,176,102,1)',
+                    color: analysisResult ? 'rgba(208,176,102,1)' : 'rgba(208,176,102,0.35)',
                     fontSize: 11,
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
                     padding: '8px 18px',
-                    cursor: 'pointer',
+                    cursor: analysisResult ? 'pointer' : 'not-allowed',
                     flexShrink: 0,
                   }}
                 >

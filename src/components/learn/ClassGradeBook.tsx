@@ -235,6 +235,20 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     return sortDir === 'asc' ? cmp : -cmp
   }), [records, draftOverrides, sortCol, sortDir])
 
+  // ITER4-PERF: pre-index every record's rubric rows by label so the table
+  // cells can do O(1) lookups instead of O(N) .find() per criterion per render.
+  // Key: reportPath (or an index fallback); value: Map<label, RubricRow>.
+  const perRecordRubricMap = useMemo(() => {
+    const outer = new Map<string, Map<string, RubricRow>>()
+    records.forEach((r, idx) => {
+      const key = r.reportPath ?? String(idx)
+      const inner = new Map<string, RubricRow>()
+      r.rubric?.forEach(row => inner.set(row.label, row))
+      outer.set(key, inner)
+    })
+    return outer
+  }, [records])
+
   // ITER4-PERF: pre-index rubric rows by criterion label so the Insights
   // section can do O(1) lookups instead of O(N) .find() per criterion per render.
   // Previously: criterionNames.map → records.map(r => r.rubric?.find(…)) = O(N×C) every keystroke.
@@ -811,7 +825,9 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                       </td>
                       <td style={{ ...tdStyle, fontSize: 10, color: 'var(--color-sand-400)' }}>{dateStr}</td>
                       {allLabels.map(label => {
-                        const row = rec.rubric?.find(r => r.label === label)
+                        // O(1) lookup via pre-indexed map (was O(N) .find() per cell)
+                        const recMap = perRecordRubricMap.get(rec.reportPath ?? String(sorted.indexOf(rec)))
+                        const row = recMap?.get(label)
                         if (!row) return <td key={label} style={{ ...tdStyle, textAlign: 'center', color: 'var(--color-sand-400)' }}>—</td>
                         const color = scoreColor(row.earned, row.possible)
                         return (
@@ -858,10 +874,9 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                         ) : (
                           <span style={{ color: 'var(--color-sand-400)', fontSize: 10 }}>—</span>
                         )}
-                        {(rec.submissionVersion ?? 1) > 1 && (
-                          <button
-                            onClick={() => {
-                              const currentIsDraft = draftOverrides[rec.reportPath ?? ''] ?? rec.isDraft ?? false
+                        <button
+                          onClick={() => {
+                            const currentIsDraft = draftOverrides[rec.reportPath ?? ''] ?? rec.isDraft ?? false
                               setDraftOverrides(prev => ({ ...prev, [rec.reportPath ?? '']: !currentIsDraft }))
                               // LOW-20: match on studentId first (unique), fall back to
                               // studentName only when id is absent. Matching on name alone
@@ -890,7 +905,6 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                           >
                             {effectiveIsDraft ? 'Mark Final' : 'Mark Draft'}
                           </button>
-                        )}
                       </td>
                     </tr>
                   )

@@ -453,7 +453,7 @@ def check_artifactnet(mono: "np.ndarray", sr: int) -> "GenerationLossCheck | Non
         # Run inference
         input_name = sess.get_inputs()[0].name
         output = sess.run(None, {input_name: inp})[0]
-        prob = float(np.sigmoid(output.ravel()[0])) if hasattr(np, 'sigmoid') else float(1 / (1 + np.exp(-float(output.ravel()[0]))))
+        prob = float(1.0 / (1.0 + np.exp(-float(output.ravel()[0]))))
 
         if prob >= 0.6:
             return GenerationLossCheck(
