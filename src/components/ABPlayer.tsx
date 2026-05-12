@@ -941,6 +941,11 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  }
  }
  const observer = new MutationObserver(check)
+ // NIT-1: document.body is the correct target here because BlindTestPanel
+ // renders anywhere in the app tree. attributeFilter limits callbacks to
+ // only data-blind-test-open mutations so cost at rest is zero regardless
+ // of how broad the target is. A narrower target would require a ref to
+ // the BlindTestPanel root, introducing coupling; the current approach is correct.
  observer.observe(document.body, {
  attributes: true,
  attributeFilter: ['data-blind-test-open'],

@@ -129,6 +129,10 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   const [revealed, setRevealed] = React.useState(false)
   // MED: initialize to true for procedural clips (pink_noise default) — avoids a
   // flash of the loading spinner before the mount effect fires and sets it true.
+  // NIT-2: this value is coupled to the DEFAULT_CLIP being 'pink_noise' (a
+  // procedural/synthetic source that needs no file load). If DEFAULT_CLIP is
+  // ever changed to a file-backed clip, this must be changed back to false, or
+  // the spinner will be skipped and the component may try to play before load.
   const [sourceLoaded, setSourceLoaded] = React.useState<boolean>(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [playingLabel, setPlayingLabel] = React.useState<string | null>(null)
