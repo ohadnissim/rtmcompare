@@ -725,7 +725,10 @@ export default function GuidedFlowBar({
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 400,
+            // CRIT-6: Help modal must sit ABOVE BlindTestPanel (z-500) and
+            // EarTrainingPanel (z-500) — previously z-400 meant the help
+            // dialog opened but rendered underneath active drill overlays.
+            zIndex: 600,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

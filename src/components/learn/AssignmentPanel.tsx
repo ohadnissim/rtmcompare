@@ -727,20 +727,32 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
 
       {/* ── Actions ──────────────────────────────────────────────────── */}
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* CRIT-8: gate Save on weights summing to 100%. UI showed the
+            warning but Save wasn't disabled — teachers could ship a rubric
+            with weights totalling 73% and silently get garbage grades.
+            Now the button is also disabled when weightOk is false; title
+            text explains both reasons. */}
         <button
           onClick={handleSave}
-          disabled={!title.trim()}
+          disabled={!title.trim() || !weightOk}
+          title={
+            !title.trim()
+              ? 'Add an assignment title'
+              : !weightOk
+                ? `Rubric weights must equal 100% (currently ${(totalWeight * 100).toFixed(0)}%)`
+                : 'Save and export this assignment'
+          }
           style={{
             background: 'rgba(208,176,102,0.1)',
             border: '1px solid rgba(208,176,102,0.5)',
             borderRadius: '2px',
-            color: title.trim() ? 'var(--color-text-primary)' : 'var(--color-sand-400)',
+            color: (title.trim() && weightOk) ? 'var(--color-text-primary)' : 'var(--color-sand-400)',
             fontSize: 12,
             letterSpacing: '0.08em',
             padding: '8px 14px',
-            cursor: title.trim() ? 'pointer' : 'not-allowed',
+            cursor: (title.trim() && weightOk) ? 'pointer' : 'not-allowed',
             textTransform: 'uppercase',
-            opacity: title.trim() ? 1 : 0.5,
+            opacity: (title.trim() && weightOk) ? 1 : 0.5,
           }}
         >
           Save Assignment

@@ -83,6 +83,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // eye doesn't notice the lower state-update cadence).
  const currentTimeRef = useRef(0)
  const lastSetCurrentTimeRef = useRef(0)
+ // CRIT-7: root element ref — used to detect whether this player instance
+ // is the one INSIDE the BlindTestPanel overlay (closest data-blind-test-open).
+ const playerRef = useRef<HTMLDivElement | null>(null)
  const [duration, setDuration] = useState(0)
  const [isLoaded, setIsLoaded] = useState(false)
  const [isLoading, setIsLoading] = useState(false)
@@ -888,6 +891,17 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // to their respective owners (EQPreviewPlayer, this file's toggleMono).
  useEffect(() => {
  if (!isLoaded) return
+ // CRIT-7: when the BlindTestPanel is open (it mounts its own ABPlayer
+ // inside the overlay), an OUTER ABPlayer in AnalysisView would also
+ // receive Space and toggle play — two AudioContexts racing the output.
+ // If we're not the ABPlayer inside the blind-test overlay, suppress
+ // shortcuts and pause if currently playing.
+ const isInsideBlindTest = !!playerRef.current?.closest('[data-blind-test-open="true"]')
+ const blindTestOpen = !!document.querySelector('[data-blind-test-open="true"]')
+ if (blindTestOpen && !isInsideBlindTest) {
+ if (isPlaying) togglePlay()
+ return  // don't even subscribe — outer player is muted
+ }
  const unsubs = [
  onShortcut(RTM_EVENTS.playToggle, () => togglePlay()),
  onShortcut(RTM_EVENTS.sourceA, () => switchFile('A')),
@@ -901,6 +915,20 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  ]
  return () => { unsubs.forEach(u => u()) }
  }, [isLoaded, togglePlay, switchFile, toggleMono, isPlaying])
+
+ // CRIT-7: also pause the outer ABPlayer when BlindTestPanel opens
+ // mid-playback (the effect above only runs on isLoaded change).
+ // Poll the DOM for the data attribute; cheap (every 250ms while open).
+ useEffect(() => {
+ const interval = setInterval(() => {
+ const blindOpen = !!document.querySelector('[data-blind-test-open="true"]')
+ const isInside = !!playerRef.current?.closest('[data-blind-test-open="true"]')
+ if (blindOpen && !isInside && isPlaying) {
+ togglePlay()
+ }
+ }, 250)
+ return () => clearInterval(interval)
+ }, [isPlaying, togglePlay])
 
  // Listen for external seek requests (e.g., from ClickTimeline)
  useEffect(() => {
@@ -960,7 +988,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  : (activeFile === 'A' ? '#6b8cbb' : '#e07a4f')
 
  return (
- <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
+ <div ref={playerRef} className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <h2 className="text-lg font-semibold">A/B Player</h2>
  <div className="flex items-center gap-3">
