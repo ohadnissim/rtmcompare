@@ -275,8 +275,24 @@ function createWindow() {
     // else. In production the loaded file:// origin won't navigate at
     // all; a renderer compromise that tries `location = 'http://...'`
     // gets dropped here instead of reaching the network.
-    if (!url.startsWith('http://localhost:5173') && !url.startsWith('file://')) {
-      e.preventDefault()
+    //
+    // MED-17 hardening: previously allowed ANY file:// URL. A compromised
+    // renderer could navigate to file:///etc/passwd and read it via fetch
+    // into the same origin. Now in production we only allow the packaged
+    // bundle's own index.html; in dev we allow file:// for hot-reload
+    // edge cases and the localhost dev server.
+    if (app.isPackaged) {
+      // The loaded file is dist/index.html inside the resources/app.asar — its
+      // realpath looks like /Applications/RTMcompare.app/Contents/Resources/.../dist/index.html
+      const packagedIndex = url.startsWith('file://')
+        && url.includes('/dist/index.html')
+      if (!packagedIndex) {
+        e.preventDefault()
+      }
+    } else {
+      if (!url.startsWith('http://localhost:5173') && !url.startsWith('file://')) {
+        e.preventDefault()
+      }
     }
   })
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -2189,14 +2205,32 @@ ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
 
 ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback: string) => {
   try {
-    // Validate path exists (BUG-18: allow /Volumes paths for external drives)
-    const resolved = path.resolve(reportPath)
-    // Write .rtm-feedback.json next to the report file.
-    // Guard: if the path doesn't end in a known suffix, reject rather than
-    // writing feedback over an arbitrary file (both regexes would be no-ops,
-    // leaving feedbackPath === reportPath and clobbering the source file).
+    // MED-16 hardening: previously accepted ANY path ending .pdf or .rtm-report.json
+    // and overwrote the .rtm-feedback.json neighbor. Now:
+    //  1. Resolve via realpathSync (rejects symlinks at the leaf)
+    //  2. Resolved file must exist + be a regular file (no symlinks, no dirs)
+    //  3. Suffix check (must be a real RTMcompare report file)
+    //  4. Feedback string size cap to prevent overwriting massive sibling files
+    if (typeof reportPath !== 'string' || reportPath.length === 0 || reportPath.length > 4096) {
+      return { ok: false, error: 'reportPath invalid.' }
+    }
+    let resolved = path.resolve(reportPath)
+    if (!fs.existsSync(resolved)) {
+      return { ok: false, error: 'reportPath does not exist.' }
+    }
+    // realpathSync — refuses to write through a symlink chain
+    try { resolved = fs.realpathSync(resolved) } catch {
+      return { ok: false, error: 'reportPath could not be resolved.' }
+    }
+    const lst = fs.lstatSync(resolved)
+    if (!lst.isFile()) {
+      return { ok: false, error: 'reportPath must be a regular file (not a symlink or directory).' }
+    }
     if (!/\.(rtm-report\.json|pdf)$/i.test(resolved)) {
       return { ok: false, error: 'reportPath must end in .rtm-report.json or .pdf' }
+    }
+    if (typeof feedback !== 'string' || feedback.length > 64 * 1024) {
+      return { ok: false, error: 'Feedback text is too long (max 64 KB).' }
     }
     const feedbackPath = resolved.replace(/\.rtm-report\.json$/i, '.rtm-feedback.json')
       .replace(/\.pdf$/i, '.rtm-feedback.json')
@@ -2320,15 +2354,28 @@ ipcMain.handle('save-lms-config', async (_e, config: {
   try {
     // CRIT-9: validate baseUrl BEFORE storing it.
     const safeBaseUrl = assertCanvasBaseUrl(config.baseUrl)
-    const encrypted = safeStorage.isEncryptionAvailable()
-      ? safeStorage.encryptString(config.apiToken).toString('base64')
-      : Buffer.from(config.apiToken).toString('base64')  // fallback: base64 only (no OS keychain)
+    // MED-14 fix: previously fell back to base64 (plaintext) when safeStorage
+    // was unavailable. That silently stored the Canvas API token in plaintext
+    // on disk — bad on Linux without libsecret, on a broken Mac keychain, or
+    // on a kiosk. Now we refuse to save and surface a clear error so the user
+    // knows to fix their keychain instead of getting silently insecure.
+    if (!safeStorage.isEncryptionAvailable()) {
+      return {
+        ok: false,
+        error:
+          'Cannot save Canvas token: OS keychain encryption is unavailable. ' +
+          'On macOS, check that Keychain Access is unlocked. On Linux, install ' +
+          'libsecret (gnome-keyring or kwallet). Refusing to store the token ' +
+          'in plaintext on disk.',
+      }
+    }
+    const encrypted = safeStorage.encryptString(config.apiToken).toString('base64')
     const toSave = {
       baseUrl: safeBaseUrl,
       courseId: config.courseId,
       assignmentName: config.assignmentName ?? '',
       encryptedToken: encrypted,
-      usedSafeStorage: safeStorage.isEncryptionAvailable(),
+      usedSafeStorage: true,
       savedAt: new Date().toISOString(),
     }
     fs.writeFileSync(lmsConfigPath(), JSON.stringify(toSave, null, 2), 'utf8')
@@ -2446,9 +2493,21 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     // a 50-pt assignment would enter 85/50 = 170%. Send the raw earned points
     // and ensure the Canvas assignment's point value matches the rubric total.
     // Canvas expects: { grade_data: { "sis_user_id:XXXXX": { posted_grade: "85.5" } } }
+    //
+    // MED-15 hardening: studentId originates from localStorage and is interpolated
+    // into the Canvas API path. A student who set their ID to "1/users/2/grades?x="
+    // could redirect/poison the request. Validate ^[A-Za-z0-9_.@-]{1,64}$ — anything
+    // else is rejected before the request is built. Same charset Canvas itself
+    // accepts for SIS user IDs.
+    const STUDENT_ID_RE = /^[A-Za-z0-9_.@-]{1,64}$/
     const gradeData: Record<string, { posted_grade: string }> = {}
+    const rejected: string[] = []
     for (const g of payload.grades) {
       if (!g.studentId) continue
+      if (!STUDENT_ID_RE.test(g.studentId)) {
+        rejected.push(g.studentName || g.studentId)
+        continue
+      }
       if (!Number.isFinite(g.score)) continue
       // Round to 1 decimal to avoid floating-point noise
       const rawScore = Math.round(g.score * 10) / 10
@@ -2476,12 +2535,16 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
 
     // Canvas bulk update returns a Progress object — not per-student results
     // Return how many we submitted
+    const rejectedSuffix = rejected.length > 0
+      ? ` ${rejected.length} student${rejected.length !== 1 ? 's' : ''} rejected for invalid Student ID format: ${rejected.slice(0, 3).join(', ')}${rejected.length > 3 ? '…' : ''}.`
+      : ''
     return {
       ok: true,
       submitted: Object.keys(gradeData).length,
       total: payload.grades.length,
       skipped: payload.grades.length - Object.keys(gradeData).length,
-      message: `Submitted ${Object.keys(gradeData).length} grades to Canvas. Grades may take a moment to appear.`,
+      rejected: rejected.length,
+      message: `Submitted ${Object.keys(gradeData).length} grades to Canvas. Grades may take a moment to appear.${rejectedSuffix}`,
     }
   } catch (e: any) {
     return { ok: false, error: e?.message }
