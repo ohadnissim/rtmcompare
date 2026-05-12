@@ -286,6 +286,7 @@ def check_vibrato_periodicity(mono: "np.ndarray", sr: int) -> GenerationLossChec
             e_fwd = cum_sqr[frame_size - _taus]   # sum x[0..N-tau-1]^2
             e_bwd = cum_sqr[frame_size] - cum_sqr[_taus]  # sum x[tau..N-1]^2
             d = e_fwd + e_bwd - 2.0 * r_full
+            d = np.maximum(d, 0.0)  # numerical noise can produce tiny negatives
             d[0] = 0.0  # tau=0: d is always 0
 
             # ── Vectorized CMND (step 3) ──────────────────────────────────────
@@ -395,11 +396,14 @@ def check_artifactnet(mono: "np.ndarray", sr: int) -> "GenerationLossCheck | Non
         global _artifactnet_session, _artifactnet_model_path
         with _artifactnet_lock:
             if _artifactnet_session is None or _artifactnet_model_path != model_path:
+                old = _artifactnet_session
+                _artifactnet_session = None
+                del old
                 _artifactnet_session = ort.InferenceSession(
                     model_path, providers=["CPUExecutionProvider"]
                 )
                 _artifactnet_model_path = model_path
-        sess = _artifactnet_session
+            sess = _artifactnet_session
 
         # Resample to 16 kHz using linear interpolation (no librosa)
         target_sr = 16000

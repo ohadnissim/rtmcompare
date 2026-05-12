@@ -35,6 +35,32 @@ from typing import Optional
 # Paths that escape via .. or absolute paths to other directories are rejected.
 _LTI_KEY_DIR = os.path.expanduser("~/.rtm/lti")
 
+# ── Security: LMS URL allowlist ───────────────────────────────────────────────
+import ipaddress
+import urllib.parse as _urlparse
+
+def _validate_lms_url(url: str, field_name: str) -> None:
+    """Reject non-HTTPS or private-network URLs to prevent SSRF."""
+    try:
+        parsed = _urlparse.urlparse(url)
+    except Exception:
+        raise ValueError(f"{field_name}: invalid URL")
+    if parsed.scheme != "https":
+        raise ValueError(f"{field_name} must use https:// (got {parsed.scheme!r})")
+    hostname = parsed.hostname or ""
+    if not hostname:
+        raise ValueError(f"{field_name}: missing hostname")
+    try:
+        addr = ipaddress.ip_address(hostname)
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+            raise ValueError(f"{field_name}: private/loopback IP addresses are not allowed")
+    except ValueError as exc:
+        if "not allowed" in str(exc):
+            raise
+        # hostname is a domain name — allow it
+    if hostname in ("localhost",):
+        raise ValueError(f"{field_name}: localhost is not allowed")
+
 
 def _validate_key_path(path: str) -> str:
     """Resolve and validate that *path* is within _LTI_KEY_DIR.
@@ -130,6 +156,7 @@ def get_access_token(config: LtiConfig) -> str:
         import urllib.request
         import urllib.parse
 
+        _validate_lms_url(config.token_url, "token_url")
         assertion = _build_client_assertion_jwt(config)
         body = urllib.parse.urlencode({
             "grant_type": "client_credentials",
@@ -156,6 +183,7 @@ def post_score(config: LtiConfig, score: ScoreClaim) -> dict:
     Returns {"ok": True} on success or {"ok": False, "error": str} on failure.
     """
     try:
+        _validate_lms_url(config.ags_lineitem_url, "ags_lineitem_url")
         import urllib.request
 
         token = get_access_token(config)

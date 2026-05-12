@@ -208,12 +208,11 @@ def _load_or_create_secret_key() -> bytes:
             return secret
         with open(key_path, "rb") as fh:
             return fh.read()
-    except Exception:
-        # If the key file can't be read or created, fall back to a
-        # deterministic but non-public key derived from the machine.
-        import socket
-        fallback_seed = f"rtm-certify-fallback-{socket.gethostname()}".encode()
-        return hashlib.sha256(fallback_seed).digest()
+    except Exception as exc:
+        raise RuntimeError(
+            "Cannot read or create the RTMcertify signing key at ~/.rtm/certify.key. "
+            "Check file permissions."
+        ) from exc
 
 
 def _sign(payload: dict) -> str:
@@ -226,6 +225,11 @@ def _sign(payload: dict) -> str:
 def certify(file_a: str, file_b: str) -> dict:
     if not _DEPS_OK:
         return {"error": "numpy/soundfile unavailable"}
+
+    if os.path.islink(file_a):
+        return {"error": f"Reference file must not be a symlink: {file_a}"}
+    if os.path.islink(file_b):
+        return {"error": f"Comparison file must not be a symlink: {file_b}"}
 
     # Per-file fields
     sha_a = _sha256_file(file_a)
