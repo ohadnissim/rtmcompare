@@ -760,7 +760,6 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         </button>
         <button
           onClick={() => { if (clearPending) { onClear(); setClearPending(false) } else { setClearPending(true); setTimeout(() => setClearPending(false), 3000) } }}
-          onBlur={() => setClearPending(false)}
           style={{
             background: clearPending ? 'rgba(220,80,60,0.08)' : 'transparent',
             border: `1px solid ${clearPending ? 'rgba(220,80,60,0.5)' : 'rgba(168,161,150,0.2)'}`,

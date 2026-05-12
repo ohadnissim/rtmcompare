@@ -541,7 +541,7 @@ export function LmsExportPanel({ records }: Props) {
               <>
                 <select
                   value={selectedAssignmentId}
-                  onChange={e => setSelectedAssignmentId(e.target.value)}
+                  onChange={e => { setSelectedAssignmentId(e.target.value); setStatus('idle'); setUploadResult(null) }}
                   style={{
                     ...inputStyle,
                     width: 'auto',

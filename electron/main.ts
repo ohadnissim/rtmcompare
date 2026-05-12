@@ -664,7 +664,8 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
     return { ok: false, error: stderr.slice(-500) || `batch analyser exited ${code}` }
   }
   try {
-    return JSON.parse(stdout.trim())
+    const parsed = JSON.parse(stdout.trim())
+    return { ok: true, ...parsed }
   } catch {
     return { ok: false, error: `Failed to parse batch output: ${stdout.slice(0, 200)}` }
   }
@@ -2562,12 +2563,23 @@ ipcMain.handle('load-lms-config', async () => {
 // Electron 36+ throws on decrypt failure (was: returned ""). Centralise the
 // try/catch so all three Canvas IPC handlers surface a clear actionable error
 // instead of a generic stack trace.
-function decryptCanvasToken(raw: any): { ok: true; token: string } | { ok: false; error: string } {
-  // SEC-5: reject legacy configs that were saved without OS-level encryption.
-  // Old configs have usedSafeStorage:false and store a base64-encoded plaintext token.
-  // Rather than silently using plaintext credentials, prompt re-entry.
+function decryptCanvasToken(raw: any): { ok: true; token: string; legacy?: boolean } | { ok: false; error: string } {
   if (!raw.usedSafeStorage) {
-    return { ok: false, error: 'Canvas credentials were saved without encryption. Please re-enter your API token in LMS settings to migrate to secure storage.' }
+    // Legacy path: token was stored as base64 plaintext when safeStorage was
+    // unavailable on the machine that saved the config (Linux without libsecret,
+    // broken macOS keychain, or saved before SEC-5 landed).
+    // Transparently return the token so the user is NOT locked out, then callers
+    // should invoke migrateCanvasTokenIfNeeded() to re-encrypt and save.
+    if (!raw.encryptedToken) {
+      return { ok: false, error: 'No Canvas token saved. Please enter your API token in LMS settings.' }
+    }
+    try {
+      const token = Buffer.from(raw.encryptedToken, 'base64').toString('utf8').trim()
+      if (!token) return { ok: false, error: 'Canvas token is empty. Please re-enter your API token in LMS settings.' }
+      return { ok: true, token, legacy: true }
+    } catch {
+      return { ok: false, error: 'Canvas credentials are unreadable. Please re-enter your API token in LMS settings.' }
+    }
   }
   try {
     const token = safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
@@ -2575,6 +2587,19 @@ function decryptCanvasToken(raw: any): { ok: true; token: string } | { ok: false
   } catch (e: any) {
     return { ok: false, error: 'Keychain decrypt failed — re-enter your Canvas API token in LMS settings' }
   }
+}
+
+// Re-encrypt a legacy plaintext Canvas token with safeStorage and save it.
+// Called after a successful API operation on a legacy config so existing users
+// are silently migrated on their first successful Canvas use after the update.
+function migrateCanvasTokenIfNeeded(dec: { ok: true; token: string; legacy?: boolean }, raw: any): void {
+  if (!dec.legacy) return
+  if (!safeStorage.isEncryptionAvailable()) return
+  try {
+    const encrypted = safeStorage.encryptString(dec.token).toString('base64')
+    const migrated = { ...raw, encryptedToken: encrypted, usedSafeStorage: true }
+    atomicWriteFileSync(lmsConfigPath(), JSON.stringify(migrated, null, 2))
+  } catch { /* best-effort; user can re-enter manually if this fails */ }
 }
 
 ipcMain.handle('canvas-test-connection', async (_e) => {
@@ -2601,6 +2626,7 @@ ipcMain.handle('canvas-test-connection', async (_e) => {
       return { ok: false, error: msg }
     }
     const course = res.body as any
+    migrateCanvasTokenIfNeeded(dec, raw)
     return { ok: true, courseName: course.name ?? course.course_code ?? raw.courseId }
   } catch (e: any) {
     return { ok: false, error: e?.message }
@@ -2631,6 +2657,7 @@ ipcMain.handle('canvas-get-assignments', async () => {
       return { ok: false, error: `Canvas returned unexpected response: ${JSON.stringify(res.body).slice(0, 200)}` }
     }
     const assignments = (res.body as any[]).map((a: any) => ({ id: String(a.id), name: a.name, pointsPossible: a.points_possible }))
+    migrateCanvasTokenIfNeeded(dec, raw)
     return { ok: true, assignments }
   } catch (e: any) {
     return { ok: false, error: e?.message }
@@ -2651,6 +2678,7 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
     const dec = decryptCanvasToken(raw)
     if (!dec.ok) return dec
+    migrateCanvasTokenIfNeeded(dec, raw)
     const token = dec.token
 
     // Build grade_data for Canvas bulk update API.
