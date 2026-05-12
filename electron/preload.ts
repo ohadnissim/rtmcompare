@@ -181,4 +181,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('rtmsend-best-plugin-for-move', band),
   rtmsendBestPluginsForBands: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) =>
     ipcRenderer.invoke('rtmsend-best-plugins-for-bands', bands),
+
+  // RTMcertify — generate a signed pre-delivery compliance certificate.
+  rtmCertify: (fileA: string, fileB: string) => ipcRenderer.invoke('rtm-certify', fileA, fileB),
 })

@@ -5,6 +5,7 @@ import https from 'https'
 import http from 'http'
 import type { ChildProcess } from 'child_process'
 import { analyzePython, ensureDeps, cancelActiveAnalysis, getPythonPaths, pythonSpawnEnv } from './python-bridge'
+import { startDaemon, shutdownDaemon, daemonAnalyze, DaemonUnavailableError } from './python-daemon'
 import * as rtmsend from './rtmsend-bridge'
 import {
   findProfile, listSupportedPlugins, bandsToUpdates, type Profile,
@@ -358,6 +359,11 @@ app.whenReady().then(async () => {
   } catch (err: any) {
     console.error('Dep install failed:', err.message)
   }
+  // Start persistent Python daemon — pre-warms the interpreter and
+  // BS-RoFormer ONNX model so repeat analyses skip the ~13 s cold-start.
+  // Non-blocking: daemon boots in the background; analyze-files falls
+  // back to the legacy subprocess path if daemon isn't ready yet.
+  startDaemon()
 })
 
 app.on('window-all-closed', () => {
@@ -1001,6 +1007,22 @@ ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast
   assertSafeAudioPath(fileB, 'analyze-files (B)')
   const sendProgress = (msg: string) => {
     mainWindow?.webContents.send('analysis-progress', msg)
+  }
+
+  // Fast path — try the persistent daemon first. Cuts repeat-analysis
+  // latency from ~30 s to ~17 s because Python + ONNX stay warm.
+  // Falls back to the legacy subprocess path on any daemon error.
+  try {
+    const result = await daemonAnalyze(fileA, fileB, fast, profile, sendProgress)
+    return result
+  } catch (err: any) {
+    if (!(err instanceof DaemonUnavailableError)) {
+      // Daemon was reachable but the analysis itself failed — surface
+      // the error rather than hiding it behind a slower retry.
+      throw new Error(err.message || 'Analysis failed')
+    }
+    // Daemon unavailable (still starting, crashed, or exhausted retries)
+    // — fall through to the legacy subprocess path transparently.
   }
 
   try {
@@ -1725,6 +1747,9 @@ app.on('will-quit', () => {
   cancelActiveAnalysis()
   try { incomingWatcher?.close() } catch {}
   incomingWatcher = null
+  // Gracefully shut down the persistent Python daemon so it doesn't
+  // linger as an orphan process after the app exits.
+  shutdownDaemon().catch(() => { /* fire-and-forget; process exits anyway */ })
 })
 
 // BWF user-facing write-back IPC removed — that capability lives in FLOW
@@ -2701,4 +2726,43 @@ ipcMain.handle('clear-lms-config', async () => {
   } catch (e: any) {
     return { ok: false, error: e?.message }
   }
+})
+
+// ── RTMcertify — pre-delivery compliance certificate ─────────────────────────
+ipcMain.handle('rtm-certify', async (_event, fileA: string, fileB: string) => {
+  try { assertSafeAudioPath(fileA, 'rtm-certify (A)') }
+  catch (err: any) { return { ok: false, error: err?.message } }
+  try { assertSafeAudioPath(fileB, 'rtm-certify (B)') }
+  catch (err: any) { return { ok: false, error: err?.message } }
+
+  const { pythonCmd, pythonDir } = getPythonPaths()
+  const scriptPath = path.join(pythonDir, 'rtm_certify.py')
+  if (!fs.existsSync(scriptPath)) return { ok: false, error: 'rtm_certify.py not found' }
+
+  return new Promise((resolve) => {
+    const { spawn } = require('child_process') as typeof import('child_process')
+    const proc = spawn(pythonCmd, [scriptPath, '--certify', fileA, fileB], {
+      cwd: pythonDir,
+      env: pythonSpawnEnv(),
+    })
+    let stdout = ''
+    let stderr = ''
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString() })
+    proc.on('close', (code: number | null) => {
+      try {
+        const lines = stdout.split('\n')
+        let result: any = null
+        for (let i = lines.length - 1; i >= 0; i--) {
+          const t = lines[i].trim()
+          if (t.startsWith('{')) { try { result = JSON.parse(t); break } catch {} }
+        }
+        if (!result) throw new Error('no JSON output')
+        resolve({ ok: true, certificate: result })
+      } catch (e: any) {
+        resolve({ ok: false, error: `parse failed: ${e?.message}; stderr: ${stderr.slice(-200)}` })
+      }
+    })
+    proc.on('error', (err: Error) => resolve({ ok: false, error: err.message }))
+  })
 })

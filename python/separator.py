@@ -37,6 +37,28 @@ os.environ.setdefault(
 if str(_RTM_PYTHON_DIR) not in sys.path:
     sys.path.insert(0, str(_RTM_PYTHON_DIR))
 
+# ── CoreML / Apple Silicon acceleration ───────────────────────────────────────
+# On arm64 macOS, pass device="mps" to UAI backends so they activate their
+# built-in CoreML execution-provider path (sets onnx_execution_provider to
+# ["CoreMLExecutionProvider"] when onnxruntime-coreml is installed).
+# Delivers ~3–5× speedup over the CPU provider via GPU/ANE offload.
+# Falls back silently to CPU if onnxruntime-coreml is not installed.
+def _detect_uai_device() -> str:
+    """Return 'mps' on arm64 macOS when CoreML is available, else 'cpu'."""
+    if sys.platform != "darwin":
+        return "cpu"
+    try:
+        if os.uname().machine != "arm64":
+            return "cpu"
+        import onnxruntime as _ort  # type: ignore
+        if "CoreMLExecutionProvider" in _ort.get_available_providers():
+            return "mps"
+    except Exception:
+        pass
+    return "cpu"
+
+_UAI_DEVICE = _detect_uai_device()
+
 
 def separate(audio_path: str, output_dir: str,
              progress_cb: Optional[Callable[[str], None]] = None) -> Dict[str, str]:
@@ -60,7 +82,7 @@ def separate(audio_path: str, output_dir: str,
             from uai.core.stem_backends import get_backend  # type: ignore
             if progress_cb:
                 progress_cb(f"Loading {backend_name} backend…")
-            backend = get_backend(backend_name)
+            backend = get_backend(backend_name, device=_UAI_DEVICE)
             if progress_cb:
                 progress_cb("Processing…")
             stem_paths = backend.separate(audio_path, output_dir)

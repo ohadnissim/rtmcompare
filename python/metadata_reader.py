@@ -358,6 +358,11 @@ def read_delivery_fields(path: str) -> dict:
         id3 = _read_id3v2(path) or {}
         _merge_id3_into_flat(out, id3)
 
+    # ── Decoded duration enforcement ─────────────────────────────────────
+    # Always run for WAV/BWF/RF64 where tag-vs-physical mismatches occur.
+    # Skipped silently for formats soundfile can't open (returns {"error": ...}).
+    out["duration_check"] = check_decoded_duration(path)
+
     return out
 
 
@@ -381,6 +386,89 @@ def _merge_id3_into_flat(out: dict, id3: dict) -> None:
             if val is not None:
                 out["explicit"] = val
                 break
+
+
+def check_decoded_duration(path: str) -> dict:
+    """Compare tag-reported duration against physically-decoded duration.
+
+    Tag duration comes from the RIFF data chunk size calculation or WAV fmt chunk.
+    Decoded duration = total_frames / sample_rate (the physical truth).
+
+    A discrepancy > 500 ms is suspicious: either the tag was hand-edited,
+    the file was truncated post-encode, or a metadata tool wrote bad headers.
+
+    Returns dict with:
+      - decoded_duration_s: float — duration from pcm frame count
+      - tag_duration_s: float | None — duration from RIFF chunk sizes (if parseable)
+      - discrepancy_ms: float | None — abs(decoded - tag) * 1000
+      - flag: bool — True if discrepancy > 500 ms
+      - note: str
+    """
+    result: dict = {}
+    try:
+        import soundfile as sf  # type: ignore
+        info = sf.info(path)
+        decoded_duration = info.frames / info.samplerate
+        result["decoded_duration_s"] = round(decoded_duration, 4)
+        result["sample_rate"] = info.samplerate
+        result["channels"] = info.channels
+        result["frames"] = info.frames
+    except Exception as e:
+        return {"error": f"soundfile.info failed: {e}"}
+
+    # Compute tag-based duration from RIFF data chunk size
+    tag_duration: float | None = None
+    try:
+        with open(path, "rb") as f:
+            import struct as _struct
+            header = f.read(12)
+            if len(header) >= 12:
+                riff, file_size, wave = _struct.unpack("<4sI4s", header)
+                if riff in (b"RIFF", b"RF64") and wave == b"WAVE":
+                    sr_tag: int | None = None
+                    block_align: int | None = None
+                    data_size: int | None = None
+                    while True:
+                        hdr = f.read(8)
+                        if len(hdr) < 8:
+                            break
+                        cid, size = _struct.unpack("<4sI", hdr)
+                        if cid == b"fmt ":
+                            fmt = f.read(min(size, 40))
+                            if len(fmt) >= 16:
+                                sr_tag = _struct.unpack_from("<I", fmt, 4)[0]
+                                block_align = _struct.unpack_from("<H", fmt, 12)[0]
+                        elif cid == b"data":
+                            data_size = size
+                            break
+                        else:
+                            f.seek(size + (size % 2), 1)
+                    if sr_tag and block_align and data_size and block_align > 0 and sr_tag > 0:
+                        tag_frames = data_size // block_align
+                        tag_duration = tag_frames / sr_tag
+    except Exception:
+        pass
+
+    if tag_duration is not None:
+        result["tag_duration_s"] = round(tag_duration, 4)
+        disc = abs(result["decoded_duration_s"] - tag_duration)
+        result["discrepancy_ms"] = round(disc * 1000, 1)
+        result["flag"] = disc > 0.5  # > 500 ms
+        if result["flag"]:
+            result["note"] = (
+                f"Duration mismatch: decoded {result['decoded_duration_s']:.3f}s vs "
+                f"tag {tag_duration:.3f}s (delta {result['discrepancy_ms']:.0f} ms). "
+                "File may be truncated or have corrupt RIFF headers."
+            )
+        else:
+            result["note"] = f"Duration consistent (delta {result['discrepancy_ms']:.0f} ms)."
+    else:
+        result["tag_duration_s"] = None
+        result["discrepancy_ms"] = None
+        result["flag"] = False
+        result["note"] = "Could not parse RIFF headers for tag-duration comparison."
+
+    return result
 
 
 def read_metadata(path: str) -> Optional[dict]:

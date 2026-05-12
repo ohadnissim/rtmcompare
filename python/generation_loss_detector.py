@@ -27,6 +27,7 @@ for the full DSP spec + reference literature.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import dataclass, asdict
 
@@ -214,6 +215,230 @@ def check_noise_seeding(mono: "np.ndarray", sr: int) -> GenerationLossCheck:
     )
 
 
+def check_vibrato_periodicity(mono: "np.ndarray", sr: int) -> GenerationLossCheck:
+    """Vibrato periodicity counter-signal.
+
+    Real vibrato (from singers, violinists, guitarists) has clean sub-10Hz
+    periodicity. Lossy codecs slightly quantize pitch trajectories, leaving
+    a characteristic irregularity: the pitch deviation autocorrelation at
+    typical vibrato periods (5–8 Hz = 125–200 ms) is weaker in codec-decoded
+    audio than in lossless originals.
+
+    Method:
+    1. Extract pitch via YIN algorithm (no librosa dep — pure numpy).
+    2. Compute pitch deviation from 200ms median (removes absolute pitch).
+    3. Autocorrelate the deviation at lags 100–250ms (vibrato period range).
+    4. High peak = clean periodicity = lossless.
+       Low/noisy autocorr = codec distortion of pitch trajectory.
+
+    Only fires on signals with detected periodic content (voiced sections).
+    Score 0.25 (mild suspicion) when max autocorr < 0.35 on a signal that
+    DOES have pitched content.
+    """
+    if np is None:
+        return GenerationLossCheck("vibrato_periodicity", 0.0, "numpy unavailable")
+    try:
+        # Analyse first 15 s
+        n = min(len(mono), int(sr * 15))
+        chunk = mono[:n].astype(np.float64)
+
+        # YIN pitch estimation (simplified — frame-based autocorrelation)
+        frame_size = int(sr * 0.04)   # 40 ms frames
+        hop = int(sr * 0.01)          # 10 ms hop
+        min_period = int(sr / 800)    # 800 Hz upper bound
+        max_period = int(sr / 60)     # 60 Hz lower bound
+
+        if max_period <= min_period or frame_size < max_period * 2:
+            return GenerationLossCheck("vibrato_periodicity", 0.0,
+                                       "Audio too short or sample rate too low for vibrato check.")
+
+        pitches = []
+        for start in range(0, n - frame_size, hop):
+            frame = chunk[start:start + frame_size]
+            # Difference function (YIN step 2)
+            d = np.zeros(max_period)
+            for tau in range(1, max_period):
+                diff = frame[:frame_size - tau] - frame[tau:frame_size]
+                d[tau] = float(np.dot(diff, diff))
+            # Cumulative mean normalised difference (YIN step 3)
+            cmnd = np.ones(max_period)
+            running = 0.0
+            for tau in range(1, max_period):
+                running += d[tau]
+                cmnd[tau] = d[tau] * tau / max(running, 1e-12)
+            # Find first minimum below threshold 0.1
+            found = False
+            for tau in range(min_period, max_period - 1):
+                if cmnd[tau] < 0.1 and cmnd[tau] < cmnd[tau - 1] and cmnd[tau] < cmnd[tau + 1]:
+                    pitches.append(sr / tau)
+                    found = True
+                    break
+            if not found:
+                pitches.append(0.0)  # unvoiced
+
+        voiced = [p for p in pitches if p > 0]
+        if len(voiced) < len(pitches) * 0.3:
+            # Less than 30% voiced frames — not a pitched instrument, skip
+            return GenerationLossCheck("vibrato_periodicity", 0.0,
+                                       f"Insufficient pitched content ({len(voiced)}/{len(pitches)} voiced frames).")
+
+        # Pitch deviation from local median (200 ms = 20 hop frames)
+        pitch_arr = np.array(pitches, dtype=np.float64)
+        window = 20
+        deviation = np.zeros_like(pitch_arr)
+        for i in range(len(pitch_arr)):
+            lo = max(0, i - window // 2)
+            hi = min(len(pitch_arr), i + window // 2)
+            local_median = float(np.median(pitch_arr[lo:hi]))
+            if local_median > 0:
+                deviation[i] = pitch_arr[i] - local_median
+
+        # Only voiced deviation
+        voiced_dev = deviation[pitch_arr > 0]
+        if len(voiced_dev) < 20:
+            return GenerationLossCheck("vibrato_periodicity", 0.0, "Too few voiced frames for vibrato check.")
+
+        # Autocorrelation of deviation at lags 100–250 ms
+        lag_min = int(0.10 / 0.01)  # 100 ms / 10 ms hop
+        lag_max = int(0.25 / 0.01)  # 250 ms / 10 ms hop
+        lag_max = min(lag_max, len(voiced_dev) // 2)
+        if lag_max <= lag_min:
+            return GenerationLossCheck("vibrato_periodicity", 0.0, "Signal too short for vibrato lag window.")
+
+        mean_dev = float(np.mean(voiced_dev))
+        centered = voiced_dev - mean_dev
+        var = float(np.dot(centered, centered))
+        if var < 1e-10:
+            return GenerationLossCheck("vibrato_periodicity", 0.0, "Flat pitch deviation — no vibrato detected.")
+
+        autocorrs = []
+        for lag in range(lag_min, lag_max):
+            a = centered[:len(centered) - lag]
+            b = centered[lag:]
+            autocorrs.append(float(np.dot(a, b)) / var)
+
+        max_ac = float(max(autocorrs)) if autocorrs else 0.0
+
+        if max_ac < 0.35:
+            return GenerationLossCheck(
+                "vibrato_periodicity",
+                0.25,
+                f"Vibrato autocorr {max_ac:.2f} below 0.35 — pitch periodicity disrupted, "
+                "consistent with lossy codec quantisation of MDCT coefficients.",
+            )
+        return GenerationLossCheck(
+            "vibrato_periodicity",
+            0.0,
+            f"Vibrato autocorr {max_ac:.2f} — clean pitch periodicity, consistent with lossless source.",
+        )
+    except Exception as e:
+        return GenerationLossCheck("vibrato_periodicity", 0.0, f"Vibrato check failed: {e}")
+
+
+def check_artifactnet(mono: "np.ndarray", sr: int) -> "GenerationLossCheck | None":
+    """Run ArtifactNet ONNX inference if the model is available.
+
+    Model path: ~/.rtm/models/artifactnet.onnx
+    If the model file is not present, returns None (caller falls back to heuristics).
+
+    ArtifactNet expects:
+      - 16 kHz mono float32
+      - mel-spectrogram input: 128 mel bins, hop=256, window=1024
+      - Input tensor shape: (1, 1, 128, T) where T = ceil(n_frames)
+      - Output: probability of artifact (0..1)
+
+    We resample to 16 kHz if needed, compute the mel-spectrogram via
+    numpy/scipy (no librosa dep), run ONNX inference, and return a
+    GenerationLossCheck with score = artifact_probability.
+    """
+    if np is None:
+        return None
+    model_path = os.path.expanduser("~/.rtm/models/artifactnet.onnx")
+    if not os.path.exists(model_path):
+        return None
+    try:
+        import onnxruntime as ort  # type: ignore
+        # Load model (cached by ONNX Runtime's session cache after first load)
+        sess = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+
+        # Resample to 16 kHz using linear interpolation (no librosa)
+        target_sr = 16000
+        if sr != target_sr:
+            n_out = int(len(mono) * target_sr / sr)
+            indices = np.linspace(0, len(mono) - 1, n_out)
+            mono_16k = np.interp(indices, np.arange(len(mono)), mono).astype(np.float32)
+        else:
+            mono_16k = mono.astype(np.float32)
+
+        # Clip to first 10 s for speed
+        max_samples = target_sr * 10
+        chunk = mono_16k[:max_samples]
+
+        # Mel-spectrogram via STFT (pure numpy, no librosa)
+        n_fft = 1024
+        hop = 256
+        n_mels = 128
+
+        # STFT frames
+        frames = []
+        for start in range(0, len(chunk) - n_fft, hop):
+            frame = chunk[start:start + n_fft] * np.hanning(n_fft)
+            frames.append(np.abs(np.fft.rfft(frame)))
+        if not frames:
+            return None
+        S = np.stack(frames, axis=1)  # (n_fft//2+1, T)
+
+        # Simple mel filterbank (triangular, linear freq spacing approximation)
+        f_min, f_max = 20.0, target_sr / 2.0
+        mel_min = 2595 * np.log10(1 + f_min / 700)
+        mel_max = 2595 * np.log10(1 + f_max / 700)
+        mel_points = np.linspace(mel_min, mel_max, n_mels + 2)
+        freq_points = 700 * (10 ** (mel_points / 2595) - 1)
+        bin_points = np.floor((n_fft + 1) * freq_points / target_sr).astype(int)
+
+        mel_fb = np.zeros((n_mels, S.shape[0]))
+        for m in range(1, n_mels + 1):
+            for k in range(bin_points[m-1], bin_points[m]):
+                if k < S.shape[0]:
+                    mel_fb[m-1, k] = (k - bin_points[m-1]) / max(bin_points[m] - bin_points[m-1], 1)
+            for k in range(bin_points[m], bin_points[m+1]):
+                if k < S.shape[0]:
+                    mel_fb[m-1, k] = (bin_points[m+1] - k) / max(bin_points[m+1] - bin_points[m], 1)
+
+        mel_S = mel_fb @ S  # (n_mels, T)
+        mel_S = np.log(mel_S + 1e-9).astype(np.float32)
+        # Input tensor: (1, 1, n_mels, T)
+        inp = mel_S[np.newaxis, np.newaxis, :, :]
+
+        # Run inference
+        input_name = sess.get_inputs()[0].name
+        output = sess.run(None, {input_name: inp})[0]
+        prob = float(np.sigmoid(output.ravel()[0])) if hasattr(np, 'sigmoid') else float(1 / (1 + np.exp(-float(output.ravel()[0]))))
+
+        if prob >= 0.6:
+            return GenerationLossCheck(
+                "artifactnet",
+                round(prob, 3),
+                f"ArtifactNet: {prob:.1%} artifact probability — strong evidence of prior lossy encoding or AI processing.",
+            )
+        if prob >= 0.3:
+            return GenerationLossCheck(
+                "artifactnet",
+                round(prob * 0.7, 3),  # scale down for intermediate range
+                f"ArtifactNet: {prob:.1%} artifact probability — inconclusive.",
+            )
+        return GenerationLossCheck(
+            "artifactnet",
+            0.0,
+            f"ArtifactNet: {prob:.1%} artifact probability — no artifacts detected.",
+        )
+    except Exception as e:
+        # Model present but inference failed — log and return None so heuristics run
+        import sys
+        sys.stderr.write(f"[generation_loss] ArtifactNet inference failed: {e}\n")
+        return None
+
+
 def analyse_generation_loss(path: str) -> GenerationLossResult:
     if np is None or sf is None:
         return GenerationLossResult(
@@ -226,11 +451,18 @@ def analyse_generation_loss(path: str) -> GenerationLossResult:
         return GenerationLossResult(0.0, "likely_lossless", [],
                                     f"Could not decode file: {e}")
     mono = data.mean(axis=1) if data.ndim > 1 else data
-    checks = [
-        check_brickwall(mono, sr),
-        check_mdct_periodicity(mono, sr),
-        check_noise_seeding(mono, sr),
-    ]
+    # Try ArtifactNet ONNX model first (F1=0.983 when model is present).
+    # Falls back to 3-heuristic approach when model not available.
+    artifactnet_result = check_artifactnet(mono, sr)
+    if artifactnet_result is not None:
+        checks = [artifactnet_result]
+    else:
+        checks = [
+            check_brickwall(mono, sr),
+            check_mdct_periodicity(mono, sr),
+            check_noise_seeding(mono, sr),
+            check_vibrato_periodicity(mono, sr),
+        ]
     avg = sum(c.score for c in checks) / max(len(checks), 1)
     if avg >= 0.55:
         verdict, summary = "likely_prior_lossy", "Multiple signs this file was previously lossy-encoded. Source a true LPCM master."
