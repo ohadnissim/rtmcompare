@@ -167,13 +167,31 @@ async function renderHtmlToPdf(
   const os = require('os') as typeof import('os')
   const tmpDir = path.join(os.tmpdir(), 'rtm-pdf')
   try { fs.mkdirSync(tmpDir, { recursive: true }) } catch {}
-  const tmpFile = path.join(tmpDir, `rtm-pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`)
-  fs.writeFileSync(tmpFile, html, 'utf8')
+  // MED-19 fix: use crypto.randomBytes for the temp filename (Math.random
+  // was non-cryptographic and could collide on Windows with two parallel
+  // PDF exports started in the same millisecond).
+  const crypto = require('crypto') as typeof import('crypto')
+  const tmpFile = path.join(
+    tmpDir,
+    `rtm-pdf-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.html`
+  )
+  // MED-19 main fix: wrap the ENTIRE body — including writeFileSync — in
+  // try/finally so the temp file gets cleaned up even if writing it
+  // partially succeeded before disk-full threw. Previously writeFileSync
+  // was OUTSIDE the try, leaving partial junk in os.tmpdir()/rtm-pdf/.
+  let wrote = false
   try {
+    fs.writeFileSync(tmpFile, html, 'utf8')
+    wrote = true
     await hidden.loadFile(tmpFile)
     return await hidden.webContents.printToPDF(pdfOpts)
   } finally {
-    try { fs.unlinkSync(tmpFile) } catch {}
+    if (wrote) {
+      try { fs.unlinkSync(tmpFile) } catch {}
+    } else {
+      // Best-effort: the write threw, but a partial file may still exist.
+      try { if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile) } catch {}
+    }
   }
 }
 
