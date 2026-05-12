@@ -1,6 +1,6 @@
 {
   "name": "rtm",
-  "version": "7.5.2",
+  "version": "7.5.3",
   "description": "RTMcompare — Industry-standard A/B compare · Single-file QC · Album batch · Atmos",
   "main": "dist-electron/main.js",
   "scripts": {
