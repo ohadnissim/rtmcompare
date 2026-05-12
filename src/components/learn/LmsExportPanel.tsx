@@ -48,6 +48,21 @@ export function LmsExportPanel({ records }: Props) {
     hasToken: boolean
   } | null>(null)
 
+  // CRIT-11: in-app confirm modal — replaces 3 sequential window.confirm() calls.
+  // window.confirm() blocks the main thread, renders OS-native dialogs that look
+  // out of place in Electron, and can't be styled. This state-machine approach
+  // yields the same UX in a proper modal.
+  const [confirmModal, setConfirmModal] = React.useState<{
+    message: string
+    resolve: (ok: boolean) => void
+  } | null>(null)
+
+  const showConfirm = React.useCallback((message: string): Promise<boolean> => {
+    return new Promise(resolve => {
+      setConfirmModal({ message, resolve })
+    })
+  }, [])
+
   const [formUrl, setFormUrl] = React.useState('')
   const [formCourseId, setFormCourseId] = React.useState('')
   const [formToken, setFormToken] = React.useState('')
@@ -183,7 +198,7 @@ export function LmsExportPanel({ records }: Props) {
     }))
     const missingId = grades.filter(g => !g.studentId).map(g => g.studentName || '(no name)')
     if (missingId.length > 0) {
-      const proceed = window.confirm(
+      const proceed = await showConfirm(
         `⚠ ${missingId.length} student(s) have no Canvas Student ID set:\n\n` +
         missingId.slice(0, 8).join('\n') +
         (missingId.length > 8 ? `\n…and ${missingId.length - 8} more` : '') +
@@ -200,7 +215,7 @@ export function LmsExportPanel({ records }: Props) {
     const rubricTotals = Array.from(new Set(valid.map(g => g.totalPossible)))
     const canvasPoints = selectedAssignment?.pointsPossible
     if (canvasPoints != null && rubricTotals.length === 1 && rubricTotals[0] !== canvasPoints) {
-      const proceed = window.confirm(
+      const proceed = await showConfirm(
         `⚠ Points-possible mismatch.\n\n` +
         `Your rubric totals ${rubricTotals[0]} points but the Canvas assignment ` +
         `"${selectedAssignment?.name}" is configured for ${canvasPoints} points.\n\n` +
@@ -213,7 +228,7 @@ export function LmsExportPanel({ records }: Props) {
     // Final preview before commit
     const top5 = [...valid].sort((a, b) => b.score - a.score).slice(0, 5)
     const previewLines = top5.map(g => `  ${g.studentName || g.studentId}: ${g.score}/${g.totalPossible}`).join('\n')
-    const ok = window.confirm(
+    const ok = await showConfirm(
       `Upload ${valid.length} grade${valid.length !== 1 ? 's' : ''} to "${selectedAssignment?.name ?? selectedAssignmentId}"?\n\n` +
       `Top 5 scores being submitted:\n${previewLines}\n\n` +
       `${missingId.length > 0 ? `(${missingId.length} student(s) without Student IDs will be skipped.)\n\n` : ''}` +
@@ -251,6 +266,60 @@ export function LmsExportPanel({ records }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+      {/* CRIT-11: in-app confirm modal renders over everything */}
+      {confirmModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(14,13,11,0.75)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+          role="alertdialog" aria-modal="true"
+          onKeyDown={e => {
+            if (e.key === 'Enter') { confirmModal.resolve(true); setConfirmModal(null) }
+            if (e.key === 'Escape') { confirmModal.resolve(false); setConfirmModal(null) }
+          }}
+        >
+          <div style={{
+            background: 'rgba(28,26,22,0.98)',
+            border: '1px solid rgba(168,161,150,0.2)',
+            borderRadius: 4,
+            padding: '24px 28px',
+            maxWidth: 480, width: '90%',
+            boxShadow: '0 16px 60px rgba(0,0,0,0.6)',
+          }}>
+            <div style={{
+              fontSize: 12, color: 'var(--color-text-primary)',
+              whiteSpace: 'pre-wrap', lineHeight: 1.6,
+              marginBottom: 20,
+            }}>
+              {confirmModal.message}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { confirmModal.resolve(false); setConfirmModal(null) }}
+                style={{
+                  padding: '7px 18px', borderRadius: 2, cursor: 'pointer',
+                  background: 'transparent', border: '1px solid rgba(168,161,150,0.3)',
+                  color: 'var(--color-sand-400)', fontSize: 11, fontFamily: 'inherit',
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                }}
+              >Cancel</button>
+              <button
+                autoFocus
+                onClick={() => { confirmModal.resolve(true); setConfirmModal(null) }}
+                style={{
+                  padding: '7px 18px', borderRadius: 2, cursor: 'pointer',
+                  background: 'rgba(208,176,102,0.12)', border: '1px solid rgba(208,176,102,0.5)',
+                  color: 'var(--color-text-primary)', fontSize: 11, fontFamily: 'inherit',
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                }}
+              >Continue</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header row */}
       <div style={{

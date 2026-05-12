@@ -168,6 +168,76 @@ export default function GuidedFlowBar({
 
   return (
     <>
+      {/* CRIT-10 fix: first-run role selection as a BLOCKING modal overlay.
+          Previously this was an inline banner inside the sticky bar — the user
+          could scroll past it and interact with the rest of the UI without
+          picking a role. Now it's a full-screen dim + centered card that
+          intercepts all pointer events until a role is chosen. */}
+      {!roleChosen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(14,13,11,0.82)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} aria-modal="true" role="dialog" aria-label="Choose your role to continue">
+          <div style={{
+            background: 'rgba(28,26,22,0.98)',
+            border: '1px solid rgba(208,176,102,0.4)',
+            borderRadius: 4,
+            padding: '36px 40px',
+            maxWidth: 420, width: '100%',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              fontSize: 22, fontFamily: 'var(--font-display, serif)', fontStyle: 'italic',
+              color: 'var(--color-text-primary)', marginBottom: 8,
+            }}>
+              Welcome to Learn Mode
+            </div>
+            <div style={{
+              fontSize: 13, color: 'var(--color-sand-400)', marginBottom: 28, lineHeight: 1.5,
+            }}>
+              Are you a student or a teacher?<br />
+              <span style={{ fontSize: 11, opacity: 0.7 }}>
+                You can change this any time from the role pill in the bar above.
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button
+                onClick={() => chooseRole('student')}
+                autoFocus
+                style={{
+                  padding: '10px 24px',
+                  background: 'rgba(208,176,102,0.12)',
+                  border: '1px solid rgba(208,176,102,0.6)',
+                  borderRadius: 2,
+                  color: 'var(--color-text-primary)',
+                  fontSize: 13, letterSpacing: '0.06em',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                🎧 I'm a Student
+              </button>
+              <button
+                onClick={() => chooseRole('teacher')}
+                style={{
+                  padding: '10px 24px',
+                  background: 'rgba(123,196,158,0.12)',
+                  border: '1px solid rgba(123,196,158,0.6)',
+                  borderRadius: 2,
+                  color: 'var(--color-text-primary)',
+                  fontSize: 13, letterSpacing: '0.06em',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                🎓 I'm a Teacher
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ear Training overlay */}
       {earTrainingOpen && (
         <EarTrainingPanel
@@ -204,59 +274,6 @@ export default function GuidedFlowBar({
           padding: '0 24px',
         }}
       >
-        {/* MED-12: first-run role prompt. Forces the user to pick a role
-            explicitly the first time they enable Learn Mode. Otherwise teachers
-            default to student-view and never find the role switch. */}
-        {!roleChosen && (
-          <div style={{
-            background: 'rgba(208,176,102,0.08)',
-            border: '1px solid rgba(208,176,102,0.4)',
-            borderRadius: 2,
-            padding: '14px 16px',
-            margin: '12px 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            flexWrap: 'wrap',
-          }}>
-            <span style={{
-              fontSize: 13, color: 'var(--color-text-primary)',
-              fontFamily: 'var(--font-display, serif)', fontStyle: 'italic',
-            }}>
-              Welcome to Learn Mode. Are you a student or a teacher?
-            </span>
-            <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-              <button
-                onClick={() => chooseRole('student')}
-                style={{
-                  padding: '7px 16px',
-                  background: 'rgba(208,176,102,0.12)',
-                  border: '1px solid rgba(208,176,102,0.6)',
-                  borderRadius: 2,
-                  color: 'var(--color-text-primary)',
-                  fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                🎧 I'm a Student
-              </button>
-              <button
-                onClick={() => chooseRole('teacher')}
-                style={{
-                  padding: '7px 16px',
-                  background: 'rgba(123,196,158,0.12)',
-                  border: '1px solid rgba(123,196,158,0.6)',
-                  borderRadius: 2,
-                  color: 'var(--color-text-primary)',
-                  fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                🎓 I'm a Teacher
-              </button>
-            </div>
-          </div>
-        )}
         {/* Role banner — always visible so user knows exactly which mode they're in */}
         <div style={{
           display: 'flex',
