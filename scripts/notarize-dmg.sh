@@ -46,7 +46,9 @@ for dmg in "${DMGS[@]}"; do
   #    inside; the DMG wrapper needs its own Developer ID signature before
   #    notarytool will accept it — otherwise spctl returns "no usable signature").
   echo "→ Codesigning DMG container..."
-  IDENTITY="Developer ID Application: Ohad Nissim (3RL52RHGT3)"
+  # LOW-14: use env var so callers on different Apple Developer accounts don't
+  # need to edit this script. Falls back to the current identity.
+  IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application: Ohad Nissim (3RL52RHGT3)}"
   if ! codesign --sign "$IDENTITY" --force "$dmg" 2>&1; then
     echo "✗ codesign FAILED for $dmg"
     FAIL=$((FAIL + 1))

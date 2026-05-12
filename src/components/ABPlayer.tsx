@@ -921,12 +921,23 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // mounted ABPlayer, accumulating intervals when multiple players are visible.
  // MutationObserver fires only when the attribute actually changes — zero cost
  // at rest, immediate response on open/close.
+ //
+ // LOW-13 fix: isPlaying + togglePlay captured via refs so the observer is
+ // created once and never torn down on play/pause state changes. Previously
+ // the deps [isPlaying, togglePlay] caused a full observer teardown and
+ // re-creation on every play/pause toggle, calling check() on re-subscription
+ // and potentially spuriously firing togglePlay.
+ const isPlayingRef = useRef(isPlaying)
+ const togglePlayRef = useRef(togglePlay)
+ useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
+ useEffect(() => { togglePlayRef.current = togglePlay }, [togglePlay])
+
  useEffect(() => {
  const check = () => {
  const blindOpen = !!document.querySelector('[data-blind-test-open="true"]')
  const isInside = !!playerRef.current?.closest('[data-blind-test-open="true"]')
- if (blindOpen && !isInside && isPlaying) {
- togglePlay()
+ if (blindOpen && !isInside && isPlayingRef.current) {
+ togglePlayRef.current()
  }
  }
  const observer = new MutationObserver(check)
@@ -939,7 +950,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // effect fires (e.g. the panel was open when the player mounted).
  check()
  return () => observer.disconnect()
- }, [isPlaying, togglePlay])
+ // Empty dep array: observer is stable; isPlaying/togglePlay read via refs.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [])
 
  // Listen for external seek requests (e.g., from ClickTimeline)
  useEffect(() => {

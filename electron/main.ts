@@ -300,18 +300,23 @@ function createWindow() {
     // bundle's own index.html; in dev we allow file:// for hot-reload
     // edge cases and the localhost dev server.
     if (app.isPackaged) {
-      // CRIT-1 fix: use strict pathname equality, not substring match.
-      // url.includes('/dist/index.html') was bypassable with a crafted hash
-      // like file:///etc/passwd#/dist/index.html or a path like
-      // file:///evil/dist/index.html. Parse the URL and require that the
-      // pathname ends with exactly '/dist/index.html' with no extra segments.
+      // CRIT-1 fix (+ LOW-9 tightening): strict pathname equality, not endsWith.
+      // endsWith('/dist/index.html') still allowed /evil/dist/index.html.
+      // Build the expected path once from app.getAppPath() so the guard is
+      // anchored to the actual resource directory, not just a suffix match.
       let allow = false
       try {
         const parsedUrl = new URL(url)
+        // Decode the URL-encoded pathname for accurate comparison
+        const decodedPath = decodeURIComponent(parsedUrl.pathname)
+        // Expected packaged path: <resourcesPath>/app.asar/dist/index.html
+        // (electron-builder convention; app.getAppPath() returns the asar root)
+        const expectedPath = path.join(app.getAppPath(), 'dist', 'index.html')
+          // URL pathnames use forward slashes even on Windows
+          .replace(/\\/g, '/')
         allow = parsedUrl.protocol === 'file:'
-          && parsedUrl.pathname.endsWith('/dist/index.html')
-          // Ensure no path traversal sequences survive URL decoding
-          && !parsedUrl.pathname.includes('..')
+          && (decodedPath === expectedPath || decodedPath === `/${expectedPath}`)
+          && !decodedPath.includes('..')
       } catch {
         allow = false
       }
@@ -2588,7 +2593,10 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     for (const g of payload.grades) {
       if (!g.studentId) continue
       if (!STUDENT_ID_RE.test(g.studentId)) {
-        rejected.push(g.studentName || g.studentId)
+        // LOW-10: cap to 80 chars — studentName from renderer is untrusted;
+        // avoid echoing unbounded strings back in the rejection message.
+        const label = (g.studentName || g.studentId).slice(0, 80)
+        rejected.push(label)
         continue
       }
       if (!Number.isFinite(g.score)) continue
@@ -2621,9 +2629,14 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     const rejectedSuffix = rejected.length > 0
       ? ` ${rejected.length} student${rejected.length !== 1 ? 's' : ''} rejected for invalid Student ID format: ${rejected.slice(0, 3).join(', ')}${rejected.length > 3 ? '…' : ''}.`
       : ''
-    // LOW fix: skipped previously included rejected (double-counted). Now
-    // skipped = students with no SIS ID at all; rejected = students with an
-    // invalid SIS ID format. Both are non-overlapping subsets of (total - submitted).
+    // LOW fix: skipped previously included rejected (double-counted). Now:
+    //   skipped  = students with no SIS ID field at all (g.studentId falsy)
+    //   rejected = students whose SIS ID failed the STUDENT_ID_RE format check
+    //   submitted = students who passed both checks AND have a finite score
+    // Note: students with a non-finite score (NaN/Infinity) also end up in
+    // noSisId because they never enter gradeData — noSisId is best described
+    // as "not submitted for any reason other than invalid SIS ID format".
+    // LOW-12: updated comment to reflect this; count is correct.
     const noSisId = payload.grades.length - Object.keys(gradeData).length - rejected.length
     return {
       ok: true,
