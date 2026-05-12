@@ -7,7 +7,7 @@
  *
  * Triggered by the "Grade Book" button in GuidedFlowBar (teacher role only).
  */
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import { LmsExportPanel } from './LmsExportPanel'
 
@@ -201,8 +201,12 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     if (!allLabels.includes(row.label)) allLabels.push(row.label)
   }))
 
-  // Sort records: isDraft ascending (false first), then user-selected sort
-  const sorted = [...records].sort((a, b) => {
+  // MED-25 fix: memoize the sort. Before this, every render (including every
+  // keystroke in the feedback textarea — which is a controlled component on
+  // each row) re-sorted N records. With N=100 students that's a measurable
+  // freeze per character. Now only re-sorts when records / draftOverrides /
+  // sort state actually change.
+  const sorted = useMemo(() => [...records].sort((a, b) => {
     const aIsDraft = draftOverrides[a.reportPath ?? ''] ?? a.isDraft ?? false
     const bIsDraft = draftOverrides[b.reportPath ?? ''] ?? b.isDraft ?? false
     if (aIsDraft !== bIsDraft) return aIsDraft ? 1 : -1
@@ -211,7 +215,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     else if (sortCol === 'date') cmp = (a.exportedAt ?? '').localeCompare(b.exportedAt ?? '')
     else if (sortCol === 'pct') cmp = (a.pct ?? -1) - (b.pct ?? -1)
     return sortDir === 'asc' ? cmp : -cmp
-  })
+  }), [records, draftOverrides, sortCol, sortDir])
 
   const submitted = records.length
   const avgPct = records.length > 0

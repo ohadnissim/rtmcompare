@@ -172,6 +172,14 @@ class EarTrainingAudioEngine {
     return this.activeClip
   }
 
+  /** Pre-warm the cache for the active clip without playing any audio.
+   *  Call this in requestIdleCallback after opening the panel so the first
+   *  real play doesn't block the UI thread for 150-300ms generating the
+   *  procedural buffer. MED-27 fix. */
+  prepare(): void {
+    try { this.getCurrentBuffer() } catch { /* best-effort */ }
+  }
+
   /** Resolve the AudioBuffer for the currently-active clip.
    *  Procedural clips are generated on first request and cached for the session. */
   private getCurrentBuffer(): AudioBuffer | null {

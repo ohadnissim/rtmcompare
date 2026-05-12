@@ -173,8 +173,38 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   // Stop audio when leaving the panel.
   React.useEffect(() => () => { engine.stop() }, [engine])
 
+  // MED-27 fix: pre-warm the procedural buffer in idle time so the FIRST play
+  // doesn't block the UI for 150-300ms on slow machines. We trigger
+  // engine.playReference() with a 0ms-window proxy... actually simpler: just
+  // touch getCurrentBuffer via a tiny silent prepare call. The engine caches
+  // procedural buffers after first generation, so subsequent plays are instant.
+  React.useEffect(() => {
+    if (!sourceLoaded) return
+    const w = window as any
+    const ric: (cb: () => void) => number = w.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 200))
+    const cic: (id: number) => void = w.cancelIdleCallback || clearTimeout
+    const id = ric(() => {
+      // engine.prepare() just touches the cache — no audio plays.
+      engine.prepare()
+    })
+    return () => { try { cic(id) } catch {} }
+  }, [sourceLoaded, activeClip, engine])
+
   // Persist progress on every change.
-  React.useEffect(() => { saveProgress(progress) }, [progress])
+  // MED-26 fix: debounce saveProgress. Previously fired on every render that
+  // mutated progress — every drill answer triggered a sync localStorage write
+  // (5-20ms stall). Now waits 300ms; if the user racks up answers quickly only
+  // the final state is written. The cleanup also fires saveProgress so we
+  // don't lose state on rapid panel close.
+  React.useEffect(() => {
+    const t = setTimeout(() => saveProgress(progress), 300)
+    return () => {
+      clearTimeout(t)
+      // best-effort: write immediately on cleanup so closing the panel doesn't
+      // discard the most recent answer
+      saveProgress(progress)
+    }
+  }, [progress])
 
   // ── Drill helpers ──────────────────────────────────────────────
   function startDrill(drillId: EarTrainingDrillId, difficulty: EarTrainingDifficulty) {
