@@ -2,6 +2,9 @@
 <html>
 <head>
 <meta charset="utf-8" />
+<!-- LOW fix: defense-in-depth CSP for splash window (loaded from packaged
+     bundle, no preload, no network — lock it down to "nothing but self styles"). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;">
 <title>RTMcompare</title>
 <style>
   html, body {

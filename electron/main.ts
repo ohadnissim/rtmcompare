@@ -601,18 +601,8 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
 })
 
 // Handle drag-and-drop: receive filename, show dialog to confirm full path
-ipcMain.handle('resolve-drop-path', async (_event, fileName: string) => {
-  // The File.path doesn't work with contextIsolation, so we ask user to confirm
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    title: `Select ${fileName}`,
-    filters: [
-      { name: 'Audio Files', extensions: ['wav', 'mp3', 'flac', 'aiff', 'aif', 'ogg', 'm4a'] },
-    ],
-  })
-  if (result.canceled) return null
-  return result.filePaths[0]
-})
+// LOW: resolve-drop-path handler deleted — no renderer caller, no preload bridge.
+// File drop-path resolution now uses webUtils.getPathForFile in preload.ts.
 
 // Streaming SHA-256 helper — avoids loading an entire audio file into memory
 // just to hash it. `readFileSync` on a 2 GB 32-bit-float WAV would fully

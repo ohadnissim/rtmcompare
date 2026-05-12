@@ -82,11 +82,16 @@ function defaultProgress(): EarTrainingProgress {
 }
 
 function storageKey(): string {
-  let studentId = 'default'
+  // LOW fix: use studentName as a secondary key so two students on the same Mac
+  // (same machine, no Student ID set yet) don't share progress under 'default'.
+  let key = 'default'
   try {
-    studentId = localStorage.getItem('rtm-learn-student-id') || 'default'
+    const sid = localStorage.getItem('rtm-learn-student-id')
+    const sname = localStorage.getItem('rtm-learn-student-name')
+    if (sid) key = sid
+    else if (sname) key = `name-${sname.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 32)}`
   } catch { /* localStorage unavailable */ }
-  return `${STORAGE_PREFIX}-${studentId}`
+  return `${STORAGE_PREFIX}-${key}`
 }
 
 export function loadProgress(): EarTrainingProgress {

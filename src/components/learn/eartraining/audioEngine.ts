@@ -138,20 +138,41 @@ class EarTrainingAudioEngine {
   }
 
   /** Load an audio file (via file:// path) into an AudioBuffer for drill use.
-   *  Returns the duration in seconds. */
+   *  Returns the duration in seconds.
+   *  LOW fix: use pathToFileURL semantics — manual concat produced "file://C:/"
+   *  on Windows (missing the third slash). Now derives the URL safely.
+   *  Also: previously short-circuited when displayName === masterSourceName,
+   *  which left a stale buffer if the file at that path had been replaced on
+   *  disk. Now caches by absolute path only and always re-decodes when the
+   *  path changes. */
   async loadSource(filePath: string, displayName?: string): Promise<number> {
     if (this.masterSourceName === filePath && this.masterBuffer) {
       return this.masterBuffer.duration
     }
     const ctx = this.getContext()
-    const url = filePath.startsWith('file://')
-      ? filePath
-      : `file://${filePath.replace(/\\/g, '/')}`
+    // Build a proper file:// URL — handle both POSIX and Windows-drive paths.
+    let url: string
+    if (filePath.startsWith('file://')) {
+      url = filePath
+    } else {
+      const normalized = filePath.replace(/\\/g, '/')
+      // Windows drive letter "C:/path/..." needs the third slash → "file:///C:/path/..."
+      url = /^[A-Za-z]:\//.test(normalized) ? `file:///${normalized}` : `file://${normalized}`
+    }
     const res = await fetch(url)
     const arr = await res.arrayBuffer()
     this.masterBuffer = await ctx.decodeAudioData(arr)
-    this.masterSourceName = displayName ?? filePath
+    this.masterSourceName = filePath
+    void displayName  // kept for future API symmetry
     return this.masterBuffer.duration
+  }
+
+  /** Force the loaded-file buffer to invalidate. Call this when the user
+   *  knows the file at the cached path has changed on disk and they want
+   *  to re-read it. LOW fix. */
+  invalidateLoadedFile(): void {
+    this.masterBuffer = null
+    this.masterSourceName = null
   }
 
   hasSource(): boolean {
