@@ -326,7 +326,8 @@ def main():
          if os.path.isdir(_p := os.path.join(_stems_root, _entry)) and _p != stems_dir],
         key=lambda _p: os.path.getmtime(_p)
     )
-    for _p in _existing:
+    # CRIT iter-5: iterate a copy so removing from _existing doesn't skip entries
+    for _p in list(_existing):
         try:
             if os.path.getmtime(_p) < _prune_cutoff or len(_existing) > 10:
                 shutil.rmtree(_p, ignore_errors=True)

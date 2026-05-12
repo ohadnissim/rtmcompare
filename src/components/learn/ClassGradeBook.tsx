@@ -239,13 +239,17 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   // section can do O(1) lookups instead of O(N) .find() per criterion per render.
   // Previously: criterionNames.map → records.map(r => r.rubric?.find(…)) = O(N×C) every keystroke.
   const criterionRowsMap = useMemo(() => {
+    // ITER5: exclude draft records so Class Insights averages reflect only
+    // final submissions — same filter the sorted table applies.
     const map = new Map<string, RubricRow[]>()
-    records.forEach(r => r.rubric?.forEach(row => {
-      if (!map.has(row.label)) map.set(row.label, [])
-      map.get(row.label)!.push(row)
-    }))
+    records
+      .filter(r => !(draftOverrides[r.reportPath ?? ''] ?? r.isDraft ?? false))
+      .forEach(r => r.rubric?.forEach(row => {
+        if (!map.has(row.label)) map.set(row.label, [])
+        map.get(row.label)!.push(row)
+      }))
     return map
-  }, [records])
+  }, [records, draftOverrides])
 
   const submitted = records.length
   const avgPct = records.length > 0
