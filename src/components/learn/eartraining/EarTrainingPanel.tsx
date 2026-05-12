@@ -127,7 +127,9 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   const [question, setQuestion] = React.useState<DrillQuestion | null>(null)
   const [userAnswer, setUserAnswer] = React.useState<string | null>(null)
   const [revealed, setRevealed] = React.useState(false)
-  const [sourceLoaded, setSourceLoaded] = React.useState(false)
+  // MED: initialize to true for procedural clips (pink_noise default) — avoids a
+  // flash of the loading spinner before the mount effect fires and sets it true.
+  const [sourceLoaded, setSourceLoaded] = React.useState<boolean>(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [playingLabel, setPlayingLabel] = React.useState<string | null>(null)
   // Pink noise is the default — it's the Golden Ears standard for frequency ID

@@ -347,19 +347,33 @@ export default function GuidedFlowBar({
             edge-fade affordance — students on narrow screens couldn't tell
             steps 7-9 even existed. Now uses a horizontal fade-mask on the
             right edge so users see content disappearing into the fade and
-            know there's more to scroll. */}
+            know there's more to scroll.
+            MED: the mask was applied to the entire row including the Help,
+            Prev, and Next buttons on the right — they were partially faded.
+            Fix: outer row has no mask; inner scrollable strip (pills only)
+            carries the mask; controls sit outside the masked element. */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 4,
             padding: '8px 0 0',
-            overflowX: 'auto',
-            scrollbarWidth: 'none',
-            WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 32px), transparent 100%)',
-            maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 32px), transparent 100%)',
           }}
         >
+          {/* Scrollable pill strip with right-edge fade */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              flex: 1,
+              minWidth: 0,
+              overflowX: 'auto',
+              scrollbarWidth: 'none',
+              WebkitMaskImage: 'linear-gradient(to right, black 0%, black calc(100% - 32px), transparent 100%)',
+              maskImage: 'linear-gradient(to right, black 0%, black calc(100% - 32px), transparent 100%)',
+            }}
+          >
           {/* Ear Training button */}
           <button
             onClick={() => setEarTrainingOpen(true)}
@@ -463,8 +477,8 @@ export default function GuidedFlowBar({
             )
           })}
 
-          {/* Spacer */}
-          <div style={{ flex: 1 }} />
+          </div>
+          {/* End scrollable pill strip — controls below are outside the mask */}
 
           {/* BUG-20/NEW-04: teacher preview-as-student toggle — local state only, no setRole() */}
           {(effectiveRole === 'teacher' || previewingStudent) && (

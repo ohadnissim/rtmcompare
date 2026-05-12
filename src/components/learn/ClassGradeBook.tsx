@@ -264,6 +264,70 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     whiteSpace: 'nowrap',
   }
 
+  // MED: extract expensive Class Insights computations from IIFE-in-JSX into
+  // useMemo so they don't re-run on every keypress in the feedback textarea.
+  const MEASURABLE_DIMS = ['loudness', 'stereo_width', 'dynamics', 'translation']
+  const hasBlindTest = useMemo(() => records.some(r => (r as any).blindTest?.answers?.length > 0), [records])
+
+  const blindTestInsights = useMemo(() => {
+    if (!hasBlindTest) return null
+    const btRecords = records.filter(r => (r as any).blindTest?.answers?.length > 0)
+    const btCount = btRecords.length
+    const avgCorrect = btCount > 0
+      ? Math.round(btRecords.reduce((s, r) => {
+          const answers = (r as any).blindTest?.answers ?? []
+          const measurable = answers.filter((a: any) => MEASURABLE_DIMS.includes(a.dimension))
+          const correct = measurable.filter((a: any) => a.isCorrect === true).length
+          return s + (measurable.length > 0 ? correct / measurable.length : 0)
+        }, 0) / btCount * 100) / 100
+      : 0
+    const dimMap: Record<string, { correct: number; total: number }> = {}
+    btRecords.forEach(r => {
+      const answers: any[] = (r as any).blindTest?.answers ?? []
+      answers.forEach((a: any) => {
+        if (!a.dimension || !MEASURABLE_DIMS.includes(a.dimension)) return
+        if (!dimMap[a.dimension]) dimMap[a.dimension] = { correct: 0, total: 0 }
+        dimMap[a.dimension].total++
+        if (a.isCorrect === true) dimMap[a.dimension].correct++
+      })
+    })
+    const dims = Object.entries(dimMap)
+      .map(([name, d]) => ({ name, pct: d.total > 0 ? d.correct / d.total : 0 }))
+      .sort((a, b) => b.pct - a.pct)
+    return { btCount, avgCorrect, dims, mostAccurate: dims[0]?.name ?? '—', leastAccurate: dims[dims.length - 1]?.name ?? '—' }
+  }, [records, hasBlindTest])
+
+  const earTrainingInsights = useMemo(() => {
+    const etRecords = records.filter(r => {
+      const et = (r as any).earTraining
+      return et && et.totalAttempts > 0
+    })
+    if (etRecords.length === 0) return null
+    const etCount = etRecords.length
+    const avgAccuracy = etRecords.reduce((s, r) => {
+      const et = (r as any).earTraining
+      return s + (et.totalAttempts > 0 ? et.totalCorrect / et.totalAttempts : 0)
+    }, 0) / etCount
+    const totalDrills = etRecords.reduce((s, r) => s + ((r as any).earTraining?.totalAttempts ?? 0), 0)
+    const bandAgg: Record<string, { correct: number; attempts: number }> = {}
+    etRecords.forEach(r => {
+      const freqDrill = (r as any).earTraining?.drills?.frequency_id
+      if (!freqDrill?.perOption) return
+      for (const [band, stats] of Object.entries(freqDrill.perOption)) {
+        const s = stats as { correct: number; attempts: number }
+        if (!bandAgg[band]) bandAgg[band] = { correct: 0, attempts: 0 }
+        bandAgg[band].correct += s.correct
+        bandAgg[band].attempts += s.attempts
+      }
+    })
+    const weakBandsClass = Object.entries(bandAgg)
+      .filter(([, v]) => v.attempts >= 5)
+      .map(([band, v]) => ({ band, acc: v.correct / v.attempts, attempts: v.attempts }))
+      .sort((a, b) => a.acc - b.acc)
+      .slice(0, 5)
+    return { etCount, avgAccuracy, totalDrills, weakBandsClass }
+  }, [records])
+
   return (
     <>
       {/* Backdrop */}
@@ -490,7 +554,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
         {records.length > 0 && (() => {
           // Per-criterion analytics
           const criterionNames: string[] = records[0]?.rubric?.map(r => r.label) ?? []
-          const hasBlindTest = records.some(r => (r as any).blindTest?.answers?.length > 0)
+          // hasBlindTest computed by useMemo above — use directly
 
           return (
             <div style={{
@@ -577,126 +641,53 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                   )}
 
                   {/* Sub-section B: Blind test calibration */}
-                  {hasBlindTest && (() => {
-                    const btRecords = records.filter(r => (r as any).blindTest?.answers?.length > 0)
-                    const btCount = btRecords.length
-                    // BUG-12 fix: `a.revealed` is not a per-answer field — it lives on
-                    // the top-level BlindTestPredictions. Use `a.isCorrect` (stored at
-                    // reveal time by BlindTestPanel) instead.
-                    const MEASURABLE = ['loudness', 'stereo_width', 'dynamics', 'translation']
-                    const avgCorrect = btCount > 0
-                      ? Math.round(btRecords.reduce((s, r) => {
-                          const answers = (r as any).blindTest?.answers ?? []
-                          const measurable = answers.filter((a: any) => MEASURABLE.includes(a.dimension))
-                          const correct = measurable.filter((a: any) => a.isCorrect === true).length
-                          return s + (measurable.length > 0 ? correct / measurable.length : 0)
-                        }, 0) / btCount * 100) / 100
-                      : 0
-
-                    // Dimension accuracy
-                    const dimMap: Record<string, { correct: number; total: number }> = {}
-                    btRecords.forEach(r => {
-                      const answers: any[] = (r as any).blindTest?.answers ?? []
-                      answers.forEach((a: any) => {
-                        if (!a.dimension || !MEASURABLE.includes(a.dimension)) return
-                        if (!dimMap[a.dimension]) dimMap[a.dimension] = { correct: 0, total: 0 }
-                        dimMap[a.dimension].total++
-                        if (a.isCorrect === true) dimMap[a.dimension].correct++
-                      })
-                    })
-                    const dims = Object.entries(dimMap).map(([name, d]) => ({ name, pct: d.total > 0 ? d.correct / d.total : 0 }))
-                    dims.sort((a, b) => b.pct - a.pct)
-                    const mostAccurate = dims[0]?.name ?? '—'
-                    const leastAccurate = dims[dims.length - 1]?.name ?? '—'
-
-                    return (
-                      <div>
-                        <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
-                          Blind Test Calibration
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <div>{btCount} student{btCount !== 1 ? 's' : ''} completed blind test</div>
-                          <div>Avg correct predictions: <span style={{ color: 'var(--color-accent)' }}>{avgCorrect}</span></div>
-                          {dims.length > 0 && (
-                            <>
-                              <div>Most accurate dimension: <span style={{ color: '#6fcf97' }}>{mostAccurate}</span></div>
-                              <div>Least accurate dimension: <span style={{ color: '#eb5757' }}>{leastAccurate}</span></div>
-                            </>
-                          )}
-                        </div>
+                  {/* MED: blind test calibration — data computed by blindTestInsights useMemo above */}
+                  {blindTestInsights && (
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                        Blind Test Calibration
                       </div>
-                    )
-                  })()}
+                      <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div>{blindTestInsights.btCount} student{blindTestInsights.btCount !== 1 ? 's' : ''} completed blind test</div>
+                        <div>Avg correct predictions: <span style={{ color: 'var(--color-accent)' }}>{blindTestInsights.avgCorrect}</span></div>
+                        {blindTestInsights.dims.length > 0 && (
+                          <>
+                            <div>Most accurate dimension: <span style={{ color: '#6fcf97' }}>{blindTestInsights.mostAccurate}</span></div>
+                            <div>Least accurate dimension: <span style={{ color: '#eb5757' }}>{blindTestInsights.leastAccurate}</span></div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Sub-section C: Ear Training class-wide stats */}
-                  {(() => {
-                    const etRecords = records.filter(r => {
-                      const et = (r as any).earTraining
-                      return et && et.totalAttempts > 0
-                    })
-                    if (etRecords.length === 0) return null
-                    const etCount = etRecords.length
-
-                    // Average overall accuracy across the class
-                    const avgAccuracy = etRecords.reduce((s, r) => {
-                      const et = (r as any).earTraining
-                      const acc = et.totalAttempts > 0 ? et.totalCorrect / et.totalAttempts : 0
-                      return s + acc
-                    }, 0) / etCount
-
-                    // Total drills practised across the class
-                    const totalDrills = etRecords.reduce((s, r) => {
-                      const et = (r as any).earTraining
-                      return s + (et.totalAttempts ?? 0)
-                    }, 0)
-
-                    // Class-wide weak bands — aggregate perOption across frequency_id drill
-                    const bandAgg: Record<string, { correct: number; attempts: number }> = {}
-                    etRecords.forEach(r => {
-                      const et = (r as any).earTraining
-                      const freqDrill = et?.drills?.frequency_id
-                      if (!freqDrill?.perOption) return
-                      for (const [band, stats] of Object.entries(freqDrill.perOption)) {
-                        const s = stats as { correct: number; attempts: number }
-                        if (!bandAgg[band]) bandAgg[band] = { correct: 0, attempts: 0 }
-                        bandAgg[band].correct += s.correct
-                        bandAgg[band].attempts += s.attempts
-                      }
-                    })
-                    const weakBandsClass = Object.entries(bandAgg)
-                      .filter(([, v]) => v.attempts >= 5)
-                      .map(([band, v]) => ({ band, acc: v.correct / v.attempts, attempts: v.attempts }))
-                      .sort((a, b) => a.acc - b.acc)
-                      .slice(0, 5)
-
-                    return (
-                      <div>
-                        <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
-                          Ear Training (Golden Ears Curriculum)
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <div>{etCount} student{etCount !== 1 ? 's' : ''} practised ear training</div>
-                          <div>Class avg accuracy: <span style={{ color: 'var(--color-accent)' }}>{(avgAccuracy * 100).toFixed(0)}%</span></div>
-                          <div>Total drills completed: <span style={{ color: 'var(--color-sand-400)' }}>{totalDrills}</span></div>
-                          {weakBandsClass.length > 0 && (
-                            <div style={{ marginTop: 6 }}>
-                              <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(220,80,60,0.85)', marginBottom: 4 }}>
-                                Class-wide weakest bands (Frequency ID)
-                              </div>
-                              {weakBandsClass.map(b => (
-                                <div key={b.band} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '2px 0' }}>
-                                  <span style={{ color: 'rgba(168,161,150,0.85)' }}>{b.band}</span>
-                                  <span style={{ color: b.acc >= 0.7 ? '#7bc49e' : b.acc >= 0.4 ? 'rgba(208,176,102,0.85)' : '#e07060', fontWeight: 600 }}>
-                                    {(b.acc * 100).toFixed(0)}% ({b.attempts})
-                                  </span>
-                                </div>
-                              ))}
+                  {/* Sub-section C: Ear Training — data computed by earTrainingInsights useMemo above */}
+                  {earTrainingInsights && (
+                    <div>
+                      <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                        Ear Training (Golden Ears Curriculum)
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div>{earTrainingInsights.etCount} student{earTrainingInsights.etCount !== 1 ? 's' : ''} practised ear training</div>
+                        <div>Class avg accuracy: <span style={{ color: 'var(--color-accent)' }}>{(earTrainingInsights.avgAccuracy * 100).toFixed(0)}%</span></div>
+                        <div>Total drills completed: <span style={{ color: 'var(--color-sand-400)' }}>{earTrainingInsights.totalDrills}</span></div>
+                        {earTrainingInsights.weakBandsClass.length > 0 && (
+                          <div style={{ marginTop: 6 }}>
+                            <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(220,80,60,0.85)', marginBottom: 4 }}>
+                              Class-wide weakest bands (Frequency ID)
                             </div>
-                          )}
-                        </div>
+                            {earTrainingInsights.weakBandsClass.map(b => (
+                              <div key={b.band} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '2px 0' }}>
+                                <span style={{ color: 'rgba(168,161,150,0.85)' }}>{b.band}</span>
+                                <span style={{ color: b.acc >= 0.7 ? '#7bc49e' : b.acc >= 0.4 ? 'rgba(208,176,102,0.85)' : '#e07060', fontWeight: 600 }}>
+                                  {(b.acc * 100).toFixed(0)}% ({b.attempts})
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )
-                  })()}
+                    </div>
+                  )}
 
                 </div>
               )}

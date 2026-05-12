@@ -78,6 +78,7 @@ export function LmsExportPanel({ records }: Props) {
   const [uploadResult, setUploadResult] = React.useState<{
     submitted: number
     skipped: number
+    rejected: number   // MED: students with invalid SIS ID format (returned by canvas-upload-grades)
     total: number
   } | null>(null)
   const [testResult, setTestResult] = React.useState<{
@@ -249,6 +250,7 @@ export function LmsExportPanel({ records }: Props) {
         setUploadResult({
           submitted: res.submitted ?? 0,
           skipped: res.skipped ?? 0,
+          rejected: res.rejected ?? 0,  // MED: invalid SIS ID format count
           total: res.total ?? records.length,
         })
       } else {
@@ -643,6 +645,17 @@ export function LmsExportPanel({ records }: Props) {
               {uploadResult.skipped > 0 && (
                 <div style={{ fontSize: 10, color: 'var(--color-sand-400)', lineHeight: 1.5, marginTop: 2 }}>
                   Students with no Student ID in their report must resubmit with their Canvas Student ID entered in the assignment settings.
+                </div>
+              )}
+              {/* MED: show rejected count (invalid SIS ID format) returned by canvas-upload-grades */}
+              {uploadResult.rejected > 0 && (
+                <div style={{ fontSize: 11, color: 'rgba(220,80,60,0.9)', marginTop: 2 }}>
+                  ✗ {uploadResult.rejected} student{uploadResult.rejected !== 1 ? 's' : ''} rejected — Student ID format not recognized by Canvas.
+                </div>
+              )}
+              {uploadResult.rejected > 0 && (
+                <div style={{ fontSize: 10, color: 'var(--color-sand-400)', lineHeight: 1.5, marginTop: 2 }}>
+                  Canvas requires Student IDs prefixed with <code style={{ fontFamily: 'monospace', fontSize: 10 }}>sis_user_id:</code>. Check the Student ID field in each affected student's report.
                 </div>
               )}
             </div>
