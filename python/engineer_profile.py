@@ -657,12 +657,47 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
         if abs(diff) < tol:
             continue
 
-        # Find the band within the region with the most extreme deviation
-        # → use that as the center frequency, not the region center.
+        # Find the band within the region with the most extreme deviation,
+        # weighted by perceptual salience (A-weighting approximation).
+        # Raw dB deltas over-rank sub-bass and ultra-HF regions relative to
+        # the 1–5 kHz presence zone where human hearing is most sensitive.
+        # Multiplying by A-weight (linear, normalised to 1.0 at 1 kHz) before
+        # argmax means a 1.5 dB delta at 4 kHz ranks above a 1.5 dB delta at
+        # 20 kHz, matching what engineers actually notice first.
         band_diffs = tgt[start:region_end] - arr[start:region_end]
         if len(band_diffs) == 0:
             continue
-        peak_idx_local = int(np.argmax(np.abs(band_diffs)))
+
+        # A-weight lookup for each band in this region.
+        def _a_weight_linear(f: float) -> float:
+            """ITU-R 468 A-weighting as a linear gain (normalised to 1.0 at 1 kHz)."""
+            f2 = max(f, 10.0) ** 2
+            num = (12194.0 ** 2) * (f2 ** 2)
+            den = (
+                (f2 + 20.6 ** 2) *
+                ((f2 + 107.7 ** 2) * (f2 + 737.9 ** 2)) ** 0.5 *
+                (f2 + 12194.0 ** 2)
+            )
+            w = num / max(den, 1e-30)
+            # Normalise so the weight is 1.0 at 1 kHz
+            ref_f2 = 1000.0 ** 2
+            ref_num = (12194.0 ** 2) * (ref_f2 ** 2)
+            ref_den = (
+                (ref_f2 + 20.6 ** 2) *
+                ((ref_f2 + 107.7 ** 2) * (ref_f2 + 737.9 ** 2)) ** 0.5 *
+                (ref_f2 + 12194.0 ** 2)
+            )
+            ref_w = ref_num / max(ref_den, 1e-30)
+            return float(w / max(ref_w, 1e-30))
+
+        perceptual_w = np.array([
+            _a_weight_linear(FREQS[min(start + i, len(FREQS) - 1)])
+            for i in range(len(band_diffs))
+        ], dtype=np.float64)
+        perceptual_w = perceptual_w / max(float(perceptual_w.max()), 1e-10)
+        weighted_band_diffs = np.abs(band_diffs) * perceptual_w
+
+        peak_idx_local = int(np.argmax(weighted_band_diffs))
         peak_idx = start + peak_idx_local
         freq = FREQS[min(peak_idx, len(FREQS) - 1)]
 

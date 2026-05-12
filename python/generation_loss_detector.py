@@ -138,6 +138,82 @@ def check_mdct_periodicity(mono: "np.ndarray", sr: int) -> GenerationLossCheck:
                                f"No AAC-frame-stride correlation ({corr:.2f}).")
 
 
+def check_noise_seeding(mono: "np.ndarray", sr: int) -> GenerationLossCheck:
+    """Counter-signal for the noise-floor seeding bypass attack.
+
+    Attack: add shaped white noise at −90 dBFS above 17.5 kHz via ffmpeg to
+    fill the spectral hole that `check_brickwall` detects. The AAC frame-stride
+    autocorrelation (`check_mdct_periodicity`) survives this attack because it
+    runs on sub-16 kHz content — but a secondary tell remains: the injected noise
+    above 17.5 kHz has zero musical correlation with the signal below it, whereas
+    real high-frequency content (cymbals, room) correlates weakly but non-randomly
+    with the musical content.
+
+    Method: compute the cross-correlation between the >17.5 kHz band envelope and
+    the 1–8 kHz band envelope over 100 ms windows. A Pearson |r| > 0.25 across
+    the majority of windows suggests real HF content; near-zero correlation across
+    all windows suggests injected noise.
+
+    Score 0.4 (moderate suspicion) when HF band exists but shows near-zero
+    correlation with musical content. Only fires when the sample rate supports
+    17.5 kHz+ content (sr ≥ 40000).
+    """
+    if np is None:
+        return GenerationLossCheck("noise_seeding", 0.0, "numpy unavailable")
+    if sr < 40000:
+        return GenerationLossCheck("noise_seeding", 0.0,
+                                   f"Sample rate {sr} Hz too low for HF correlation check.")
+
+    def _band_envelope(sig: "np.ndarray", low: float, high: float) -> "np.ndarray":
+        fft = np.fft.rfft(sig)
+        freqs = np.fft.rfftfreq(len(sig), d=1.0 / sr)
+        mask = (freqs >= low) & (freqs <= high)
+        fft_band = fft.copy()
+        fft_band[~mask] = 0
+        bp = np.fft.irfft(fft_band, n=len(sig))
+        return np.abs(bp)
+
+    n = min(len(mono), sr * 10)   # analyse first 10 s
+    chunk = mono[:n]
+    env_hf   = _band_envelope(chunk, 17500, sr / 2 * 0.99)
+    env_mid  = _band_envelope(chunk, 1000,  8000)
+
+    if float(np.max(env_hf)) < 1e-8:
+        return GenerationLossCheck("noise_seeding", 0.0,
+                                   "No energy above 17.5 kHz — cannot assess HF correlation.")
+
+    win = int(0.1 * sr)  # 100 ms windows
+    corrs = []
+    for start in range(0, n - win, win):
+        hf_win  = env_hf[start:start + win]
+        mid_win = env_mid[start:start + win]
+        if np.std(hf_win) < 1e-9 or np.std(mid_win) < 1e-9:
+            continue
+        r = float(np.corrcoef(hf_win, mid_win)[0, 1])
+        if np.isfinite(r):
+            corrs.append(abs(r))
+
+    if not corrs:
+        return GenerationLossCheck("noise_seeding", 0.0, "Insufficient signal for HF correlation.")
+
+    mean_corr = float(np.mean(corrs))
+    if mean_corr < 0.08:
+        return GenerationLossCheck(
+            "noise_seeding", 0.4,
+            f"Near-zero HF/mid correlation ({mean_corr:.3f}) — HF content may be seeded noise "
+            "masking a codec cutoff rather than genuine high-frequency audio.",
+        )
+    if mean_corr < 0.18:
+        return GenerationLossCheck(
+            "noise_seeding", 0.15,
+            f"Low HF/mid correlation ({mean_corr:.3f}) — inconclusive; could be sparse HF content.",
+        )
+    return GenerationLossCheck(
+        "noise_seeding", 0.0,
+        f"HF/mid correlation ({mean_corr:.3f}) consistent with genuine high-frequency content.",
+    )
+
+
 def analyse_generation_loss(path: str) -> GenerationLossResult:
     if np is None or sf is None:
         return GenerationLossResult(
@@ -153,6 +229,7 @@ def analyse_generation_loss(path: str) -> GenerationLossResult:
     checks = [
         check_brickwall(mono, sr),
         check_mdct_periodicity(mono, sr),
+        check_noise_seeding(mono, sr),
     ]
     avg = sum(c.score for c in checks) / max(len(checks), 1)
     if avg >= 0.55:

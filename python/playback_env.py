@@ -18,6 +18,7 @@ right after the platform's normalisation gain and before the AAC encoder.
 """
 from __future__ import annotations
 
+import os
 import numpy as np
 from scipy.signal import butter, sosfilt, sosfilt_zi, iirpeak, lfilter
 
@@ -116,6 +117,76 @@ def _mono_sum_below(y: np.ndarray, sr: int, crossover_hz: float) -> np.ndarray:
     hf_l = y[:, 0] - lf_l
     hf_r = y[:, 1] - lf_r
     return np.stack([hf_l + lf_mono, hf_r + lf_mono], axis=1)
+
+
+# ── IR-based convolution ───────────────────────────────────────────────
+
+_IR_DIR = os.path.expanduser("~/.rtm/playback-irs")
+_IR_WET = 0.85
+_IR_DRY = 0.15
+_IR_MAX_DURATION_S = 5.0
+
+
+def _convolve_with_ir(y: np.ndarray, sr: int, env_id: str) -> np.ndarray | None:
+    """Convolve `y` with a user-supplied IR file for `env_id`, if available.
+
+    IR directory: ~/.rtm/playback-irs/
+    Drop your own phone_speaker.wav, earbuds.wav, club_pa.wav, or
+    car_cabin.wav IR files here to enable convolution-based simulation.
+    The directory is created on first run if it does not already exist.
+
+    Rules:
+    - Looks for  ~/.rtm/playback-irs/<env_id>.wav
+    - Only uses IRs shorter than 5 seconds to keep latency/memory sane.
+    - Resamples the IR to match `sr` before convolution.
+    - Mixes wet/dry at 0.85/0.15 (wet dominates; dry preserves transient attack).
+
+    Returns the processed signal (same shape as `y`), or None if no valid IR
+    was found — the caller falls back to the biquad chain in that case.
+    """
+    import os as _os
+    _os.makedirs(_IR_DIR, exist_ok=True)
+
+    ir_path = _os.path.join(_IR_DIR, f"{env_id}.wav")
+    if not _os.path.isfile(ir_path):
+        return None
+
+    try:
+        import soundfile as _sf
+        import librosa as _librosa
+        from scipy.signal import fftconvolve as _fftconv
+
+        ir_raw, ir_sr = _sf.read(ir_path, always_2d=False)
+        ir_mono = ir_raw.mean(axis=1) if ir_raw.ndim == 2 else ir_raw
+        ir_mono = ir_mono.astype(np.float32)
+
+        # Duration guard
+        if len(ir_mono) / ir_sr > _IR_MAX_DURATION_S:
+            return None
+
+        # Resample IR to signal's SR if needed
+        if ir_sr != sr:
+            ir_mono = _librosa.resample(ir_mono, orig_sr=ir_sr, target_sr=sr)
+
+        # Normalise IR peak to 1.0 so its amplitude doesn't change the mix level
+        peak = float(np.max(np.abs(ir_mono)))
+        if peak > 1e-10:
+            ir_mono /= peak
+
+        # Apply convolution per channel
+        if y.ndim == 1:
+            wet = _fftconv(y, ir_mono, mode="full")[: len(y)].astype(np.float32)
+            out = _IR_WET * wet + _IR_DRY * y
+        else:
+            channels = []
+            for ch in range(y.shape[1]):
+                wet_ch = _fftconv(y[:, ch], ir_mono, mode="full")[: y.shape[0]].astype(np.float32)
+                channels.append(_IR_WET * wet_ch + _IR_DRY * y[:, ch])
+            out = np.stack(channels, axis=1)
+
+        return out.astype(np.float32)
+    except Exception:
+        return None
 
 
 # ── Per-environment chains ─────────────────────────────────────────────
@@ -243,7 +314,10 @@ def apply_playback_env(y: np.ndarray, sr: int, env_id: str):
     pre_atten = float(10.0 ** (-headroom_db / 20.0))
 
     y_in = (y.astype(np.float32, copy=False) * pre_atten).astype(np.float32, copy=False)
-    out = fn(y_in, sr)
+
+    # Try IR convolution first; fall back to biquad chain if no IR is available.
+    ir_out = _convolve_with_ir(y_in, sr, env_id)
+    out = ir_out if ir_out is not None else fn(y_in, sr)
 
     peak_lin = float(np.max(np.abs(out))) if out.size else 0.0
     peak_dbfs = 20.0 * float(np.log10(max(peak_lin, 1e-10)))
