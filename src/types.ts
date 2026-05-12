@@ -738,6 +738,47 @@ export interface BlindTestPredictions {
   revealed: boolean
 }
 
+// ─── Ear Training (Golden Ears-style) ────────────────────────────────────────
+
+export type EarTrainingDrillId =
+  | 'frequency_id'        // Identify which band was boosted/cut
+  | 'eq_direction'        // Was it a boost or a cut?
+  | 'q_width'             // Narrow Q vs wide Q
+  | 'compression'         // Was that compressed or not?
+  | 'reverb_time'         // Short or long reverb?
+  | 'distortion'          // Clean or saturated?
+
+export type EarTrainingDifficulty = 'beginner' | 'intermediate' | 'advanced'
+
+export interface EarTrainingPerBandStat {
+  attempts: number
+  correct: number
+}
+
+export interface EarTrainingDrillStats {
+  attempts: number
+  correct: number
+  /** key: band ID (e.g. "1000hz") or drill option ("boost"/"cut").
+   *  Lets us build a heat-map of where the student is weak. */
+  perOption: Record<string, EarTrainingPerBandStat>
+  lastDifficulty: EarTrainingDifficulty
+  streak: number               // consecutive correct (for unlock progression)
+  bestStreak: number
+}
+
+export interface EarTrainingProgress {
+  /** per-drill stats keyed by EarTrainingDrillId */
+  drills: Record<EarTrainingDrillId, EarTrainingDrillStats>
+  /** drills the student has unlocked (Berklee/Full Sail progression).
+   *  frequency_id is unlocked by default. */
+  unlocked: EarTrainingDrillId[]
+  /** max difficulty unlocked per drill */
+  unlockedDifficulty: Record<EarTrainingDrillId, EarTrainingDifficulty>
+  totalAttempts: number
+  totalCorrect: number
+  lastUpdated: string  // ISO timestamp
+}
+
 export interface LearnModeState {
  enabled: boolean
  role: LearnRole

@@ -11,6 +11,7 @@ import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
 import AssignmentPanel from './AssignmentPanel'
 import ClassGradeBook from './ClassGradeBook'
 import BlindTestPanel from './BlindTestPanel'
+import EarTrainingPanel from './eartraining/EarTrainingPanel'
 import { StudentReportButton } from './StudentReportButton'
 
 interface Props {
@@ -46,6 +47,7 @@ export default function GuidedFlowBar({
   const [showAssignmentPanel, setShowAssignmentPanel] = React.useState(false)
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
+  const [earTrainingOpen, setEarTrainingOpen] = React.useState(false)
   const [helpOpen, setHelpOpen] = React.useState(false)
   // previewingStudent now lives in context so every consumer (StudentWorkspace,
   // AnalysisView, etc.) sees the same value. effectiveRole drives UI branching.
@@ -152,6 +154,15 @@ export default function GuidedFlowBar({
 
   return (
     <>
+      {/* Ear Training overlay */}
+      {earTrainingOpen && (
+        <EarTrainingPanel
+          onClose={() => setEarTrainingOpen(false)}
+          fileAPath={fileAPath ?? null}
+          fileAName={fileAName}
+        />
+      )}
+
       {/* Blind Test overlay */}
       {blindTestOpen && (
         <BlindTestPanel
@@ -258,6 +269,30 @@ export default function GuidedFlowBar({
             scrollbarWidth: 'none',
           }}
         >
+          {/* Ear Training button */}
+          <button
+            onClick={() => setEarTrainingOpen(true)}
+            style={{
+              flexShrink: 0,
+              background: 'transparent',
+              border: '1px solid rgba(168,161,150,0.3)',
+              borderRadius: '2px',
+              color: 'var(--color-sand-400)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '5px 10px',
+              cursor: 'pointer',
+              marginRight: 4,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+            title="Golden Ears-style frequency, EQ, compression, reverb, distortion identification drills"
+          >
+            🎼 Ear Training
+          </button>
+
           {/* Blind Test button */}
           <button
             onClick={() => setBlindTestOpen(true)}
