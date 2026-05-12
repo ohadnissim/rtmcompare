@@ -181,6 +181,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
     return blindTest.answers.find(a => a.dimension === 'overall')?.notes ?? ''
   })
   const [submitted, setSubmitted] = React.useState<boolean>(() => blindTest != null)
+  const [resetPending, setResetPending] = React.useState(false)
 
   const labelA = truncate(fileAName)
   const labelB = truncate(fileBName)
@@ -219,10 +220,12 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   }
 
   function handleReset() {
+    if (!resetPending) { setResetPending(true); return }
     resetBlindTest()
     setAnswers({})
     setNotesField('')
     setSubmitted(false)
+    setResetPending(false)
   }
 
   // ─── Results table data ───────────────────────────────────────────────────
@@ -1236,8 +1239,9 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                   textDecoration: 'underline',
                   textDecorationColor: 'rgba(168,161,150,0.2)',
                 }}
-              >
-                Reset Blind Test
+              onBlur={() => setResetPending(false)}
+            >
+              {resetPending ? '⚠ Click again to confirm reset' : 'Reset Blind Test'}
               </button>
             </div>
           </div>

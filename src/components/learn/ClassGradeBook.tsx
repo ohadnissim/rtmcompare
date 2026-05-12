@@ -127,6 +127,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const [insightsOpen, setInsightsOpen] = useState(true)
   const [lmsOpen, setLmsOpen] = useState(false)
   const [hasLmsConfig, setHasLmsConfig] = useState(false)
+  const [csvStatus, setCsvStatus] = useState<'idle' | 'ok' | 'error'>('idle')
 
   // Sync folder when assignment changes.
   // LOW fix: include `folder` in deps so the closure isn't stale if folder
@@ -203,7 +204,13 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   async function exportCsv() {
     if (!records.length) return
-    await (window as any).electronAPI?.exportGradebookCsv(records)
+    try {
+      const res = await (window as any).electronAPI?.exportGradebookCsv(records)
+      setCsvStatus(res?.ok === false ? 'error' : 'ok')
+    } catch {
+      setCsvStatus('error')
+    }
+    setTimeout(() => setCsvStatus('idle'), 3000)
   }
 
   if (!open) return null
@@ -433,7 +440,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                 opacity: records.length ? 1 : 0.5,
               }}
             >
-              Export CSV
+              {csvStatus === 'ok' ? '✓ Saved' : csvStatus === 'error' ? '✗ Failed' : 'Export CSV'}
             </button>
             <button
               onClick={() => setLmsOpen(o => !o)}
@@ -826,7 +833,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                       <td style={{ ...tdStyle, fontSize: 10, color: 'var(--color-sand-400)' }}>{dateStr}</td>
                       {allLabels.map(label => {
                         // O(1) lookup via pre-indexed map (was O(N) .find() per cell)
-                        const recMap = perRecordRubricMap.get(rec.reportPath ?? String(sorted.indexOf(rec)))
+                        const recMap = perRecordRubricMap.get(rec.reportPath ?? String(records.indexOf(rec)))
                         const row = recMap?.get(label)
                         if (!row) return <td key={label} style={{ ...tdStyle, textAlign: 'center', color: 'var(--color-sand-400)' }}>—</td>
                         const color = scoreColor(row.earned, row.possible)

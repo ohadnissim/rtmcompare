@@ -221,12 +221,11 @@ declare global {
  * UI stays on the processing screen forever with no feedback or recovery.
  */
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(message)), ms)
-    ),
-  ])
+  const timer = new Promise<T>((_, reject) =>
+    setTimeout(() => reject(new Error(message)), ms)
+  )
+  timer.catch(() => {}) // suppress unhandled rejection if promise settles first
+  return Promise.race([promise, timer])
 }
 
 function dismissNativeTooltip(e: React.MouseEvent<HTMLElement>) {
@@ -360,6 +359,7 @@ export default function App() {
  atmos: result.atmos,
  comparison_mode: result.comparison_mode,
  song_info: result.song_info,
+ generation_loss: (result as any).generation_loss,
  full_result: result,
  })
  setState('ref-only')
@@ -684,6 +684,7 @@ export default function App() {
  // renders them in the header strip so the engineer sees them before
  // trusting the measurements.
  file_warnings: (result as any).file_warnings,
+ generation_loss: (result as any).generation_loss,
  full_result: result, // for Master Assistant's proposeMasterChain
  })
  setState('ref-only')
