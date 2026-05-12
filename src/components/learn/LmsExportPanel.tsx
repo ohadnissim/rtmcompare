@@ -11,6 +11,7 @@ interface GradeRecord {
   studentName?: string
   totalEarned?: number
   totalPossible?: number
+  isDraft?: boolean
 }
 
 interface Props {
@@ -189,7 +190,8 @@ export function LmsExportPanel({ records }: Props) {
     //   2. Hard-block when records are missing studentId
     //   3. Warn if rubric totalPossible doesn't match the selected
     //      Canvas assignment's pointsPossible (off-by-2x bug magnet)
-    const grades = records.map((r: GradeRecord) => ({
+    // UX-3: exclude draft submissions from upload — only final versions go to Canvas
+    const grades = records.filter((r: GradeRecord) => !r.isDraft).map((r: GradeRecord) => ({
       studentId: r.studentId ?? '',
       studentName: r.studentName ?? '',
       score: r.totalEarned ?? 0,
@@ -261,8 +263,9 @@ export function LmsExportPanel({ records }: Props) {
     }
   }
 
-  const withStudentId = records.filter((r: GradeRecord) => r.studentId)
-  const withoutStudentId = records.filter((r: GradeRecord) => !r.studentId)
+  const finals = records.filter((r: GradeRecord) => !r.isDraft)
+  const withStudentId = finals.filter((r: GradeRecord) => r.studentId)
+  const withoutStudentId = finals.filter((r: GradeRecord) => !r.studentId)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>

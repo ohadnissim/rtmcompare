@@ -180,6 +180,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   const [templateOpen, setTemplateOpen]       = useState(false)
   const [templateApplied, setTemplateApplied] = useState('')
   const [importError, setImportError]         = useState('')
+  const [clearPending, setClearPending]       = useState(false)
 
   // Sync when `current` changes (e.g. loaded from context)
   useEffect(() => {
@@ -758,20 +759,22 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           Save Assignment
         </button>
         <button
-          onClick={onClear}
+          onClick={() => { if (clearPending) { onClear(); setClearPending(false) } else { setClearPending(true); setTimeout(() => setClearPending(false), 3000) } }}
+          onBlur={() => setClearPending(false)}
           style={{
-            background: 'transparent',
-            border: '1px solid rgba(168,161,150,0.2)',
+            background: clearPending ? 'rgba(220,80,60,0.08)' : 'transparent',
+            border: `1px solid ${clearPending ? 'rgba(220,80,60,0.5)' : 'rgba(168,161,150,0.2)'}`,
             borderRadius: '2px',
-            color: 'var(--color-sand-400)',
+            color: clearPending ? 'rgba(220,80,60,0.85)' : 'var(--color-sand-400)',
             fontSize: 11,
             letterSpacing: '0.06em',
             padding: '7px 14px',
             cursor: 'pointer',
             textTransform: 'uppercase',
+            transition: 'all 0.15s',
           }}
         >
-          Clear Assignment
+          {clearPending ? '⚠ Confirm clear?' : 'Clear Assignment'}
         </button>
         {/* CRIT-5 fix: Export is gated on weightOk. Previously a teacher could
             export an invalid rubric (weights ≠ 100%) and students would receive

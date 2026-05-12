@@ -47,6 +47,34 @@ _artifactnet_session: "object | None" = None
 _artifactnet_model_path: str | None = None
 _artifactnet_lock = threading.Lock()
 
+# ── ArtifactNet mel filterbank — computed once at import time ────────────────
+# Parameters are fixed constants (n_fft=1024, n_mels=128, target_sr=16000).
+# Building the filterbank inside check_artifactnet() pays O(n_mels²) cost on
+# every inference call; hoisting it here makes that a one-time import cost.
+_MEL_FB: "np.ndarray | None" = None  # shape (128, 513) — lazy-initialised below
+
+
+def _build_mel_filterbank() -> "np.ndarray":
+    """Return the (n_mels, n_fft//2+1) triangular mel filterbank for ArtifactNet."""
+    assert np is not None
+    n_fft, n_mels, target_sr = 1024, 128, 16000
+    f_min, f_max = 20.0, target_sr / 2.0
+    mel_min = 2595 * np.log10(1 + f_min / 700)
+    mel_max = 2595 * np.log10(1 + f_max / 700)
+    mel_points = np.linspace(mel_min, mel_max, n_mels + 2)
+    freq_points = 700 * (10 ** (mel_points / 2595) - 1)
+    bin_points = np.floor((n_fft + 1) * freq_points / target_sr).astype(int)
+    n_bins = n_fft // 2 + 1
+    fb = np.zeros((n_mels, n_bins))
+    for m in range(1, n_mels + 1):
+        for k in range(bin_points[m - 1], bin_points[m]):
+            if k < n_bins:
+                fb[m - 1, k] = (k - bin_points[m - 1]) / max(bin_points[m] - bin_points[m - 1], 1)
+        for k in range(bin_points[m], bin_points[m + 1]):
+            if k < n_bins:
+                fb[m - 1, k] = (bin_points[m + 1] - k) / max(bin_points[m + 1] - bin_points[m], 1)
+    return fb
+
 
 @dataclass
 class GenerationLossCheck:
@@ -68,6 +96,8 @@ def _cutoff_frequency(mono: "np.ndarray", sr: int) -> float:
     cluster at ~16 / ~19 / ~22 kHz depending on bitrate."""
     assert np is not None
     n = min(len(mono), sr * 5)
+    if n < 64:  # PY-1: too short / silent file — skip rather than crash on np.hanning(0)
+        return float(sr / 2)
     x = mono[:n] - float(np.mean(mono[:n]))
     spec = np.abs(np.fft.rfft(x * np.hanning(n)))
     if float(np.max(spec)) <= 0: return float(sr / 2)
@@ -432,22 +462,11 @@ def check_artifactnet(mono: "np.ndarray", sr: int) -> "GenerationLossCheck | Non
             return None
         S = np.stack(frames, axis=1)  # (n_fft//2+1, T)
 
-        # Simple mel filterbank (triangular, linear freq spacing approximation)
-        f_min, f_max = 20.0, target_sr / 2.0
-        mel_min = 2595 * np.log10(1 + f_min / 700)
-        mel_max = 2595 * np.log10(1 + f_max / 700)
-        mel_points = np.linspace(mel_min, mel_max, n_mels + 2)
-        freq_points = 700 * (10 ** (mel_points / 2595) - 1)
-        bin_points = np.floor((n_fft + 1) * freq_points / target_sr).astype(int)
-
-        mel_fb = np.zeros((n_mels, S.shape[0]))
-        for m in range(1, n_mels + 1):
-            for k in range(bin_points[m-1], bin_points[m]):
-                if k < S.shape[0]:
-                    mel_fb[m-1, k] = (k - bin_points[m-1]) / max(bin_points[m] - bin_points[m-1], 1)
-            for k in range(bin_points[m], bin_points[m+1]):
-                if k < S.shape[0]:
-                    mel_fb[m-1, k] = (bin_points[m+1] - k) / max(bin_points[m+1] - bin_points[m], 1)
+        # Mel filterbank — use module-level cache; build once on first call.
+        global _MEL_FB
+        if _MEL_FB is None:
+            _MEL_FB = _build_mel_filterbank()
+        mel_fb = _MEL_FB
 
         mel_S = mel_fb @ S  # (n_mels, T)
         mel_S = np.log(mel_S + 1e-9).astype(np.float32)

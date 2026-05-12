@@ -693,6 +693,9 @@ export default function App() {
  appendHistory(fileA, result, 'ref-only')
  }
  } catch (err: any) {
+ if (/timed out/i.test(err?.message || '')) {
+   try { window.electronAPI?.cancelAnalysis?.() } catch {}
+ }
  if (err?.cancelled || /cancelled/i.test(err?.message || '')) {
  setError(null)
  } else {
@@ -736,6 +739,9 @@ export default function App() {
  throw new Error('Run this app via Electron (npm run dev) to analyze real audio files.')
  }
  } catch (err: any) {
+ if (/timed out/i.test(err?.message || '')) {
+   try { window.electronAPI?.cancelAnalysis?.() } catch {}
+ }
  if (err?.cancelled || /cancelled/i.test(err?.message || '')) {
  setError(null)
  } else {

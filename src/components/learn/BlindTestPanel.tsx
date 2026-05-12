@@ -182,6 +182,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   })
   const [submitted, setSubmitted] = React.useState<boolean>(() => blindTest != null)
   const [resetPending, setResetPending] = React.useState(false)
+  const resetPendingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const labelA = truncate(fileAName)
   const labelB = truncate(fileBName)
@@ -220,7 +221,13 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   }
 
   function handleReset() {
-    if (!resetPending) { setResetPending(true); return }
+    if (!resetPending) {
+      setResetPending(true)
+      // UX-4: auto-cancel after 3s — don't rely on onBlur which fires on any scroll
+      resetPendingTimer.current = setTimeout(() => setResetPending(false), 3000)
+      return
+    }
+    if (resetPendingTimer.current) { clearTimeout(resetPendingTimer.current); resetPendingTimer.current = null }
     resetBlindTest()
     setAnswers({})
     setNotesField('')
@@ -834,10 +841,15 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                     Your answers are locked in. Ready to see how the meters compare?
                   </p>
                 </div>
+                {!analysisResult && (
+                  <p style={{ fontSize: 10, color: 'rgba(208,176,102,0.55)', margin: '0 0 8px 0', fontStyle: 'italic' }}>
+                    Run an analysis first to unlock the reveal.
+                  </p>
+                )}
                 <button
                   onClick={() => revealBlindTest(analysisResult)}
                   disabled={!analysisResult}
-                  title={!analysisResult ? 'Analysis result not yet available — please wait for analysis to complete' : undefined}
+                  title={!analysisResult ? 'Analysis result not yet available — please run an analysis first' : undefined}
                   style={{
                     background: analysisResult ? 'rgba(208,176,102,0.07)' : 'rgba(208,176,102,0.03)',
                     border: `1px solid ${analysisResult ? 'rgba(208,176,102,0.6)' : 'rgba(208,176,102,0.2)'}`,
@@ -1239,7 +1251,6 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                   textDecoration: 'underline',
                   textDecorationColor: 'rgba(168,161,150,0.2)',
                 }}
-              onBlur={() => setResetPending(false)}
             >
               {resetPending ? '⚠ Click again to confirm reset' : 'Reset Blind Test'}
               </button>

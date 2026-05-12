@@ -10,7 +10,7 @@ Drag your **reference track** onto the **left drop zone** (that's File A). Drag 
 
 ## Step 2 — Enable Learn Mode
 
-Find the **"Learn Mode" toggle** in the top bar and click it. The step bar will appear at the bottom of the screen — that's your guide for the whole session.
+Find the **"Learn Mode" toggle** in the top bar and click it. The step bar will appear just below the top controls — that's your guide for the whole session.
 
 ## Step 3 — Load Your Assignment (if applicable)
 
@@ -18,11 +18,11 @@ If your instructor gave you an `.rtm-assignment.json` file, click **"Load Assign
 
 ## Step 4 — Enter Your Student ID
 
-In the assignment panel, enter your **Student ID** in exactly the format your instructor specifies (it matches your Canvas SIS ID — ask your instructor if you're not sure which format to use).
+In the **left sidebar** (the student info panel), enter your **Student ID** in exactly the format your instructor specifies (it matches your Canvas SIS ID — ask your instructor if you're not sure which format to use).
 
 ## Step 5 — Work Through the 9 Guided Steps
 
-The bar at the bottom walks you through everything — loudness, dynamics, low-end, brightness, stereo width, and more. Each step has a question and tells you what to look for. Take your time, read the explanations, and take notes using the annotation tool.
+The step bar walks you through everything — loudness, dynamics, low-end, brightness, stereo width, and more. Each step has a question and tells you what to look for. Take your time, read the explanations, and take notes using the annotation tool.
 
 ## Step 6 — Try Blind Test Mode
 
@@ -34,7 +34,12 @@ When you've worked through the steps, click **"Export Report"**. The app generat
 
 ## Step 8 — Submit
 
-Hand in the PDF to your instructor however they've directed — email, shared folder, LMS upload, whatever works for your class.
+Hand in **two files** to your instructor — they live together in `~/Documents/RTMcompare/student-reports/`:
+
+1. **The PDF** — your readable report with scores, notes, and charts.
+2. **The `.rtm-report.json` sidecar** — the machine-readable data file that lets your instructor's Grade Book automatically import your scores. Without it, your instructor has to enter your scores manually.
+
+Submit both via whatever method your instructor specifies (email, shared folder, LMS upload). If you only have the PDF and can't find the JSON file, re-run Export Report — both files are generated at the same time.
 
 ---
 

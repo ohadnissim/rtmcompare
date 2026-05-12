@@ -226,6 +226,11 @@ def load_config(path: str) -> LtiConfig:
     cfg = LtiConfig(**data)
     # Validate early; raises ValueError if path escapes ~/.rtm/lti/
     _validate_key_path(cfg.private_key_path)
+    # SEC-2: validate all LMS URLs so a tampered config can't carry SSRF targets
+    _validate_lms_url(cfg.token_url, "token_url")
+    _validate_lms_url(cfg.ags_lineitem_url, "ags_lineitem_url")
+    if cfg.oidc_auth_url:
+        _validate_lms_url(cfg.oidc_auth_url, "oidc_auth_url")
     return cfg
 
 

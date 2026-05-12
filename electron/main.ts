@@ -259,7 +259,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,  // Required for File.path on drag-and-drop
+      sandbox: true,   // preload uses webUtils.getPathForFile (Electron 30+) — no longer requires sandbox:false
     },
   })
 
@@ -708,7 +708,7 @@ ipcMain.handle('read-audio-file', async (_event, filePath: string) => {
   if (!AUDIO_EXT.has(ext)) {
     throw new Error(`read-audio-file: refused for non-audio extension (${ext})`)
   }
-  const buffer = fs.readFileSync(safePath)
+  const buffer = await fs.promises.readFile(safePath)
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
 })
 
@@ -1695,7 +1695,7 @@ function startIncomingWatcher() {
       // Debounce tiny write latency — a 50 ms pause lets the plugin
       // finish rename + fsync on slow drives.
       setTimeout(() => {
-        const readyPath = path.join(INCOMING_DIR, filename)
+        const readyPath = path.join(INCOMING_DIR, safeName)
         if (!fs.existsSync(readyPath)) return
         const drop = processReadyMarker(readyPath)
         if (drop) broadcastIncoming(drop)
@@ -2548,10 +2548,14 @@ ipcMain.handle('load-lms-config', async () => {
 // try/catch so all three Canvas IPC handlers surface a clear actionable error
 // instead of a generic stack trace.
 function decryptCanvasToken(raw: any): { ok: true; token: string } | { ok: false; error: string } {
+  // SEC-5: reject legacy configs that were saved without OS-level encryption.
+  // Old configs have usedSafeStorage:false and store a base64-encoded plaintext token.
+  // Rather than silently using plaintext credentials, prompt re-entry.
+  if (!raw.usedSafeStorage) {
+    return { ok: false, error: 'Canvas credentials were saved without encryption. Please re-enter your API token in LMS settings to migrate to secure storage.' }
+  }
   try {
-    const token = raw.usedSafeStorage
-      ? safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
-      : Buffer.from(raw.encryptedToken, 'base64').toString('utf8')
+    const token = safeStorage.decryptString(Buffer.from(raw.encryptedToken, 'base64'))
     return { ok: true, token }
   } catch (e: any) {
     return { ok: false, error: 'Keychain decrypt failed — re-enter your Canvas API token in LMS settings' }
@@ -2566,6 +2570,9 @@ ipcMain.handle('canvas-test-connection', async (_e) => {
     if (!dec.ok) return dec
     const token = dec.token
 
+    if (!CANVAS_ID_RE.test(String(raw.courseId ?? ''))) {
+      return { ok: false, error: 'Invalid Course ID format — must be numeric or sis_course_id:XXX.' }
+    }
     const res = await canvasRequest({
       baseUrl: raw.baseUrl,
       path: `/api/v1/courses/${raw.courseId}`,
@@ -2593,6 +2600,9 @@ ipcMain.handle('canvas-get-assignments', async () => {
     if (!dec.ok) return dec
     const token = dec.token
 
+    if (!CANVAS_ID_RE.test(String(raw.courseId ?? ''))) {
+      return { ok: false, error: 'Invalid Course ID format — must be numeric or sis_course_id:XXX.' }
+    }
     const res = await canvasRequest({
       baseUrl: raw.baseUrl,
       path: `/api/v1/courses/${raw.courseId}/assignments?per_page=50&order_by=due_at`,
@@ -2614,6 +2624,8 @@ ipcMain.handle('canvas-get-assignments', async () => {
 
 // NIT: hoist regex to module level — avoids recompilation on every upload
 const STUDENT_ID_RE = /^[A-Za-z0-9_.@-]{1,64}$/
+// SEC-1: Canvas numeric IDs (course, assignment) — only digits or sis_course_id:XXX style
+const CANVAS_ID_RE = /^(\d{1,20}|sis_course_id:[A-Za-z0-9_.@-]{1,64}|sis_section_id:[A-Za-z0-9_.@-]{1,64})$/
 
 ipcMain.handle('canvas-upload-grades', async (_e, payload: {
   assignmentId: string
@@ -2639,6 +2651,13 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     // else is rejected before the request is built. Same charset Canvas itself
     // accepts for SIS user IDs.
 
+    // SEC-1: validate courseId and assignmentId before interpolating into URL path
+    if (!CANVAS_ID_RE.test(String(raw.courseId ?? ''))) {
+      return { ok: false, error: 'Invalid Course ID format — must be numeric or sis_course_id:XXX.' }
+    }
+    if (!CANVAS_ID_RE.test(String(payload.assignmentId ?? ''))) {
+      return { ok: false, error: 'Invalid Assignment ID format — must be numeric.' }
+    }
     // ITER4-SEC: cap grades array to prevent main-process heap pressure + oversized Canvas POST
     if (!Array.isArray(payload.grades) || payload.grades.length > 1000) {
       return { ok: false, error: 'grades array invalid or exceeds 1000 entries.' }

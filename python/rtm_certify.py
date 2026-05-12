@@ -56,7 +56,9 @@ def _compute_lufs(path: str) -> float | None:
     try:
         import librosa
         from comparator import compute_lufs
-        y, sr = librosa.load(path, sr=44100, mono=False)
+        # PY-2: load at native sample rate — forces sr=44100 produced LUFS values
+        # that diverged from the main analysis panel on 96kHz masters.
+        y, sr = librosa.load(path, sr=None, mono=False)
         if y.ndim == 1:
             y = np.stack([y, y])
         return round(float(compute_lufs(y, sr)), 1)
@@ -69,7 +71,7 @@ def _compute_true_peak(path: str) -> float | None:
     try:
         import librosa
         from comparator import _true_peak_and_overs
-        y, _ = librosa.load(path, sr=44100, mono=False)
+        y, _ = librosa.load(path, sr=None, mono=False)
         if y.ndim == 1:
             y = np.stack([y, y])
         tp, _ = _true_peak_and_overs(y)
