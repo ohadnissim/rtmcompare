@@ -60,7 +60,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveLmsConfig: (config: { baseUrl: string; apiToken: string; courseId: string; assignmentName?: string }) =>
     ipcRenderer.invoke('save-lms-config', config),
   loadLmsConfig: () => ipcRenderer.invoke('load-lms-config'),
-  canvasTestConnection: (overrideToken?: string) => ipcRenderer.invoke('canvas-test-connection', overrideToken),
+  canvasTestConnection: () => ipcRenderer.invoke('canvas-test-connection'),
   canvasGetAssignments: () => ipcRenderer.invoke('canvas-get-assignments'),
   canvasUploadGrades: (payload: { assignmentId: string; grades: Array<{ studentId: string; studentName: string; score: number; totalPossible: number }> }) =>
     ipcRenderer.invoke('canvas-upload-grades', payload),

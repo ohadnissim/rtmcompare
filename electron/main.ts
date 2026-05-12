@@ -644,12 +644,12 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
 
   const { stdout, stderr, code } = await watchdogSpawn(proc, 'analyze-batch')
   if (code !== 0) {
-    throw new Error(stderr.slice(-500) || `batch analyser exited ${code}`)
+    return { ok: false, error: stderr.slice(-500) || `batch analyser exited ${code}` }
   }
   try {
     return JSON.parse(stdout.trim())
   } catch {
-    throw new Error(`Failed to parse batch output: ${stdout.slice(0, 200)}`)
+    return { ok: false, error: `Failed to parse batch output: ${stdout.slice(0, 200)}` }
   }
 })
 
@@ -2556,18 +2556,13 @@ function decryptCanvasToken(raw: any): { ok: true; token: string } | { ok: false
   }
 }
 
-ipcMain.handle('canvas-test-connection', async (_e, overrideToken?: string) => {
+ipcMain.handle('canvas-test-connection', async (_e) => {
   try {
     if (!fs.existsSync(lmsConfigPath())) return { ok: false, error: 'No LMS config saved' }
     const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
-    let token: string
-    if (overrideToken) {
-      token = overrideToken
-    } else {
-      const dec = decryptCanvasToken(raw)
-      if (!dec.ok) return dec
-      token = dec.token
-    }
+    const dec = decryptCanvasToken(raw)
+    if (!dec.ok) return dec
+    const token = dec.token
 
     const res = await canvasRequest({
       baseUrl: raw.baseUrl,
@@ -2756,6 +2751,7 @@ ipcMain.handle('rtm-certify', async (_event, fileA: string, fileB: string) => {
       if (t.startsWith('{')) { try { result = JSON.parse(t); break } catch {} }
     }
     if (!result) throw new Error(`no JSON output; stderr: ${stderr.slice(-200)}`)
+    if (result.error) return { ok: false, error: result.error }
     return { ok: true, certificate: result }
   } catch (e: any) {
     return { ok: false, error: e?.message || 'rtm-certify failed' }
