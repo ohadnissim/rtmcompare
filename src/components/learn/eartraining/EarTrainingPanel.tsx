@@ -38,7 +38,9 @@ import {
   NARROW_Q,
   WIDE_Q,
   pickRandom,
+  REFERENCE_CLIPS,
 } from './audioEngine'
+import type { ReferenceClipId } from './audioEngine'
 
 interface Props {
   onClose: () => void
@@ -128,22 +130,32 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   const [sourceLoaded, setSourceLoaded] = React.useState(false)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [playingLabel, setPlayingLabel] = React.useState<string | null>(null)
+  // Pink noise is the default — it's the Golden Ears standard for frequency ID
+  // and doesn't require File A to be loaded.
+  const [activeClip, setActiveClipState] = React.useState<ReferenceClipId>('pink_noise')
 
   const engine = React.useMemo(() => getEarTrainingEngine(), [])
 
-  // Load source audio when the panel opens.
+  // Load File A only when the user picks it as the source (procedural clips don't need a file).
   React.useEffect(() => {
+    if (activeClip !== 'loaded_file_a') {
+      engine.setActiveClip(activeClip)
+      setSourceLoaded(true)
+      setLoadError(null)
+      return
+    }
     let cancelled = false
     if (!fileAPath) {
-      setLoadError('No audio loaded. Load File A in the main view first.')
+      setLoadError('Load File A in the main view first, or pick a procedural source.')
+      setSourceLoaded(false)
       return
     }
     engine.loadSource(fileAPath, fileAName).then(
-      () => { if (!cancelled) { setSourceLoaded(true); setLoadError(null) } },
+      () => { if (!cancelled) { engine.setActiveClip('loaded_file_a'); setSourceLoaded(true); setLoadError(null) } },
       (err) => { if (!cancelled) setLoadError(err?.message || 'Failed to load audio') }
     )
     return () => { cancelled = true; engine.stop() }
-  }, [fileAPath, fileAName, engine])
+  }, [activeClip, fileAPath, fileAName, engine])
 
   // Stop audio when leaving the panel.
   React.useEffect(() => () => { engine.stop() }, [engine])
@@ -271,6 +283,9 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
       {sourceLoaded && screen === 'home' && (
         <HomeScreen
           progress={progress}
+          activeClip={activeClip}
+          fileAvailable={!!fileAPath}
+          onClipChange={(id) => setActiveClipState(id)}
           onStartDrill={startDrill}
           onOpenHeatMap={() => setScreen('heatmap')}
           onReset={() => { if (confirm('Reset all ear training progress?')) setProgress(resetProgress()) }}
@@ -302,8 +317,11 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
 
 // ─── Home screen — drill selector ────────────────────────────────────────────
 
-function HomeScreen({ progress, onStartDrill, onOpenHeatMap, onReset }: {
+function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStartDrill, onOpenHeatMap, onReset }: {
   progress: EarTrainingProgress
+  activeClip: ReferenceClipId
+  fileAvailable: boolean
+  onClipChange: (id: ReferenceClipId) => void
   onStartDrill: (d: EarTrainingDrillId, df: EarTrainingDifficulty) => void
   onOpenHeatMap: () => void
   onReset: () => void
@@ -313,7 +331,7 @@ function HomeScreen({ progress, onStartDrill, onOpenHeatMap, onReset }: {
     <div>
       {/* Stats bar */}
       <div style={{
-        display: 'flex', gap: 24, padding: '14px 18px', marginBottom: 24,
+        display: 'flex', gap: 24, padding: '14px 18px', marginBottom: 18,
         background: 'rgba(208,176,102,0.04)', border: '1px solid rgba(208,176,102,0.12)', borderRadius: 2,
       }}>
         <StatBlock label="Overall accuracy" value={progress.totalAttempts > 0 ? `${(overall * 100).toFixed(0)}%` : '—'} />
@@ -323,6 +341,49 @@ function HomeScreen({ progress, onStartDrill, onOpenHeatMap, onReset }: {
         <div style={{ flex: 1 }} />
         <button onClick={onOpenHeatMap} style={navBtnStyle}>Heat Map →</button>
         <button onClick={onReset} style={{ ...navBtnStyle, color: 'rgba(220,80,60,0.75)', borderColor: 'rgba(220,80,60,0.35)' }}>Reset</button>
+      </div>
+
+      {/* Source clip selector — Golden Ears uses pink noise; we also offer drums,
+          vocal-shaped noise, synth mix, and the student's loaded File A. */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.55)', marginBottom: 8 }}>
+          Source material
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {REFERENCE_CLIPS.map(clip => {
+            const disabled = clip.id === 'loaded_file_a' && !fileAvailable
+            const active = clip.id === activeClip
+            return (
+              <button
+                key={clip.id}
+                disabled={disabled}
+                onClick={() => onClipChange(clip.id)}
+                title={clip.description}
+                style={{
+                  padding: '6px 12px',
+                  background: active ? 'rgba(208,176,102,0.12)' : 'transparent',
+                  border: `1px solid ${active ? 'rgba(208,176,102,0.7)' : 'rgba(168,161,150,0.25)'}`,
+                  borderRadius: 2,
+                  color: disabled ? 'rgba(168,161,150,0.3)' : active ? 'var(--color-accent)' : 'rgba(168,161,150,0.85)',
+                  fontSize: 11,
+                  letterSpacing: '0.05em',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 2,
+                  minWidth: 130,
+                }}
+              >
+                <span>{clip.label}</span>
+                <span style={{ fontSize: 9, color: 'rgba(168,161,150,0.55)', letterSpacing: '0.02em' }}>
+                  {clip.description}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Drill grid */}
