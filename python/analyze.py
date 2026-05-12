@@ -122,6 +122,12 @@ from waveform_diff import compute as compute_waveform_diff
 from dialog_gate import detect_dialog_lufs
 from limiter_artefacts import analyse as analyse_limiter_artefacts
 from specs import SPECS_VERSION, to_json as _specs_to_json
+from generation_loss_detector import analyse_generation_loss
+
+# AI origin probability (13-sample detector, deployment_ready: false in
+# ai_detector_calibration_v4_1.json) is intentionally NOT surfaced in the
+# UI for v7.5.5. The field is excluded from the result dict until the
+# ArtifactNet-based replacement (Decision 5-B) ships. See DECISIONS.md §5.
 
 
 def progress(msg: str):
@@ -486,6 +492,26 @@ def main():
                 result["waveform_diff"] = compute_waveform_diff(file_a, file_b)
             except Exception as e:
                 _warn_optional("waveform_diff", e)
+
+        # Generation-loss detection — checks for signs of prior AAC/MP3 encoding
+        # (brick-wall cutoff, AAC frame-stride periodicity, noise seeding, vibrato).
+        # Runs on file B (the file under scrutiny). Uses ArtifactNet ONNX model
+        # when available (~/.rtm/models/artifactnet.onnx), otherwise falls back to
+        # the 4-heuristic approach. deployment_ready: True — this detector is
+        # production-ready for v7.5.5.
+        try:
+            if mono_b_full is not None and np is not None:
+                progress("Checking for generation loss (prior lossy encoding)...")
+                gl_result = analyse_generation_loss(file_b)
+                result["generation_loss"] = {
+                    "probability": gl_result.probability,
+                    "verdict": gl_result.verdict,  # 'likely_lossless' | 'suspect' | 'likely_prior_lossy'
+                    "summary": gl_result.summary,
+                    "checks": [{"name": c.name, "score": c.score, "detail": c.detail} for c in gl_result.checks],
+                    "deployment_ready": True,  # this detector IS production-ready
+                }
+        except Exception as e:
+            _warn_optional("generation_loss", e)
 
         # BEXT / iXML metadata (only meaningful for WAV/BWF)
         try:

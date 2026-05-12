@@ -1,9 +1,12 @@
 # RTMcompare — Decisions Required
 *From Reinvention Report 2026-05-12 — items that require human choice before implementation*
+*Decisions recorded 2026-05-12.*
 
 ---
 
 ## DECISION 1: RTMcertify — Pre-Delivery Compliance Certificate (B2B)
+**→ DEFERRED: Wait. Revisit when ArtifactNet model is available and AI-origin field is credible.**
+
 
 **What it is**: A headless CLI mode of the existing RTMcompare pipeline that outputs a cryptographically signed JSON certificate covering: AI-origin probability, LUFS/TP/LRA compliance against all 6 DSP targets, Atmos conformance, ISRC/DDEX metadata integrity, and SHA-256 hash of the audio. Sold to distributors at $0.10/track.
 
@@ -24,6 +27,8 @@ D) License the technology to an existing compliance SaaS (MatchTune, Tuned Globa
 ---
 
 ## DECISION 2: Patent Provisionals — File in 90 Days
+**→ CHOSEN: D — Skip provisionals. Rely on trade-secret protection. No filing.**
+
 
 **What it is**: Four patent provisional applications that establish priority date before competitors discover these gaps. Provisionals cost ~$1,500/each with a patent attorney and buy 12 months before needing a full application.
 
@@ -60,6 +65,8 @@ D) Skip provisionals; rely on trade-secret protection
 ---
 
 ## DECISION 3: Learn Mode Institutional Licensing Model
+**→ CHOSEN: A — Institutional license $3,000–$12,000/year per school (enrollment-tiered). Keep as RTMcompare feature.**
+
 
 **What it is**: Convert RTMcompare's Learn Mode into a separately-licensed B2B product sold to audio schools with per-seat institutional pricing. Target: Berklee Online, Full Sail, SAE, ~400 audio programs globally.
 
@@ -80,6 +87,8 @@ D) Grant / foundation model: pitch Berklee/Full Sail for a multi-year "founding 
 ---
 
 ## DECISION 4: Mel-Band RoFormer Model Swap
+**→ CHOSEN: A — Swap to MB-RoFormer now. SHIPPED: mel_band_roformer_4stem backend added (Aname-Tommy/melbandroformer4stems, 3.76 GB, HuggingFace). separator.py now tries MB-RoFormer first.**
+
 
 **What it is**: Replace the current BS-RoFormer ONNX model (SDR 9.66) with Mel-Band RoFormer (arXiv:2310.01809, SDR ~10.5) via ONNX export from ZFTurbo/Music-Source-Separation-Training.
 
@@ -98,6 +107,8 @@ D) Keep BS-RoFormer; investigate CoreML/Metal acceleration first (lower risk, bi
 ---
 
 ## DECISION 5: ArtifactNet Integration (AI Music + Generation Loss Detection)
+**→ CHOSEN: A+C. SHIPPED: analyse_generation_loss() wired into analyze.py (key: "generation_loss", deployment_ready: true). AI origin probability (13-sample calibration, deployment_ready: false) intentionally excluded from result dict — not shown in UI.**
+
 
 **What it is**: Replace the scaffolded generation-loss detection (3 heuristics, no baseline) and the AI detector (13 samples, deployment_ready: False) with ArtifactNet (arXiv:2604.16254, F1=0.983) plus CodecFake+ training data.
 

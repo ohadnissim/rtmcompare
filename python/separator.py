@@ -75,7 +75,7 @@ def separate(audio_path: str, output_dir: str,
 
     os.makedirs(output_dir, exist_ok=True)
 
-    backends_to_try = ("bs_roformer_4stem", "cascade", "demucs")
+    backends_to_try = ("mel_band_roformer_4stem", "bs_roformer_4stem", "cascade", "demucs")
     last_error: Optional[BaseException] = None
     for backend_name in backends_to_try:
         try:
