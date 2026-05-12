@@ -239,6 +239,8 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
     // Clear any in-flight confirmation prompts so they don't leak into next open
     setClearPending(false)
     if (clearPendingTimerRef.current !== undefined) { clearTimeout(clearPendingTimerRef.current); clearPendingTimerRef.current = undefined }
+    setDefaultsPending(false)
+    if (defaultsPendingTimerRef.current !== undefined) { clearTimeout(defaultsPendingTimerRef.current); defaultsPendingTimerRef.current = undefined }
     const cfg: AssignmentConfig = {
       title,
       course,

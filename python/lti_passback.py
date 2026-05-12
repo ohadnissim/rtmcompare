@@ -226,7 +226,10 @@ def load_config(path: str) -> LtiConfig:
             data = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         raise ValueError(f"Cannot read LTI config at {path}: {e}") from e
-    cfg = LtiConfig(**data)
+    try:
+        cfg = LtiConfig(**data)
+    except TypeError as e:
+        raise ValueError(f"LTI config missing required field: {e}") from e
     # Validate early; raises ValueError if path escapes ~/.rtm/lti/
     _validate_key_path(cfg.private_key_path)
     # SEC-2: validate all LMS URLs so a tampered config can't carry SSRF targets
