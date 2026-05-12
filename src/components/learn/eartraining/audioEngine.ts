@@ -106,16 +106,18 @@ export interface DistortionOptions {
  *  isolate the EQ change from musical context. Music is added later. */
 export type ReferenceClipId =
   | 'pink_noise'      // broadband pink noise — gold standard for freq ID
+  | 'white_noise'     // flat-spectrum white noise — sharper HF training
   | 'drum_loop'       // synth kick+snare+hat loop — rhythmic context
   | 'vocal_noise'     // formant-shaped noise — sounds vocal-ish
   | 'full_mix'        // bass + drums + pad — mix-like content
   | 'loaded_file_a'   // the student's loaded File A
 
 export const REFERENCE_CLIPS: Array<{ id: ReferenceClipId; label: string; description: string }> = [
-  { id: 'pink_noise',  label: 'Pink Noise',     description: 'Broadband — easiest for frequency ID' },
-  { id: 'drum_loop',   label: 'Drum Loop',      description: 'Kick/snare/hat — rhythmic context' },
-  { id: 'vocal_noise', label: 'Vocal-shaped',   description: 'Formant-shaped noise — vocal-like' },
-  { id: 'full_mix',    label: 'Synth Mix',      description: 'Bass + drums + pad — full-mix context' },
+  { id: 'pink_noise',   label: 'Pink Noise',    description: 'Equal energy per octave — standard' },
+  { id: 'white_noise',  label: 'White Noise',   description: 'Flat spectrum — sharper HF training' },
+  { id: 'drum_loop',    label: 'Drum Loop',     description: 'Kick/snare/hat — rhythmic context' },
+  { id: 'vocal_noise',  label: 'Vocal-shaped',  description: 'Formant-shaped — vocal-like' },
+  { id: 'full_mix',     label: 'Synth Mix',     description: 'Bass + drums + pad — full-mix context' },
   { id: 'loaded_file_a', label: 'My File A',    description: 'The audio you loaded into the analyser' },
 ]
 
@@ -179,10 +181,11 @@ class EarTrainingAudioEngine {
     const ctx = this.getContext()
     let buf: AudioBuffer | null = null
     switch (this.activeClip) {
-      case 'pink_noise':  buf = this.generatePinkNoise(ctx, 8); break
-      case 'drum_loop':   buf = this.generateDrumLoop(ctx, 8);  break
-      case 'vocal_noise': buf = this.generateVocalNoise(ctx, 8); break
-      case 'full_mix':    buf = this.generateFullMix(ctx, 8);   break
+      case 'pink_noise':   buf = this.generatePinkNoise(ctx, 8);  break
+      case 'white_noise':  buf = this.generateWhiteNoise(ctx, 8); break
+      case 'drum_loop':    buf = this.generateDrumLoop(ctx, 8);   break
+      case 'vocal_noise':  buf = this.generateVocalNoise(ctx, 8); break
+      case 'full_mix':     buf = this.generateFullMix(ctx, 8);    break
     }
     if (buf) this.proceduralCache[this.activeClip] = buf
     return buf
@@ -334,6 +337,22 @@ class EarTrainingAudioEngine {
   // All generators return a 2-channel buffer at the AudioContext sample rate.
   // Levels are normalised so each signal sits around -12 dBFS RMS — loud enough
   // to hear EQ changes without clipping after a +12 dB boost.
+
+  /** White noise — uncorrelated random samples, equal energy per Hz.
+   *  Sounds bright/harsh compared to pink because high frequencies are
+   *  spectrally over-represented relative to how the ear weights them. */
+  private generateWhiteNoise(ctx: AudioContext, durationSec: number): AudioBuffer {
+    const rate = ctx.sampleRate
+    const len = Math.floor(rate * durationSec)
+    const buf = ctx.createBuffer(2, len, rate)
+    // Per-channel uncorrelated noise for proper stereo image
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch)
+      // Scale to roughly -12 dBFS RMS — match pink noise level for fair A/B
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.28
+    }
+    return buf
+  }
 
   /** Pink noise — Voss-McCartney algorithm. Gold-standard frequency-ID source.
    *  Spectrally flat in 1/3-octave bands, so a band boost is unambiguous. */
