@@ -555,8 +555,17 @@ export default function App() {
  } catch { /* swallow — history is best-effort */ }
  }, [])
 
+ // CRIT-4: in-flight guard. Spam-clicking Analyze (or Ref-only) before React
+ // flushes setState('processing') used to fire handleCompare multiple times,
+ // each spawning a fresh Python subprocess. Each spawn overwrote activeProc
+ // in python-bridge, so cancellation only killed the last one; the earlier
+ // runs raced stdout into the same result handler.
+ const analysisInFlight = useRef(false)
+
  const handleRefOnly = useCallback(async () => {
  if (!fileA) return
+ if (analysisInFlight.current) return  // CRIT-4: drop the extra click
+ analysisInFlight.current = true
  setState('processing')
  setError(null)
  setProgress('Analyzing reference...')
@@ -647,6 +656,7 @@ export default function App() {
  setState('upload')
  } finally {
  try { unsubProgress?.() } catch {}
+ analysisInFlight.current = false  // CRIT-4: release the in-flight lock
  }
  // `profile` is a dep: stale closures were running the analysis
  // against the initial 'ohad' profile even after the user picked a
@@ -655,6 +665,8 @@ export default function App() {
 
  const handleCompare = useCallback(async () => {
  if (!fileA || !fileB) return
+ if (analysisInFlight.current) return  // CRIT-4: drop the extra click
+ analysisInFlight.current = true
  setState('processing')
  setError(null)
  setProgress(deepScan ? 'Starting AI stem separation...' : 'Starting analysis...')
@@ -683,6 +695,7 @@ export default function App() {
  setState('upload')
  } finally {
  try { unsubProgress?.() } catch {}
+ analysisInFlight.current = false  // CRIT-4: release the in-flight lock
  }
  // Same fix as handleRefOnly: profile was captured stale from the
  // initial render, so compare analyses also ran against 'ohad' after
