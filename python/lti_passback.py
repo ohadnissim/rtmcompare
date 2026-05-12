@@ -221,8 +221,11 @@ def load_config(path: str) -> LtiConfig:
     Validates private_key_path is within the allowed directory before
     returning — prevents a tampered config from causing path traversal.
     """
-    with open(path) as f:
-        data = json.load(f)
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        raise ValueError(f"Cannot read LTI config at {path}: {e}") from e
     cfg = LtiConfig(**data)
     # Validate early; raises ValueError if path escapes ~/.rtm/lti/
     _validate_key_path(cfg.private_key_path)
