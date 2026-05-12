@@ -2536,6 +2536,9 @@ ipcMain.handle('canvas-get-assignments', async () => {
   }
 })
 
+// NIT: hoist regex to module level — avoids recompilation on every upload
+const STUDENT_ID_RE = /^[A-Za-z0-9_.@-]{1,64}$/
+
 ipcMain.handle('canvas-upload-grades', async (_e, payload: {
   assignmentId: string
   grades: Array<{ studentId: string; studentName: string; score: number; totalPossible: number }>
@@ -2559,7 +2562,7 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
     // could redirect/poison the request. Validate ^[A-Za-z0-9_.@-]{1,64}$ — anything
     // else is rejected before the request is built. Same charset Canvas itself
     // accepts for SIS user IDs.
-    const STUDENT_ID_RE = /^[A-Za-z0-9_.@-]{1,64}$/
+
     const gradeData: Record<string, { posted_grade: string }> = {}
     const rejected: string[] = []
     for (const g of payload.grades) {

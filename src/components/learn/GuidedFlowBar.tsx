@@ -598,7 +598,6 @@ export default function GuidedFlowBar({
                   handleNext()
                 }
               }}
-              disabled={false}
               style={{
                 background: 'transparent',
                 border: `1px solid ${isLastStep ? 'rgba(208,176,102,0.7)' : 'rgba(208,176,102,0.4)'}`,
