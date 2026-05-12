@@ -167,8 +167,9 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  value={search}
  onChange={e => setSearch(e.target.value)}
  placeholder="Search by filename, tag, note, BPM, key…"
- className="flex-1 text-[12px] px-3 py-1.5 outline-none" style={{ borderRadius: '2px' }}
+ className="flex-1 text-[12px] px-3 py-1.5 outline-none"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(30,28,24,0.6)',
  color: '#ebe7e0',
  border: '1px solid rgba(168,161,150,0.15)',

@@ -483,8 +483,8 @@ export default function SongDetailPanel({
  </div>
  <button
  onClick={runDeepAnalysis}
- className="text-[11px] px-4 py-2 transition-colors hover:bg-white/[0.03]" style={{ borderRadius: '2px' }}
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)' }}
+ className="text-[11px] px-4 py-2 transition-colors hover:bg-white/[0.03]"
+ style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)' }}
  title="Run the full single-file deep analysis for this song. Result is cached for the rest of the session."
  >
  Run deep analysis
@@ -533,8 +533,8 @@ export default function SongDetailPanel({
  <span className="text-[11px]" style={{ color: '#e05a5a' }}>⚠ Deep analysis failed — {error}</span>
  <button
  onClick={runDeepAnalysis}
- className="text-[10px] px-3 py-1" style={{ borderRadius: '2px' }}
- style={{ color: '#e05a5a', border: '1px solid rgba(224,90,90,0.4)' }}
+ className="text-[10px] px-3 py-1"
+ style={{ borderRadius: '2px', color: '#e05a5a', border: '1px solid rgba(224,90,90,0.4)' }}
  >
  Try again
  </button>
@@ -1157,8 +1157,9 @@ function SongNotes({ value, onChange }: { value: string; onChange: (v: string) =
  onChange={e => onChange(e.target.value)}
  placeholder="Notes for this track. Revision requests, what's fixed since last pass, anything you want attached to the PDF."
  rows={3}
- className="w-full px-3 py-2 text-[12px] resize-y focus:outline-none" style={{ borderRadius: '2px' }}
+ className="w-full px-3 py-2 text-[12px] resize-y focus:outline-none"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(12,10,8,0.6)',
  color: '#ebe7e0',
  border: '1px solid rgba(168,161,150,0.12)',

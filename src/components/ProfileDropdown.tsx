@@ -66,8 +66,9 @@ export default function ProfileDropdown({
    <div ref={wrapRef} className="relative inline-block">
      <button
        onClick={() => setOpen(v => !v)}
-       className="flex items-center gap-2 px-3 py-1.5 transition-colors" style={{ borderRadius: '2px' }}
+       className="flex items-center gap-2 px-3 py-1.5 transition-colors"
        style={{
+         borderRadius: '2px',
          color: '#d6cdc0',
          backgroundColor: 'rgba(168,161,150,0.06)',
          border: '1px solid rgba(168,161,150,0.20)',

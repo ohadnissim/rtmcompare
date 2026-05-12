@@ -90,8 +90,8 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  )}
  <button
  onClick={copyPreset}
- className="text-[10px] px-2 py-1 transition-colors" style={{ borderRadius: '2px' }}
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
+ className="text-[10px] px-2 py-1 transition-colors"
+ style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
  >
  Copy preset
  </button>

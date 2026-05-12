@@ -156,7 +156,6 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  onClick={handleClear}
  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center transition-all opacity-70 hover:opacity-100"
   style={{ borderRadius: '2px', backgroundColor: 'rgba(201,103,101,0.12)', color: '#c96765' }}
- style={{ backgroundColor: 'rgba(201,103,101,0.12)', color: '#c96765' }}
  aria-label={`Clear ${label}`}
  title="Clear this file"
  >

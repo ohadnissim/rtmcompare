@@ -1122,8 +1122,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  startPlayback(pos, 'stems', name)
  }
  }}
- className="px-3 py-1.5 text-[11px] capitalize transition-all flex flex-col items-start gap-0.5" style={{ borderRadius: '2px' }}
+ className="px-3 py-1.5 text-[11px] capitalize transition-all flex flex-col items-start gap-0.5"
  style={{
+ borderRadius: '2px',
  backgroundColor: activeStem === name ? stemColor(name, 0.2) : 'rgba(51,48,44,0.3)',
  color: activeStem === name ? stemColor(name, 1) : '#78716c',
  border: activeStem === name ? `1px solid ${stemColor(name, 0.4)}` : '1px solid transparent',
@@ -1199,8 +1200,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setStemsLoaded(true)
  setStemDropMsg(`Loaded ${loaded} stem${loaded === 1 ? '' : 's'} into ${side}.`)
  }}
- className="px-3 py-2 text-[10px] text-center transition-colors" style={{ borderRadius: '2px' }}
+ className="px-3 py-2 text-[10px] text-center transition-colors"
  style={{
+ borderRadius: '2px',
  border: `1px dashed ${stemDragging === side ? 'rgba(208,176,102,0.5)' : 'rgba(168,161,150,0.2)'}`,
  backgroundColor: stemDragging === side ? 'rgba(208,176,102,0.08)' : 'rgba(30,28,24,0.3)',
  color: stemDragging === side ? '#d0b066' : '#7a7164',
@@ -1268,8 +1270,8 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  const correctLetter: 'A' | 'B' = wasCorrect ? letter : (letter === 'A' ? 'B' : 'A')
  setBlindRoundResult({ guess: letter, correctLetter, wasCorrect })
  }}
- className="flex-1 py-1.5 text-xs font-medium" style={{ borderRadius: '2px' }}
- style={{ backgroundColor: 'rgba(14,13,11,0.4)', color: '#ebe7e0', border: '1px solid rgba(208,176,102,0.3)' }}
+ className="flex-1 py-1.5 text-xs font-medium"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.4)', color: '#ebe7e0', border: '1px solid rgba(208,176,102,0.3)' }}
  >
  "{letter}" is {realLabelB.slice(0, 20)}{realLabelB.length > 20 ? '…' : ''}
  </button>
@@ -1279,8 +1281,8 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setShuffled(Math.random() < 0.5)
  setShuffleKey(k => k + 1)
  }}
- className="text-[10px] px-2 py-1 text-dark-400" style={{ borderRadius: '2px' }}
- style={{ border: '1px solid rgba(87,83,78,0.3)' }}
+ className="text-[10px] px-2 py-1 text-dark-400"
+ style={{ borderRadius: '2px', border: '1px solid rgba(87,83,78,0.3)' }}
  title="Re-shuffle which button plays which file"
  >
  Shuffle
@@ -1312,8 +1314,9 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  <button
  onClick={() => switchFile(activeFile === 'A' ? 'B' : 'A')}
  aria-label="Flip A/B"
- className="flex-shrink-0 w-10 h-10 flex items-center justify-center transition-all" style={{ borderRadius: '2px' }}
+ className="flex-shrink-0 w-10 h-10 flex items-center justify-center transition-all"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(224,122,79,0.12)',
  border: '1px solid rgba(224,122,79,0.25)',
  color: '#e07a4f',
@@ -1777,8 +1780,9 @@ function LiveTpMeter({ liveRef, peakRef, isPlaying }: {
  if (!show) return null
  return (
  <div
- className="flex items-center gap-3 px-3 py-1.5 self-end" style={{ borderRadius: '2px' }}
+ className="flex items-center gap-3 px-3 py-1.5 self-end"
  style={{
+ borderRadius: '2px',
  backgroundColor: 'rgba(14,13,11,0.55)',
  border: '1px solid rgba(168,161,150,0.18)',
  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',

@@ -96,8 +96,8 @@ export default function DistortionPanel({ distortion, labelA, labelB, singleFile
  {distortion.issues.map((issue, i) => (
  <div
  key={i}
- className="flex items-start gap-2.5 px-3 py-2 text-xs" style={{ borderRadius: '2px' }}
- style={{ backgroundColor: style.bg }}
+ className="flex items-start gap-2.5 px-3 py-2 text-xs"
+ style={{ borderRadius: '2px', backgroundColor: style.bg }}
  >
  <span style={{ color: style.color }} className="mt-0.5">{style.icon}</span>
  <span className="text-dark-300">{issue}</span>

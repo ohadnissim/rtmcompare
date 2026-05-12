@@ -151,8 +151,9 @@ export default function SpectrumOverlay({
  <button
  key={v}
  onClick={() => setView(v)}
- className="flex-1 py-1.5 text-xs font-medium transition-all" style={{ borderRadius: '2px' }}
+ className="flex-1 py-1.5 text-xs font-medium transition-all"
  style={{
+ borderRadius: '2px',
  backgroundColor: active ? 'rgba(255,255,255,0.08)' : 'transparent',
  color: active ? vc.colorB : '#84858c',
  borderBottom: active ? `2px solid ${vc.colorB}` : '2px solid transparent',

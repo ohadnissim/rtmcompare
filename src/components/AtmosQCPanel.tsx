@@ -22,8 +22,8 @@ function CheckRow({ check }: { check: AtmosQCCheck }) {
 
  return (
  <div
- className="overflow-hidden" style={{ borderRadius: '2px' }}
- style={{ backgroundColor: 'rgba(26,25,24,0.5)', border: `1px solid ${check.status === 'pass' ? 'transparent' : config.bg}` }}
+ className="overflow-hidden"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(26,25,24,0.5)', border: `1px solid ${check.status === 'pass' ? 'transparent' : config.bg}` }}
  >
  <button
  onClick={() => check.suggestion ? setExpanded(!expanded) : null}
