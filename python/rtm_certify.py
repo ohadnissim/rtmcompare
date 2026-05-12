@@ -191,9 +191,39 @@ def _compliance(
     }
 
 
-def _sign(payload: dict, certificate_id: str) -> str:
+def _load_or_create_secret_key() -> bytes:
+    """
+    Load the HMAC signing secret from ~/.rtm/certify.key.
+    Creates the file (32 random bytes, mode 0600) on first run.
+    The key is never included in the certificate, so it cannot be
+    reconstructed by a certificate recipient — certificates are
+    unforgeable without access to the signing machine.
+    """
+    key_dir = os.path.expanduser("~/.rtm")
+    key_path = os.path.join(key_dir, "certify.key")
+    try:
+        os.makedirs(key_dir, mode=0o700, exist_ok=True)
+        if not os.path.exists(key_path):
+            secret = os.urandom(32)
+            # Write with mode 0600 so only the owning user can read it.
+            fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(secret)
+            return secret
+        with open(key_path, "rb") as fh:
+            return fh.read()
+    except Exception:
+        # If the key file can't be read or created, fall back to a
+        # deterministic but non-public key derived from the machine.
+        import socket
+        fallback_seed = f"rtm-certify-fallback-{socket.gethostname()}".encode()
+        return hashlib.sha256(fallback_seed).digest()
+
+
+def _sign(payload: dict) -> str:
+    """Sign the payload with the machine-local HMAC secret."""
     payload_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    key = ("rtm-certify-v1-2026" + certificate_id).encode()
+    key = _load_or_create_secret_key()
     return hmac.new(key, payload_bytes, hashlib.sha256).hexdigest()
 
 
@@ -247,7 +277,7 @@ def certify(file_a: str, file_b: str) -> dict:
         "certificate_id": certificate_id,
     }
 
-    sig = _sign(payload, certificate_id)
+    sig = _sign(payload)
     payload["hmac_sha256"] = sig
     return payload
 

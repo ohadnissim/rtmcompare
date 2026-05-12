@@ -65,6 +65,14 @@ if not _log.handlers:
 _stdout_lock = threading.Lock()
 _stdin_lock = threading.Lock()
 
+# ── per-analysis serialisation lock ──────────────────────────────────────────
+# analyze.main() mutates sys.stdout, sys.argv, and the analyze module's
+# progress callback — all global state.  Under ThreadPoolExecutor concurrent
+# calls race on these globals producing empty/crossed JSON responses.
+# This lock serialises the entire redirect+call+restore block so only one
+# analysis runs at a time (ONNX inference is already serialised independently).
+_analyze_lock = threading.Lock()
+
 
 def _write_line(obj: dict) -> None:
     """Write a JSON object as a single newline-terminated line to stdout."""
@@ -207,49 +215,52 @@ def _handle_analyze(request_id: str, params: dict) -> dict:
     import io
     import analyze as _analyze_mod
 
-    # Reset the per-run optional-failures accumulator (module-level list).
-    _analyze_mod._optional_failures.clear()
+    # _analyze_lock serialises this entire block so concurrent requests
+    # cannot race on sys.stdout / sys.argv / _analyze_mod.progress.
+    with _analyze_lock:
+        # Reset the per-run optional-failures accumulator (module-level list).
+        _analyze_mod._optional_failures.clear()
 
-    # Monkeypatch progress() to route through our per-request progress_cb.
-    _orig_progress = _analyze_mod.progress
-    _analyze_mod.progress = progress_cb
+        # Monkeypatch progress() to route through our per-request progress_cb.
+        _orig_progress = _analyze_mod.progress
+        _analyze_mod.progress = progress_cb
 
-    # Redirect stdout so analyze.main()'s print() goes to our buffer.
-    _orig_stdout = sys.stdout
-    _buf = io.StringIO()
-    sys.stdout = _buf
+        # Redirect stdout so analyze.main()'s print() goes to our buffer.
+        _orig_stdout = sys.stdout
+        _buf = io.StringIO()
+        sys.stdout = _buf
 
-    # Fake argv so main() picks up our params.
-    _orig_argv = sys.argv[:]
-    sys.argv = ["analyze.py", file_a, file_b]
-    if fast:
-        sys.argv.append("--fast")
-    sys.argv.append(f"--profile={profile_id}")
+        # Fake argv so main() picks up our params.
+        _orig_argv = sys.argv[:]
+        sys.argv = ["analyze.py", file_a, file_b]
+        if fast:
+            sys.argv.append("--fast")
+        sys.argv.append(f"--profile={profile_id}")
 
-    try:
-        _analyze_mod.main()
-        output = _buf.getvalue().strip()
-        result_obj = json.loads(output)
-        if "error" in result_obj:
-            return {"id": request_id, "error": result_obj["error"]}
-        return {"id": request_id, "result": result_obj}
-    except SystemExit as exc:
-        # analyze.main() calls sys.exit(1) on fatal errors; the last print
-        # before exit is the JSON error — capture it.
-        output = _buf.getvalue().strip()
         try:
-            err_obj = json.loads(output)
-            return {"id": request_id, "error": err_obj.get("error", f"exit {exc.code}")}
-        except Exception:
-            return {"id": request_id, "error": f"analysis exited with code {exc.code}"}
-    except Exception as exc:
-        tb = traceback.format_exc()
-        _log.error("analyze handler exception:\n%s", tb)
-        return {"id": request_id, "error": str(exc)}
-    finally:
-        sys.stdout = _orig_stdout
-        sys.argv = _orig_argv
-        _analyze_mod.progress = _orig_progress
+            _analyze_mod.main()
+            output = _buf.getvalue().strip()
+            result_obj = json.loads(output)
+            if "error" in result_obj:
+                return {"id": request_id, "error": result_obj["error"]}
+            return {"id": request_id, "result": result_obj}
+        except SystemExit as exc:
+            # analyze.main() calls sys.exit(1) on fatal errors; the last print
+            # before exit is the JSON error — capture it.
+            output = _buf.getvalue().strip()
+            try:
+                err_obj = json.loads(output)
+                return {"id": request_id, "error": err_obj.get("error", f"exit {exc.code}")}
+            except Exception:
+                return {"id": request_id, "error": f"analysis exited with code {exc.code}"}
+        except Exception as exc:
+            tb = traceback.format_exc()
+            _log.error("analyze handler exception:\n%s", tb)
+            return {"id": request_id, "error": str(exc)}
+        finally:
+            sys.stdout = _orig_stdout
+            sys.argv = _orig_argv
+            _analyze_mod.progress = _orig_progress
 
 
 def _handle_analyze_single(request_id: str, params: dict) -> dict:

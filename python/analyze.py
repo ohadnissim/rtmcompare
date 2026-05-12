@@ -122,7 +122,12 @@ from waveform_diff import compute as compute_waveform_diff
 from dialog_gate import detect_dialog_lufs
 from limiter_artefacts import analyse as analyse_limiter_artefacts
 from specs import SPECS_VERSION, to_json as _specs_to_json
-from generation_loss_detector import analyse_generation_loss
+try:
+    from generation_loss_detector import analyse_generation_loss as _analyse_generation_loss
+    def analyse_generation_loss(path: str):  # type: ignore[misc]
+        return _analyse_generation_loss(path)
+except ImportError:
+    analyse_generation_loss = None  # type: ignore[assignment]
 
 # AI origin probability (13-sample detector, deployment_ready: false in
 # ai_detector_calibration_v4_1.json) is intentionally NOT surfaced in the
@@ -500,7 +505,7 @@ def main():
         # the 4-heuristic approach. deployment_ready: True — this detector is
         # production-ready for v7.5.5.
         try:
-            if mono_b_full is not None and np is not None:
+            if mono_b_full is not None and np is not None and analyse_generation_loss is not None:
                 progress("Checking for generation loss (prior lossy encoding)...")
                 gl_result = analyse_generation_loss(file_b)
                 result["generation_loss"] = {

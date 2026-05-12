@@ -1013,7 +1013,7 @@ ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast
   // latency from ~30 s to ~17 s because Python + ONNX stay warm.
   // Falls back to the legacy subprocess path on any daemon error.
   try {
-    const result = await daemonAnalyze(fileA, fileB, fast, profile, sendProgress)
+    const result = await daemonAnalyze(fileA, fileB, sendProgress, fast, profile)
     return result
   } catch (err: any) {
     if (!(err instanceof DaemonUnavailableError)) {

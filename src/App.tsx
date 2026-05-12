@@ -182,6 +182,26 @@ declare global {
  widenMs: number
  mode: 'repair' | 'clicks' | 'list'
  }) => Promise<import('./types').DeclickResult>
+ /** RTMcertify — generate a signed pre-delivery compliance certificate. */
+ rtmCertify?: (fileA: string, fileB: string) => Promise<{
+ certificate_id: string
+ file_a: string
+ file_b: string
+ analysis: {
+ lufs_i?: number | null
+ true_peak_dbtp?: number | null
+ lra?: number | null
+ mono_compat_pct?: number | null
+ tonal_deviation?: number | null
+ generation_loss_probability?: number | null
+ }
+ compliance: { streaming_ready: boolean; generation_loss_ok: boolean }
+ sha256_a: string
+ sha256_b: string
+ hmac_sha256: string
+ timestamp: string
+ error?: string
+ }>
  }
  }
 }
@@ -213,6 +233,9 @@ export default function App() {
  const [progress, setProgress] = useState('')
  const [results, setResults] = useState<AnalysisResult | null>(null)
  const [error, setError] = useState<string | null>(null)
+ // RTMcertify state — signed pre-delivery compliance certificate
+ const [certifyResult, setCertifyResult] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
+ const [certifying, setCertifying] = useState(false)
  const [deepScan, setDeepScan] = useState(false)
  const [refOnlyResults, setRefOnlyResults] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
  // A-side lock. When set,
@@ -717,8 +740,24 @@ export default function App() {
  setBatchFolderName(null)
  setBatchInitialSession(null)
  setError(null)
+ setCertifyResult(null)
  setNavOrigin('upload')
  }, [])
+
+ // ── RTMcertify — signed pre-delivery compliance certificate ────────────
+ const handleCertify = useCallback(async () => {
+ if (!fileA || !fileB || !window.electronAPI?.rtmCertify) return
+ setCertifying(true)
+ setCertifyResult(null)
+ try {
+ const cert = await window.electronAPI.rtmCertify(fileA.path, fileB.path)
+ setCertifyResult(cert)
+ } catch (e: any) {
+ setCertifyResult({ error: e?.message || 'Certificate generation failed' })
+ } finally {
+ setCertifying(false)
+ }
+ }, [fileA, fileB])
 
  // ── Album / batch mode — pick a folder, analyse every audio file inside,
  // route to the BatchView when done. Per-file progress streams through
@@ -1050,6 +1089,55 @@ export default function App() {
  fileB={fileB!}
  />
  </Suspense>
+ )}
+
+ {/* RTMcertify — signed pre-delivery compliance certificate.
+ Only visible when comparing two files (not ref-only or batch). */}
+ {state === 'results' && results && fileA && fileB && window.electronAPI?.rtmCertify && (
+ <div style={{ padding: '12pt 20pt 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+ <button
+ onClick={handleCertify}
+ disabled={certifying}
+ style={{
+ alignSelf: 'flex-start',
+ padding: '6px 16px',
+ fontSize: 12,
+ fontWeight: 600,
+ letterSpacing: '0.06em',
+ textTransform: 'uppercase',
+ border: '1px solid var(--color-border, #3a3a3a)',
+ borderRadius: 6,
+ background: 'transparent',
+ color: 'var(--color-text-secondary, #aaa)',
+ cursor: certifying ? 'wait' : 'pointer',
+ opacity: certifying ? 0.5 : 1,
+ }}
+ title="Generate a signed pre-delivery compliance certificate (RTMcertify)"
+ >
+ {certifying ? '⏳ Generating certificate…' : '🔏 Get RTMcertify Certificate'}
+ </button>
+ {certifyResult && (
+ <div
+ style={{
+ background: 'rgba(255,255,255,0.04)',
+ border: '1px solid var(--color-border, #3a3a3a)',
+ borderRadius: 8,
+ padding: '10pt 14pt',
+ fontSize: 11,
+ fontFamily: 'monospace',
+ maxHeight: 220,
+ overflow: 'auto',
+ whiteSpace: 'pre-wrap',
+ wordBreak: 'break-all',
+ color: certifyResult.error ? 'var(--color-warn, #e05a5a)' : 'var(--color-text, #ccc)',
+ }}
+ >
+ {certifyResult.error
+ ? `Error: ${certifyResult.error}`
+ : JSON.stringify(certifyResult, null, 2)}
+ </div>
+ )}
+ </div>
  )}
 
  {state === 'batch' && batchResults && (
