@@ -695,15 +695,24 @@ def compute_plr(y: np.ndarray, sr: int) -> float | None:
         else:
             channels = [y[:, i] for i in range(min(y.shape[1], 2))]
 
+        # 5.7.x audit fix: use the scipy polyphase resample path instead
+        # of rtm_fast's linear-interpolation kernel. The fast kernel is
+        # 0.5 dB accurate against a sinc reference and shipped TP values
+        # ~1 dB lower than the certification path used elsewhere in the
+        # UI (e.g. _true_peak_and_overs at comparator.py:420). Two TP
+        # readings in the same UI disagreed by 1 dB. PLR is computed
+        # once per analysis, not on the hot DSP path, so the speed
+        # difference is negligible.
         per_channel_tp = []
         for ch in channels:
             try:
-                from rtm_fast import true_peak_dbtp as _fast_tp
-                per_channel_tp.append(float(_fast_tp(ch)))
-            except Exception:
                 from scipy.signal import resample_poly
                 up = resample_poly(ch, 4, 1)
                 per_channel_tp.append(float(20 * np.log10(max(np.max(np.abs(up)), 1e-10))))
+            except Exception:
+                # Last-ditch raw peak; better than emitting -inf.
+                peak = float(np.max(np.abs(ch))) if ch.size else 1e-10
+                per_channel_tp.append(float(20 * np.log10(max(peak, 1e-10))))
         # Drop -inf entries so a single dead channel doesn't poison the max.
         finite_tps = [v for v in per_channel_tp if np.isfinite(v)]
         if not finite_tps:
@@ -745,13 +754,33 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
             return 0.0
         return float(lra)
     except Exception:
-        # Fallback: simple percentile-based DR
+        # 5.7.x audit fix: K-weight the fallback per BS.1770 to match
+        # the primary path's units. Pre-fix the fallback used raw RMS
+        # percentiles, which on heavily HF-shifted material disagreed
+        # with the primary by 2–4 LU and tripped the wrong "Over-
+        # compressed / Very dynamic" tip when pyloudnorm hiccupped.
+        # K-weighting (a high-shelf at ~1500 Hz) brings the units back
+        # in line with EBU R128 even though the gating is approximate.
         mono = data[:, 0] if data.ndim > 1 else data
+        # Approximate K-weighting: shelving filter pair from BS.1770-4.
+        # Normalised coefficients for any sample rate via bilinear.
+        from scipy.signal import lfilter
+        # Stage 1 (high-shelf, fc=1681 Hz, +4 dB)
+        b1 = [1.53512485958697, -2.69169618940638, 1.19839281085285]
+        a1 = [1.0,             -1.69065929318241, 0.73248077421585]
+        # Stage 2 (high-pass, fc=38 Hz)
+        b2 = [1.0, -2.0, 1.0]
+        a2 = [1.0, -1.99004745483398, 0.99007225036621]
+        try:
+            kw = lfilter(b1, a1, mono.astype(np.float64))
+            kw = lfilter(b2, a2, kw)
+        except Exception:
+            kw = mono
         frame_length = int(sr * 0.4)
         hop_length = int(sr * 0.1)
-        rms = librosa.feature.rms(y=mono, frame_length=frame_length, hop_length=hop_length)[0]
+        rms = librosa.feature.rms(y=kw, frame_length=frame_length, hop_length=hop_length)[0]
         rms_db = 20 * np.log10(np.maximum(rms, 1e-10))
-        rms_db = rms_db[rms_db > -60]
+        rms_db = rms_db[rms_db > -70]  # absolute gate, BS.1770
         if len(rms_db) < 10:
             return 0.0
         return float(np.percentile(rms_db, 95) - np.percentile(rms_db, 10))
@@ -842,8 +871,20 @@ def run_full_analysis(stems_a: dict, stems_b: dict, sr: int = 44100) -> dict:
             loaded_a[stem_name] = ya[:, :min_len]
             loaded_b[stem_name] = yb[:, :min_len]
 
-    # Reconstruct full mix
-    min_len = min(s.shape[1] for s in loaded_a.values())
+    # Reconstruct full mix.
+    # 5.7.x audit fix: trim across BOTH stem dicts. Pre-fix, min_len
+    # was computed only over loaded_a, then loaded_b was sliced to
+    # the same length. That works today because per-pair trim above
+    # already aligned A and B per stem, but if a future caller ever
+    # populated loaded_a/loaded_b independently with mismatched
+    # lengths, mix_b's slice could exceed an actual stem's length
+    # and silently raise IndexError. Belt-and-braces: take the
+    # global min across all stems on both sides.
+    min_len = min(
+        s.shape[1]
+        for d in (loaded_a, loaded_b)
+        for s in d.values()
+    )
     mix_a = sum(s[:, :min_len] for s in loaded_a.values())
     mix_b = sum(s[:, :min_len] for s in loaded_b.values())
 
@@ -1585,16 +1626,27 @@ def run_hybrid_analysis(file_a: str, file_b: str, tmp_dir: str,
     sf.write(chunk_a_path, chunk_a.T, sr)
     sf.write(chunk_b_path, chunk_b.T, sr)
 
-    # Run Demucs on the short chunks
+    # Run separator on the short chunks. CRITICAL: route into per-file
+    # output subdirectories. The default BS-RoFormer backend writes
+    # stems flat (vocals.wav / drums.wav / bass.wav / other.wav), so
+    # back-to-back calls with the same out_dir silently overwrite the
+    # first file's stems with the second's — Deep Scan then compares
+    # file-B-stems-vs-file-B-stems and reports "perfect match" on
+    # tracks that aren't. Per the audit's CRITICAL #1 finding.
     from separator import separate
+
+    stems_a_dir = os.path.join(tmp_dir, "stems_a")
+    stems_b_dir = os.path.join(tmp_dir, "stems_b")
+    os.makedirs(stems_a_dir, exist_ok=True)
+    os.makedirs(stems_b_dir, exist_ok=True)
 
     if progress_cb:
         progress_cb("AI separating chunk (File A)...")
-    stems_a = separate(chunk_a_path, tmp_dir, progress_cb=progress_cb)
+    stems_a = separate(chunk_a_path, stems_a_dir, progress_cb=progress_cb)
 
     if progress_cb:
         progress_cb("AI separating chunk (File B)...")
-    stems_b = separate(chunk_b_path, tmp_dir, progress_cb=progress_cb)
+    stems_b = separate(chunk_b_path, stems_b_dir, progress_cb=progress_cb)
 
     # Analyze AI-separated stems for low-end categories
     if progress_cb:

@@ -52,11 +52,29 @@ def analyze_masking(stems_dir: str = None, file_path: str = None, sr: int = 4410
     overlaps = []
 
     if stems_dir and os.path.isdir(stems_dir):
-        # Look for the most recent stem dir created by Demucs
+        # Locate the actual stem files. Two layouts to support:
+        #   (a) flat:  stems_dir/vocals.wav (BS-RoFormer 4-stem default)
+        #   (b) nested: stems_dir/<basename>/vocals.wav (legacy Demucs)
+        # Per the audit: pre-fix this loop only walked subdirs, so when
+        # the primary BS-RoFormer backend was used (flat layout), the
+        # `subs == []` short-circuit silently skipped stem-based masking
+        # and the call fell through to the coarse full-mix BANDS path.
+        # Engineers using Deep Scan never saw real per-stem masking.
+        candidates = []
+        # (a) flat — same dir as stems_dir
+        if all(os.path.exists(os.path.join(stems_dir, f"{n}.wav"))
+               for n in ("vocals", "drums", "bass", "other")):
+            candidates.append(stems_dir)
+        # (b) nested — newest subdir wins
         subs = [d for d in os.listdir(stems_dir) if os.path.isdir(os.path.join(stems_dir, d))]
-        if subs:
-            sub = sorted(subs, key=lambda s: os.path.getmtime(os.path.join(stems_dir, s)))[-1]
-            stem_dir = os.path.join(stems_dir, sub)
+        for sub in sorted(subs, key=lambda s: os.path.getmtime(os.path.join(stems_dir, s)), reverse=True):
+            sub_path = os.path.join(stems_dir, sub)
+            if all(os.path.exists(os.path.join(sub_path, f"{n}.wav"))
+                   for n in ("vocals", "drums", "bass", "other")):
+                candidates.append(sub_path)
+
+        if candidates:
+            stem_dir = candidates[0]
             stems = {}
             for name in ("vocals", "drums", "bass", "other"):
                 p = os.path.join(stem_dir, f"{name}.wav")
@@ -91,10 +109,20 @@ def analyze_masking(stems_dir: str = None, file_path: str = None, sr: int = 4410
                 # overall RMS, so a stem's actual contribution to the
                 # mix is preserved. This makes "vocals fight bass at
                 # 200 Hz" mean what an engineer expects.
-                mix_rms = max(
-                    1e-10,
-                    np.sqrt(np.mean(sum(v.astype(np.float64) ** 2 for v in stems.values()) / max(1, len(stems)))),
-                )
+                # 5.7.x audit fix: the mix RMS is sqrt(mean(actual_mix²))
+                # where actual_mix = sum of stems. Pre-fix this divided
+                # by N_stems INSIDE the sqrt, computing the average of
+                # per-stem mean-energy instead of the energy of the
+                # actual sum. For 4 musically uncorrelated stems that
+                # under-estimated the real mix RMS by a factor of ~2,
+                # inflating each stem's normalised level by 3–6 dB and
+                # tripping `both_loud > -18 dB` on stems that aren't
+                # actually loud in the final mix.
+                # Use the shortest length to be safe (stems can disagree
+                # by 1-2 samples after separator round-trips).
+                _min_len = min(v.shape[0] for v in stems.values())
+                _actual_mix = sum(v.astype(np.float64)[:_min_len] for v in stems.values())
+                mix_rms = max(1e-10, float(np.sqrt(np.mean(_actual_mix ** 2))))
                 normed = {
                     k: v.astype(np.float64) / mix_rms
                     for k, v in stems.items()

@@ -58,7 +58,13 @@ REGION_NAMES = {
     (20, 23): ("Presence", "2-3.15 kHz"),
     (23, 26): ("Brilliance", "4-6.3 kHz"),
     (26, 29): ("Air", "8-12.5 kHz"),
-    (29, 31): ("Ultra High", "16-20 kHz"),
+    # 5.7.x audit fix: extended Ultra High from (29, 31) to (28, 31)
+    # so it averages 3 bands instead of 2. Combined with the 1-octave
+    # Hann smoothing the prior 2-band region was effectively
+    # one-band-of-evidence — a single 16 kHz spike on the candidate
+    # could swing the whole Ultra High recommendation. Three bands
+    # gives the median some room to breathe.
+    (28, 31): ("Ultra High", "12.5-20 kHz"),
 }
 
 
@@ -131,7 +137,13 @@ def compute_spectrum(y, sr):
         # propagate garbage. Useful for edge-case loaders.
         y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
     overall_rms = float(np.sqrt(np.mean(y * y)))
-    if overall_rms < 1e-5:  # ≈ -100 dBFS — nothing to measure
+    # 5.7.x audit fix: was 1e-5 (-100 dBFS) — too aggressive. Real
+    # quiet content (a fade-out tail, an ambient/film stem, a -70 LUFS
+    # broadcast bed) reads above -100 dBFS but well below this floor
+    # and silently dropped to None, killing the tonal score. BS.1770
+    # uses -70 LUFS as its absolute gate; 1e-7 (~ -140 dBFS) is the
+    # numeric-stability floor. Anything between those gets analysed.
+    if overall_rms < 1e-7:
         return None
 
     nyq = sr / 2
@@ -155,6 +167,51 @@ def compute_spectrum(y, sr):
     arr = np.nan_to_num(arr, nan=-90.0, posinf=0.0, neginf=-90.0)
     centred = arr - float(np.mean(arr))
     return list(centred)
+
+
+def _smooth_log_spectrum(spec, *, kernel_bands: int = 3):
+    """Smooth a 31-band 1/3-octave spectrum across log-frequency neighbours.
+
+    Mike's report (May 2026): hard-electronic / techno mixes with a tuned
+    4-on-the-floor kick produce a constant, prominent 50 Hz fundamental
+    in the candidate spectrum. The reference profile, averaged over 15+
+    tracks in different keys, is naturally smooth in that region. The
+    raw band-by-band diff therefore shows +5..+7 dB at the kick
+    fundamental and the recommender suggests cutting it — which would
+    destroy the genre's signature.
+
+    Fix: convolve BOTH the candidate and the target with a symmetric
+    Hann window in log-frequency (the 31 bands are 1/3-octave-spaced, so
+    a 3-band window spans ~1 octave centred on each band). Same op on
+    both sides preserves any genuine broad-band tonal imbalance but
+    suppresses single-band tonal features that the reference can never
+    match because it's already averaged.
+
+    kernel_bands=1 → no-op
+    kernel_bands=3 (default) → ~1-octave Hann smoothing
+    kernel_bands=5 → ~1.7-octave smoothing (more aggressive)
+
+    Reflective padding at the edges avoids attenuating the lowest /
+    highest bands.
+    """
+    spec = np.asarray(spec, dtype=np.float64)
+    if kernel_bands <= 1 or spec.size <= kernel_bands:
+        return spec.copy()
+    # Hann-shaped kernel, normalised to unity sum. For kernel_bands=3
+    # the result post-normalisation is [0.25, 0.5, 0.25] — the classic
+    # binomial 3-tap smoother — which is also what Savitzky-Golay
+    # would over-fit AGAINST. Hann was chosen specifically because we
+    # want the smoothing to ATTENUATE narrow peaks (kick fundamentals,
+    # tonal resonances), not preserve them. Reflective padding avoids
+    # attenuating band 0 (20 Hz) and band 30 (20 kHz). dB-domain
+    # smoothing matches the dB-domain diff computation downstream;
+    # switching to linear-power smoothing would create the same axis
+    # mismatch documented at the 5.2.1 anchor fix above.
+    kernel = np.hanning(kernel_bands + 2)[1:-1]  # drop the zero endpoints
+    kernel = kernel / float(kernel.sum())
+    pad = kernel_bands // 2
+    padded = np.pad(spec, pad, mode='reflect')
+    return np.convolve(padded, kernel, mode='valid')
 
 
 def _compute_ms_tips(y_stereo, sr):
@@ -284,6 +341,19 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
         spec_a = [0.0] * 31
     lufs_a = compute_lufs(y_a, sr)
 
+    # 5.7.0: smoothed copies of the candidate + reference spectra.
+    # ALL diff-based reasoning downstream (tip text, tonal_diffs,
+    # match score, eq_filters) operates on these so a tuned kick
+    # fundamental (or any narrow tonal feature) doesn't read as a
+    # broad-band imbalance against the averaged reference. The raw
+    # `spec_b` / `curve` arrays are still used unchanged for the
+    # chart payloads (`spectrum_file`, `spectrum_target`) so the
+    # user sees the actual 1/3-octave reading; the smoothed copies
+    # are exposed alongside as `spectrum_file_smoothed` /
+    # `spectrum_target_smoothed` for optional UI overlay.
+    spec_b_sm = list(_smooth_log_spectrum(np.asarray(spec_b), kernel_bands=3))
+    curve_sm  = list(_smooth_log_spectrum(np.asarray(curve),  kernel_bands=3))
+
     tips = []
     tonal_diffs = []
 
@@ -313,6 +383,46 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
             "priority": "low",
             "tip": f"Dynamics are {direction} than typical — {dr_b:.1f} LU vs {target_dr:.1f} LU target",
             "detail": f"Not far off. {'A touch less limiting' if dr_diff < 0 else 'A touch of compression'} would bring it closer.",
+        })
+
+    # ─── Loudness tips ───────────────────────────────────────────────
+    # Integrated LUFS vs cohort average. Tonal recommendations are
+    # already level-independent (mean-centred curves), so this is purely
+    # about target-loudness coaching: "your master is +2 LU louder than
+    # the reference, ease the limiter" or "you're 3 LU quieter, push it".
+    # Bands are intentionally tighter than DR because LUFS moves in
+    # smaller steps — ±0.5/±1/±1.5 LU instead of ±2/±4 LU.
+    target_lufs = profile["lufs_avg"]
+    lufs_diff = lufs_b - target_lufs
+
+    if abs(lufs_diff) > 1.5:
+        direction = "louder" if lufs_diff > 0 else "quieter"
+        action = (
+            "Ease the limiter / lower the master gain — you're pushing harder than the reference."
+            if lufs_diff > 0
+            else "Push the master a bit harder (or drive the limiter slightly more) to land in the same loudness ballpark."
+        )
+        tips.append({
+            "category": "Loudness",
+            "priority": "high",
+            "tip": f"{lufs_diff:+.1f} LU {direction} than target — {lufs_b:.1f} LUFS vs {target_lufs:.1f} LUFS",
+            "detail": action,
+        })
+    elif abs(lufs_diff) > 1.0:
+        direction = "louder" if lufs_diff > 0 else "quieter"
+        tips.append({
+            "category": "Loudness",
+            "priority": "medium",
+            "tip": f"{lufs_diff:+.1f} LU {direction} than target — {lufs_b:.1f} LUFS vs {target_lufs:.1f} LUFS",
+            "detail": "Not huge, but noticeable in A/B. A small master-gain tweak gets you closer.",
+        })
+    elif abs(lufs_diff) > 0.5:
+        direction = "louder" if lufs_diff > 0 else "quieter"
+        tips.append({
+            "category": "Loudness",
+            "priority": "low",
+            "tip": f"{lufs_diff:+.1f} LU {direction} than target — {lufs_b:.1f} LUFS vs {target_lufs:.1f} LUFS",
+            "detail": "Within normal mastering tolerance. Worth a small adjustment if you're A/B-ing against the reference.",
         })
 
     # ─── Stereo width tips ───────────────────────────────────────────
@@ -355,6 +465,10 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
     # (RTMprofile 1.1.0+). Older profiles silently fall back to the
     # original 1 dB threshold inside _compute_eq_filters.
     curve_mad = profile.get("curve_mad") if isinstance(profile, dict) else None
+    # _compute_eq_filters smooths internally; we pass raw spec_b/curve.
+    # Tip text below uses the pre-smoothed spec_b_sm/curve_sm so the
+    # numbers in the tip ("X dB hot") reconcile with the chart and
+    # with the eq_filters move ("cut Y dB at Z Hz").
     pre_filters = _compute_eq_filters(spec_b, curve, target_curve_mad=curve_mad)
     filter_by_region = {f["region"]: f for f in pre_filters}
 
@@ -364,10 +478,10 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
         return f"{int(hz)} Hz"
 
     for (start, end), (region_name, freq_range) in REGION_NAMES.items():
-        if start >= len(spec_b) or start >= len(curve):
+        if start >= len(spec_b_sm) or start >= len(curve_sm):
             continue
-        avg_file = np.mean(spec_b[start:end])
-        avg_target = np.mean(curve[start:end])
+        avg_file = np.mean(spec_b_sm[start:end])
+        avg_target = np.mean(curve_sm[start:end])
         diff = avg_file - avg_target
 
         if abs(diff) > 1.5:
@@ -386,9 +500,17 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
             q_note = filt.get("q_note", "")
             move_str = f" at {_fmt_freq(filt['freq'])}, Q {q_val:.1f}" + (f" ({q_note})" if q_note else "")
 
+        # 5.7.x: take the suggested gain from the CAPPED `filt['gain_db']`
+        # when available, so the tip text matches the chip the user
+        # actually sees. The raw `abs(diff)/2` is uncapped — on a 12 dB
+        # diff at 60 Hz, the filter cap clamps the chip to ±3 dB while
+        # the prose said "consider a 6 dB cut". Audit HIGH #5: tip text
+        # and chip have to agree. Fall back to raw if no filter exists.
+        suggested_db_uncapped = abs(diff) / 2
+        suggested_db = abs(filt["gain_db"]) if filt else suggested_db_uncapped
+
         if abs(diff) > 3:
             direction = "boost" if diff < 0 else "cut"
-            suggested_db = abs(diff) / 2
             tips.append({
                 "category": f"EQ — {region_name}",
                 "priority": "high" if abs(diff) > 5 else "medium",
@@ -400,7 +522,6 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
             })
         elif abs(diff) > 1.5:
             direction = "cut" if diff > 0 else "boost"
-            suggested_db = abs(diff) / 2
             tips.append({
                 "category": f"EQ — {region_name}",
                 "priority": "low",
@@ -455,9 +576,22 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
         "spectrum_file": [round(v, 1) for v in spec_b],
         "spectrum_target": [round(v, 1) for v in curve],
         "spectrum_corrected": [round(float(spec_b[i] - (spec_b[i] - curve[i]) * 0.6), 1) for i in range(len(spec_b))],
+        # 5.7.0: also expose the smoothed contour the recommender actually
+        # diffs against. The UI can overlay this so users understand why
+        # a visible 5–7 dB spike at the kick fundamental produces no
+        # surgical cut: the smoother sees that spike as a tonal feature
+        # the averaged reference can't possibly match (different keys
+        # across cohort tracks), and the recommender ignores it.
+        "spectrum_file_smoothed": [round(float(v), 1) for v in spec_b_sm],
+        "spectrum_target_smoothed": [round(float(v), 1) for v in curve_sm],
         "freqs": FREQ_LABELS,
-        "eq_filters": _compute_eq_filters(spec_b, curve, target_curve_mad=curve_mad),
-        "match_score": _safe_match_score(spec_b, curve, lufs_b, dr_b, width_b, profile, silent=spec_b_silent),
+        # 5.7.0: re-use the pre-computed pre_filters above (was a duplicate
+        # call with identical arguments before — both paths smooth
+        # internally so the result is identical, just save the work).
+        "eq_filters": pre_filters,
+        # Match score on smoothed spectra so the score doesn't penalise
+        # tracks for narrow tonal features the reference can't match.
+        "match_score": _safe_match_score(spec_b_sm, curve_sm, lufs_b, dr_b, width_b, profile, silent=spec_b_silent),
     }
 
 
@@ -473,8 +607,20 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
     Returns list of {freq, gain_db, q, region, q_note} for BiquadFilterNode.
     """
     filters = []
-    arr = np.asarray(spec_file)
-    tgt = np.asarray(spec_target)
+
+    # 5.7.0: log-frequency smoothing on BOTH spectra before the diff.
+    # See _smooth_log_spectrum() docstring for the full motivation.
+    # In short: a constant kick fundamental at, say, 50 Hz reads as a
+    # narrow tonal feature in the candidate that the averaged reference
+    # cannot have (because reference tracks are in different keys). A
+    # 1-octave Hann smoothing on both sides makes narrow features blend
+    # into their neighbours; broad-band tilt survives intact. Result:
+    # tonal-imbalance recommendations remain accurate, but recommendations
+    # driven by a single tuned tonal feature shrink to sensible levels.
+    # The MAD curve gets the same treatment so the variance-aware
+    # tolerance stays consistent with the smoothed spectra.
+    arr = _smooth_log_spectrum(np.asarray(spec_file), kernel_bands=3)
+    tgt = _smooth_log_spectrum(np.asarray(spec_target), kernel_bands=3)
 
     # 5.2.1 fix: optional cohort-spread (per-band MAD) lets us widen the
     # "no move" dead-zone whenever the candidate sits inside the cohort's
@@ -483,7 +629,10 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
     # max(1.0, 1.5 * region_mad) before firing a recommendation.
     # Without it (legacy profiles, single-track Match) we fall back to
     # the original 1 dB threshold.
-    mad = np.asarray(target_curve_mad) if target_curve_mad is not None else None
+    if target_curve_mad is not None:
+        mad = _smooth_log_spectrum(np.asarray(target_curve_mad), kernel_bands=3)
+    else:
+        mad = None
 
     for (start, end), (region_name, freq_range) in REGION_NAMES.items():
         if start >= len(arr) or start >= len(tgt):
@@ -517,8 +666,13 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
         peak_idx = start + peak_idx_local
         freq = FREQS[min(peak_idx, len(FREQS) - 1)]
 
-        # Apply 60% of the correction (don't over-correct)
-        gain = round(diff * 0.6, 1)
+        # Apply 50% of the correction (don't over-correct).
+        # Matches the prose in generate_tips() ("apply ~50% then re-listen")
+        # and the conservative-mastering convention ("Subtractive First" — apply
+        # half, listen, decide whether to push further). Was 60% historically
+        # but the chip values then disagreed with the tip text by ~10–20%,
+        # which read as a bug to users.
+        gain = round(diff * 0.5, 1)
 
         # 5.2.1 cap (Austin beta-tester report): mirror the ±4 dB / ±3 dB
         # sub cap from `MatchReferenceEQPanel.deriveMatchBands` (frontend).

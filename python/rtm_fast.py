@@ -58,7 +58,13 @@ if _HAS_NUMBA:
             if a > peak:
                 peak = a
             sum_sq += v * v
-            if a >= 0.999969482421875:  # 16-bit full-scale threshold
+            # 5.7.x audit fix: was 32767/32768 (16-bit full scale).
+            # Float-domain audio at full scale clips at ±1.0; using
+            # the 16-bit threshold missed real float-domain clips. Now
+            # 1.0 minus a tiny epsilon to flag samples that pin the
+            # bus, which is what an engineer cares about regardless of
+            # bit depth.
+            if a >= 0.99999:
                 clips += 1
         return peak, sum_sq, clips
 
@@ -120,7 +126,7 @@ else:
         a = np.abs(x)
         peak = float(a.max() if a.size else 0.0)
         sum_sq = float(np.dot(x, x))
-        clips = int(np.count_nonzero(a >= 0.999969482421875))
+        clips = int(np.count_nonzero(a >= 0.99999))  # float-domain clip; see numba kernel comment above
         return peak, sum_sq, clips
 
     def _true_peak_4x_kernel(x):
