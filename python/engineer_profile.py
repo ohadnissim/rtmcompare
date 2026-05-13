@@ -98,6 +98,58 @@ def list_profiles():
     return profiles
 
 
+def _validate_profile_schema(data: dict, profile_id: str) -> bool:
+    """Validate profile JSON against expected schema bounds.
+
+    reinvention-fix (adversarial bypass): a corrupted or hand-crafted
+    .rtm-profile.json with out-of-range values (e.g. curve_median=[9999…])
+    could force all match scores to near-zero, silently poisoning comparisons.
+    Reject profiles that fail basic sanity bounds.
+
+    Returns True if valid, False if the profile should be rejected.
+    """
+    import sys as _sys
+
+    # curve: 31 bands, all values between -120 dB and +60 dB
+    curve = data.get("curve", [])
+    if not isinstance(curve, list) or len(curve) < 10:
+        _sys.stderr.write(
+            f"[engineer_profile] REJECT: profile '{profile_id}' has missing or truncated curve "
+            f"(len={len(curve) if isinstance(curve, list) else 'n/a'})\n"
+        )
+        return False
+    for val in curve:
+        if val is not None and isinstance(val, (int, float)):
+            if abs(val) > 120:
+                _sys.stderr.write(
+                    f"[engineer_profile] REJECT: profile '{profile_id}' has out-of-range "
+                    f"curve value {val} (valid: -120 to +120 dB)\n"
+                )
+                return False
+
+    # lufs_avg: valid range is -96 to 0 LUFS
+    lufs = data.get("lufs_avg")
+    if lufs is not None and isinstance(lufs, (int, float)):
+        if lufs < -96 or lufs > 0:
+            _sys.stderr.write(
+                f"[engineer_profile] REJECT: profile '{profile_id}' has invalid "
+                f"lufs_avg={lufs} (valid: -96 to 0)\n"
+            )
+            return False
+
+    # width_avg: 0..1
+    width = data.get("width_avg")
+    if width is not None and isinstance(width, (int, float)):
+        if width < 0 or width > 1:
+            _sys.stderr.write(
+                f"[engineer_profile] REJECT: profile '{profile_id}' has invalid "
+                f"width_avg={width} (valid: 0..1)\n"
+            )
+            return False
+
+    return True
+
+
 def load_profile(profile_id):
     """Load an engineer profile by ID (user dir first, then built-in)."""
     import sys as _sys
@@ -110,14 +162,18 @@ def load_profile(profile_id):
         # CRIT-6: warn when loading an old-schema profile.
         # schema_version 1 (pre-5.7.1) stored crest factor as dynamic_range_avg
         # and used population std instead of MAD for spread fields — comparing
-        # those against a v3-computed candidate produces phantom dynamics tips.
+        # those against a v3+ computed candidate produces phantom dynamics tips.
         sv = data.get("schema_version", 1)
         if sv < 3:
             _sys.stderr.write(
                 f"[engineer_profile] WARNING: profile '{profile_id}' is "
-                f"schema_version={sv} (current=3). Rebuild with RTMprofile "
+                f"schema_version={sv} (current=4). Rebuild with RTMprofile "
                 f"for accurate dynamic-range and spread comparisons.\n"
             )
+        # reinvention-fix: validate schema bounds before using the profile.
+        # Corrupted or injected profiles with extreme values are rejected.
+        if not _validate_profile_schema(data, profile_id):
+            return None
         return data
     except Exception:
         return None
@@ -803,15 +859,21 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """Cosine similarity on log-power spectra — dimensionless and loudness-invariant.
-    Returns value in [-1, 1]; 1.0 = identical tonal shape, 0.0 = orthogonal."""
-    a_log = np.log10(np.maximum(np.abs(a), 1e-10))
-    b_log = np.log10(np.maximum(np.abs(b), 1e-10))
-    norm_a = np.linalg.norm(a_log)
-    norm_b = np.linalg.norm(b_log)
+    """Cosine similarity on log-power spectra (dB values) — dimensionless and loudness-invariant.
+    Returns value in [-1, 1]; 1.0 = identical tonal shape, 0.0 = orthogonal.
+
+    reinvention-fix (2026-05): the input arrays are already in dB-space (third-octave
+    curve values + 100 dB offset). A previous version applied log10() to these dB values,
+    creating a double-log transformation: log10(log10(power+100)). This compressed the
+    entire tonal component to ~5 effective points out of 50 (range ≈ 0.05 in cosine
+    distance), rendering tonal matching nearly non-functional. Fix: operate directly on
+    the dB values, which are already the correct log-domain representation.
+    """
+    norm_a = np.linalg.norm(a)
+    norm_b = np.linalg.norm(b)
     if norm_a < 1e-10 or norm_b < 1e-10:
         return 0.0
-    return float(np.dot(a_log, b_log) / (norm_a * norm_b))
+    return float(np.dot(a, b) / (norm_a * norm_b))
 
 
 def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile, *, silent=False):

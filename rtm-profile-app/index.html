@@ -23,6 +23,12 @@
        Background switched from #1c1a17 (warm dark) to #0e0d0b (ink)
        so RTMprofile and RTMcompare share the same field. Body type
        stays Outfit at 14px / 1.55. */
+    :root {
+      --role-mastering: #7B4FFF;
+      --role-mixing: #00E5FF;
+      --role-tracking: #FFB830;
+      --role-default: #7B4FFF;
+    }
     html, body, #root {
       margin: 0;
       padding: 0;
@@ -64,6 +70,28 @@
     }
     .mono {
       font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+    }
+    /* ── Animated audio-bars build indicator ── */
+    .audio-bars {
+      display: flex;
+      gap: 3px;
+      align-items: flex-end;
+      height: 24px;
+    }
+    .audio-bars .bar {
+      width: 4px;
+      background: var(--role-mastering, #7B4FFF);
+      border-radius: 2px;
+      animation: bar-pulse 1.2s ease-in-out infinite;
+    }
+    .audio-bars .bar:nth-child(1) { animation-delay: 0s;   height: 8px;  }
+    .audio-bars .bar:nth-child(2) { animation-delay: 0.2s; height: 16px; }
+    .audio-bars .bar:nth-child(3) { animation-delay: 0.4s; height: 24px; }
+    .audio-bars .bar:nth-child(4) { animation-delay: 0.2s; height: 16px; }
+    .audio-bars .bar:nth-child(5) { animation-delay: 0s;   height: 8px;  }
+    @keyframes bar-pulse {
+      0%, 100% { opacity: 0.4; transform: scaleY(0.5); }
+      50%       { opacity: 1;   transform: scaleY(1);   }
     }
   </style>
 </head>

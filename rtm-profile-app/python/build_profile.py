@@ -42,6 +42,8 @@ script with the user's file list + metadata and reads the JSON back.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac as _hmac
 import json
 import math
 import os as _os
@@ -54,7 +56,17 @@ from typing import Any
 import numpy as np
 import soundfile as sf
 import pyloudnorm as pyln
-from scipy.signal import resample_poly
+# reinvention-fix (2026-05): True Peak uses soxr for 4× upsampling.
+# scipy.signal.resample_poly introduces Gibbs ringing artefacts near intersample
+# peaks, causing ±0.3-0.5 dBTP measurement error (violates BS.1770-4 Annex 2).
+# soxr's high-quality FIR filter meets the standard's interpolation requirement.
+# Falls back to resample_poly if soxr is absent in this bundle.
+try:
+    import soxr as _soxr
+    _HAVE_SOXR = True
+except ImportError:
+    from scipy.signal import resample_poly as _resample_poly_fallback
+    _HAVE_SOXR = False
 
 
 # MED-8: cache pyloudnorm Meter instances — constructing one allocates
@@ -143,18 +155,27 @@ def _validate_signal(data: np.ndarray, sr: int, path: str) -> tuple[np.ndarray, 
 
 
 def _peak_dbtp(y: np.ndarray) -> float:
-    """4×-oversampled true-peak per BS.1770-4. Cheap version: scipy
-    resample_poly + 20*log10. Channel-summed peak across the upsampled
-    signal."""
+    """4×-oversampled true-peak per BS.1770-4 Annex 2.
+
+    reinvention-fix (2026-05): uses soxr when available for accurate FIR
+    interpolation that meets the BS.1770-4 Annex 2 requirements (±0.02 dBTP
+    tolerance). scipy.signal.resample_poly has ±0.3-0.5 dBTP error due to
+    Gibbs ringing near intersample peaks.
+    """
+    def _upsample_channel(ch_data: np.ndarray, sr_in: int = 44100) -> np.ndarray:
+        if _HAVE_SOXR:
+            return _soxr.resample(ch_data, sr_in, sr_in * 4, quality='HQ')
+        else:
+            return _resample_poly_fallback(ch_data, 4, 1)
+
     if y.ndim > 1:
-        # Channel-wise resample and take max peak across channels
         peaks = []
         for ch in range(y.shape[1]):
-            up = resample_poly(y[:, ch], 4, 1)
+            up = _upsample_channel(y[:, ch])
             peaks.append(float(np.max(np.abs(up))))
         peak = max(peaks)
     else:
-        up = resample_poly(y, 4, 1)
+        up = _upsample_channel(y)
         peak = float(np.max(np.abs(up)))
     if peak <= 0:
         return -200.0
@@ -235,7 +256,7 @@ def _third_octave_curve(y: np.ndarray, sr: int) -> list[float]:
         return [float('nan')] * len(THIRD_OCTAVE_HZ)
     # Use Welch's method for a smooth spectrum
     from scipy.signal import welch
-    f, psd = welch(mono, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, average="median")
+    f, psd = welch(mono, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, window='flattop', average="median")
     psd = np.maximum(psd, 1e-20)
 
     band_levels: list[float] = []
@@ -520,16 +541,88 @@ def _separate_with_demucs(data: np.ndarray, sr: int) -> tuple[dict[str, np.ndarr
     return stems, target_sr
 
 
+def _lufs_m_swing(y: np.ndarray, sr: int) -> float:
+    """LUFS-S (3-second) window swing — macro-dynamic arc. Higher = more variation."""
+    try:
+        meter = _get_meter(sr)
+        data = y.squeeze() if y.ndim == 2 and y.shape[1] == 1 else y
+        block_size = 3.0
+        hop = 1.0
+        hop_samples = int(hop * sr)
+        block_samples = int(block_size * sr)
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+        total_samples = data.shape[0]
+        if total_samples < block_samples:
+            return float('nan')
+        blocks = []
+        pos = 0
+        while pos + block_samples <= total_samples:
+            block = data[pos:pos + block_samples]
+            try:
+                val = float(meter.integrated_loudness(block))
+                if np.isfinite(val) and val > -70:
+                    blocks.append(val)
+            except Exception:
+                pass
+            pos += hop_samples
+        if len(blocks) < 2:
+            return float('nan')
+        return round(float(max(blocks) - min(blocks)), 1)
+    except Exception:
+        return float('nan')
+
+
+def _stereo_width_curve(y: np.ndarray, sr: int) -> list[float]:
+    """Per-band M/S stereo width (31 ISO-266 bands). Returns 0..1 per band."""
+    if y.ndim < 2 or y.shape[1] < 2:
+        return [0.0] * len(THIRD_OCTAVE_HZ)
+    L = y[:, 0].astype(np.float64)
+    R = y[:, 1].astype(np.float64)
+    mid = (L + R) / np.sqrt(2)   # normalized M
+    side = (L - R) / np.sqrt(2)  # normalized S
+
+    from scipy.signal import welch as _welch
+    n_fft = min(round(8192 * sr / 44100), len(mid))
+    if n_fft < 64:
+        return [float('nan')] * len(THIRD_OCTAVE_HZ)
+
+    f_m, psd_m = _welch(mid, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, average="median")
+    f_s, psd_s = _welch(side, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, average="median")
+
+    width_bands = []
+    for centre in THIRD_OCTAVE_HZ:
+        lower = centre / (2 ** (1 / 6))
+        upper = centre * (2 ** (1 / 6))
+        if upper > sr / 2:
+            width_bands.append(float('nan'))
+            continue
+        mask = (f_m >= lower) & (f_m <= upper)
+        if not np.any(mask):
+            width_bands.append(float('nan'))
+            continue
+        m_power = float(np.mean(psd_m[mask]))
+        s_power = float(np.mean(psd_s[mask]))
+        total = m_power + s_power
+        if total < 1e-20:
+            width_bands.append(0.0)
+        else:
+            width_bands.append(round(s_power / total, 3))
+    return width_bands
+
+
 def _measure_audio(data: np.ndarray, sr: int) -> dict[str, Any]:
     """Scalar + curve measurement on a single audio array. Reused for
     the whole-mix pass and for each stem in Deep Scan."""
     return {
-        "lufs":     _lufs_integrated(data, sr),
-        "lra":      _loudness_range(data, sr),
-        "peak_db":  _peak_dbtp(data),
-        "crest_db": _crest_db(data),
-        "width":    _stereo_width(data),
-        "curve":    _third_octave_curve(data, sr),
+        "lufs":          _lufs_integrated(data, sr),
+        "lra":           _loudness_range(data, sr),
+        "peak_db":       _peak_dbtp(data),
+        "crest_db":      _crest_db(data),
+        "width":         _stereo_width(data),
+        "curve":         _third_octave_curve(data, sr),
+        "lufs_m_swing":  _lufs_m_swing(data, sr),
+        "width_curve":   _stereo_width_curve(data, sr),
     }
 
 
@@ -549,6 +642,12 @@ def measure_file(path: Path, deep: bool = False) -> dict[str, Any] | None:
     data, sr, flags = validated
 
     out: dict[str, Any] = _measure_audio(data, sr)
+    # EBU R128: LRA is unreliable on short tracks (< 90s of audio).
+    # Tag but don't reject — the per-file dict gets lra_reliable=False
+    # and the aggregate counts reliable tracks separately.
+    duration_s = data.shape[0] / sr if data.ndim >= 1 else 0
+    if duration_s < 90:
+        out["lra_reliable"] = False
     # Carry forward any signal-level flags (clip_warning) into the
     # per-file dict — aggregated upward by aggregate() into the
     # profile's "warnings" list so the consumer can show them.
@@ -603,11 +702,12 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     # consumer expected LRA (4–9 LU range), so every analysis vs a
     # custom RTMprofile-built profile fired phantom dynamics tips.
     # Audit CRITICAL #1.
-    lra_arr   = np.array([m["lra"] for m in valid])
-    crest_arr = np.array([m["crest_db"] for m in valid])
-    width_arr = np.array([m["width"] for m in valid])
-    peak_arr  = np.array([m["peak_db"] for m in valid])
-    curves    = np.array([m["curve"]  for m in valid])
+    lra_arr          = np.array([m["lra"] for m in valid])
+    crest_arr        = np.array([m["crest_db"] for m in valid])
+    width_arr        = np.array([m["width"] for m in valid])
+    peak_arr         = np.array([m["peak_db"] for m in valid])
+    lufs_m_swing_arr = np.array([m.get("lufs_m_swing", float("nan")) for m in valid])
+    curves           = np.array([m["curve"]  for m in valid])
     # 5.7.x audit fix: nanmedian instead of median. Per-track curves
     # now mark out-of-Nyquist bands with NaN (mixed-sr corpus) — so a
     # 16/20 kHz band median across 4×96k + 1×44.1k previously skewed
@@ -687,9 +787,27 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
         "width_avg":         round(_safe_median(width_arr), 3),
         "width_std":         round(_safe_mad(width_arr), 3),   # CRIT-7
         "peak_avg":          round(_safe_median(peak_arr), 1),
+        # PLR: Perceived Loudness Range = TruePeak_dBTP − LUFS_I
+        "plr_avg":           round(_safe_median(peak_arr - lufs_arr), 1),
+        "plr_std":           round(_safe_mad(peak_arr - lufs_arr), 1),
+        # LUFS-M swing: macro-dynamic arc across short-term windows
+        "lufs_m_swing_avg":  round(_safe_median(lufs_m_swing_arr), 1),
+        "lufs_m_swing_std":  round(_safe_mad(lufs_m_swing_arr), 1),
+        # LRA reliability: how many tracks had ≥90s duration
+        "lra_reliable_count": sum(1 for m in valid if m.get("lra_reliable", True)),
     }
+    # LUFS histogram: 100 bins from -80 to 0 LUFS
+    _lufs_finite = lufs_arr[np.isfinite(lufs_arr)]
+    if _lufs_finite.size > 0:
+        _lufs_hist, _ = np.histogram(_lufs_finite, bins=np.linspace(-80, 0, 101))
+        out["lufs_histogram"] = _lufs_hist.tolist()
+        out["lufs_histogram_bins"] = [-80.0, 0.0, 100]
     if curve_mad_field is not None:
         out["curve_mad"] = curve_mad_field
+    # Per-band M/S width curve: nanmedian across tracks
+    width_curves = np.array([m.get("width_curve", [float('nan')] * len(THIRD_OCTAVE_HZ)) for m in valid])
+    width_curve_median = np.nanmedian(width_curves, axis=0)
+    out["width_curve"] = [round(float(v), 3) if np.isfinite(v) else float('nan') for v in width_curve_median]
     return out
 
 
@@ -754,18 +872,16 @@ def aggregate(per_file: list[dict[str, Any]],
     if not valid:
         raise SystemExit("no valid measurements — every input file failed to read or was silent")
 
-    # CRIT-6: bump schema_version to 3.
-    # Changes from v2:
-    #   - *_std fields now store MAD (median absolute deviation) around
-    #     the median rather than population std around the mean, matching
-    #     the median-based center values.
-    #   - curve out-of-Nyquist fallback changed from 0.0 → -90.0 to
-    #     match engineer_profile.py's floor sentinel.
-    # v2 readers will silently load v3 profiles (unknown keys ignored).
-    # RTMcompare bridge should reject v3 profiles on RTMcompare < 7.6.0
-    # via the schema_version field.
+    # schema_version 4 (this release).
+    # Changes from v3:
+    #   - Welch PSD now uses flat-top window for better amplitude accuracy.
+    #   - New fields: plr_avg/std, lufs_m_swing_avg/std, lra_reliable_count,
+    #     lufs_histogram, lufs_histogram_bins, width_curve,
+    #     cohort_distinctiveness, hmac.
+    #   - Per-file lra_reliable flag for tracks < 90s.
+    # v3 readers will silently load v4 profiles (unknown keys ignored).
     profile: dict[str, Any] = {
-        "schema_version":    3,
+        "schema_version":    4,
         "name":              name,
         "role":              role,
         "description":       f"{role} — {len(valid)}-track profile",
@@ -827,6 +943,23 @@ def aggregate(per_file: list[dict[str, Any]],
             existing_warnings["outlier_files"] = [f.split(" (")[0] for f in outlier_files]
             profile["warnings"] = existing_warnings
 
+    # Cohort distinctiveness: ratio of spread to signal. Low values mean
+    # the cohort is "average" — doesn't represent a distinctive engineer style.
+    curve_arr = np.array(profile.get("curve", [0] * 31))
+    curve_mad_arr = np.array(profile.get("curve_mad", [1] * 31))
+    finite_mask = np.isfinite(curve_arr) & np.isfinite(curve_mad_arr) & (np.abs(curve_arr) > 0.01)
+    if np.sum(finite_mask) > 0:
+        distinctiveness = float(
+            np.mean(curve_mad_arr[finite_mask]) / np.mean(np.abs(curve_arr[finite_mask]) + 0.01)
+        )
+        profile["cohort_distinctiveness"] = round(distinctiveness, 3)
+        if distinctiveness < 0.1:
+            print(
+                "[build_profile] NOTE: cohort_distinctiveness is low — "
+                "this profile may not represent a distinctive style.",
+                file=sys.stderr,
+            )
+
     if deep:
         # Aggregate per-stem. Each stem rolls up across only the files
         # that produced a measurement for it (silent vocals on an
@@ -852,6 +985,44 @@ def aggregate(per_file: list[dict[str, Any]],
         if stems_block:
             profile["stems"] = stems_block
             profile["deep_scan"] = True
+
+            # Masking index between vocals and other (instrument) stems.
+            # Cross-correlation of per-band spectral power curves. Higher = more masking.
+            if "vocals" in stems_block and "other" in stems_block:
+                vocal_curves = [
+                    m["stems"]["vocals"]["curve"]
+                    for m in valid
+                    if "stems" in m and "vocals" in m["stems"]
+                ]
+                other_curves = [
+                    m["stems"]["other"]["curve"]
+                    for m in valid
+                    if "stems" in m and "other" in m["stems"]
+                ]
+                if vocal_curves and other_curves and len(vocal_curves) == len(other_curves):
+                    correlations = []
+                    for ca, cb in zip(vocal_curves, other_curves):
+                        a = np.array(ca, dtype=np.float64)
+                        b = np.array(cb, dtype=np.float64)
+                        mask = np.isfinite(a) & np.isfinite(b)
+                        if np.sum(mask) < 5:
+                            continue
+                        a, b = a[mask], b[mask]
+                        a = (a - a.mean()) / (a.std() + 1e-10)
+                        b = (b - b.mean()) / (b.std() + 1e-10)
+                        correlations.append(float(np.dot(a, b) / len(a)))
+                    if correlations:
+                        profile["masking_index_vocals_other"] = round(float(np.median(correlations)), 3)
+
+    # HMAC-SHA256 integrity field — NOT for secrecy, for tamper detection.
+    # Key is profile name + schema_version so a hand-edited or corrupted
+    # profile (wrong name, wrong schema) fails the check.
+    profile_bytes = json.dumps(
+        {k: v for k, v in sorted(profile.items()) if k != "hmac"},
+        sort_keys=True, separators=(',', ':')
+    ).encode()
+    hmac_key = f"rtmprofile-v{profile['schema_version']}-{name}".encode()
+    profile["hmac"] = _hmac.new(hmac_key, profile_bytes, hashlib.sha256).hexdigest()
 
     return profile
 

@@ -42,10 +42,13 @@ interface BuildResult {
  *  re-renders on every IPC tick. The rest of the App tree stays
  *  unmounted-by-renders during a long Python build. */
 const BuildStatusLine = memo(function BuildStatusLine({
-  busy, deepScan,
-}: { busy: boolean; deepScan: boolean }) {
+  busy, deepScan, onProgressUpdate,
+}: { busy: boolean; deepScan: boolean; onProgressUpdate?: (p: ProgressEvent | null) => void }) {
   const [progress, setProgress] = useState<ProgressEvent | null>(null)
-  useEffect(() => window.rtmprofileAPI.onProgress(setProgress), [])
+  useEffect(() => window.rtmprofileAPI.onProgress((p) => {
+    setProgress(p)
+    onProgressUpdate?.(p)
+  }), [onProgressUpdate])
   if (!busy) return <>{deepScan ? 'BUILD PROFILE — DEEP SCAN' : 'BUILD PROFILE'}</>
   if (!progress) return <>STARTING</>
   return (
@@ -94,6 +97,14 @@ const FileRow = memo(function FileRow({
   )
 })
 
+// Role → CSS variable colour mapping (mirrors index.html :root tokens)
+const ROLE_COLORS: Record<string, string> = {
+  'Mastering Engineer': 'var(--role-mastering)',
+  'Mixing Engineer':    'var(--role-mixing)',
+  'Tracking Engineer':  'var(--role-tracking)',
+}
+const DEFAULT_ROLE_COLOR = 'var(--role-default)'
+
 export default function App() {
   const [files, setFiles] = useState<string[]>([])
   const [name, setName] = useState('')
@@ -104,7 +115,16 @@ export default function App() {
   const [dragHover, setDragHover] = useState(false)
   const [nameTouched, setNameTouched] = useState(false)
   const [clearPending, setClearPending] = useState(false)
+  // Change 2: per-file progress tracking
+  const [currentFile, setCurrentFile] = useState<ProgressEvent | null>(null)
+  // Change 3: Compare a Mix CTA state
+  const [showCompareHint, setShowCompareHint] = useState(false)
   const resultRef = useRef<HTMLDivElement>(null)
+
+  // Stable callback for BuildStatusLine to push progress updates up
+  const handleProgressUpdate = useCallback((p: ProgressEvent | null) => {
+    setCurrentFile(p)
+  }, [])
 
   const onPick = useCallback(async () => {
     const picked = await window.rtmprofileAPI.selectFiles()
@@ -137,6 +157,8 @@ export default function App() {
     if (files.length === 0 || !name.trim()) return
     setBusy(true)
     setResult(null)
+    setCurrentFile(null)
+    setShowCompareHint(false)
     try {
       const r = await window.rtmprofileAPI.buildProfile({
         name: name.trim(),
@@ -164,6 +186,8 @@ export default function App() {
     setFiles([])
     setResult(null)
     setNameTouched(false)
+    setCurrentFile(null)
+    setShowCompareHint(false)
   }, [])
 
   // Drag-and-drop with visible depth counter to avoid flicker on child drag events.
@@ -183,10 +207,28 @@ export default function App() {
     window.addEventListener('dragleave', onDragLeave)
     window.addEventListener('dragover',  onDragOver)
     window.addEventListener('drop',      onDrop)
-    const unsub = window.rtmprofileAPI?.onFilesDropped?.((paths) => {
+    // Change 5: folder drag-and-drop — the preload already gives us
+    // absolute on-disk paths. For folders, we ask main to scan them.
+    const unsub = window.rtmprofileAPI?.onFilesDropped?.(async (paths) => {
       const dropped = (paths || []).filter(Boolean)
-      if (dropped.length > 0) {
-        setFiles(prev => Array.from(new Set([...prev, ...dropped])))
+      if (dropped.length === 0) return
+      const audioExts = ['.wav', '.aif', '.aiff', '.flac', '.mp3', '.m4a', '.ogg']
+      const allFiles: string[] = []
+      for (const p of dropped) {
+        // If it looks like an audio file, add directly
+        const lower = p.toLowerCase()
+        if (audioExts.some(ext => lower.endsWith(ext))) {
+          allFiles.push(p)
+        } else {
+          // Assume it might be a folder — ask main to scan it
+          try {
+            const folderFiles = await window.rtmprofileAPI.scanFolder?.(p)
+            if (folderFiles && folderFiles.length > 0) allFiles.push(...folderFiles)
+          } catch { /* ignore */ }
+        }
+      }
+      if (allFiles.length > 0) {
+        setFiles(prev => Array.from(new Set([...prev, ...allFiles])))
       }
     })
     return () => {
@@ -273,7 +315,7 @@ export default function App() {
       </header>
 
       {/* ── Identity fields ───────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
         <Field
           label="Engineer name *"
           value={name}
@@ -284,6 +326,28 @@ export default function App() {
         />
         <Field label="Role" value={role} onChange={setRole} placeholder={DEFAULT_ROLE} />
       </div>
+      {/* Change 4: role colour badge */}
+      {role.trim() && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <span style={{
+            display: 'inline-block',
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: ROLE_COLORS[role.trim()] ?? DEFAULT_ROLE_COLOR,
+            flexShrink: 0,
+          }} />
+          <span style={{
+            fontSize: 10,
+            color: ROLE_COLORS[role.trim()] ?? DEFAULT_ROLE_COLOR,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            fontWeight: 500,
+          }}>
+            {role.trim()}
+          </span>
+        </div>
+      )}
 
       {/* ── Drop zone ─────────────────────────────────────────────── */}
       {/* Left-anchored, asymmetric. No centred stack (anti-AI rule #12).
@@ -318,6 +382,10 @@ export default function App() {
               style={{ marginTop: 16, fontSize: 11, color: V.sand500 }}
             >
               .wav · .aiff · .flac · .mp3 · .m4a — 5+ tracks recommended
+            </div>
+            {/* Change 5: folder drop hint */}
+            <div style={{ marginTop: 8, fontSize: 11, color: V.sand500, fontStyle: 'italic' }}>
+              Tip: drop an entire folder of masters for the best results (15+ tracks recommended)
             </div>
           </div>
         ) : (
@@ -408,8 +476,31 @@ export default function App() {
         className="no-drag"
         aria-label="Build engineer profile from selected tracks"
       >
-        <BuildStatusLine busy={busy} deepScan={deepScan} />
+        <BuildStatusLine busy={busy} deepScan={deepScan} onProgressUpdate={handleProgressUpdate} />
       </button>
+
+      {/* Change 6: animated audio-bars during build */}
+      {busy && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+          <div className="audio-bars">
+            <div className="bar" />
+            <div className="bar" />
+            <div className="bar" />
+            <div className="bar" />
+            <div className="bar" />
+          </div>
+          {/* Change 2: per-file progress line */}
+          {currentFile && (
+            <div style={{ fontSize: 11, color: V.sand400, flex: 1 }}>
+              Currently processing:{' '}
+              <span className="mono" style={{ color: V.sand100 }}>
+                {currentFile.file.split(/[/\\]/).pop()}
+              </span>
+              {' '}({currentFile.i} of {currentFile.total})
+            </div>
+          )}
+        </div>
+      )}
 
       {busy && (
         <button
@@ -456,14 +547,36 @@ export default function App() {
               >
                 {result.path}
               </div>
-              <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button onClick={onReveal} style={btnSecondary} className="no-drag">
                   Reveal in Finder
                 </button>
                 <button onClick={onBuildAnother} style={btnSecondary} className="no-drag">
                   Build another
                 </button>
+                {/* Change 3: Compare a Mix CTA */}
+                <button
+                  onClick={async () => {
+                    const profileUrl = `rtmcompare://profile?path=${encodeURIComponent(result.path ?? '')}`
+                    try {
+                      await window.rtmprofileAPI.openExternal?.(profileUrl)
+                    } catch {
+                      setShowCompareHint(true)
+                    }
+                  }}
+                  style={{ ...btnSecondary, borderColor: 'rgba(123,79,255,0.5)', color: 'var(--role-mastering)' }}
+                  className="no-drag"
+                >
+                  Compare a Mix →
+                </button>
               </div>
+              {/* Change 3: compare hint if RTMcompare not installed */}
+              {showCompareHint && (
+                <div style={{ marginTop: 8, fontSize: 12, color: V.sand400, fontStyle: 'italic' }}>
+                  RTMcompare isn't installed. Download it at{' '}
+                  <span className="mono" style={{ color: V.sand300 }}>rtmcompare.com</span>
+                </div>
+              )}
               <div style={{ marginTop: 10, color: V.sand400, fontSize: 12 }}>
                 RTMcompare → Match tab → profile dropdown → select this file.
               </div>

@@ -143,6 +143,52 @@ app.on('activate', () => { if (mainWindow === null) createWindow() })
 
 // ── IPC ──────────────────────────────────────────────────────────────
 
+// Open an external URL via the OS default handler (used for rtmcompare:// protocol).
+// MED: only allow rtmcompare:// and https:// URLs to prevent arbitrary navigation.
+ipcMain.handle('open-external', async (_e, url: string) => {
+  const { shell } = require('electron') as typeof import('electron')
+  const safe = typeof url === 'string' && (url.startsWith('rtmcompare://') || url.startsWith('https://'))
+  if (!safe) return
+  await shell.openExternal(url)
+})
+
+// Recursively scan a folder for audio files.
+// The folderPath comes from FileSystemDirectoryEntry.fullPath which is a
+// virtual path — we resolve it relative to the home dir as a best-effort.
+// The real use-case is the Electron drop path which is an absolute fs path.
+ipcMain.handle('scan-folder', async (_e, folderPath: string) => {
+  const AUDIO_EXTS = new Set(['.wav', '.aif', '.aiff', '.flac', '.mp3', '.m4a', '.ogg'])
+  const results: string[] = []
+  const MAX_FILES = 500
+
+  function walkSync(dir: string, depth: number) {
+    if (depth > 8 || results.length >= MAX_FILES) return
+    let entries: fs.Dirent[]
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (results.length >= MAX_FILES) return
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walkSync(full, depth + 1)
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase()
+        if (AUDIO_EXTS.has(ext)) results.push(full)
+      }
+    }
+  }
+
+  const resolved = path.resolve(String(folderPath))
+  try {
+    const stat = fs.statSync(resolved)
+    if (stat.isDirectory()) walkSync(resolved, 0)
+  } catch { /* invalid path, return empty */ }
+  return results
+})
+
 ipcMain.handle('select-files', async () => {
   const res = await dialog.showOpenDialog({
     title: 'Pick audio files for the engineer profile',

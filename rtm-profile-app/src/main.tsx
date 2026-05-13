@@ -19,6 +19,7 @@ declare global {
         path?: string
         sample_count?: number
         skipped?: number
+        partialCount?: number
         error?: string
         python_resolution?: string
       }>
@@ -29,6 +30,10 @@ declare global {
        *  paths every time files land on the window. Returns an
        *  unsubscribe function. */
       onFilesDropped: (cb: (paths: string[]) => void) => () => void
+      /** Open a URL via the OS default handler (rtmcompare:// or https://). */
+      openExternal?: (url: string) => Promise<void>
+      /** Recursively scan a folder and return audio file paths. */
+      scanFolder?: (folderPath: string) => Promise<string[]>
     }
   }
 }

@@ -70,4 +70,6 @@ contextBridge.exposeInMainWorld('rtmprofileAPI', {
     ipcRenderer.on('profile-progress', listener)
     return () => ipcRenderer.removeListener('profile-progress', listener)
   },
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url) as Promise<void>,
+  scanFolder: (folderPath: string) => ipcRenderer.invoke('scan-folder', folderPath) as Promise<string[]>,
 })
