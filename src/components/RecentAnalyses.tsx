@@ -83,7 +83,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  {rows.map((e) => {
  const entries = history.filter(h => h.sha256 === e.sha256).sort((a, b) => (b.ts || 0) - (a.ts || 0))
  const versions = entries.length
- const file: FileInfo = { path: e.path, name: e.name }
+ const file: FileInfo = { path: e.path, name: e.name || e.path?.split('/').pop() || '' }
  return (
  <div
  key={e.sha256 + e.ts}
@@ -98,7 +98,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  >
  <div className="flex items-center gap-2 min-w-0">
  <span className="text-[11px] text-sand-300 truncate">
- {e.name.replace(/\.[^/.]+$/, '')}
+ {(e.name || e.path?.split('/').pop() || '(unknown)').replace(/\.[^/.]+$/, '')}
  </span>
  {versions > 1 && (
  <span className="text-[9px] uppercase tracking-[0.14em] flex-shrink-0"

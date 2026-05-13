@@ -447,7 +447,19 @@ function writeHistoryCached(list: any[]) {
 
 ipcMain.handle('history-read', async () => {
   _historyCache = null  // force fresh disk read when explicitly requested
-  return readHistorySync()
+  const raw = readHistorySync()
+  // Normalise legacy entries that used 'filename' instead of 'name'.
+  // The old schema predates 5.x; any entry missing 'name' gets it patched
+  // from 'filename', then from the path basename as a last resort.
+  return raw.map((e: any) => {
+    if (!e.name) {
+      return {
+        ...e,
+        name: e.filename || (e.path ? require('path').basename(String(e.path)) : ''),
+      }
+    }
+    return e
+  })
 })
 ipcMain.handle('history-append', async (_event, entry: any) => {
   const list = readHistoryCached()
