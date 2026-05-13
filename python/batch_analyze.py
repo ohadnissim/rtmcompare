@@ -42,6 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import soundfile as sf
 import numpy as np
 import pyloudnorm as pyln
+from scipy.signal import welch as _welch
 
 sys.path.insert(0, os.path.dirname(__file__))
 from metadata_reader import read_metadata, read_delivery_fields
@@ -86,13 +87,14 @@ _THIRD_OCT_CENTRES = [
 
 def _compute_31band_spectrum(data: np.ndarray, sr: int, window_sec: float = 30.0) -> list[float]:
     """
-    31-band 1/3-octave magnitude spectrum, dB relative to the peak band.
+    31-band 1/3-octave PSD spectrum, dB relative to the peak band.
 
-    Cheap and deterministic — one FFT over a central window of ≤ 30 s.
+    Uses Welch PSD (median-averaged, nperseg=8192) over a central window of
+    ≤ 30 s — same method as band_spectrum() in visualizations.py and
+    engineer_profile.py so album-mode cohort curves are directly comparable.
     Returns 31 floats, peak-normalised to 0 dB so cross-file comparisons
     in Cohort Mode aren't dominated by absolute loudness differences.
-    Null out-of-range bands get a very low floor (−60 dB) so they still
-    contribute a consistent shape.
+    Null out-of-range bands get a very low floor (−60 dB).
     """
     # Mono sum (preserves spectral shape without phase cancellation gotchas).
     if data.ndim > 1 and data.shape[1] > 1:
@@ -109,13 +111,13 @@ def _compute_31band_spectrum(data: np.ndarray, sr: int, window_sec: float = 30.0
     start = max(0, (n_samples - win) // 2)
     seg = mono[start:start + win].astype(np.float64)
 
-    # FFT magnitude.
-    n_fft = 1 << (int(np.ceil(np.log2(len(seg)))) + 0)
-    fft = np.fft.rfft(seg * np.hanning(len(seg)), n=n_fft)
-    freqs = np.fft.rfftfreq(n_fft, d=1.0 / sr)
-    mag = np.abs(fft)
+    # Welch PSD — matches the method used in engineer_profile + visualizations.
+    # median averaging suppresses transient spikes; same params as band_spectrum().
+    n_fft = min(8192, len(seg))
+    freqs, psd = _welch(seg, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, average="median")
+    psd = np.maximum(psd, 1e-20)
 
-    # 1/3-octave band energies — integrate magnitude² inside each band.
+    # 1/3-octave band energies — integrate PSD inside each band.
     ratio = 2.0 ** (1.0 / 6.0)  # ±1/6 octave around centre
     bands = np.empty(31, dtype=np.float64)
     for i, fc in enumerate(_THIRD_OCT_CENTRES):
@@ -124,7 +126,7 @@ def _compute_31band_spectrum(data: np.ndarray, sr: int, window_sec: float = 30.0
         if not mask.any():
             bands[i] = 1e-12
         else:
-            bands[i] = float(np.sum(mag[mask] ** 2))
+            bands[i] = float(np.mean(psd[mask]))
 
     # Convert to dB, peak-normalise.
     peak = float(np.max(bands))

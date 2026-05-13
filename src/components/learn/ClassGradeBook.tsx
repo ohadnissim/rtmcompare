@@ -281,6 +281,8 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const avgPct = records.length > 0
     ? Math.round(records.reduce((s, r) => s + (r.pct ?? 0), 0) / records.length * 10) / 10
     : null
+  // NIT-4: count records that will be skipped during Canvas upload (no Student ID)
+  const missingStudentIdCount = records.filter(r => !r.studentId).length
 
   function toggleSort(col: 'name' | 'date' | 'pct') {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -561,6 +563,15 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                 Class avg: <span style={{ color: avgPct >= 70 ? '#6fcf97' : avgPct >= 50 ? '#f2c94c' : '#eb5757', fontWeight: 600 }}>{avgPct}%</span>
               </span>
             )}
+            {/* NIT-4: warn teacher before Canvas upload if students are missing Student IDs */}
+            {hasLmsConfig && missingStudentIdCount > 0 && (
+              <span
+                title="These students will be skipped when uploading to Canvas. Ask them to add their Canvas Student ID in the assignment settings before resubmitting."
+                style={{ fontSize: 10, color: 'rgba(242,201,76,0.8)', cursor: 'help' }}
+              >
+                ⚠ {missingStudentIdCount} no Student ID
+              </span>
+            )}
             {lastScanned && (
               <span style={{ fontSize: 10, color: 'var(--color-sand-400)', marginLeft: 'auto' }}>
                 Scanned {lastScanned}
@@ -831,6 +842,22 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                               }}
                             >
                               ⚠ clock?
+                            </span>
+                          )}
+                          {/* NIT-2: badge for reports exported before the schema version
+                              field was added — rubric scoring may be incomplete */}
+                          {!rec.version && (
+                            <span
+                              title="Exported with an older RTMcompare version — some rubric metrics may be missing. Ask the student to re-export."
+                              style={{
+                                marginLeft: 5, fontSize: 9, padding: '1px 4px',
+                                border: '1px solid rgba(168,161,150,0.3)',
+                                borderRadius: '2px', color: 'rgba(168,161,150,0.5)',
+                                letterSpacing: '0.04em', verticalAlign: 'middle',
+                                cursor: 'help',
+                              }}
+                            >
+                              legacy
                             </span>
                           )}
                         </div>
