@@ -7,6 +7,16 @@
   #include "RtmAraDocumentController.h"
 #endif
 
+// 5.8.0 (audit P0 #4 hardening): O_NOFOLLOW / O_EXCL atomic open.
+// JUCE's FileOutputStream calls fopen()/CreateFile() internally and
+// cannot carry O_NOFOLLOW.  We replace it with an fd-backed OutputStream
+// so the open, exclusive-create, and symlink-rejection are one syscall.
+#if ! JUCE_WINDOWS
+  #include <fcntl.h>    // O_WRONLY / O_CREAT / O_EXCL / O_NOFOLLOW
+  #include <sys/stat.h> // S_IRUSR / S_IWUSR
+  #include <unistd.h>   // write / close / fsync
+#endif
+
 RtmSendAudioProcessor::RtmSendAudioProcessor()
     : AudioProcessor(BusesProperties()
                          .withInput ("Input",  juce::AudioChannelSet::stereo(), true)
@@ -260,6 +270,8 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
             if (loopStartPpq < loopEndPpq) loopPointsSeen.store(true, std::memory_order_release);
         }
 #endif
+        // Persist BPM so writeSidecar can tag captures with the project tempo.
+        if (bpm > 0.0) lastBpm.store(bpm, std::memory_order_relaxed);
 
         const Source curSource = source.load(std::memory_order_acquire);
         if (curSource == Source::LoopRegion && looping && loopStartPpq < loopEndPpq)
@@ -405,18 +417,83 @@ void RtmSendAudioProcessor::setBufferSeconds(double s)
     allocateRing();
 }
 
-// 5.3.0 (audit P0 #4): refuse to write to a path another process
-// pre-planted with a symlink. Our naming scheme (timestamp+serial+
-// session) means the target should never exist when we go to create
-// it. If it does, that's either a name collision (rare; we move on)
-// or a race we cannot afford. Either way, refuse rather than write
-// through a symlink.
-static bool writeTargetIsSafe(const juce::File& f)
+// ── Atomic exclusive file creation with symlink rejection ──────────────
+//
+// JUCE's FileOutputStream calls fopen()/CreateFile() internally and cannot
+// carry O_NOFOLLOW, leaving a TOCTOU window between writeTargetIsSafe's
+// lstat() check and the subsequent open.  The fix: open with
+// O_CREAT|O_EXCL|O_NOFOLLOW in a single syscall so that:
+//   - O_EXCL  → the file must not pre-exist (atomic check+create)
+//   - O_NOFOLLOW → the kernel rejects the open if the last path
+//                  component is a symlink (errno ELOOP on Linux, macOS)
+//
+// Windows note: CreateFile with FILE_FLAG_OPEN_REPARSE_POINT gives
+// equivalent protection, but the timestamp+serial naming makes pre-
+// planting a named file very hard on Windows and symlink attacks there
+// require admin privileges by default, so we keep the stat-based fallback
+// for now.  See DECISIONS.md item 7 if a Windows O_NOFOLLOW equivalent
+// is needed.
+
+#if ! JUCE_WINDOWS
+
+// Opens `f` exclusively for writing in one atomic syscall.
+// Returns a valid fd (>= 0) on success, -1 on failure.
+//   EEXIST → path already exists (collision or pre-planted file/symlink)
+//   ELOOP  → O_NOFOLLOW fired: the last path component is a symlink
+//   ENOENT → parent directory missing (shouldn't happen — incomingFolder()
+//             creates it, but a concurrent rmdir could race)
+static int openAtomicExcl (const juce::File& f) noexcept
 {
-    if (! f.exists()) return true;       // fresh write
-    if (f.isSymbolicLink()) return false; // attacker-pre-planted
-    return false;                         // any other pre-existing file is suspect
+    return ::open (f.getFullPathName().toRawUTF8(),
+                   O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW,
+                   S_IRUSR | S_IWUSR);
 }
+
+// POSIX-fd-backed OutputStream so AudioFormatWriter can write to an fd
+// that was opened with O_NOFOLLOW.  Owns the fd; closes on destruction.
+class FdOutputStream final : public juce::OutputStream
+{
+public:
+    explicit FdOutputStream (int fd_) noexcept : fd (fd_) {}
+    ~FdOutputStream() override { if (fd >= 0) ::close (fd); }
+    bool openedOk() const noexcept { return fd >= 0; }
+    void flush() override { if (fd >= 0) ::fsync (fd); }
+    juce::int64 getPosition() override { return pos; }
+    bool setPosition (juce::int64 newPos) override
+    {
+        if (fd < 0) return false;
+        const auto r = ::lseek (fd, static_cast<off_t> (newPos), SEEK_SET);
+        if (r < 0) return false;
+        pos = static_cast<juce::int64> (r);
+        return true;
+    }
+    bool write (const void* data, size_t n) override
+    {
+        if (fd < 0 || n == 0) return n == 0;
+        const auto r = ::write (fd, data, n);
+        if (r < 0) return false;
+        pos += static_cast<juce::int64> (r);
+        return static_cast<size_t> (r) == n;
+    }
+private:
+    int fd;
+    juce::int64 pos { 0 };
+    JUCE_DECLARE_NON_COPYABLE (FdOutputStream)
+};
+
+#else // JUCE_WINDOWS — stat-based fallback (pre-5.8 behaviour)
+
+// 5.3.0 (audit P0 #4): refuse to write to a path another process
+// pre-planted with a symlink. The timestamp+serial naming makes
+// pre-planting hard; this is a best-effort check, not atomic.
+static bool writeTargetIsSafe (const juce::File& f)
+{
+    if (! f.exists())       return true;   // fresh write
+    if (f.isSymbolicLink()) return false;  // attacker-pre-planted
+    return false;                          // any other pre-existing file is suspect
+}
+
+#endif // ! JUCE_WINDOWS
 
 juce::File RtmSendAudioProcessor::incomingFolder() const
 {
@@ -465,6 +542,18 @@ static juce::String sanitiseHostString(const juce::String& s, int maxLen = 200)
         // Allow printable ASCII + common Latin extended; strip control
         // chars, NULs, and structural-looking sequences.
         if (ch < 0x20 || ch == 0x7F) continue;
+        // Strip Unicode BiDi control characters — these can visually
+        // reorder text in rendered UI panels and terminals without
+        // appearing in the raw string, enabling spoofing attacks
+        // (CVE-2021-42574 "Trojan Source" class). Strip the full
+        // Unicode Bidirectional control set:
+        //   U+200E LEFT-TO-RIGHT MARK … U+200F RIGHT-TO-LEFT MARK
+        //   U+202A–U+202E embedding/override controls
+        //   U+2066–U+2069 isolate controls
+        //   U+FEFF ZERO WIDTH NO-BREAK SPACE / BOM
+        if ((ch >= 0x200E && ch <= 0x202E) ||
+            (ch >= 0x2066 && ch <= 0x2069) ||
+            ch == 0xFEFF) continue;
         out += ch;
         kept++;
     }
@@ -476,39 +565,45 @@ bool RtmSendAudioProcessor::writeWav(const juce::File& out,
                                      double sr) const
 {
     if (samplesByChannel.empty()) return false;
-    // 5.3.0 (audit P0 #4): refuse if a different process pre-planted
-    // a symlink (or any other file) at our intended path.
-    if (! writeTargetIsSafe(out)) return false;
     const int channels = static_cast<int>(samplesByChannel.size());
-    const int frames = static_cast<int>(samplesByChannel[0].size());
+    const int frames   = static_cast<int>(samplesByChannel[0].size());
 
     juce::AudioBuffer<float> buf(channels, frames);
     for (int c = 0; c < channels; ++c)
         buf.copyFrom(c, 0, samplesByChannel[static_cast<size_t>(c)].data(), frames);
 
     juce::WavAudioFormat format;
-    std::unique_ptr<juce::FileOutputStream> stream(out.createOutputStream());
-    if (!stream) return false;
-    std::unique_ptr<juce::AudioFormatWriter> writer(
-        format.createWriterFor(stream.get(), sr, static_cast<unsigned int>(channels), 32, {}, 0));
-    // 5.7.x audit fix: only release stream ownership AFTER we know the
-    // writer accepted it. Pre-fix, if `createWriterFor` returned null
-    // (rare — bad bit depth, format unsupported, etc.) the original
-    // code would `return false` BEFORE `stream.release()` — but the
-    // unique_ptr would still own the stream and destruct it cleanly.
-    // The actual leak case is the OPPOSITE: if we ever swap order or
-    // forget that `release()` runs unconditionally, the stream double-
-    // destructs. Belt-and-braces: explicit ownership transfer guarded
-    // by writer-validity check.
-    if (!writer) return false;
-    stream.release();  // writer takes ownership now that we know it accepted it
-    const bool ok = writer->writeFromAudioSampleBuffer(buf, 0, frames);
-    writer.reset();    // flush
+
+#if ! JUCE_WINDOWS
+    // 5.8.0: O_CREAT|O_EXCL|O_NOFOLLOW — atomic exclusive create with
+    // symlink rejection.  Eliminates the TOCTOU race that existed between
+    // writeTargetIsSafe()'s lstat() and the subsequent fopen() inside
+    // JUCE's FileOutputStream.  If the path was pre-planted (symlink or
+    // any other file), ::open returns -1 and we bail before allocating
+    // the AudioFormatWriter.
+    const int fd = openAtomicExcl (out);
+    auto stream  = std::make_unique<FdOutputStream> (fd);
+    if (! stream->openedOk()) return false;
+#else
+    if (! writeTargetIsSafe (out)) return false;
+    std::unique_ptr<juce::FileOutputStream> stream (out.createOutputStream());
+    if (! stream) return false;
+#endif
+
+    std::unique_ptr<juce::AudioFormatWriter> writer (
+        format.createWriterFor (stream.get(), sr,
+                                static_cast<unsigned int>(channels), 32, {}, 0));
+    // Only release stream ownership after we know the writer accepted it.
+    if (! writer) return false;
+    stream.release();  // writer takes ownership
+    const bool ok = writer->writeFromAudioSampleBuffer (buf, 0, frames);
+    writer.reset();    // flush + close fd
     return ok;
 }
 
 bool RtmSendAudioProcessor::writeSidecar(const juce::File& out,
-                                         int channels, double sr, int frames, Route route) const
+                                         int channels, double sr, int frames, Route route,
+                                         const juce::String& capturedAt) const
 {
     // 5.3.0 (audit P0 #4): same symlink-safety as writeWav.
     if (! writeTargetIsSafe(out)) return false;
@@ -552,6 +647,24 @@ bool RtmSendAudioProcessor::writeSidecar(const juce::File& out,
     }
     obj->setProperty("source", juce::String(sourceTag));
 
+    // BPM: set from the last processBlock that had a valid playhead.
+    // Omitted if the host never reported BPM (stand-alone use, etc.).
+    const double bpmSnap = lastBpm.load(std::memory_order_relaxed);
+    if (bpmSnap > 0.0)
+        obj->setProperty("bpm", bpmSnap);
+
+    // Whether the hosted EQ plugin was bypassed at capture time.
+    // If no plugin is loaded, omit the field rather than writing false
+    // (the receiver can distinguish "bypassed" from "no plugin").
+    if (hostingEnabled.load(std::memory_order_acquire))
+        obj->setProperty("hostedPluginBypassed",
+                         hostedPluginBypassed.load(std::memory_order_acquire));
+
+    // capturedAt: actual moment the audio content was captured, which
+    // differs from createdAt (the file-write time) by up to bufferSeconds
+    // for ring-buffer grabs.
+    obj->setProperty("capturedAt", capturedAt);
+
     // ARA drops carry region name + time bounds so the banner can
     // show "From: Wavelab - Track 03 - 2:14-5:31".
 #if RTM_ARA_ENABLED
@@ -566,16 +679,31 @@ bool RtmSendAudioProcessor::writeSidecar(const juce::File& out,
     {
         if (auto region = araRegionsModel->findRegion(araIdSnap))
         {
-            obj->setProperty("regionName", sanitiseHostString(region->name));
-            obj->setProperty("regionStartSec", region->startSec);
-            obj->setProperty("regionEndSec", region->endSec);
-            obj->setProperty("regionSourceName", sanitiseHostString(region->audioSourceName));
+            juce::DynamicObject::Ptr araObj = new juce::DynamicObject();
+            araObj->setProperty("regionName", sanitiseHostString(region->name));
+            araObj->setProperty("regionStartSec", region->startSec);
+            araObj->setProperty("regionEndSec", region->endSec);
+            araObj->setProperty("regionSourceName", sanitiseHostString(region->audioSourceName));
+            obj->setProperty("ara", juce::var(araObj.get()));
         }
     }
 #endif
 
-    const auto json = juce::JSON::toString(juce::var(obj.get()), true);
-    return out.replaceWithText(json);
+    const auto json = juce::JSON::toString (juce::var (obj.get()), true);
+
+#if ! JUCE_WINDOWS
+    // 5.8.0: atomic exclusive write with O_NOFOLLOW — same rationale as writeWav.
+    const int fd = openAtomicExcl (out);
+    if (fd < 0) return false;
+    const juce::CharPointer_UTF8 utf8 = json.toUTF8();
+    const auto len = static_cast<ssize_t> (strlen (utf8.getAddress()));
+    const bool ok = (len == 0) || (::write (fd, utf8.getAddress(), static_cast<size_t>(len)) == len);
+    ::close (fd);
+    return ok;
+#else
+    if (! writeTargetIsSafe (out)) return false;
+    return out.replaceWithText (json);
+#endif
 }
 
 juce::String RtmSendAudioProcessor::sendSnapshotToRtm(Route route, juce::String& errorMsgOut)
@@ -692,10 +820,31 @@ juce::String RtmSendAudioProcessor::sendSnapshotToRtm(Route route, juce::String&
             break;
         }
     }
-    const int finalFrames = static_cast<int>(snapshot.empty() ? 0 : snapshot[0].size());
-    if (finalFrames < static_cast<int>(std::round(0.25 * sampleRateHz)))
+    // capturedAt: for ring-buffer grabs the audio content started
+    // `bufferSeconds` ago; for ARA / loop / triggered captures the
+    // content IS the current moment (read or just completed).
+    const juce::String capturedAt =
+        (curSource == Source::LastNSeconds)
+        ? (juce::Time::getCurrentTime() - juce::RelativeTime(bufferSeconds)).toISO8601(true)
+        : juce::Time::getCurrentTime().toISO8601(true);
+
+    return finishSendFromSamples (std::move(snapshot), snapshotSr, route, errorMsgOut, capturedAt);
+}
+
+juce::String RtmSendAudioProcessor::finishSendFromSamples(
+    std::vector<std::vector<float>> samples,
+    double sampleRate,
+    Route route,
+    juce::String& errorMsgOut,
+    const juce::String& capturedAt)
+{
+    const int finalFrames = static_cast<int>(samples.empty() ? 0 : samples[0].size());
+    // 0.5 s minimum: BS.1770-4 integrated loudness requires at least ~400 ms
+    // of un-gated audio for a meaningful LUFS-I reading.  Anything shorter
+    // produces unreliable loudness / LRA / spectral analysis.
+    if (finalFrames < static_cast<int>(std::round(0.5 * sampleRate)))
     {
-        errorMsgOut = "Captured region too short (< 0.25 s).";
+        errorMsgOut = "Captured region too short (< 0.5 s) — LUFS measurement requires at least 0.5 s.";
         setLastStatusLocked (errorMsgOut);
         return {};
     }
@@ -703,48 +852,49 @@ juce::String RtmSendAudioProcessor::sendSnapshotToRtm(Route route, juce::String&
     // Sortable base name: timestamp + sanitised session.  Millisecond
     // precision on the stamp + a per-process counter so two sends in
     // the same second don't overwrite each other.
-    const auto now = juce::Time::getCurrentTime();
+    const auto now   = juce::Time::getCurrentTime();
     const auto stamp = now.formatted("%Y%m%d-%H%M%S")
                      + juce::String::formatted("-%03d", now.getMilliseconds());
     static std::atomic<int> sendCounter { 0 };
     const int serial = sendCounter.fetch_add(1, std::memory_order_relaxed);
-    const auto safeSession = sessionName.retainCharacters(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_");
+    juce::String safeSession;
+    {
+        const juce::ScopedLock sl (stringFieldsLock);
+        safeSession = sessionName.retainCharacters(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_");
+    }
     const auto base = juce::String("rtm-") + stamp
                     + "-" + juce::String::formatted("%04d", serial & 0xFFFF)
                     + "-" + safeSession;
 
-    auto folder = incomingFolder();
-    auto wav = folder.getChildFile(base + ".wav");
+    auto folder  = incomingFolder();
+    auto wav     = folder.getChildFile(base + ".wav");
     auto sidecar = folder.getChildFile(base + ".rtm.json");
-    auto ready = folder.getChildFile(base + ".ready");
+    auto ready   = folder.getChildFile(base + ".ready");
 
     // Audio first, then sidecar, .ready last.  The watcher keys on
     // .ready so it never opens a half-written WAV.  Any failure along
     // the way cleans up the partial artefacts so a retry lands clean.
-    if (!writeWav(wav, snapshot, snapshotSr))
+    if (!writeWav(wav, samples, sampleRate))
     {
         errorMsgOut = "Could not write WAV to " + wav.getFullPathName();
         setLastStatusLocked (errorMsgOut);
         return {};
     }
-    if (!writeSidecar(sidecar, static_cast<int>(snapshot.size()), snapshotSr, finalFrames, route))
+    const juce::String capturedAtVal = capturedAt.isNotEmpty()
+        ? capturedAt
+        : juce::Time::getCurrentTime().toISO8601(true);
+    if (!writeSidecar(sidecar, static_cast<int>(samples.size()), sampleRate, finalFrames,
+                      route, capturedAtVal))
     {
-        // Clean up the orphaned WAV so the watcher doesn't see a half-
-        // formed drop on the next poll.  Previously we ignored this
-        // failure and let the .ready marker fire regardless.
         wav.deleteFile();
         errorMsgOut = "Could not write sidecar JSON to " + sidecar.getFullPathName();
         setLastStatusLocked (errorMsgOut);
         return {};
     }
-    // .ready marker carries a small JSON payload (5.3.0, audit P1 #9).
-    // Pre-5.3 the marker was zero-byte; the receiver had to trust file
-    // contents by name. A sketchy plugin in the same DAW session could
-    // race-rewrite the WAV between the marker write and RTMcompare's
-    // open and spoof the master under analysis. We now bind the WAV
-    // and JSON to the marker via SHA-256 hashes the receiver verifies
-    // before it accepts the drop.
+
+    // .ready marker binds WAV + sidecar via SHA-256 so the receiver can
+    // verify the files weren't substituted between write and pickup.
     juce::var readyObj;
     {
         juce::DynamicObject::Ptr o = new juce::DynamicObject();
@@ -755,11 +905,27 @@ juce::String RtmSendAudioProcessor::sendSnapshotToRtm(Route route, juce::String&
             o->setProperty("wavSha256", juce::SHA256(wavIn).toHexString());
         if (jsonIn.openedOk())
             o->setProperty("jsonSha256", juce::SHA256(jsonIn).toHexString());
-        o->setProperty("createdAt",
-                       juce::Time::getCurrentTime().toISO8601(true));
+        o->setProperty("createdAt", juce::Time::getCurrentTime().toISO8601(true));
         readyObj = juce::var(o.get());
     }
-    if (! writeTargetIsSafe(ready) || !ready.replaceWithText(juce::JSON::toString(readyObj, true)))
+    const auto readyJson = juce::JSON::toString (readyObj, true);
+    bool readyOk = false;
+#if ! JUCE_WINDOWS
+    {
+        const int rfd = openAtomicExcl (ready);
+        if (rfd >= 0)
+        {
+            const juce::CharPointer_UTF8 rb = readyJson.toUTF8();
+            const auto rlen = static_cast<ssize_t> (strlen (rb.getAddress()));
+            readyOk = (rlen == 0) ||
+                      (::write (rfd, rb.getAddress(), static_cast<size_t>(rlen)) == rlen);
+            ::close (rfd);
+        }
+    }
+#else
+    readyOk = writeTargetIsSafe (ready) && ready.replaceWithText (readyJson);
+#endif
+    if (! readyOk)
     {
         wav.deleteFile();
         sidecar.deleteFile();
@@ -770,12 +936,103 @@ juce::String RtmSendAudioProcessor::sendSnapshotToRtm(Route route, juce::String&
 
     juce::String routeStr;
     switch (route) {
-        case Route::Single:   routeStr = "Single-file";    break;
-        case Route::CompareB: routeStr = "Compare (File B)"; break;
-        case Route::Batch:    routeStr = "Album batch";    break;
+        case Route::Single:   routeStr = "Single-file";       break;
+        case Route::CompareB: routeStr = "Compare (File B)";  break;
+        case Route::Batch:    routeStr = "Album batch";       break;
     }
-    setLastStatusLocked ("Sent to RTM - " + routeStr + " - " + wav.getFileName());
+    setLastStatusLocked ("Sent to RTM — " + routeStr + " — " + wav.getFileName());
     return wav.getFullPathName();
+}
+
+void RtmSendAudioProcessor::sendSnapshotToRtmAsync(
+    Route route, std::function<void(juce::String, juce::String)> onDone)
+{
+#if RTM_ARA_ENABLED
+    if (source.load(std::memory_order_acquire) == Source::AraRegion)
+    {
+        // Snapshot the region ID under the lock, then release.
+        juce::String araIdSnap;
+        {
+            const juce::ScopedLock sl (stringFieldsLock);
+            araIdSnap = selectedAraRegionId;
+        }
+        if (araIdSnap.isEmpty())
+        {
+            const juce::String err = "Pick a region from the dropdown first.";
+            setLastStatusLocked (err);
+            onDone ({}, err);
+            return;
+        }
+        auto* dc = ARA::PlugIn::PlugInExtension::getDocumentController();
+        if (dc == nullptr)
+        {
+            const juce::String err = "ARA not active in this host.";
+            setLastStatusLocked (err);
+            onDone ({}, err);
+            return;
+        }
+        auto* spec = juce::ARADocumentControllerSpecialisation
+            ::getSpecialisedDocumentController<RtmAraDocumentController>(dc);
+        if (spec == nullptr)
+        {
+            const juce::String err = "ARA document controller not available.";
+            setLastStatusLocked (err);
+            onDone ({}, err);
+            return;
+        }
+
+        setLastStatusLocked ("Reading ARA region…");
+
+        // Keep a weak reference so the completion lambda is safe if the
+        // processor is destroyed before the background read finishes.
+        juce::WeakReference<RtmSendAudioProcessor> weakThis (this);
+
+        const bool started = spec->readRegionSamplesAsync (
+            araIdSnap,
+            // onProgress — background thread; post status updates safely
+            [weakThis] (float p)
+            {
+                const int pct = static_cast<int>(p * 100.0f);
+                juce::MessageManager::callAsync ([weakThis, pct]
+                {
+                    if (auto* self = weakThis.get())
+                        self->setLastStatusLocked ("Reading ARA region… " +
+                                                   juce::String(pct) + "%");
+                });
+            },
+            // onDone — message thread
+            [weakThis, route, onDone = std::move(onDone)]
+            (RtmAraDocumentController::SamplesVec samples, int sr, juce::String readErr) mutable
+            {
+                auto* self = weakThis.get();
+                if (self == nullptr) { onDone ({}, "Plugin was unloaded."); return; }
+                if (readErr.isNotEmpty()) { onDone ({}, readErr); return; }
+
+                // Finish the send with the collected samples.
+                // Re-use the existing sync path for the write half only:
+                // temporarily inject the samples via the triggered-region
+                // buffer, flip the source flag, then restore everything.
+                // Simpler: just call the common write helper inline here.
+                juce::String err;
+                juce::String path = self->finishSendFromSamples (
+                    std::move(samples), static_cast<double>(sr), route, err);
+                onDone (path, err);
+            });
+
+        if (! started)
+        {
+            const juce::String err = "An ARA read is already in progress — please wait.";
+            setLastStatusLocked (err);
+            onDone ({}, err);
+        }
+        return;
+    }
+#endif
+
+    // Non-ARA sources: synchronous send, call onDone immediately.
+    juce::String err;
+    juce::String path = sendSnapshotToRtm (route, err);
+    onDone (path, err);
 }
 
 void RtmSendAudioProcessor::getStateInformation(juce::MemoryBlock& destData)

@@ -86,13 +86,13 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     // gold treatment. Compare B and Album/Batch render as neutral
     // outlined buttons via the LookAndFeel default. The setComponentID
     // hook tells the LookAndFeel which button to paint primary.
-    sendSingleButton.setButtonText ("Single");
+    sendSingleButton.setButtonText ("Analyze");
     sendSingleButton.setComponentID ("rtm-primary");
     sendSingleButton.setTooltip ("Analyse this buffer as a standalone master - LUFS / TP / spectrum / engineer tips.");
     sendSingleButton.onClick = [this] { onSendClicked (RtmSendAudioProcessor::Route::Single); };
     addAndMakeVisible (sendSingleButton);
 
-    sendCompareButton.setButtonText ("Compare B");
+    sendCompareButton.setButtonText ("Compare");
     sendCompareButton.setTooltip ("Drop into the Compare mode File B slot - A/B against whatever reference is already loaded.");
     sendCompareButton.onClick = [this] { onSendClicked (RtmSendAudioProcessor::Route::CompareB); };
     addAndMakeVisible (sendCompareButton);
@@ -207,7 +207,7 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     addAndMakeVisible(bufferSlider);
 
     // 1.1.0 spike: plugin-host slot UI.
-    pluginSlotLabel.setText("Plugin slot", juce::dontSendNotification);
+    pluginSlotLabel.setText("Plugin slot  (optional EQ)", juce::dontSendNotification);
     pluginSlotLabel.setFont(juce::Font(12.0f, juce::Font::plain));
     pluginSlotLabel.setColour(juce::Label::textColourId, LF::kCream);
     addAndMakeVisible(pluginSlotLabel);
@@ -357,10 +357,22 @@ void RtmSendAudioProcessorEditor::resized()
 
 void RtmSendAudioProcessorEditor::timerCallback()
 {
-    bufferLabel.setText("Buffer length - " + juce::String(static_cast<int>(processor.getBufferSeconds())) + " s",
-                        juce::dontSendNotification);
+    // Show "(saved)" to confirm that the ring length persists across DAW sessions
+    // via getStateInformation / setStateInformation.
+    bufferLabel.setText("Buffer  " + juce::String(static_cast<int>(processor.getBufferSeconds()))
+                        + " s  (saved)", juce::dontSendNotification);
     const auto s = processor.getLastStatus();
     if (s.isNotEmpty()) statusLabel.setText(s, juce::dontSendNotification);
+
+    // Live scan-progress feedback: while the scan thread is running the
+    // button reads "Scanning..." — show the current discovered count in the
+    // plugin status label so the user knows it's making progress.
+    if (pluginScanButton.getButtonText().startsWith("Scanning"))
+    {
+        const int found = processor.getKnownPluginList().getNumTypes();
+        pluginStatusLabel.setText("Scanning...  " + juce::String(found) + " found",
+                                  juce::dontSendNotification);
+    }
 
     const auto src = processor.getSource();
     const bool triggeredMode = src == RtmSendAudioProcessor::Source::TriggeredRegion;
@@ -514,32 +526,51 @@ juce::String RtmSendAudioProcessorEditor::buildHostHint() const
 
 void RtmSendAudioProcessorEditor::onSendClicked(RtmSendAudioProcessor::Route route)
 {
-    juce::String err;
-    auto path = processor.sendSnapshotToRtm(route, err);
-    if (path.isEmpty())
-    {
-        // 5.2.4: warm-red semantic colour — same --color-warm-red used by
-        // rtm-warning buttons in the LookAndFeel (201, 103, 101). Use
-        // that constant rather than an independent literal so error states
-        // are visually consistent.
-        statusLabel.setColour(juce::Label::textColourId, juce::Colour(201, 103, 101));
-        statusLabel.setText(err.isEmpty() ? "Send failed." : err, juce::dontSendNotification);
-    }
-    else
-    {
-        // 5.2.4: success green — no LookAndFeel constant for this yet
-        // (it's a one-off semantic state, not a recurring palette swatch).
-        // Kept as a literal; add kSuccess to the LookAndFeel if more
-        // success states appear.
-        statusLabel.setColour(juce::Label::textColourId, juce::Colour(110, 197, 119));
-        juce::String routeStr;
-        switch (route) {
-            case RtmSendAudioProcessor::Route::Single:   routeStr = "Single-file analysis."; break;
-            case RtmSendAudioProcessor::Route::CompareB: routeStr = "Compare (File B).";    break;
-            case RtmSendAudioProcessor::Route::Batch:    routeStr = "Album / Batch.";       break;
-        }
-        statusLabel.setText("Sent to RTM - " + routeStr, juce::dontSendNotification);
-    }
+    const bool isAra = processor.getSource() == RtmSendAudioProcessor::Source::AraRegion;
+
+    // MED-1 fix: disable ALL send buttons for EVERY path (not just ARA).
+    // Previously, non-ARA sends (ring buffer, loop, triggered) left the
+    // buttons enabled, allowing double-sends before the first completed.
+    sendSingleButton.setEnabled(false);
+    sendCompareButton.setEnabled(false);
+    sendBatchButton.setEnabled(false);
+
+    // Show contextual in-progress status for both paths.
+    statusLabel.setColour(juce::Label::textColourId, LF::kGold);
+    statusLabel.setText(isAra ? "Reading ARA region…" : "Sending…",
+                        juce::dontSendNotification);
+
+    // Use the async path for ARA (background disk I/O); sync for all others.
+    // The callback always fires on the message thread.
+    juce::Component::SafePointer<RtmSendAudioProcessorEditor> safeThis (this);
+    processor.sendSnapshotToRtmAsync (route,
+        [safeThis] (juce::String path, juce::String err)
+        {
+            auto* self = safeThis.getComponent();
+            if (self == nullptr) return;
+
+            // Re-enable send buttons regardless of outcome.
+            self->sendSingleButton.setEnabled(true);
+            self->sendCompareButton.setEnabled(true);
+            self->sendBatchButton.setEnabled(true);
+
+            if (path.isEmpty())
+            {
+                // 5.2.4: warm-red semantic colour.
+                self->statusLabel.setColour(juce::Label::textColourId, juce::Colour(201, 103, 101));
+                // MED-3 fix: make error message actionable — append guidance
+                // when the generic fallback fires so users know where to look.
+                const auto msg = err.isEmpty() ? juce::String("Send failed — is RTMcompare open?") : err;
+                self->statusLabel.setText(msg, juce::dontSendNotification);
+            }
+            else
+            {
+                // 5.2.4: success green.
+                self->statusLabel.setColour(juce::Label::textColourId, juce::Colour(110, 197, 119));
+                // MED-3 fix: spell out "RTMcompare" so users know which app received the send.
+                self->statusLabel.setText("Sent to RTMcompare.", juce::dontSendNotification);
+            }
+        });
 }
 
 // ─── 1.1.0 spike: plugin slot UI helpers ──────────────────────────
@@ -548,8 +579,18 @@ void RtmSendAudioProcessorEditor::refreshPluginSlotUi()
 {
     const auto name = processor.getHostedPluginName();
     const bool loaded = name.isNotEmpty();
-    pluginStatusLabel.setText(loaded ? ("Hosting: " + name) : "Empty slot - Pick a VST3/AU to load.",
-                              juce::dontSendNotification);
+    if (! loaded)
+    {
+        const int known = processor.getKnownPluginList().getNumTypes();
+        const auto hint = known > 0
+            ? ("Empty slot — " + juce::String(known) + " plugins available. Pick one.")
+            : juce::String ("Empty slot — click Scan, then Pick.");
+        pluginStatusLabel.setText(hint, juce::dontSendNotification);
+    }
+    else
+    {
+        pluginStatusLabel.setText("Hosting: " + name, juce::dontSendNotification);
+    }
     pluginEditorButton.setEnabled(loaded);
     pluginEditorButton.setButtonText(processor.isHostedPluginWindowOpen() ? "Close" : "Open");
     pluginUnloadButton.setEnabled(loaded);

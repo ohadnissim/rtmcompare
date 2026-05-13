@@ -117,6 +117,15 @@ private:
     // path is the single shared file all instances overwrite.
     juce::String instanceUuid8;
 
+    // Per-instance 128-bit random auth token (hex). Written to the
+    // per-instance JSON port file on start(); every new connection must
+    // send this token as its first line before any RPC traffic is
+    // accepted. Regenerated on each start() call.
+    juce::String rpcAuthToken;
+
+    // Generates a 128-bit cryptographically random token as a 32-char hex string.
+    static juce::String generateAuthToken();
+
     // Active per-connection sockets. Each is added before the connection
     // thread launches and removed when the thread exits. stop() closes
     // every socket so all connection threads unblock from readLine and

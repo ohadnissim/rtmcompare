@@ -140,7 +140,16 @@ public:
 
     // Snapshots the current source, writes WAV + sidecar + .ready.
     // Returns the wav path on success, empty string on failure.
+    // For Source::AraRegion this blocks the message thread during disk I/O;
+    // prefer sendSnapshotToRtmAsync for that source.
     juce::String sendSnapshotToRtm(Route route, juce::String& errorMsgOut);
+
+    // Non-blocking variant: for Source::AraRegion, performs the HostAudioReader
+    // disk I/O on a background thread and calls onDone(wavPath, error) on the
+    // message thread when the send completes.  For all other sources the send
+    // is synchronous and onDone is invoked before this call returns.
+    void sendSnapshotToRtmAsync(Route route,
+                                std::function<void(juce::String, juce::String)> onDone);
 
     Source getSource() const noexcept { return source.load(std::memory_order_acquire); }
     void setSource(Source s) noexcept { source.store(s, std::memory_order_release); }
@@ -296,6 +305,10 @@ private:
     // audio thread sets hostedPluginFaulted on throw and the UI surfaces
     // a distinct error state. Cleared in loadHostedPlugin / unloadHostedPlugin.
     std::atomic<bool> hostedPluginFaulted { false };
+    // Set true when the hosted plugin is explicitly bypassed (routing
+    // disabled while plugin remains loaded). Written on the message
+    // thread; read in writeSidecar to tag the sidecar at capture time.
+    std::atomic<bool> hostedPluginBypassed { false };
     // 5.7.1 v4 fix: atomic mirror of `hostedPlugin != nullptr` so RPC
     // handlers (host.ping in particular) can answer without taking the
     // message-thread lock. Pre-fix host.ping ran inside runOnMessageThreadSync
@@ -305,6 +318,13 @@ private:
     // indicator flipped to offline mid-send. Updated under the same
     // callback lock that swaps hostedPlugin.
     std::atomic<bool> hostedPluginPresent { false };
+
+    // Last valid BPM seen in processBlock from the host playhead.
+    // Zero until the first block with playhead BPM data arrives.
+    // Written on the audio thread (relaxed); read on the message thread
+    // in writeSidecar (relaxed) — single-direction publication, no
+    // ordering required beyond the atomic itself.
+    std::atomic<double> lastBpm { 0.0 };
 
     // Plugin's floating editor window. May be null when no plugin is
     // loaded or when the user explicitly closed the window.
@@ -353,6 +373,15 @@ private:
     };
     std::unique_ptr<PluginScanThread> pluginScanThread;
 
+    // Shared WAV+sidecar+.ready write path used by both sendSnapshotToRtm
+    // (sync) and the async ARA completion callback.  Returns wav path on
+    // success, empty string on failure (errorMsgOut is populated).
+    juce::String finishSendFromSamples(std::vector<std::vector<float>> samples,
+                                       double sampleRate,
+                                       Route route,
+                                       juce::String& errorMsgOut,
+                                       const juce::String& capturedAt = {});
+
     // ~/.rtm/incoming/ - created on first use.
     juce::File incomingFolder() const;
 
@@ -360,7 +389,8 @@ private:
                   const std::vector<std::vector<float>>& samplesByChannel,
                   double sr) const;
 
-    bool writeSidecar(const juce::File& out, int channels, double sr, int frames, Route route) const;
+    bool writeSidecar(const juce::File& out, int channels, double sr, int frames, Route route,
+                      const juce::String& capturedAt) const;
 
     // 5.7.x audit fix: WeakReferenceable so deferred lambdas (X-button
     // close handler in HostedPluginWindow, retireHostedPluginAsync timer)
