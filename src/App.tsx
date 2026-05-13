@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense, lazy } from 'react'
+import { getAudioDuration } from './lib/audioDuration'
 import { AppState, FileInfo, AnalysisResult } from './types'
 import { useTheme } from './ThemeContext'
 import { useModes } from './ModesContext'
@@ -283,6 +284,8 @@ function CoverWiredEmptyState({
 }: CoverWiredEmptyStateProps) {
  const learn = useLearnMode()
  const assignment = learn.assignment
+ const [fileADuration, setFileADuration] = useState<string | undefined>(undefined)
+ const [fileBDuration, setFileBDuration] = useState<string | undefined>(undefined)
  const extOf = (name?: string | null) => {
   if (!name) return undefined
   const parts = name.split('.')
@@ -294,8 +297,13 @@ function CoverWiredEmptyState({
   const fullPath = (window as any).electronAPI?.getPathForFile?.(file) || (file as any).path || ''
   if (!fullPath) return
   const info: FileInfo = { path: fullPath, name: file.name }
-  if (slot === 'A') setFileA(info)
-  else setFileB(info)
+  if (slot === 'A') {
+   setFileA(info)
+   getAudioDuration(file).then(d => setFileADuration(d ?? undefined))
+  } else {
+   setFileB(info)
+   getAudioDuration(file).then(d => setFileBDuration(d ?? undefined))
+  }
  }
  const onOpenRecent = (id: string) => {
   // CoverSurface emits the recent's `id`, which we set to HistoryEntry.path
@@ -308,7 +316,7 @@ function CoverWiredEmptyState({
   setFileA(info)
  }
  const v52Recents = history.slice(0, 3).map(r => ({
-  id: r.path ?? r.name ?? '',
+  id: r.id ?? (r.path ?? r.name ?? ''),
   title: r.name ?? '',
   ts: undefined as string | undefined,
  }))
@@ -324,8 +332,10 @@ function CoverWiredEmptyState({
    error={error}
    fileAName={fileA?.name ?? null}
    fileAFormat={extOf(fileA?.name)}
+   fileADuration={fileADuration}
    fileBName={fileB?.name ?? null}
    fileBFormat={extOf(fileB?.name)}
+   fileBDuration={fileBDuration}
    onDropA={adoptFile('A')}
    onDropB={adoptFile('B')}
    onSwap={() => { const a = fileA; setFileA(fileB); setFileB(a) }}

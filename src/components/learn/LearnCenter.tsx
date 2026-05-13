@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAudience, useV52Surface } from '../../AudienceContext'
 import { LearnHome } from '../v52/LearnHome'
 import { TeacherDashboard } from '../v52/TeacherDashboard'
+import type { StudentSubmission } from '../v52/TeacherDashboard'
+import { getSubmissions } from '../../lib/submissions'
 
 /**
  * LearnCenter — top-level Learn surface mount.
@@ -25,6 +27,12 @@ export default function LearnCenter({ audienceOverride }: LearnCenterProps = {})
   const detected = useAudience()
   const audience = audienceOverride ?? detected
   const useV52Learn = useV52Surface('learn')
+  const [submissions, setSubmissions] = useState<StudentSubmission[]>(() => getSubmissions())
+
+  useEffect(() => {
+    if (audience !== 'teacher') return
+    setSubmissions(getSubmissions())
+  }, [audience])
 
   if (useV52Learn) {
     if (audience === 'teacher') {
@@ -32,7 +40,7 @@ export default function LearnCenter({ audienceOverride }: LearnCenterProps = {})
         <TeacherDashboard
           courseName="Mastering 301"
           teacherName="—"
-          submissions={[]}
+          submissions={submissions}
           onOpenSubmission={id => console.log('open submission', id)}
           onExportGradebook={() => console.log('export gradebook')}
         />

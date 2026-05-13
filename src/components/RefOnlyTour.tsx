@@ -256,34 +256,34 @@ export default function RefOnlyTour({
  <div className="p-4 space-y-2">
  <div className="flex items-center justify-between">
  {/* 5.7.2 copy: */}
- <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: '#d0b066' }}>
+ <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent)' }}>
  Single file · {state.step + 1} / {STEPS.length}
  </span>
  {/* 5.7.2 copy: */}
  <button
  onClick={stopTour}
  className="text-[10px] px-2 py-0.5 rounded hover:bg-white/[0.06]"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Close the tour (Esc)"
  >
  Close
  </button>
  </div>
- <h3 className="text-sm font-medium" style={{ color: '#ebe7e0' }}>{step.title}</h3>
- <p className="text-[11px] leading-relaxed" style={{ color: '#a8a29e' }}>{step.body}</p>
+ <h3 className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{step.title}</h3>
+ <p className="text-[11px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{step.body}</p>
  <div className="flex items-center justify-between pt-1.5">
  <button
  onClick={prevStep}
  disabled={state.step === 0}
  className="text-[11px] px-3 py-1 disabled:opacity-30"
- style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  ← Back
  </button>
  <button
  onClick={state.step + 1 >= STEPS.length ? stopTour : nextStep}
  className="text-[11px] px-4 py-1"
- style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ style={{ borderRadius: '2px', backgroundColor: 'var(--color-accent)', color: '#0e0d0b' }}
  >
  {state.step + 1 >= STEPS.length ? 'Done' : 'Next →'}
  </button>

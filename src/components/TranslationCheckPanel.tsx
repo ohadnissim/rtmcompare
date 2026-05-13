@@ -203,9 +203,9 @@ export default function TranslationCheckPanel({ file }: Props) {
               </button>
               {insight && (typeof insight.lostLfDb === 'number' || typeof insight.presenceChangeDb === 'number') && (
                 <span className="text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
-                  LF&nbsp;<span style={{ color: (insight.lostLfDb ?? 0) < -3 ? '#e07c5a' : 'var(--color-sand-300)' }}>{fmtSigned(insight.lostLfDb)}</span>
+                  LF&nbsp;<span style={{ color: (insight.lostLfDb ?? 0) < -3 ? 'var(--color-danger)' : 'var(--color-sand-300)' }}>{fmtSigned(insight.lostLfDb)}</span>
                   {' · '}
-                  Presence&nbsp;<span style={{ color: (insight.presenceChangeDb ?? 0) > 2 ? '#e07c5a' : 'var(--color-sand-300)' }}>{fmtSigned(insight.presenceChangeDb)}</span>
+                  Presence&nbsp;<span style={{ color: (insight.presenceChangeDb ?? 0) > 2 ? 'var(--color-danger)' : 'var(--color-sand-300)' }}>{fmtSigned(insight.presenceChangeDb)}</span>
                 </span>
               )}
               {error && !isActive && !isLoading && (
@@ -217,7 +217,7 @@ export default function TranslationCheckPanel({ file }: Props) {
           )
         })}
       </div>
-      <p className="text-[10px] font-display italic leading-relaxed" style={{ color: '#5a544a' }}>
+      <p className="text-[10px] font-display italic leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
         Biquad-filter approximations (no IRs in v5.0.4). Useful as a translation gut-check, not a substitute for actually testing on the target system. IR-based versions for car cabins and club PAs are on the v5.x roadmap.
       </p>
     </div>

@@ -102,7 +102,7 @@ export default function LoudnessOverTime({ result, side = 'b', durationSec }: Pr
  border: '1px solid rgba(168,161,150,0.08)',
  }}>
  <div className="flex items-center justify-between flex-wrap gap-2">
- <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
  Loudness over time · short-term LUFS
  </span>
  <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
@@ -115,7 +115,7 @@ export default function LoudnessOverTime({ result, side = 'b', durationSec }: Pr
  {yTicks.map(v => (
  <g key={v}>
  <line x1={padX} x2={w - padX} y1={toY(v)} y2={toY(v)} stroke="#3e3a33" strokeWidth={0.5} strokeDasharray="2 3" />
- <text x={padX - 4} y={toY(v) + 3} fontSize="9" fill="#7a7164" textAnchor="end" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
+ <text x={padX - 4} y={toY(v) + 3} fontSize="9" fill="var(--color-text-muted)" textAnchor="end" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
  {v}
  </text>
  </g>

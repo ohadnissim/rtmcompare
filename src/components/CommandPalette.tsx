@@ -144,7 +144,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  className="flex-1 bg-transparent outline-none text-sm"
  style={{ color: 'var(--color-text-primary)' }}
  />
- <kbd className="text-[10px] px-1.5 py-0.5" style={{ borderRadius: '2px', color: '#a8a29e', border: '1px solid rgba(168,161,150,0.15)' }}>
+ <kbd className="text-[10px] px-1.5 py-0.5" style={{ borderRadius: '2px', color: 'var(--color-text-secondary)', border: '1px solid rgba(168,161,150,0.15)' }}>
  Esc
  </kbd>
  </div>
@@ -158,7 +158,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  )}
  {results.length === 0 && (
  <div className="px-5 py-6">
- <div className="pl-3 border-l-2 text-left text-[12px]" style={{ borderColor: 'var(--color-sand-700)', color: '#a8a29e' }}>
+ <div className="pl-3 border-l-2 text-left text-[12px]" style={{ borderColor: 'var(--color-sand-700)', color: 'var(--color-text-secondary)' }}>
  No matches. Try "lufs", "kick", "spotify", "mono", "atmos"…
  </div>
  </div>
@@ -186,7 +186,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  </span>
  <span
  className="text-sm truncate"
- style={{ color: active ? 'var(--color-text-primary)' : '#a8a29e' }}
+ style={{ color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}
  >
  {r.label}
  </span>
@@ -203,7 +203,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
 
  {/* Footer hints */}
  <div className="flex items-center justify-between px-5 py-2.5 text-[10px]"
- style={{ borderTop: '1px solid rgba(168,161,150,0.08)', color: '#a8a29e' }}>
+ style={{ borderTop: '1px solid rgba(168,161,150,0.08)', color: 'var(--color-text-secondary)' }}>
  <span>Type to filter · ↑↓ to move · ↵ to jump</span>
  <span className="font-mono">⌘K to reopen</span>
  </div>

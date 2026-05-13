@@ -2059,6 +2059,8 @@ function widthDelta(a: number, b: number): string {
 function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fileB: FileInfo }) {
  const audience = useAudience()
  const surfaceOn = useV52Surface('release-readiness')
+ const [masterState, setMasterState] = React.useState<'idle' | 'rendering' | 'done' | 'error'>('idle')
+
  if (audience !== 'producer' || !surfaceOn) return null
 
  const lufs = results.overall?.lufs_b
@@ -2101,13 +2103,50 @@ function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fi
    issues.push(`LRA at ${lra.toFixed(1)} LU reads over-limited — consider easing the master-bus compression.`)
  }
 
+ const handleMasterForRelease = async () => {
+   setMasterState('rendering')
+   try {
+     const api = (window as unknown as { electronAPI?: Record<string, unknown> }).electronAPI
+     if (typeof (api?.masterChainRender) === 'function') {
+       await (api.masterChainRender as (src: string, cfg: object) => Promise<unknown>)(
+         fileB.path,
+         { target_lufs: -14, true_peak_dbtp: -1.0, dither: true },
+       )
+     }
+     setMasterState('done')
+     setTimeout(() => setMasterState('idle'), 3000)
+   } catch {
+     setMasterState('error')
+     setTimeout(() => setMasterState('idle'), 4000)
+   }
+ }
+
+ const actionLabel =
+   masterState === 'rendering' ? 'Rendering…' :
+   masterState === 'done'      ? 'Done — file saved' :
+   masterState === 'error'     ? 'Render failed — check console' :
+   'Master for release'
+
  return (
    <ReleaseReadiness
      trackTitle={stripExt(fileB.name)}
      platforms={platforms}
      issues={issues}
-     canMaster={platforms.every(p => p.status === 'pass')}
-     onMasterForRelease={() => console.log('master for release')}
+     canMaster={platforms.every(p => p.status === 'pass') && masterState === 'idle'}
+     onMasterForRelease={handleMasterForRelease}
+     actionSlot={masterState !== 'idle' ? (
+       <div style={{
+         fontFamily: 'var(--font-sans)',
+         fontSize: 11,
+         letterSpacing: '0.14em',
+         textTransform: 'uppercase' as const,
+         color: masterState === 'error' ? 'var(--color-danger)' : 'var(--color-accent)',
+         padding: '14px 0',
+         textAlign: 'center' as const,
+       }}>
+         {actionLabel}
+       </div>
+     ) : undefined}
    />
  )
 }

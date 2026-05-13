@@ -596,6 +596,8 @@ export type AppState = 'upload' | 'processing' | 'results' | 'ref-only' | 'batch
  * a single click.
  */
 export interface HistoryEntry {
+ /** Stable unique ID for this history entry (UUID or similar). */
+ id?: string
  /** SHA-256 of the audio file when it was analysed — the canonical identity
  * that survives renames and folder moves. */
  sha256: string

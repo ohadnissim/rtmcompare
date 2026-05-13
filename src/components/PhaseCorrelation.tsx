@@ -6,9 +6,13 @@ interface Props {
  labelA: string
  labelB: string
  durationSec: number
+ /** Optional: delta value (avgB - avgA). Shows a clickable Δ badge when provided with onAnnotate. */
+ correlationDelta?: number
+ /** Optional: annotation handler. When provided, a Δ badge appears in the header row. */
+ onAnnotate?: () => void
 }
 
-export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, labelA, labelB, durationSec }: Props) {
+export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, labelA, labelB, durationSec, correlationDelta, onAnnotate }: Props) {
  const w = 800
  const h = 140
  const padX = 30
@@ -57,6 +61,27 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
  <div className="flex items-center gap-3 text-[10px]">
  <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-500)' }} /> {labelA}: <span className="font-mono">{avgA.toFixed(2)}</span></span>
  <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-warm-amber)' }} /> {labelB}: <span className="font-mono text-amber-400">{avgB.toFixed(2)}</span></span>
+ {onAnnotate && correlationDelta != null && (
+  <button
+   type="button"
+   onClick={onAnnotate}
+   title="Add annotation for stereo correlation delta"
+   style={{
+    fontFamily: 'var(--font-mono)',
+    fontSize: 10,
+    letterSpacing: '0.04em',
+    color: 'var(--color-accent)',
+    background: 'transparent',
+    border: '1px solid var(--color-accent)',
+    borderRadius: 2,
+    padding: '2px 6px',
+    cursor: 'pointer',
+    opacity: 0.85,
+   }}
+  >
+   Δ {correlationDelta >= 0 ? '+' : ''}{correlationDelta.toFixed(2)}
+  </button>
+ )}
  </div>
  </div>
 

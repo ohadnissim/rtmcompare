@@ -25,6 +25,7 @@ import {
   type CertificateStudent,
 } from '../components/v52/Certificate'
 import { v52Copy } from '../copy/v52'
+import { logCertificate } from './certificateLog'
 
 export type {
   CertificateProps,
@@ -149,6 +150,23 @@ function cleanup(
   if (style && style.parentNode) style.parentNode.removeChild(style)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Internal helper — log every issuance. Non-throwing.
+// ─────────────────────────────────────────────────────────────────────────────
+function _logIssuance(props: CertificateProps): void {
+  try {
+    logCertificate({
+      certId: props.certId,
+      shaTrunc: props.shaTrunc,
+      trackTitle: props.trackTitle,
+      audience: props.audience,
+      verdict: props.verdict,
+      metrics: props.metrics.map(m => ({ label: m.label, value: m.value, unit: m.unit })),
+      issuedAt: props.timestamp ?? new Date().toISOString(),
+    })
+  } catch { /* never block a print path */ }
+}
+
 export function printCertificate(props: CertificateProps): Promise<void> {
   return new Promise<void>((resolve) => {
     // ── Electron IPC path ────────────────────────────────────────────────
@@ -167,6 +185,7 @@ export function printCertificate(props: CertificateProps): Promise<void> {
             /* swallow — UI surface handles errors */
           })
           .finally(() => {
+            _logIssuance(props)
             cleanup(root, offscreen, null)
             resolve()
           })
@@ -187,6 +206,7 @@ export function printCertificate(props: CertificateProps): Promise<void> {
     const finish = () => {
       if (finished) return
       finished = true
+      _logIssuance(props)
       window.removeEventListener('afterprint', finish)
       setTimeout(() => {
         cleanup(root, container, style)

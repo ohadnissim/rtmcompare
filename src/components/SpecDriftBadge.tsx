@@ -117,7 +117,7 @@ export default function SpecDriftBadge({ analysisVersion, stampedSpecs }: Props)
  >
  <div className="flex items-center justify-between gap-3">
  <span className="text-[12px] font-medium">{delta.name}</span>
- <span className="text-[9px] font-mono" style={{ color: '#7a7164' }}>{delta.id}</span>
+ <span className="text-[9px] font-mono" style={{ color: 'var(--color-text-muted)' }}>{delta.id}</span>
  </div>
  <ul className="mt-2 space-y-1">
  {delta.changed.map((line, index) => (

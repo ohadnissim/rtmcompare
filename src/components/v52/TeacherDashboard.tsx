@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { printGradebookExport, type CertificateStudent } from '../../lib/certificate'
+import { AnnotationEditor } from './AnnotationEditor'
 
 /**
  * TeacherDashboard — Move 6, the teacher's top-level Learn surface.
@@ -274,6 +275,8 @@ function SubmissionRow({
   )
 }
 
+type DashboardTab = 'roster' | 'annotations'
+
 export function TeacherDashboard({
   courseName,
   teacherName,
@@ -286,6 +289,8 @@ export function TeacherDashboard({
   onExportGradebook,
   actionSlot,
 }: TeacherDashboardProps) {
+  const [activeTab, setActiveTab] = useState<DashboardTab>('roster')
+
   return (
     <main
       style={{
@@ -318,9 +323,37 @@ export function TeacherDashboard({
           {submissions.length === 1 ? '' : 's'}
         </div>
         <div style={{ width: '100%', height: 1, backgroundColor: SAND_700, marginTop: 8 }} />
+
+        {/* Tab switcher */}
+        <div style={{ display: 'flex', gap: 0, marginTop: 4 }}>
+          {(['roster', 'annotations'] as DashboardTab[]).map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              style={{
+                ...trackedCaps(10, activeTab === tab ? CREAM : SAND_400),
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === tab ? `1px solid ${GOLD}` : '1px solid transparent',
+                padding: '8px 20px 8px 0',
+                cursor: 'pointer',
+                marginRight: 16,
+              }}
+            >
+              {tab === 'roster' ? 'Roster' : 'Annotations'}
+            </button>
+          ))}
+        </div>
       </header>
 
+      {/* Annotations tab */}
+      {activeTab === 'annotations' && (
+        <AnnotationEditor />
+      )}
+
       {/* Two-column body */}
+      {activeTab === 'roster' && (
       <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
         {/* Roster */}
         <section className="md:col-span-8">
@@ -411,6 +444,7 @@ export function TeacherDashboard({
           {actionSlot && <div>{actionSlot}</div>}
         </aside>
       </div>
+      )}
     </main>
   )
 }

@@ -634,14 +634,21 @@ a:focus-visible,
 }
 
 /* ── 1b. Reduced-motion override (global) ───────────────────────────
+   C5 — global prefers-reduced-motion reset.
+   Per-component guards are a belt-and-suspenders companion to this
+   blanket reset. Any component that needs animation-aware behaviour
+   (e.g. the waveform scrubber) can override via !important or @layer.
    The existing reduced-motion block in @layer components targets
    specific shell sections. This global rule is the backstop for
    everything not covered there. Matches WCAG SC 2.3.3.           */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

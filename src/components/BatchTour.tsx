@@ -287,7 +287,7 @@ export default function BatchTour({ tour, autoStart = false, labelMode = false }
  </p>
  )}
  {step.hint && (
- <p className="text-[10px]" style={{ color: '#7a7164', fontStyle: 'font-display italic' }}>{step.hint}</p>
+ <p className="text-[10px]" style={{ color: 'var(--color-text-muted)', fontStyle: 'font-display italic' }}>{step.hint}</p>
  )}
  <div className="flex items-center justify-between pt-1">
  <div className="flex items-center gap-1">

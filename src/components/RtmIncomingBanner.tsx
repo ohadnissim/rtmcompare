@@ -240,7 +240,7 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
  <button
  onClick={dismissAll}
  className="text-[9px] px-2 py-0.5 hover:bg-white/[0.06]"
- style={{ color: '#7a7164', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  Clear inbox ({drops.length})
  </button>

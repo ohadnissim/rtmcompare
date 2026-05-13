@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('pick-save-path', suggestedName, filters),
   renderPdf: (html: string, suggestedName: string) =>
     ipcRenderer.invoke('render-pdf', html, suggestedName),
+  // v5.2 B4 — Certificate PDF export. Delegates to the same render-pdf
+  // IPC handler so the user gets a real Save-PDF dialog instead of the
+  // OS print sheet. suggestedName derived from trackTitle by callers.
+  exportCertificate: (html: string, suggestedName?: string) =>
+    ipcRenderer.invoke('render-pdf', html, suggestedName ?? 'RTMcertificate.pdf'),
   cancelAnalysis: () => ipcRenderer.invoke('cancel-analysis'),
   saveFileDialog: (defaultName: string, contents: string, filters: any[]) =>
     ipcRenderer.invoke('save-file-dialog', defaultName, contents, filters),

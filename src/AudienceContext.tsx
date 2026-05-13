@@ -124,7 +124,11 @@ export function setAudienceOverride(audience: Audience | null): void {
  * Opt-out: set `rtm-shell=legacy`, or add the surface name to
  * `rtm-v52-surfaces-off`.
  */
-const SURFACES_ON_BY_DEFAULT = new Set(['cover'])
+const SURFACES_ON_BY_DEFAULT = new Set([
+  'cover',         // editorial first-paint — on since v5.2 launch
+  'gold-budget',   // surgical reskin, low risk — B6 promote
+  'verdict',       // VerdictHero renders cleanly across ok/caution/fail — B6 promote
+])
 
 export function useV52Surface(name: string): boolean {
   if (SSR) return false

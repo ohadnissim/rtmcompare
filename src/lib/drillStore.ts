@@ -1,0 +1,99 @@
+/**
+ * drillStore.ts — localStorage persistence for drill attempts.
+ *
+ * A2: Keyed by drillId × studentId × timestamp. Used by LearnHome to
+ * read live attemptCount / recentScores / cumulativeGrade per card.
+ */
+
+export interface DrillAttempt {
+  id: string
+  drillId: string
+  studentId: string
+  score: number        // 0–100
+  correct: boolean
+  attemptedAt: string  // ISO 8601
+  details?: Record<string, unknown>
+}
+
+const STORE_KEY = 'rtm-drill-attempts'
+const MAX_ENTRIES = 2000
+
+function readStore(): DrillAttempt[] {
+  try {
+    const raw = window.localStorage.getItem(STORE_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as DrillAttempt[]
+  } catch {
+    return []
+  }
+}
+
+function writeStore(entries: DrillAttempt[]): void {
+  try {
+    window.localStorage.setItem(STORE_KEY, JSON.stringify(entries))
+  } catch { /* silently fail */ }
+}
+
+export function recordAttempt(attempt: Omit<DrillAttempt, 'id' | 'attemptedAt'>): DrillAttempt {
+  const full: DrillAttempt = {
+    ...attempt,
+    id: crypto.randomUUID(),
+    attemptedAt: new Date().toISOString(),
+  }
+  const entries = readStore()
+  entries.unshift(full)
+  if (entries.length > MAX_ENTRIES) entries.length = MAX_ENTRIES
+  writeStore(entries)
+  return full
+}
+
+export function getAttemptsForDrill(drillId: string, studentId?: string): DrillAttempt[] {
+  return readStore().filter(a =>
+    a.drillId === drillId && (studentId == null || a.studentId === studentId)
+  )
+}
+
+export function getAllAttempts(studentId?: string): DrillAttempt[] {
+  const all = readStore()
+  return studentId ? all.filter(a => a.studentId === studentId) : all
+}
+
+/**
+ * Compute cumulative letter grade from an array of scores (0–100).
+ * Weighted toward recency: last 5 attempts count double.
+ */
+export function computeGrade(scores: number[]): string {
+  if (scores.length === 0) return '—'
+  const recent = scores.slice(-5)
+  const older = scores.slice(0, -5)
+  const weights = [...older.map(s => s), ...recent.map(s => s * 2)]
+  const avg = weights.reduce((a, b) => a + b, 0) / weights.length
+  if (avg >= 90) return 'A'
+  if (avg >= 80) return 'B'
+  if (avg >= 70) return 'C'
+  if (avg >= 60) return 'D'
+  return 'F'
+}
+
+/**
+ * Summarize drill history for the LearnHome card.
+ */
+export function summarizeDrill(drillId: string, studentId?: string): {
+  attemptCount: number
+  recentScores: number[]
+  cumulativeGrade?: string
+} {
+  const attempts = getAttemptsForDrill(drillId, studentId)
+    .sort((a, b) => new Date(a.attemptedAt).getTime() - new Date(b.attemptedAt).getTime())
+  const scores = attempts.map(a => a.score)
+  const recentScores = scores.slice(-10)
+  return {
+    attemptCount: attempts.length,
+    recentScores,
+    cumulativeGrade: scores.length > 0 ? computeGrade(scores) : undefined,
+  }
+}
+
+export function clearAllAttempts(): void {
+  try { window.localStorage.removeItem(STORE_KEY) } catch { /* noop */ }
+}

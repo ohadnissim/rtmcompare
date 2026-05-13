@@ -134,6 +134,12 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, isDragg
         <div style={trackedCaps(11, SAND_500)}>{emptyLabel}</div>
       )}
 
+      {!name && (
+        <div style={trackedCaps(8, SAND_400)}>
+          WAV · AIFF · MP3 · FLAC · up to 192 kHz
+        </div>
+      )}
+
       {name && metaLine && (
         <div
           style={{
@@ -452,6 +458,27 @@ export function CoverSurface({
               {a}
             </button>
           ))}
+          {/* B5: RESET clears the audience override, falling back to the signal chain
+              (LearnMode role → persona → default). Auto-clears when Learn mode toggles. */}
+          <button
+            type="button"
+            onClick={() => setAudienceOverride(null)}
+            title="Clear audience override — reverts to Learn Mode role or default"
+            style={{
+              color: SAND_400,
+              textTransform: 'uppercase',
+              background: 'transparent',
+              border: 'none',
+              padding: '2px 0',
+              borderBottom: '1px solid transparent',
+              cursor: 'pointer',
+              letterSpacing: '0.16em',
+              fontSize: '9px',
+              opacity: 0.6,
+            }}
+          >
+            ↺ reset
+          </button>
         </div>
       </aside>
     </section>

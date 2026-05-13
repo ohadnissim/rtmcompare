@@ -253,7 +253,7 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
      : {
          borderRadius: '2px',
          backgroundColor: 'rgba(168,161,150,0.10)',
-         color: '#a8a29e',
+         color: 'var(--color-text-secondary)',
          border: '1px solid rgba(168,161,150,0.25)',
        }
  }
@@ -267,7 +267,7 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
 
  {open && (
  <div className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[260px]"
- style={{ borderRadius: '2px', backgroundColor: '#1e1c18', border: '1px solid rgba(168,161,150,0.15)' }}>
+ style={{ borderRadius: '2px', backgroundColor: 'var(--color-bg-panel)', border: '1px solid rgba(168,161,150,0.15)' }}>
  <MenuItem onClick={exportFabFilterFfp} icon="FF" title="FabFilter Pro-Q (.ffp)" hint="Native binary — Pro-Q 3 + Pro-Q 4" />
  <MenuItem onClick={exportFFP} icon="EQ" title="FabFilter Pro-Q text" hint='Paste into Pro-Q "Import as Text"' />
  <MenuItem onClick={exportAbleton} icon="▲" title="Ableton EQ Eight (.adv)" hint="Drop onto EQ Eight in Live 11 / 12" />
@@ -280,7 +280,7 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
 
  {toast && (
  <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 text-xs"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.96)', color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}>
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.96)', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)' }}>
  {toast}
  </div>
  )}
@@ -302,9 +302,9 @@ function MenuItem({ onClick, icon, title, hint, disabled, accent }: {
  disabled={disabled}
  className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 disabled:opacity-40 transition-colors"
  >
- <span className="w-6 flex-shrink-0 text-center text-[11px] font-mono" style={{ color: accent ? '#d0b066' : '#8d867b' }}>{icon}</span>
+ <span className="w-6 flex-shrink-0 text-center text-[11px] font-mono" style={{ color: accent ? 'var(--color-accent)' : 'var(--color-text-muted)' }}>{icon}</span>
  <div className="flex-1 min-w-0">
- <div className="text-[11px]" style={{ color: accent ? '#d0b066' : '#ebe7e0' }}>{title}</div>
+ <div className="text-[11px]" style={{ color: accent ? 'var(--color-accent)' : 'var(--color-text-primary)' }}>{title}</div>
  <div className="text-[9px] text-dark-500 mt-0.5">{hint}</div>
  </div>
  </button>

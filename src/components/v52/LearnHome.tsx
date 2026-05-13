@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { DrillCard, type DrillCardProps } from './DrillCard'
 import { printPracticeReport } from '../../lib/certificate'
+import { summarizeDrill } from '../../lib/drillStore'
+import { DrillRunner } from './drills/DrillRunner'
 
 /**
  * LearnHome — Move 7, the student's home screen for Learn Mode.
@@ -28,52 +30,58 @@ const trackedCaps = (px: number, color: string): React.CSSProperties => ({
   fontWeight: 500,
 })
 
-const SEED_DRILLS: Omit<DrillCardProps, 'onStart'>[] = [
+const SEED_DRILLS_BASE: Array<Omit<DrillCardProps, 'onStart' | 'attemptCount' | 'recentScores' | 'cumulativeGrade'>> = [
   {
     eyebrow: 'EAR TRAINING · LUFS GUESSING',
     title: 'Match the integrated loudness',
     body: 'Listen, guess, then reveal. Build LUFS intuition.',
-    attemptCount: 12,
-    recentScores: [62, 70, 65, 78, 80, 75, 82, 85, 88, 84],
-    cumulativeGrade: 'B',
   },
   {
     eyebrow: 'EAR TRAINING · STEREO IMAGE',
     title: 'Hear the width',
     body: 'Mono · Mid · Side · Stereo — identify the active channel.',
-    attemptCount: 5,
-    recentScores: [50, 55, 60, 65, 70],
-    cumulativeGrade: 'C',
   },
   {
     eyebrow: 'EAR TRAINING · MASKING',
     title: 'Spot the collision',
     body: 'Two tracks fighting at 250 Hz. Which is which?',
-    attemptCount: 0,
   },
   {
     eyebrow: 'MIX CRITIQUE · BALANCE',
     title: 'Find the problem',
     body: 'Real masters. One thing is off. Identify it before the reveal.',
-    attemptCount: 3,
-    recentScores: [70, 75, 82],
-    cumulativeGrade: 'B',
   },
   {
     eyebrow: 'EAR TRAINING · TRUE PEAK',
     title: 'When does it clip?',
     body: 'Hear inter-sample peaks before the meters catch them.',
-    attemptCount: 0,
   },
   {
     eyebrow: 'EAR TRAINING · GENRE LOUDNESS',
     title: 'Genre profile recognition',
     body: 'Pop · Hip-hop · Classical · EDM — match the LUFS-I distribution to its genre.',
-    attemptCount: 8,
-    recentScores: [60, 65, 70, 72, 75, 78, 80, 82],
-    cumulativeGrade: 'B',
   },
 ]
+
+const GRADE_VALUES = ['A', 'B', 'C', 'D', 'F'] as const
+type GradeLetter = typeof GRADE_VALUES[number]
+
+function toGradeLetter(g: string | undefined): GradeLetter | undefined {
+  if (!g) return undefined
+  return (GRADE_VALUES as readonly string[]).includes(g) ? g as GradeLetter : undefined
+}
+
+function buildDrills(studentId?: string): Omit<DrillCardProps, 'onStart'>[] {
+  return SEED_DRILLS_BASE.map(d => {
+    const summary = summarizeDrill(d.eyebrow, studentId)
+    return {
+      ...d,
+      attemptCount: summary.attemptCount,
+      recentScores: summary.recentScores,
+      cumulativeGrade: toGradeLetter(summary.cumulativeGrade),
+    }
+  })
+}
 
 /**
  * Pick a "next" drill: prefer something with zero attempts, otherwise the
@@ -96,9 +104,40 @@ function pickHeroIndex(drills: Omit<DrillCardProps, 'onStart'>[]): number {
 }
 
 export function LearnHome() {
+  const [activeDrill, setActiveDrill] = useState<Omit<DrillCardProps, 'onStart'> | null>(null)
+  const [drillRevision, setDrillRevision] = useState(0)
+
+  const SEED_DRILLS = buildDrills()
   const heroIdx = pickHeroIndex(SEED_DRILLS)
   const hero = SEED_DRILLS[heroIdx]
   const rest = SEED_DRILLS.filter((_, i) => i !== heroIdx)
+
+  // Silence unused warning — drillRevision triggers re-render after attempt
+  void drillRevision
+
+  if (activeDrill) {
+    return (
+      <DrillRunner
+        drillId={activeDrill.eyebrow}
+        title={activeDrill.title}
+        eyebrow={activeDrill.eyebrow}
+        onExit={() => setActiveDrill(null)}
+        onAttemptRecorded={() => setDrillRevision(r => r + 1)}
+      >
+        {() => (
+          <div style={{
+            fontFamily: 'var(--font-display)',
+            fontStyle: 'italic',
+            fontSize: 18,
+            color: 'var(--color-text-secondary)',
+            padding: '32px 0',
+          }}>
+            Drill: <em>{activeDrill.title}</em> — coming in Wave 3
+          </div>
+        )}
+      </DrillRunner>
+    )
+  }
 
   // v5.2 Wave 3 — surface a "Save practice report" affordance when there's
   // a recent attempt. Seed values; real wiring comes when drills actually
@@ -120,9 +159,8 @@ export function LearnHome() {
     })
   }
 
-  const startStub = (title: string) => () => {
-    // eslint-disable-next-line no-console
-    console.log('start drill', title)
+  const startDrill = (drill: Omit<DrillCardProps, 'onStart'>) => () => {
+    setActiveDrill(drill)
   }
 
   return (
@@ -175,7 +213,7 @@ export function LearnHome() {
       {/* Today's drill — hero card */}
       <section style={{ marginBottom: 56 }}>
         <div style={{ ...trackedCaps(10, SAND_400), marginBottom: 14 }}>TODAY'S DRILL</div>
-        <DrillCard {...hero} size="hero" onStart={startStub(hero.title)} />
+        <DrillCard {...hero} size="hero" onStart={startDrill(hero)} />
       </section>
 
       {/* Grid of remaining drills */}
@@ -183,7 +221,7 @@ export function LearnHome() {
         <div style={{ ...trackedCaps(10, SAND_400), marginBottom: 14 }}>ALL DRILLS</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {rest.map(d => (
-            <DrillCard key={d.title} {...d} onStart={startStub(d.title)} />
+            <DrillCard key={d.title} {...d} onStart={startDrill(d)} />
           ))}
         </div>
       </section>

@@ -248,8 +248,8 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  <div key={i} className="flex items-center gap-3">
  <span className="text-[11px] text-dark-400 w-20">{td.region}</span>
  <span className="text-[10px] text-dark-500 w-16">{td.freq_range}</span>
- <div className="flex-1 h-2.5 relative" style={{ backgroundColor: '#1a1918' }}>
- <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ backgroundColor: '#3a3835' }} />
+ <div className="flex-1 h-2.5 relative" style={{ backgroundColor: 'var(--color-bg-app)' }}>
+ <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ backgroundColor: 'var(--color-border-subtle, rgba(168,161,150,0.15))' }} />
  <div className="absolute top-0 bottom-0 rounded-sm" style={{
  left: td.direction === 'above' ? '50%' : `${50 + (td.diff_db / 10) * 50}%`,
  width: `${Math.min(50, Math.abs(td.diff_db / 10) * 50)}%`,
@@ -1195,7 +1195,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  {bestPlugin && (
    <span
      className="text-[10px] font-display italic"
-     style={{ color: '#a89572', marginLeft: 4 }}
+     style={{ color: 'var(--color-accent-muted, var(--color-accent))', marginLeft: 4 }}
      title={bestPlugin.reasoning}
    >
      Best for this move: {bestPlugin.name}
@@ -1514,7 +1514,7 @@ function WaveformLoopPicker({ envelope, duration, loopStart, loopEnd, onChange }
  if (!envelope || !duration) {
  return (
  <div className="h-20 flex items-center justify-center text-[11px]"
- style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)', color: '#a8a29e', borderRadius: '2px' }}>
+ style={{ backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)', color: 'var(--color-text-secondary)', borderRadius: '2px' }}>
  Press Play to analyse the file — waveform will appear here.
  </div>
  )
