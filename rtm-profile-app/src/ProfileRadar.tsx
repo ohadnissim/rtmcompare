@@ -75,8 +75,11 @@ export default function ProfileRadar({
     const cy = height / 2
     const maxR = Math.min(cx, cy) * 0.78
 
-    // Background
-    ctx.fillStyle = '#0D0D0F'
+    // Background — LOW-13: resolve --ink CSS token instead of hardcoding hex
+    const inkColor = (typeof document !== 'undefined'
+      ? getComputedStyle(document.documentElement).getPropertyValue('--ink').trim()
+      : '') || '#0D0D0F'
+    ctx.fillStyle = inkColor
     ctx.fillRect(0, 0, width, height)
 
     const n = curve.length  // 31

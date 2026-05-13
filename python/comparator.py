@@ -214,10 +214,14 @@ def compute_stereo_width_per_band(left: np.ndarray, right: np.ndarray, sr: int) 
     return widths
 
 
-def detect_polarity_inversion(a_mono: np.ndarray, b_mono: np.ndarray) -> bool:
+def detect_polarity_inversion(a_mono: np.ndarray, b_mono: np.ndarray,
+                              sr: int = 44100) -> bool:
     """Return True if B appears to be polarity-inverted relative to A.
-    Uses Pearson correlation on a 10-second trim to avoid long-file cost."""
-    n = min(len(a_mono), len(b_mono), 441000)  # 10 s at 44.1 kHz
+    Uses Pearson correlation on a 10-second trim to avoid long-file cost.
+    LOW-10: trim length is now sr-aware (10 s × actual sr) instead of
+    a hardcoded 441000-sample constant that was wrong for 48 kHz files."""
+    max_samples = 10 * sr  # 10 seconds at the actual sample rate
+    n = min(len(a_mono), len(b_mono), max_samples)
     if n < 1000:
         return False
     r = float(np.corrcoef(a_mono[:n], b_mono[:n])[0, 1])
@@ -953,7 +957,7 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
         if y_a is not None and y_b is not None:
             mono_a_pol = librosa.to_mono(y_a) if y_a.ndim > 1 else y_a
             mono_b_pol = librosa.to_mono(y_b) if y_b.ndim > 1 else y_b
-            delta["polarity_inverted"] = detect_polarity_inversion(mono_a_pol, mono_b_pol)
+            delta["polarity_inverted"] = detect_polarity_inversion(mono_a_pol, mono_b_pol, sr)
     except Exception:
         pass
 

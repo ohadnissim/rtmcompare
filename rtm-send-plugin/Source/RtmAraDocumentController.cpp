@@ -10,6 +10,14 @@ namespace
     // lifetime is bounded by the willDestroy/didAdd callbacks we
     // listen to; if a region vanishes between snapshot and send the
     // id won't match in the rebuilt model - handled downstream.
+    //
+    // LOW-6 risk: if a region is destroyed and a new region is
+    // immediately allocated, the allocator MAY return the same address,
+    // giving the new region the same id as the old one. Consequence:
+    // findRegion() would find the NEW region when the stored id pointed
+    // at the OLD one. This is a benign mis-read (wrong region content is
+    // sent) rather than a crash. A robust fix would be a monotonic serial
+    // ID stamped at ARA_REGION_DID_ADD time; deferred to a future sprint.
     juce::String idForRegion(const juce::ARAPlaybackRegion* r)
     {
         return juce::String::toHexString(reinterpret_cast<juce::pointer_sized_int>(r));

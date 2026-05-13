@@ -13,6 +13,14 @@ name: Build RTM Send (Windows)
 #   WIN_PFX_PASSWORD  password protecting the .pfx
 # Without them the build still produces a working unsigned installer;
 # Windows SmartScreen will warn users on first run.
+#
+# LOW-16: AAX build target is NOT included here because:
+#   1. The Avid AAX SDK is proprietary and cannot be stored in a public repo.
+#   2. Windows AAX builds additionally require a machine-specific Pace iLok
+#      wraptool to sign the plugin.
+# To add an AAX CI job: store the AAX SDK as a GitHub secret (ZIP, base64)
+# and set AAX_SDK_PATH pointing to the extracted directory, then add the
+# JUCE_AAX_SDK_PATH CMake variable to the cmake configure step.
 
 on:
   push:

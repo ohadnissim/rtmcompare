@@ -55,22 +55,50 @@ public:
     }
 
     // Audio thread. channelPtrs[c] == AudioBuffer::getReadPointer(c).
+    // LOW-2: per-block memcpy instead of per-sample loop. Split each channel
+    // write into 1–2 contiguous chunks (same wrap logic as readLastFrames).
     void writeBlock(const float* const* channelPtrs, int numChannels, int numFrames)
     {
-        if (cap_ == 0 || numCh == 0) return;
-        const int ch = std::min(numChannels, numCh);
-        int w = writeIndex_.load(std::memory_order_relaxed);
-        for (int i = 0; i < numFrames; ++i)
+        if (cap_ == 0 || numCh == 0 || numFrames <= 0) return;
+        const int ch   = std::min(numChannels, numCh);
+        const int n    = std::min(numFrames, cap_);  // clamp to ring capacity
+        const int w    = writeIndex_.load(std::memory_order_relaxed);
+        const int end  = (w + n - 1) & mask_;       // last written slot
+        const int slot = w & mask_;
+        const int contiguous = cap_ - slot;          // samples before wrap
+
+        for (int c = 0; c < ch; ++c)
         {
-            const int slot = w & mask_;
-            for (int c = 0; c < ch; ++c)
-                planes[static_cast<size_t>(c)][static_cast<size_t>(slot)] = channelPtrs[c][i];
-            // Zero-fill when the buffer has more channels than the input.
-            for (int c = ch; c < numCh; ++c)
-                planes[static_cast<size_t>(c)][static_cast<size_t>(slot)] = 0.0f;
-            w = (w + 1) & mask_;
+            auto* dst = planes[static_cast<size_t>(c)].data();
+            const float* src = channelPtrs[c];
+            if (n <= contiguous)
+            {
+                std::memcpy(dst + slot, src, static_cast<size_t>(n) * sizeof(float));
+            }
+            else
+            {
+                std::memcpy(dst + slot, src,
+                            static_cast<size_t>(contiguous) * sizeof(float));
+                std::memcpy(dst, src + contiguous,
+                            static_cast<size_t>(n - contiguous) * sizeof(float));
+            }
         }
-        writeIndex_.store(w, std::memory_order_release);
+        // Zero-fill extra channels not present in the input.
+        for (int c = ch; c < numCh; ++c)
+        {
+            auto* dst = planes[static_cast<size_t>(c)].data();
+            if (n <= contiguous)
+            {
+                std::memset(dst + slot, 0, static_cast<size_t>(n) * sizeof(float));
+            }
+            else
+            {
+                std::memset(dst + slot, 0, static_cast<size_t>(contiguous) * sizeof(float));
+                std::memset(dst, 0, static_cast<size_t>(n - contiguous) * sizeof(float));
+            }
+        }
+        const int newW = (end + 1) & mask_;
+        writeIndex_.store(newW, std::memory_order_release);
     }
 
     // UI thread. Snapshots the last wantFrames into outByChannel (planar,
@@ -82,11 +110,20 @@ public:
         const int w = writeIndex_.load(std::memory_order_acquire);
         const int n = std::min(wantFrames, cap_);
 
-        outByChannel.assign(static_cast<size_t>(numCh), {});
-        for (auto& ch : outByChannel) ch.resize(static_cast<size_t>(n), 0.0f);
+        // LOW-3: only reallocate when the vector shape doesn't match to avoid
+        // heap churn on every snapshot call (snapshot path runs on the UI thread
+        // at most a few times per second, but still: no point allocating).
+        if (static_cast<int>(outByChannel.size()) != numCh)
+            outByChannel.assign(static_cast<size_t>(numCh), {});
+        for (auto& ch : outByChannel)
+            if (static_cast<int>(ch.size()) != n)
+                ch.assign(static_cast<size_t>(n), 0.0f);
 
-        // Start index: n frames before the write head (wrapping).
-        const int start = (w - n) & mask_;
+        // LOW-1: cast to unsigned before subtracting to avoid signed-integer
+        // underflow UB (C++17 §6.9.1 p4). Unsigned wrap is well-defined.
+        const int start = static_cast<int>(
+            (static_cast<unsigned>(w) - static_cast<unsigned>(n)) &
+            static_cast<unsigned>(mask_));
 
         for (int c = 0; c < numCh; ++c)
         {

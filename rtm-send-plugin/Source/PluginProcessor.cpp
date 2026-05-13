@@ -861,7 +861,8 @@ juce::String RtmSendAudioProcessor::finishSendFromSamples(
     const auto now   = juce::Time::getCurrentTime();
     const auto stamp = now.formatted("%Y%m%d-%H%M%S")
                      + juce::String::formatted("-%03d", now.getMilliseconds());
-    static std::atomic<int> sendCounter { 0 };
+    // LOW-5: use the class member (not a function-local static) so each
+    // plugin instance has its own counter.
     const int serial = sendCounter.fetch_add(1, std::memory_order_relaxed);
     juce::String safeSession;
     {

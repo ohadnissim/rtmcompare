@@ -17,6 +17,12 @@ import numpy as np
 import librosa
 from scipy.signal import butter, sosfilt
 
+# LOW-9: "both loud" threshold — the minimum mix-normalised band energy (dBFS)
+# for a stem to count as "loud" in the masking check. Exposed as a module
+# constant so genre-specific callers can override (e.g. EDM tracks are louder
+# and may need -12 dB; orchestral stems may need -24 dB).
+MASKING_BOTH_LOUD_THRESHOLD_DB: float = -18.0
+
 
 BANDS = [
     {"name": "Sub / Kick body",     "low": 40,    "high": 80},
@@ -137,7 +143,7 @@ def analyze_masking(stems_dir: str = None, file_path: str = None, sr: int = 4410
                     # they are in dB, the more they fight (can't duck each
                     # other). With the new normalisation, "loud" now means
                     # "loud in the mix," not "loud after per-stem normalise."
-                    both_loud = min(db_a, db_b) > -18
+                    both_loud = min(db_a, db_b) > MASKING_BOTH_LOUD_THRESHOLD_DB
                     closeness = 6 - abs(db_a - db_b)  # 6 dB diff → 0 masking
                     severity_score = max(0.0, closeness) * (1 if both_loud else 0.3)
 

@@ -326,6 +326,11 @@ private:
     // ordering required beyond the atomic itself.
     std::atomic<double> lastBpm { 0.0 };
 
+    // LOW-5: per-instance send counter (was function-local static, which
+    // meant all plugin instances shared one counter and the serial number
+    // mixed sends from different windows/instances).
+    std::atomic<int> sendCounter { 0 };
+
     // Plugin's floating editor window. May be null when no plugin is
     // loaded or when the user explicitly closed the window.
     std::unique_ptr<HostedPluginWindow> hostedPluginWindow;

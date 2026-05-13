@@ -171,3 +171,32 @@ input::placeholder, textarea::placeholder {
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* ── LOW-12: audio-bars loading animation ─────────────────────────── */
+/* Used by App.tsx during profile build to show activity feedback.     */
+@keyframes audio-bar-bounce {
+  0%, 100% { transform: scaleY(0.3); }
+  50%       { transform: scaleY(1.0); }
+}
+
+.audio-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 20px;
+}
+
+.audio-bars .bar {
+  width: 3px;
+  height: 100%;
+  background: var(--gold);
+  border-radius: 2px;
+  animation: audio-bar-bounce 0.8s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+.audio-bars .bar:nth-child(1) { animation-delay: 0s;    }
+.audio-bars .bar:nth-child(2) { animation-delay: 0.12s; }
+.audio-bars .bar:nth-child(3) { animation-delay: 0.24s; }
+.audio-bars .bar:nth-child(4) { animation-delay: 0.36s; }
+.audio-bars .bar:nth-child(5) { animation-delay: 0.48s; }

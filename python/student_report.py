@@ -43,7 +43,12 @@ def get_actual(metric, result):
     """
     overall = result.get('overall', {}) if result else {}
     if metric == 'lufs_i':
-        return overall.get('lufs_b') or overall.get('lufs_a')
+        # LOW-11: use explicit None-check so 0.0 (valid LUFS) is not treated as
+        # missing by Python's falsy `or` evaluation.
+        v = overall.get('lufs_b')
+        if v is not None:
+            return v
+        return overall.get('lufs_a')
     if metric == 'lra':
         # BUG-17 fix: analysis result stores lra_b at top-level, not in overall sub-object
         return (result.get('lra_b') or result.get('lra_a') or
