@@ -10,7 +10,8 @@ import os
 import json
 import numpy as np
 import librosa
-from scipy.signal import butter, sosfilt
+import math
+from scipy.signal import butter, sosfilt, welch
 from comparator import compute_lufs, compute_stereo_width, compute_dynamic_range, compute_short_term_max, bandpass
 
 
@@ -114,59 +115,61 @@ def compute_spectrum(y, sr):
 
     5.2.1 fix (Austin Seltzer beta-tester report): the previous "normalize
     to 1 kHz band" anchor produced phantom 3–6 dB diffs vs RTMprofile-built
-    target curves, because RTMprofile mean-centres each per-track curve
-    (`rtm-profile-app/python/build_profile.py:165`). Using two different
-    anchor points made the entire candidate spectrum read several dB
-    hotter (or colder) than the target — the K-pop "smile curve" sits
-    well below the broadband mean at 1 kHz, so 1 kHz-anchoring of a
-    finished pro mix vs a mean-centred profile generated +14 dB low-end
-    "boost" recommendations even when the candidate's tonal shape was
-    already a perfect cohort match. Switching the candidate to mean-
-    centring brings both axes onto the same reference and the diff
-    becomes a true tonal-shape delta.
+    target curves. Switching to mean-centring brings both axes onto the same
+    reference so the diff becomes a true tonal-shape delta.
+
+    7.6.1 fix: replaced Butterworth IIR + RMS with Welch PSD + power
+    integration to match RTMprofile's _third_octave_curve() exactly.
+    The IIR approach produced systematically different spectral shapes vs
+    the Welch-computed profile target curves — especially in sub-bass where
+    IIR filters have poor numeric stability at normalised frequencies near
+    0 Hz. Using the same computation method on both axes eliminates phantom
+    EQ diffs. Also switched from np.mean → np.nanmean for the centring so
+    out-of-Nyquist bands (NaN floors at high sample rates) don't bias the
+    centre of mass downward, matching build_profile.py:248.
     """
-    # 5.3.1 hardening: guard against silent/NaN/all-DC inputs. Pre-5.3
-    # a digital-silence file produced 31 × -90 dB → mean-centred to 31
-    # zeros → match score read 50/100 tonal, falsely perfect. Now we
-    # detect "no usable signal" up front and return None so callers
-    # can short-circuit the match score and the EQ proposer.
+    # Guard against silent/NaN/all-DC inputs.
     if not isinstance(y, np.ndarray) or y.size == 0:
         return None
     if not np.all(np.isfinite(y)):
-        # Replace any NaN/Inf with zero so the per-band filter doesn't
-        # propagate garbage. Useful for edge-case loaders.
         y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
     overall_rms = float(np.sqrt(np.mean(y * y)))
-    # 5.7.x audit fix: was 1e-5 (-100 dBFS) — too aggressive. Real
-    # quiet content (a fade-out tail, an ambient/film stem, a -70 LUFS
-    # broadcast bed) reads above -100 dBFS but well below this floor
-    # and silently dropped to None, killing the tonal score. BS.1770
-    # uses -70 LUFS as its absolute gate; 1e-7 (~ -140 dBFS) is the
-    # numeric-stability floor. Anything between those gets analysed.
     if overall_rms < 1e-7:
         return None
+
+    # Welch PSD — same parameters as build_profile._third_octave_curve.
+    n_fft = min(8192, len(y))
+    if n_fft < 64:
+        return None
+    f, psd = welch(y, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, average="median")
+    psd = np.maximum(psd, 1e-20)
 
     nyq = sr / 2
     levels = []
     for freq in FREQS:
         low = freq / (2 ** (1/6))
         high = freq * (2 ** (1/6))
-        low_n = max(low / nyq, 0.001)
-        high_n = min(high / nyq, 0.999)
-        if low_n >= high_n:
-            levels.append(-90.0)  # match build_profile.py floor
+        if high > nyq:
+            # Out-of-Nyquist: NaN so nanmean centering ignores this band
+            # (matches build_profile._third_octave_curve behaviour).
+            levels.append(float('nan'))
             continue
-        sos = butter(4, [low_n, high_n], btype='band', output='sos')
-        filtered = sosfilt(sos, y)
-        rms = float(np.sqrt(np.mean(filtered ** 2)))
-        if not np.isfinite(rms) or rms <= 0:
-            levels.append(-90.0)
+        mask = (f >= low) & (f <= high)
+        if not np.any(mask):
+            levels.append(float('nan'))
             continue
-        levels.append(float(20 * np.log10(max(rms, 1e-10))))
-    arr = np.asarray(levels, dtype=np.float64)
-    arr = np.nan_to_num(arr, nan=-90.0, posinf=0.0, neginf=-90.0)
-    centred = arr - float(np.mean(arr))
-    return list(centred)
+        band_power = float(np.mean(psd[mask]))
+        levels.append(10.0 * math.log10(max(band_power, 1e-20)))
+
+    arr = np.array(levels, dtype=np.float64)
+    # Centring: exclude out-of-Nyquist NaN bands (same as build_profile).
+    finite_mean = float(np.nanmean(arr)) if np.any(np.isfinite(arr)) else 0.0
+    centred = arr - finite_mean
+    # Replace NaN with -90.0 floor for downstream compatibility
+    # (_compute_eq_filters, _smooth_log_spectrum, match score all expect
+    # a concrete float, not NaN, for out-of-range bands).
+    centred = np.where(np.isfinite(centred), centred, -90.0)
+    return [round(float(v), 1) for v in centred]
 
 
 def _smooth_log_spectrum(spec, *, kernel_bands: int = 3):

@@ -307,9 +307,25 @@ def compute_spectrum_data(y_a: np.ndarray, y_b: np.ndarray, sr: int) -> dict:
 
 
 def band_spectrum(y: np.ndarray, sr: int, center_freqs: list) -> list:
-    """Compute RMS level in dB for each frequency band."""
+    """Compute RMS level in dB for each frequency band, mean-centred.
+
+    7.6.1 fix: previously returned raw dBFS values. The JS deriveMatchBands()
+    function (Reference / Library / Hybrid EQ mode) computes per-region diffs
+    of spectrum_a vs spectrum_b. When A and B differ in overall loudness —
+    even slightly, because the RMS-normalisation in generate_all_viz_data uses
+    whole-file energy — a constant loudness offset appears as an EQ difference
+    across ALL bands, producing phantom bass-boost / treble-cut suggestions.
+
+    Mean-centring converts each spectrum from "absolute dBFS" to "tonal shape
+    relative to the file's own spectral centre of mass", which is exactly the
+    same reference frame that RTMprofile-built target curves use. Now the diff
+    is a pure tonal-shape delta, not a loudness + shape conflation.
+
+    Floor bands (-60 dB, typically out-of-Nyquist) are excluded from the mean
+    so they don't pull the centring point down.
+    """
     nyq = sr / 2
-    result = []
+    raw = []
 
     for i, freq in enumerate(center_freqs):
         # Band edges (1/3 octave)
@@ -322,7 +338,7 @@ def band_spectrum(y: np.ndarray, sr: int, center_freqs: list) -> list:
         high_n = high / nyq
 
         if low_n >= high_n or high_n >= 1.0:
-            result.append(-60.0)
+            raw.append(None)  # out-of-Nyquist / degenerate band
             continue
 
         try:
@@ -330,11 +346,14 @@ def band_spectrum(y: np.ndarray, sr: int, center_freqs: list) -> list:
             filtered = sosfilt(sos, y)
             rms = np.sqrt(np.mean(filtered ** 2))
             db = 20 * np.log10(max(rms, 1e-10))
-            result.append(round(float(db), 1))
+            raw.append(round(float(db), 1))
         except Exception:
-            result.append(-60.0)
+            raw.append(None)
 
-    return result
+    # Mean-centre over valid bands only.
+    valid = [v for v in raw if v is not None]
+    mean_db = float(np.mean(valid)) if valid else 0.0
+    return [round((v - mean_db), 1) if v is not None else -60.0 for v in raw]
 
 
 # Bands ordered by perceptual impact when mono-collapsed.

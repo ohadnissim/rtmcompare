@@ -320,8 +320,14 @@ function RadarChart({ tips }: { tips: EngineerTips }) {
  // available, matching the Tonal Curve chart + tonal_diff bars. Pre-fix
  // the radar would show "Low End is huge!" because of a single tuned
  // bass note while the recommender (correctly) ignored it.
- { label: 'Low End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 3, 6), -5, 15) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 3, 6), -5, 15) : 0.5 },
- { label: 'High End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 23, 28), -15, 0) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 23, 28), -15, 0) : 0.5 },
+ // 7.6.1 fix: symmetric ±10 dB range for both spectral axes. The old
+ // ranges [-5,15] / [-15,0] assumed a warm/bass-forward master signature
+ // and caused file vs target to plot at different absolute positions even
+ // when they tonally matched. With mean-centred spectra, 0 dB = flat
+ // relative to the mix mean, so a symmetric range centres both axes at
+ // 0.5 (radar midpoint) for a flat/average spectrum regardless of style.
+ { label: 'Low End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 3, 6), -10, 10) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 3, 6), -10, 10) : 0.5 },
+ { label: 'High End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 23, 28), -10, 10) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 23, 28), -10, 10) : 0.5 },
  ]
 
  const n = axes.length
