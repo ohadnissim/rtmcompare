@@ -74,11 +74,13 @@ jobs:
         run: git clone --depth 1 https://github.com/Celemony/ARA_SDK.git "${{ runner.temp }}/ARA_SDK"
 
       # ── RTMsend universal build (VST3 + AU) ────────────────────────
-      # We build universal (arm64+x86_64) on both runners. The plugin is
-      # ~57MB universal and shipped identically in both DMGs.
+      # We build universal (arm64+x86_64) on both runners. Force Ninja
+      # (single-config) so artefacts land in build/RtmSend_artefacts/
+      # without a Release/ subdir — matches Windows + local-dev layout.
       - name: Configure RTMsend
         run: |
           cmake -S rtm-send-plugin -B rtm-send-plugin/build \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DJUCE_DIR="${{ runner.temp }}/JUCE" \
             -DARA_SDK_PATH="${{ runner.temp }}/ARA_SDK" \
@@ -87,8 +89,21 @@ jobs:
 
       - name: Build RTMsend VST3 + AU
         run: |
-          cmake --build rtm-send-plugin/build --config Release --target RtmSend_VST3 --parallel
-          cmake --build rtm-send-plugin/build --config Release --target RtmSend_AU --parallel
+          cmake --build rtm-send-plugin/build --target RtmSend_VST3 --parallel
+          cmake --build rtm-send-plugin/build --target RtmSend_AU --parallel
+
+      # Resolve actual artefact paths — robust to CMake generator layout.
+      - name: Resolve RTMsend artefact paths
+        id: plugin-paths
+        run: |
+          VST3=$(find rtm-send-plugin/build -name 'RTM Send.vst3' -type d | head -1)
+          AU=$(find rtm-send-plugin/build -name 'RTM Send.component' -type d | head -1)
+          [ -d "$VST3" ] || { echo "::error::VST3 bundle not found"; find rtm-send-plugin/build -maxdepth 5 -type d; exit 1; }
+          [ -d "$AU" ]   || { echo "::error::AU bundle not found";   find rtm-send-plugin/build -maxdepth 5 -type d; exit 1; }
+          echo "vst3=$VST3" >> "$GITHUB_OUTPUT"
+          echo "au=$AU"     >> "$GITHUB_OUTPUT"
+          echo "VST3: $VST3"
+          echo "AU:   $AU"
 
       # ── Apple Developer ID cert into temp keychain ─────────────────
       - name: Check signing secrets
@@ -131,12 +146,13 @@ jobs:
 
       - name: Sign RTMsend (VST3 + AU)
         if: steps.signing.outputs.identity != ''
+        env:
+          VST3: ${{ steps.plugin-paths.outputs.vst3 }}
+          AU:   ${{ steps.plugin-paths.outputs.au }}
         run: |
           IDENT="${{ steps.signing.outputs.identity }}"
-          codesign --force --deep --sign "$IDENT" --timestamp --options runtime \
-            "rtm-send-plugin/build/RtmSend_artefacts/VST3/RTM Send.vst3"
-          codesign --force --deep --sign "$IDENT" --timestamp --options runtime \
-            "rtm-send-plugin/build/RtmSend_artefacts/AU/RTM Send.component"
+          codesign --force --deep --sign "$IDENT" --timestamp --options runtime "$VST3"
+          codesign --force --deep --sign "$IDENT" --timestamp --options runtime "$AU"
 
       # ── Python bundle (native to runner arch) ──────────────────────
       # Pin Python 3.11 — onnxruntime==1.19.2 has no wheels for 3.13 (which
@@ -280,8 +296,8 @@ jobs:
 
           cp -R "$RTM_APP"  "$STAGE/"
           cp -R "$PROF_APP" "$STAGE/"
-          cp -R "rtm-send-plugin/build/RtmSend_artefacts/VST3/RTM Send.vst3"     "$STAGE/"
-          cp -R "rtm-send-plugin/build/RtmSend_artefacts/AU/RTM Send.component"  "$STAGE/"
+          cp -R "${{ steps.plugin-paths.outputs.vst3 }}" "$STAGE/"
+          cp -R "${{ steps.plugin-paths.outputs.au }}"   "$STAGE/"
 
           ln -s /Applications                            "$STAGE/Applications"
           ln -s "/Library/Audio/Plug-Ins/VST3"           "$STAGE/VST3 Plugins"
