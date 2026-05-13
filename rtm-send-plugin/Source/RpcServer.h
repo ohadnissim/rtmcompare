@@ -117,5 +117,13 @@ private:
     // path is the single shared file all instances overwrite.
     juce::String instanceUuid8;
 
+    // Active per-connection sockets. Each is added before the connection
+    // thread launches and removed when the thread exits. stop() closes
+    // every socket so all connection threads unblock from readLine and
+    // exit cleanly before we return — prevents UAF when the RpcServer
+    // is destroyed while a connection is still open.
+    juce::CriticalSection activeConnsMutex;
+    std::vector<juce::StreamingSocket*> activeConns;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RpcServer)
 };

@@ -40,6 +40,15 @@ RtmSendAudioProcessor::RtmSendAudioProcessor()
 
 RtmSendAudioProcessor::~RtmSendAudioProcessor()
 {
+    // Stop the scan thread FIRST — it holds a raw `this` pointer. Any
+    // other member it accesses (pluginFormatManager, knownPluginList,
+    // hostingEnabled) must still be alive when we call stopThread, so
+    // this must happen before any other teardown. threadShouldExit()
+    // causes the scan loop to break after the current scanNextFile call
+    // (≤ a few seconds). The 5 s timeout is generous on purpose.
+    if (pluginScanThread && pluginScanThread->isThreadRunning())
+        pluginScanThread->stopThread (5000);
+
     // 5.7.x audit fix: explicit teardown order. Stop the RPC server
     // first so no incoming call can land on a half-destructed
     // processor. Then close any hosted-plugin window before the
@@ -303,6 +312,10 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
 
                 for (int c = 0; c < std::min(numInput, numChannels); ++c)
                 {
+                    // Guard against processBlock firing before prepareToPlay
+                    // has allocated the channel vectors (can happen in some
+                    // hosts including Ableton on project load).
+                    if (static_cast<size_t>(c) >= loopCapture.samples.size()) continue;
                     auto& dest = loopCapture.samples[static_cast<size_t>(c)];
                     const size_t headroom = dest.capacity() - dest.size();
                     const size_t toCopy = std::min<size_t>(static_cast<size_t>(copyLen), headroom);
@@ -330,6 +343,7 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     {
         for (int c = 0; c < std::min(numInput, numChannels); ++c)
         {
+            if (static_cast<size_t>(c) >= triggered.samples.size()) continue;
             auto& dest = triggered.samples[static_cast<size_t>(c)];
             // Same headroom discipline as the loop path - never
             // reallocate on the audio thread.
@@ -972,10 +986,25 @@ void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone)
     // keeps flowing; the hosted plugin just doesn't process anything
     // for the ~10–60 s scan window. Plus a try/catch around each
     // scanNextFile so a single bad plugin can't bring the rest down.
-    juce::Thread::launch([this, onDone = std::move(onDone)]()
-    {
-        const bool hostingWasEnabled = hostingEnabled.exchange(false, std::memory_order_acq_rel);
+    //
+    // Ableton UAF fix: use a proper JUCE Thread (pluginScanThread) that
+    // the destructor can stop cleanly. juce::Thread::launch created a
+    // fully detached std::thread that captured `this` raw — removing
+    // the plugin from the chain while the scan ran caused a use-after-
+    // free crash. The PluginScanThread's threadShouldExit() is checked
+    // between each scanNextFile call; stopThread(5000) in the dtor
+    // gives the scan at most 5 s to reach a check point before giving up.
 
+    // Stop any previous scan before starting a new one.
+    if (pluginScanThread && pluginScanThread->isThreadRunning())
+        pluginScanThread->stopThread (5000);
+
+    pluginScanThread = std::make_unique<PluginScanThread>();
+    const bool hostingWasEnabled = hostingEnabled.exchange(false, std::memory_order_acq_rel);
+    juce::Thread* scanThread = pluginScanThread.get();
+
+    pluginScanThread->work = [this, hostingWasEnabled, scanThread, onDone = std::move(onDone)]() mutable
+    {
         auto logFile = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
                            .getChildFile (".rtm").getChildFile ("rtmsend.log");
         auto log = [&] (const juce::String& msg) {
@@ -987,6 +1016,8 @@ void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone)
 
         for (auto* fmt : pluginFormatManager.getFormats())
         {
+            if (scanThread->threadShouldExit()) break;
+
             // 5.7.x: skip Audio Unit format on macOS. JUCE's AU scanner
             // forces plugin instantiation onto the main thread (CoreAudio
             // requirement), which means a crashing AU constructor takes
@@ -1022,6 +1053,7 @@ void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone)
             juce::String pluginBeingScanned;
             for (;;)
             {
+                if (scanThread->threadShouldExit()) break;
                 bool more = false;
                 try
                 {
@@ -1041,15 +1073,25 @@ void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone)
             }
         }
 
-        saveKnownPluginListCache();
-        log ("complete");
+        if (! scanThread->threadShouldExit())
+        {
+            saveKnownPluginListCache();
+            log ("complete");
+        }
+        else
+        {
+            log ("aborted (plugin removed from chain mid-scan)");
+        }
 
         // Restore the prior hosting state. Audio thread sees the
         // store after release, picks up where it left off.
         hostingEnabled.store(hostingWasEnabled, std::memory_order_release);
 
-        if (onDone) juce::MessageManager::callAsync(std::move(onDone));
-    });
+        if (! scanThread->threadShouldExit())
+            if (onDone) juce::MessageManager::callAsync(std::move(onDone));
+    };
+
+    pluginScanThread->startThread (juce::Thread::Priority::background);
 }
 
 juce::String RtmSendAudioProcessor::loadHostedPlugin(const juce::PluginDescription& desc)

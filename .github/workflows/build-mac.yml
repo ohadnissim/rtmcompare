@@ -1,0 +1,361 @@
+name: Build macOS bundle
+
+# Mirrors build-windows.yml. Produces RTMcompare-bundle-<version>-{arm64,intel}.dmg
+# containing RTMcompare.app + RTMprofile.app + RTM Send.vst3 + RTM Send.component.
+#
+# Signing + notarization happen only if the four MAC_* secrets are configured:
+#   MAC_DEVELOPER_ID_P12        — base64-encoded "Developer ID Application" .p12
+#   MAC_DEVELOPER_ID_P12_PASS   — password used when exporting the .p12
+#   MAC_APPLE_ID                — Apple ID (the same one used for notarytool)
+#   MAC_NOTARY_APP_PASSWORD     — Apple ID app-specific password
+# Without them the workflow still builds + uploads unsigned DMGs.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-14
+            electron_arch: arm64
+            python_bundle_dir: python-bundle
+          - arch: intel
+            runner: macos-13
+            electron_arch: x64
+            python_bundle_dir: python-bundle-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read versions
+        id: versions
+        shell: bash
+        run: |
+          RTM=$(node -p "require('./package.json').version")
+          PROF=$(node -p "require('./rtm-profile-app/package.json').version")
+          echo "rtm=$RTM"     >> "$GITHUB_OUTPUT"
+          echo "profile=$PROF" >> "$GITHUB_OUTPUT"
+          echo "RTMcompare $RTM  /  RTMprofile $PROF"
+
+      # ── JUCE ───────────────────────────────────────────────────────
+      - name: Cache JUCE
+        id: cache-juce
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/JUCE
+          key: juce-8.0.12-${{ matrix.arch }}
+
+      - name: Clone JUCE 8.0.12
+        if: steps.cache-juce.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git "${{ runner.temp }}/JUCE"
+
+      # ── ARA SDK (optional — plugin builds without it too) ──────────
+      - name: Cache ARA SDK
+        id: cache-ara
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ARA_SDK
+          key: ara-sdk-main-2024-${{ matrix.arch }}
+
+      - name: Clone ARA SDK
+        if: steps.cache-ara.outputs.cache-hit != 'true'
+        run: git clone --depth 1 https://github.com/Celemony/ARA_SDK.git "${{ runner.temp }}/ARA_SDK"
+
+      # ── RTMsend universal build (VST3 + AU) ────────────────────────
+      # We build universal (arm64+x86_64) on both runners. The plugin is
+      # ~57MB universal and shipped identically in both DMGs.
+      - name: Configure RTMsend
+        run: |
+          cmake -S rtm-send-plugin -B rtm-send-plugin/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DJUCE_DIR="${{ runner.temp }}/JUCE" \
+            -DARA_SDK_PATH="${{ runner.temp }}/ARA_SDK" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DJUCE_COPY_PLUGIN_AFTER_BUILD=OFF
+
+      - name: Build RTMsend VST3 + AU
+        run: |
+          cmake --build rtm-send-plugin/build --config Release --target RtmSend_VST3 --parallel
+          cmake --build rtm-send-plugin/build --config Release --target RtmSend_AU --parallel
+
+      # ── Apple Developer ID cert into temp keychain ─────────────────
+      - name: Check signing secrets
+        id: check-signing
+        env:
+          P12: ${{ secrets.MAC_DEVELOPER_ID_P12 }}
+        run: |
+          if [ -n "$P12" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::MAC_DEVELOPER_ID_P12 not configured — DMG will be unsigned"
+          fi
+
+      - name: Set up signing keychain
+        id: signing
+        if: steps.check-signing.outputs.has_secrets == 'true'
+        env:
+          MAC_DEVELOPER_ID_P12:      ${{ secrets.MAC_DEVELOPER_ID_P12 }}
+          MAC_DEVELOPER_ID_P12_PASS: ${{ secrets.MAC_DEVELOPER_ID_P12_PASS }}
+        run: |
+          KEYCHAIN="${{ runner.temp }}/rtm-build.keychain-db"
+          KEYCHAIN_PASS="$(uuidgen)"
+          echo "::add-mask::$KEYCHAIN_PASS"
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          echo "$MAC_DEVELOPER_ID_P12" | base64 --decode > "${{ runner.temp }}/cert.p12"
+          security import "${{ runner.temp }}/cert.p12" \
+            -k "$KEYCHAIN" \
+            -P "$MAC_DEVELOPER_ID_P12_PASS" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN"
+          rm "${{ runner.temp }}/cert.p12"
+          IDENT=$(security find-identity -v -p codesigning "$KEYCHAIN" | awk -F\" '/Developer ID Application/ {print $2; exit}')
+          echo "identity=$IDENT" >> "$GITHUB_OUTPUT"
+          echo "keychain=$KEYCHAIN" >> "$GITHUB_OUTPUT"
+          echo "Using identity: $IDENT"
+
+      - name: Sign RTMsend (VST3 + AU)
+        if: steps.signing.outputs.identity != ''
+        run: |
+          IDENT="${{ steps.signing.outputs.identity }}"
+          codesign --force --deep --sign "$IDENT" --timestamp --options runtime \
+            "rtm-send-plugin/build/RtmSend_artefacts/VST3/RTM Send.vst3"
+          codesign --force --deep --sign "$IDENT" --timestamp --options runtime \
+            "rtm-send-plugin/build/RtmSend_artefacts/AU/RTM Send.component"
+
+      # ── Python bundle (native to runner arch) ──────────────────────
+      - name: Cache python bundle
+        id: cache-py
+        uses: actions/cache@v4
+        with:
+          path: ${{ matrix.python_bundle_dir }}
+          key: pybundle-${{ matrix.arch }}-py3.11-stems-v2
+
+      - name: Build python bundle
+        if: steps.cache-py.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          PY_BUNDLE="${{ matrix.python_bundle_dir }}"
+          mkdir -p "$PY_BUNDLE/python"
+          # Use system python3 (already arch-correct on each runner)
+          python3 -m venv "$PY_BUNDLE/python"
+          source "$PY_BUNDLE/python/bin/activate"
+          python -m pip install --upgrade pip
+          pip install \
+            numpy scipy soundfile pyloudnorm \
+            librosa numba demucs julius openunmix \
+            "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0"
+          python -c "import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius, onnxruntime, soxr, audio_separator; print('OK', numpy.__version__)"
+
+      # ── Stub the OTHER python bundle so `npm run pack` preflight passes ──
+      # The pack script requires BOTH python-bundle/ and python-bundle-intel/
+      # to exist, but on each runner we only build the native one. We stub
+      # the other with an empty directory; electron-builder will only embed
+      # the architecture being built (--arm64 or --x64), so the stub is
+      # never read.
+      - name: Stub other-arch python bundle
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            mkdir -p python-bundle-intel/python
+            touch python-bundle-intel/python/.stub
+          else
+            mkdir -p python-bundle/python
+            touch python-bundle/python/.stub
+          fi
+
+      # ── BS-RoFormer model weights ──────────────────────────────────
+      - name: Cache BS-RoFormer ckpt
+        id: cache-bsroformer
+        uses: actions/cache@v4
+        with:
+          path: model-cache/uai_root/models
+          key: bs-roformer-4stem-sdr-9.6568-v1
+
+      - name: Download BS-RoFormer ckpt
+        if: steps.cache-bsroformer.outputs.cache-hit != 'true'
+        run: |
+          MODEL_DIR="model-cache/uai_root/models"
+          mkdir -p "$MODEL_DIR"
+          BASE="https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/download/v1.0.12"
+          curl -fL -o "$MODEL_DIR/bs_roformer_4stem_ep_17_sdr_9.6568.ckpt" \
+            "$BASE/model_bs_roformer_ep_17_sdr_9.6568.ckpt"
+          curl -fL -o "$MODEL_DIR/bs_roformer_4stem_ep_17_sdr_9.6568.yaml" \
+            "$BASE/config_bs_roformer_384_8_2_485100.yaml"
+
+      # ── Node ───────────────────────────────────────────────────────
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: npm install (RTMcompare)
+        run: npm install --no-audit --no-fund
+
+      - name: npm install (RTMprofile)
+        working-directory: rtm-profile-app
+        run: npm install --no-audit --no-fund
+
+      # ── Build RTMcompare (one arch only on this runner) ────────────
+      - name: Build RTMcompare DMG (${{ matrix.electron_arch }})
+        env:
+          APPLE_ID:                ${{ secrets.MAC_APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MAC_NOTARY_APP_PASSWORD }}
+          APPLE_TEAM_ID:           '3RL52RHGT3'
+          CSC_KEYCHAIN:            ${{ steps.signing.outputs.keychain }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.signing.outputs.identity != '' && 'true' || 'false' }}
+        run: |
+          npm run build
+          npx electron-builder --mac --${{ matrix.electron_arch }} --publish=never
+
+      - name: Build RTMprofile DMG (${{ matrix.electron_arch }})
+        working-directory: rtm-profile-app
+        env:
+          APPLE_ID:                ${{ secrets.MAC_APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MAC_NOTARY_APP_PASSWORD }}
+          APPLE_TEAM_ID:           '3RL52RHGT3'
+          CSC_KEYCHAIN:            ${{ steps.signing.outputs.keychain }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.signing.outputs.identity != '' && 'true' || 'false' }}
+        run: |
+          npm run build || true
+          npx electron-builder --mac --${{ matrix.electron_arch }} --publish=never
+
+      # ── Locate the built .app bundles ──────────────────────────────
+      - name: Resolve app paths
+        id: apps
+        run: |
+          # electron-builder emits to release-build/mac-arm64 or release-build/mac
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            RTM_APP="release-build/mac-arm64/RTMcompare.app"
+            PROF_APP="rtm-profile-app/release-build/mac-arm64/RTMprofile.app"
+          else
+            RTM_APP="release-build/mac/RTMcompare.app"
+            PROF_APP="rtm-profile-app/release-build/mac/RTMprofile.app"
+          fi
+          [ -d "$RTM_APP" ] || { echo "::error::Missing $RTM_APP"; ls -R release-build || true; exit 1; }
+          [ -d "$PROF_APP" ] || { echo "::error::Missing $PROF_APP"; ls -R rtm-profile-app/release-build || true; exit 1; }
+          echo "rtm_app=$RTM_APP"     >> "$GITHUB_OUTPUT"
+          echo "prof_app=$PROF_APP"   >> "$GITHUB_OUTPUT"
+
+      # ── Stage + build bundle DMG ───────────────────────────────────
+      - name: Stage bundle DMG
+        id: bundle
+        env:
+          VERSION:  ${{ steps.versions.outputs.rtm }}
+          ARCH:     ${{ matrix.arch }}
+          RTM_APP:  ${{ steps.apps.outputs.rtm_app }}
+          PROF_APP: ${{ steps.apps.outputs.prof_app }}
+          IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: |
+          set -e
+          NAME="RTMcompare-bundle-${VERSION}-${ARCH}"
+          VOL="RTMcompare bundle ${VERSION}"
+          OUT="release/${NAME}.dmg"
+          STAGE="release/.${NAME}-stage"
+          mkdir -p release
+          rm -rf "$STAGE" "$OUT"
+          mkdir -p "$STAGE"
+
+          cp -R "$RTM_APP"  "$STAGE/"
+          cp -R "$PROF_APP" "$STAGE/"
+          cp -R "rtm-send-plugin/build/RtmSend_artefacts/VST3/RTM Send.vst3"     "$STAGE/"
+          cp -R "rtm-send-plugin/build/RtmSend_artefacts/AU/RTM Send.component"  "$STAGE/"
+
+          ln -s /Applications                            "$STAGE/Applications"
+          ln -s "/Library/Audio/Plug-Ins/VST3"           "$STAGE/VST3 Plugins"
+          ln -s "/Library/Audio/Plug-Ins/Components"     "$STAGE/AU Plugins"
+
+          cat >"$STAGE/README.txt" <<EOF
+          RTMcompare bundle ${VERSION} — ${ARCH}
+
+          Three apps. One toolkit.
+
+            RTMcompare.app      — A/B compare, QC, batch, Atmos, streaming preview,
+                                  master-chain render, Learn Mode.
+                                  Drag onto Applications.
+
+            RTMprofile.app      — Turn your back catalogue into a target reference.
+                                  Drag onto Applications.
+
+            RTM Send.vst3       — DAW plugin. Drag onto "VST3 Plugins". Restart DAW.
+
+            RTM Send.component  — Audio Unit version of RTM Send. Drag onto
+                                  "AU Plugins". Restart Logic.
+
+          - Universal binary plugins (Apple Silicon + Intel).
+          - Everything is signed (Developer ID) and notarized if release-signed.
+
+          RTMcompare ${VERSION} — © 2026 Ohad Nissim — all features run locally.
+          EOF
+
+          hdiutil create -volname "$VOL" -srcfolder "$STAGE" -ov -format UDZO "$OUT"
+          rm -rf "$STAGE"
+          echo "dmg=$OUT" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          ls -lh "$OUT"
+
+      - name: Sign DMG
+        if: steps.signing.outputs.identity != ''
+        env:
+          IDENTITY: ${{ steps.signing.outputs.identity }}
+          DMG:      ${{ steps.bundle.outputs.dmg }}
+        run: codesign --force --sign "$IDENTITY" --timestamp "$DMG"
+
+      - name: Notarize + staple DMG
+        if: steps.check-signing.outputs.has_secrets == 'true' && steps.signing.outputs.identity != ''
+        env:
+          APPLE_ID:                    ${{ secrets.MAC_APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.MAC_NOTARY_APP_PASSWORD }}
+          APPLE_TEAM_ID:               '3RL52RHGT3'
+          DMG:                         ${{ steps.bundle.outputs.dmg }}
+        run: |
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl -a -v -t open --context context:primary-signature "$DMG" 2>&1
+
+      - name: SHA-256
+        run: |
+          shasum -a 256 "${{ steps.bundle.outputs.dmg }}" > "${{ steps.bundle.outputs.dmg }}.sha256"
+          cat "${{ steps.bundle.outputs.dmg }}.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: ${{ steps.bundle.outputs.name }}
+          path: |
+            ${{ steps.bundle.outputs.dmg }}
+            ${{ steps.bundle.outputs.dmg }}.sha256
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Attach to Release (tag triggers only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.bundle.outputs.dmg }}
+            ${{ steps.bundle.outputs.dmg }}.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true

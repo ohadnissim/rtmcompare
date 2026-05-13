@@ -339,6 +339,20 @@ private:
     // only inside sendSnapshotToRtm and the triggered-capture paths.
     void setLastStatusLocked (juce::String s);
 
+    // Plugin scan thread — stored as a proper JUCE Thread so the
+    // destructor can call stopThread() before any members are freed.
+    // The previous juce::Thread::launch captured `this` in a fully
+    // detached fire-and-forget thread; removing the plugin from the
+    // chain while a scan was running caused a UAF crash in Ableton
+    // (and any host that destroys the plugin mid-scan).
+    struct PluginScanThread : juce::Thread
+    {
+        PluginScanThread() : juce::Thread ("RTMsend scanner") {}
+        std::function<void()> work;
+        void run() override { if (work) work(); }
+    };
+    std::unique_ptr<PluginScanThread> pluginScanThread;
+
     // ~/.rtm/incoming/ - created on first use.
     juce::File incomingFolder() const;
 

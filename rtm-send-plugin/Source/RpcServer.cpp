@@ -261,8 +261,31 @@ void RpcServer::start()
 void RpcServer::stop()
 {
     signalThreadShouldExit();
+    // Close every active per-connection socket so the per-connection
+    // std::threads unblock from readLine (waitUntilReady returns -1 on
+    // a closed socket) and exit handleConnection cleanly. Without this,
+    // the detached threads keep calling this->threadShouldExit() on a
+    // freed RpcServer once the destructor returns — UAF / crash in
+    // Ableton and any host that destroys the plugin while a connection
+    // is open.
+    {
+        const juce::ScopedLock sl (activeConnsMutex);
+        for (auto* c : activeConns)
+            c->close();
+    }
     if (listener) listener->close();
     stopThread (1500);
+    // Spin until all connection threads have removed themselves from
+    // activeConns (max 2 s). After that the threads are guaranteed not
+    // to touch `this`.
+    for (int i = 0; i < 200; ++i)
+    {
+        {
+            const juce::ScopedLock sl (activeConnsMutex);
+            if (activeConns.empty()) break;
+        }
+        juce::Thread::sleep (10);
+    }
     listener.reset();
     // 5.7.1 Tier-3: unlink ONLY the per-instance file. The legacy file
     // is shared — another RTMsend instance may have overwritten it
@@ -303,10 +326,23 @@ void RpcServer::run()
         // at server-stop is acceptable — the conn->close() inside
         // stop()'s graceful path covers worst case.
         auto* connRaw = conn.release();
+        // Register before launching so stop() sees the socket even if
+        // the thread hasn't started running yet.
+        {
+            const juce::ScopedLock sl (activeConnsMutex);
+            activeConns.push_back (connRaw);
+        }
         std::thread perConn ([this, connRaw]
         {
             std::unique_ptr<juce::StreamingSocket> owned (connRaw);
             this->handleConnection (std::move (owned));
+            // Unregister only after handleConnection returns so stop()
+            // can observe the socket as closed-but-tracked and still
+            // spin-wait on activeConns correctly.
+            const juce::ScopedLock sl (activeConnsMutex);
+            activeConns.erase (
+                std::remove (activeConns.begin(), activeConns.end(), connRaw),
+                activeConns.end());
         });
         perConn.detach();
     }
