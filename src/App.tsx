@@ -2,9 +2,10 @@ import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspe
 import { AppState, FileInfo, AnalysisResult } from './types'
 import { useTheme } from './ThemeContext'
 import { useModes } from './ModesContext'
-import { useV52Surface } from './AudienceContext'
+import { useV52Surface, useAudience } from './AudienceContext'
 import HeaderV2 from './components/shell/HeaderV2'
-import { LearnModeProvider } from './context/LearnModeContext'
+import { LearnModeProvider, useLearnMode } from './context/LearnModeContext'
+import LearnCenter from './components/learn/LearnCenter'
 import LearnModeToggle from './components/shell/LearnModeToggle'
 import GuidedFlowBar from './components/learn/GuidedFlowBar'
 import StudentWorkspace from './components/learn/StudentWorkspace'
@@ -249,8 +250,97 @@ function dismissNativeTooltip(e: React.MouseEvent<HTMLElement>) {
  } catch {}
 }
 
+/**
+ * CoverWiredEmptyState — thin wrapper that pulls course/assignment from
+ * LearnModeContext and forwards file metadata + drop/swap/openRecent
+ * handlers to EmptyStateV2. Lives inside <LearnModeProvider> so it can
+ * call useLearnMode(); App itself is the provider parent and cannot.
+ *
+ * Derives `format` from the filename extension (uppercased). Duration
+ * is intentionally undefined — decoding audio just to label the cover
+ * isn't worth the cost; the slot copy degrades to em-dash.
+ */
+interface CoverWiredEmptyStateProps {
+ canBegin: boolean
+ onBegin: () => void
+ onBatch?: () => void
+ recents: HistoryEntry[]
+ onOpenRecents: () => void
+ error?: string | null
+ fileA: FileInfo | null
+ fileB: FileInfo | null
+ setFileA: (f: FileInfo | null) => void
+ setFileB: (f: FileInfo | null) => void
+ history: HistoryEntry[]
+ profileName?: string
+ children?: React.ReactNode
+}
+function CoverWiredEmptyState({
+ canBegin, onBegin, onBatch, recents, onOpenRecents, error,
+ fileA, fileB, setFileA, setFileB, history, profileName, children,
+}: CoverWiredEmptyStateProps) {
+ const learn = useLearnMode()
+ const assignment = learn.assignment
+ const extOf = (name?: string | null) => {
+  if (!name) return undefined
+  const parts = name.split('.')
+  if (parts.length < 2) return undefined
+  return parts.pop()!.toUpperCase()
+ }
+ const adoptFile = (slot: 'A' | 'B') => (file: File) => {
+  // Mirror FileDropZone path-resolution: Electron 32+ requires webUtils.getPathForFile.
+  const fullPath = (window as any).electronAPI?.getPathForFile?.(file) || (file as any).path || ''
+  if (!fullPath) return
+  const info: FileInfo = { path: fullPath, name: file.name }
+  if (slot === 'A') setFileA(info)
+  else setFileB(info)
+ }
+ const onOpenRecent = (id: string) => {
+  // CoverSurface emits the recent's `id`, which we set to HistoryEntry.path
+  // when projecting v52Recents below. Match on path; fall back to name.
+  const entry = history.find(h => h.path === id) ?? history.find(h => h.name === id)
+  if (!entry) return
+  const info: FileInfo = { path: entry.path, name: entry.name }
+  // Default behaviour mirrors RecentAnalyses → 'A' slot (the more common
+  // "open this as my reference" intent). The user can swap from the cover.
+  setFileA(info)
+ }
+ const v52Recents = history.slice(0, 3).map(r => ({
+  id: r.path ?? r.name ?? '',
+  title: r.name ?? '',
+  ts: undefined as string | undefined,
+ }))
+ return (
+  <EmptyStateV2
+   canBegin={canBegin}
+   onBegin={onBegin}
+   onBatch={onBatch}
+   recents={recents}
+   onOpenRecents={onOpenRecents}
+   error={error}
+   fileAName={fileA?.name ?? null}
+   fileAFormat={extOf(fileA?.name)}
+   fileBName={fileB?.name ?? null}
+   fileBFormat={extOf(fileB?.name)}
+   onDropA={adoptFile('A')}
+   onDropB={adoptFile('B')}
+   onSwap={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
+   v52Recents={v52Recents}
+   onOpenRecent={onOpenRecent}
+   profileName={profileName}
+   courseName={assignment?.course}
+   assignmentName={assignment?.title}
+   sessionCount={history.length}
+  >
+   {children}
+  </EmptyStateV2>
+ )
+}
+
 export default function App() {
  const goldBudget = useV52Surface('gold-budget')
+ const audience = useAudience()
+ const showLearnCenter = useV52Surface('learn') && (audience === 'student' || audience === 'teacher')
  const [state, setState] = useState<AppState>('upload')
  const [fileA, setFileA] = useState<FileInfo | null>(null)
  const [fileB, setFileB] = useState<FileInfo | null>(null)
@@ -1002,6 +1092,7 @@ export default function App() {
 
  return (
  <LearnModeProvider>
+ {showLearnCenter ? <LearnCenter /> : (
  <div className="min-h-screen bg-sand-950 transition-colors duration-300">
  {/*
  * Header — sticky titlebar.
@@ -1178,13 +1269,19 @@ export default function App() {
   here — those secondary affordances are available via the v1
   shell or via the OverflowMenu / future settings panel. */}
   {state === 'upload' && (
-    <EmptyStateV2
+    <CoverWiredEmptyState
       canBegin={!!fileA}
       onBegin={fileA && fileB ? handleCompare : handleRefOnly}
       onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
       recents={history}
       onOpenRecents={() => { /* dropdown handled inline via the RecentAnalyses card below */ }}
       error={error}
+      fileA={fileA}
+      fileB={fileB}
+      setFileA={setFileA}
+      setFileB={setFileB}
+      history={history}
+      profileName={profile || undefined}
     >
       {/* 5.7.0: engineer profile picker. Restored to the cover so the
           user can switch profiles before kicking off an analysis. The
@@ -1331,7 +1428,7 @@ export default function App() {
           />
         </div>
       )}
-    </EmptyStateV2>
+    </CoverWiredEmptyState>
   )}
 
  {state === 'processing' && (
@@ -1644,6 +1741,7 @@ export default function App() {
  title={libraryTargetSlot === 'B' ? 'Pick a Compare track' : 'Pick a Reference'}
  />
  </div>
+ )}
  </LearnModeProvider>
  )
 }
