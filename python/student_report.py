@@ -66,9 +66,15 @@ def get_actual(metric, result):
         return overall.get('width_b') or overall.get('width')
 
     if metric == 'plr':
-        # PLR = true_peak_dbtp - lufs_i (approximate)
-        lufs = overall.get('lufs_b') or overall.get('lufs_a')
-        tp = overall.get('headroom_b') or overall.get('headroom_a') or overall.get('true_peak_b') or overall.get('true_peak')
+        # PLR = true_peak_dBTP - LUFS_I  (both negative; e.g. -1 - (-14) = 13 LU)
+        # CRIT-6 fix: previously used headroom_b (= max(0, -tp_db), a POSITIVE value
+        # representing distance below 0 dBFS) instead of true_peak_b (negative dBTP).
+        # That produced PLR ≈ headroom - LUFS = +1 - (-14) = 15 instead of 13 — off by
+        # 2 × |true_peak_db|.  Always use true_peak directly; never headroom here.
+        lufs = overall.get('lufs_b') if overall.get('lufs_b') is not None else overall.get('lufs_a')
+        tp = (overall.get('true_peak_b') if overall.get('true_peak_b') is not None
+              else overall.get('true_peak_a') if overall.get('true_peak_a') is not None
+              else overall.get('true_peak'))
         if lufs is not None and tp is not None:
             try:
                 return float(tp) - float(lufs)

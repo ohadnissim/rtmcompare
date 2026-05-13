@@ -26,13 +26,48 @@ public:
                              const ARA::ARADocumentControllerHostInstance* instance)
         : juce::ARADocumentControllerSpecialisation(entry, instance) {}
 
+    // CRIT-3 fix: explicitly stop any running background ARA read thread
+    // before this DocumentController is destroyed.  Without this, the host
+    // destroying the plugin while a read is in progress causes:
+    //  - debug builds: juce::Thread::~Thread() assertion ("Thread still running")
+    //  - release builds: stopThread(-1) which blocks forever because the inner
+    //    chunk loop never checks threadShouldExit().
+    // stopThread(5000) signals exit AND waits up to 5 s; the inner loop now
+    // checks threadShouldExit() between chunks so it can actually respond.
+    ~RtmAraDocumentController()
+    {
+        if (readThread && readThread->isThreadRunning())
+            readThread->stopThread (5000);
+    }
+
     std::shared_ptr<rtm::RegionsModel> getModel() const { return model; }
 
-    // Pulls regionId's samples via HostAudioReader. UI thread.
+    // Synchronous version — kept for internal use only; see async below.
     bool readRegionSamples(const juce::String& regionId,
                            std::vector<std::vector<float>>& outByChannel,
                            int& outSampleRate,
                            juce::String& errorOut);
+
+    // Async wrapper: spins a background juce::Thread so the UI thread is not
+    // blocked during HostAudioReader disk I/O (can take seconds for long regions
+    // on slow media).  All callbacks fire on the MESSAGE thread.
+    //
+    // onProgress(0..1f) — called ~every 3% of samples read.  Do not touch
+    //   UI components directly; call juce::MessageManager::callAsync if needed.
+    // onDone(samples, sampleRate, error) — empty error string on success.
+    //   Samples vector is empty and sampleRate is 0 on failure.
+    //
+    // Only one concurrent async read is supported per DocumentController
+    // instance.  Calling again before the previous completes is a no-op
+    // (returns false).  Use the returned shared_ptr to cancel: set its
+    // cancellation flag before the read finishes to abort mid-loop.
+    using SamplesVec   = std::vector<std::vector<float>>;
+    using AraReadDone  = std::function<void(SamplesVec, int, juce::String)>;
+    using AraReadProg  = std::function<void(float)>;
+
+    bool readRegionSamplesAsync(juce::String regionId,
+                                AraReadProg  onProgress,
+                                AraReadDone  onDone);
 
 protected:
     // ── juce::ARADocumentListener ──────────────────────────────────
@@ -80,6 +115,24 @@ protected:
 private:
     void rebuildSnapshot();
     std::shared_ptr<rtm::RegionsModel> model { std::make_shared<rtm::RegionsModel>() };
+
+    // Background read thread — at most one alive at a time.
+    struct AraReadThread : juce::Thread
+    {
+        AraReadThread() : juce::Thread ("RTMsend ARA reader") {}
+        // Inputs:
+        juce::String       regionId;
+        AraReadProg        onProgress;
+        AraReadDone        onDone;
+        RtmAraDocumentController* owner { nullptr };
+        // Output:
+        SamplesVec         result;
+        int                resultSampleRate { 0 };
+        juce::String       resultError;
+
+        void run() override;
+    };
+    std::unique_ptr<AraReadThread> readThread;
 };
 
 #endif // RTM_ARA_ENABLED

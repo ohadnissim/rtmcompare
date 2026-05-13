@@ -7,6 +7,24 @@ const FREQ_LABELS = [
   '2.5k', '3.15k', '4k', '5k', '6.3k', '8k', '10k', '12.5k', '16k', '20k',
 ]
 
+// CRIT-5 fix: resolve role colours from CSS custom properties (defined in
+// index.css as --role-mastering / --role-mixing / --role-tracking).
+// The previous hardcoded hex values were disconnected from the design-token
+// system; the --role-* CSS vars were referenced in App.tsx but never defined
+// in index.css, so all role badges rendered as transparent.
+function getRoleColor(role: string): string {
+  if (typeof document === 'undefined') return '#7B4FFF'
+  const style = getComputedStyle(document.documentElement)
+  if (role.toLowerCase().includes('mastering'))
+    return style.getPropertyValue('--role-mastering').trim() || '#7B4FFF'
+  if (role.toLowerCase().includes('mixing'))
+    return style.getPropertyValue('--role-mixing').trim() || '#00E5FF'
+  if (role.toLowerCase().includes('tracking'))
+    return style.getPropertyValue('--role-tracking').trim() || '#FFB830'
+  return style.getPropertyValue('--role-default').trim() || '#7B4FFF'
+}
+
+// Keep as a static fallback map for SSR / tests where document is unavailable.
 const ROLE_COLORS: Record<string, string> = {
   'Mastering Engineer': '#7B4FFF',
   'Mixing Engineer': '#00E5FF',
@@ -38,7 +56,8 @@ export default function ProfileRadar({
   height = 380,
 }: ProfileRadarProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const color = ROLE_COLORS[role] ?? DEFAULT_COLOR
+  // CRIT-5: use CSS var resolver so color is always in sync with design tokens.
+  const color = getRoleColor(role)
   const [r, g, b] = hexToRgb(color)
 
   useEffect(() => {

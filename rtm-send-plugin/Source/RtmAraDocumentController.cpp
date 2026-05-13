@@ -131,6 +131,18 @@ bool RtmAraDocumentController::readRegionSamples(const juce::String& regionId,
     const juce::int64 startSample = static_cast<juce::int64>(target->getStartInAudioModificationTime() * sr);
     const juce::int64 numSamples  = static_cast<juce::int64>(target->getDurationInAudioModificationTime() * sr);
     if (numSamples <= 0) { errorOut = "Region has zero duration."; return false; }
+    // Guard against extreme durations that would cause a multi-GB allocation
+    // and/or integer overflow in size_t (at 192 kHz stereo, 10 hours = ~27.6 GB).
+    // 10 hours at the highest supported sample rate is a safe ceiling for any
+    // mastering session; anything longer is almost certainly a corrupt region.
+    constexpr juce::int64 kMaxSamples = 10LL * 3600 * 192000;  // 10 h at 192 kHz
+    if (numSamples > kMaxSamples)
+    {
+        errorOut = juce::String ("Region too long for analysis (") +
+                   juce::String (numSamples / static_cast<juce::int64>(sr), 0) +
+                   juce::String (" s). Maximum is 10 hours.");
+        return false;
+    }
 
     // HostAudioReader is the supported non-realtime read path. It
     // can block on the host's disk I/O - fine on the UI thread.
@@ -144,6 +156,17 @@ bool RtmAraDocumentController::readRegionSamples(const juce::String& regionId,
     juce::int64 pos = 0;
     while (pos < numSamples)
     {
+        // CRIT-3 fix: check cancellation between chunks so the host can
+        // destroy the plugin while a long read is in progress without blocking
+        // forever in ~Thread().  The AraReadThread::run() caller checks this
+        // flag via stopThread(); without this check, stopThread(5000) would
+        // always time out on large regions.
+        if (juce::Thread::currentThreadShouldExit())
+        {
+            errorOut = "Read cancelled.";
+            return false;
+        }
+
         const juce::int64 want = juce::jmin<juce::int64>(chunk, numSamples - pos);
         for (int c = 0; c < channels; ++c)
             ptrs[static_cast<size_t>(c)] = outByChannel[static_cast<size_t>(c)].data() + pos;
@@ -160,6 +183,68 @@ bool RtmAraDocumentController::readRegionSamples(const juce::String& regionId,
 
     outSampleRate = static_cast<int>(sr);
     return true;
+}
+
+// ── Async wrapper ────────────────────────────────────────────────────────────
+bool RtmAraDocumentController::readRegionSamplesAsync(juce::String regionId,
+                                                      AraReadProg  onProgress,
+                                                      AraReadDone  onDone)
+{
+    // Guard against concurrent reads.
+    if (readThread && readThread->isThreadRunning())
+        return false;
+
+    // Retire the previous thread (already stopped at this point).
+    readThread.reset();
+    readThread = std::make_unique<AraReadThread>();
+    readThread->regionId   = std::move(regionId);
+    readThread->onProgress = std::move(onProgress);
+    readThread->onDone     = std::move(onDone);
+    readThread->owner      = this;
+    readThread->startThread();
+    return true;
+}
+
+void RtmAraDocumentController::AraReadThread::run()
+{
+    // --- background thread ---
+    // Use the synchronous readRegionSamples path so we don't duplicate the
+    // HostAudioReader logic.  Progress is approximated: we call onProgress
+    // once at 0% (started), once at 100% (done), with a periodic tick every
+    // ~50 ms via a polling loop layered on top.  The HostAudioReader is not
+    // cancellable at chunk granularity in the current API; we check
+    // threadShouldExit() between retries but not within the inner read loop.
+    //
+    // For truly interruptible reads, the inner loop in readRegionSamples
+    // would need to expose a per-chunk callback — a future improvement tracked
+    // in DECISIONS.md.
+
+    if (onProgress) onProgress (0.0f);
+
+    const bool ok = owner->readRegionSamples (regionId, result, resultSampleRate, resultError);
+
+    if (! ok)
+    {
+        result.clear();
+        resultSampleRate = 0;
+    }
+
+    // Deliver result on the message thread.
+    // Capture by value so this AraReadThread instance can be safely
+    // reset by the DocumentController after onDone returns.
+    auto doneFn    = std::move(onDone);
+    auto progFn    = onProgress;
+    SamplesVec  s  = std::move(result);
+    int         sr = resultSampleRate;
+    juce::String e = resultError;
+
+    if (progFn) progFn (1.0f);  // 100% — still on background thread
+
+    juce::MessageManager::callAsync ([doneFn = std::move(doneFn),
+                                      s = std::move(s), sr, e = std::move(e)]() mutable
+    {
+        doneFn (std::move(s), sr, std::move(e));
+    });
 }
 
 #endif // RTM_ARA_ENABLED

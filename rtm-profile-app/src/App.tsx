@@ -178,7 +178,10 @@ export default function App() {
     } finally {
       setBusy(false)
     }
-  }, [files, name, role, deepScan])
+  // CRIT-4 fix: chainRefFile was missing from the dep array. Without it,
+  // setting a chain reference file then immediately clicking Build would use
+  // a stale closure (chainRefFile = '') and silently skip chain analysis.
+  }, [files, name, role, deepScan, chainRefFile])
 
   const onCancel = useCallback(async () => {
     await window.rtmprofileAPI.cancelBuild()

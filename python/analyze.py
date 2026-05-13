@@ -134,9 +134,13 @@ def _true_peak_db(file_path: str, sr: int = 44100) -> tuple:
         headroom = max(0.0, -tp_db)
         return round(tp_db, 1), round(headroom, 1)
     except Exception:
-        # Fallback: plain sample peak
+        # CRIT-7 fix: fallback must load at native SR (sr=None), not the
+        # default 44100 Hz.  Loading a 48/96 kHz file at 44100 Hz resamples
+        # it, which changes inter-sample peak values and corrupts the TP
+        # measurement.  The `sr` parameter to _true_peak_db is NOT the target
+        # SR — it is unused in the primary path and should not be passed here.
         import librosa as _lr2
-        y, _ = _lr2.load(file_path, sr=sr, mono=True)
+        y, _ = _lr2.load(file_path, sr=None, mono=True)
         peak = float(np.max(np.abs(y)))
         tp_db = float(20 * np.log10(max(peak, 1e-10)))
         return round(tp_db, 1), round(max(0.0, -tp_db), 1)

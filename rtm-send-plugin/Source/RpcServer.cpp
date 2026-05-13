@@ -138,6 +138,23 @@ namespace
     juce::String normaliseSemver(const juce::String& v) { return v.trim(); }
 }
 
+// Generates a 128-bit cryptographically random token as a 32-char hex string.
+// Written to the per-instance port file alongside the port number so
+// RTMcompare can read both atomically. Same-user processes that don't know
+// the token cannot control parameters even if they discover the port.
+//
+// CRIT-1 fix: use juce::Uuid which is backed by /dev/urandom on POSIX and
+// BCryptGenRandom on Windows — a CSPRNG.  The previous juce::Random was an
+// LCG seeded from getHighResolutionTicks() — predictable from process start
+// time and NOT suitable for secret material.
+/*static*/ juce::String RpcServer::generateAuthToken()
+{
+    // juce::Uuid uses OS-provided CSPRNG (/dev/urandom / BCryptGenRandom).
+    // Its getRawData() returns 16 bytes (128 bits) of cryptographic randomness.
+    const juce::Uuid uuid;
+    return juce::String::toHexString (uuid.getRawData(), 16, 0);
+}
+
 RpcServer::RpcServer (RtmSendAudioProcessor& p)
     : juce::Thread ("RTMsend RPC"), processor (p)
 {
@@ -198,6 +215,11 @@ void RpcServer::start()
     port.store (listener->getBoundPort(), std::memory_order_release);
     log ("listener bound on port " + juce::String (port.load (std::memory_order_acquire)));
 
+    // Generate a fresh auth token for this start() cycle. Written to the
+    // per-instance JSON port file below; every new connection must echo it
+    // back as the first line before any RPC traffic is accepted.
+    rpcAuthToken = generateAuthToken();
+
     // Publish the chosen port for the client to discover. Use a raw
     // FileOutputStream + binary write so the line ending stays "\n"
     // on every platform — replaceWithText translates to CRLF on
@@ -224,6 +246,12 @@ void RpcServer::start()
             log ("FAILED to open legacy port file: " + pf.getFullPathName());
         }
     }
+    // CRIT-2 fix: restrict legacy port file to owner-read/write only.
+    // Default umask (022) leaves files 0644 — any local user can read
+    // the port number and attempt to connect.
+#if ! JUCE_WINDOWS
+    ::chmod (pf.getFullPathName().toRawUTF8(), 0600);
+#endif
 
     // 5.7.1 Tier-3: per-instance metadata file. Includes pid + uuid8
     // (matching the filename), the bound port, the host app description
@@ -236,6 +264,7 @@ void RpcServer::start()
         meta->setProperty("pid",         (int) ::getpid());
         meta->setProperty("uuid",        instanceUuid8);
         meta->setProperty("port",        port.load(std::memory_order_acquire));
+        meta->setProperty("auth_token",  rpcAuthToken);
         meta->setProperty("host_app",    juce::PluginHostType().getHostDescription());
         meta->setProperty("plugin_name", processor.getHostedPluginName());
         meta->setProperty("build",       juce::String(kRtmSendBuildTag));
@@ -252,6 +281,12 @@ void RpcServer::start()
         {
             log ("FAILED to open per-instance port file: " + ipf.getFullPathName());
         }
+        // CRIT-2 fix: restrict per-instance port file (contains auth_token)
+        // to owner-read/write only. The auth_token is the only secret gating
+        // RPC access; it must not be readable by other local users.
+#if ! JUCE_WINDOWS
+        ::chmod (ipf.getFullPathName().toRawUTF8(), 0600);
+#endif
     }
 
     startThread (juce::Thread::Priority::low);
@@ -351,6 +386,19 @@ void RpcServer::run()
 void RpcServer::handleConnection (std::unique_ptr<juce::StreamingSocket> conn)
 {
     std::atomic<bool> shouldExit { false };
+
+    // Auth handshake: the very first line the client sends must be the
+    // per-instance auth token written to the port file. We close silently
+    // on mismatch — no error response, no status code — so an attacker
+    // scanning for open ports gets no confirmation that this socket is live.
+    // A short inactivity deadline (same as normal RPC traffic) prevents a
+    // half-open connection from wedging the thread indefinitely.
+    {
+        const auto firstLine = readLine (*conn, shouldExit, kConnectionInactivityMs).trim();
+        if (firstLine != rpcAuthToken)
+            return;  // close silently — do not respond
+    }
+
     while (! threadShouldExit())
     {
         // 5.7.1 Tier-3: pass the inactivity deadline so a crashed/hung
@@ -592,34 +640,28 @@ juce::var RpcServer::handleSetParameters (const juce::var& params)
     juce::Array<juce::var> rejected;
     bool noPlugin = false;
 
-    // 5.7.1 v5 HIGH fix (juce-best-practices audit): chunk the writes
-    // into small batches so the message thread is yielded between
-    // them. Pre-fix all 45 writes ran in a single
-    // runOnMessageThreadSync lambda, monopolising the message thread
-    // for ~7 s on Pro-Q and freezing every other RPC handler that
-    // also needs the message thread (host.get_loaded_plugin,
-    // host.list_parameters, host.find_parameters, host.bypass, etc.).
-    // Pings now bypass the lock entirely (v4) but other handlers
-    // still queue. With chunks of 6 writes per lambda the message
-    // thread comes up for air every ~900 ms, which is below most
-    // plugin-host timeout budgets and well below the user's
-    // perception threshold.
-    constexpr int kChunkSize = 6;
     auto* allUpdates = updates.getArray();
     const int totalUpdates = allUpdates ? allUpdates->size() : 0;
 
-    for (int chunkStart = 0; chunkStart < totalUpdates && ! noPlugin; chunkStart += kChunkSize)
+    // 5.8.0: coalesce ALL writes into a single runOnMessageThreadSync
+    // dispatch.  Previous approach (v5, kChunkSize=6) still made up to
+    // N/6 message-thread round-trips — 8 round-trips for a full Pro-Q
+    // 45-band update, each introducing a scheduler round-trip overhead
+    // (~10 ms on macOS) for a total of ~80 ms of overhead on top of the
+    // write time.  loadHostedPlugin / unloadHostedPlugin also run on the
+    // message thread, but they cannot interleave with this lambda because
+    // both parties go through the message thread serialisation; there is
+    // no "between chunks" race to protect against any more.
+    // updateHostDisplay + repaint fire once at the end so Pro-Q paints
+    // the settled lattice rather than redrawing mid-batch.
+    if (totalUpdates > 0)
     {
-        const int chunkEnd = std::min (chunkStart + kChunkSize, totalUpdates);
-        runOnMessageThreadSync ([&, chunkStart, chunkEnd]()
+        runOnMessageThreadSync ([&]()
         {
-            // 5.7.x: re-resolve hp INSIDE every message-thread lambda
-            // because loadHostedPlugin / unloadHostedPlugin may have
-            // run between chunks. Cheap atomic read.
             auto* hp = hostedProcessor (processor);
             if (! hp) { noPlugin = true; return; }
             const auto& ps = hp->getParameters();
-            for (int i = chunkStart; i < chunkEnd; ++i)
+            for (int i = 0; i < totalUpdates; ++i)
             {
                 auto& u = (*allUpdates).getReference (i);
                 const int idx = (int) u.getProperty ("index", -1);
@@ -642,22 +684,9 @@ juce::var RpcServer::handleSetParameters (const juce::var& params)
                 r->setProperty ("value", ps[idx]->getValue());
                 applied.add (juce::var (r.get()));
             }
-        });
-    }
-
-    // 5.7.1 v5: single updateHostDisplay + editor repaint AFTER all
-    // chunks land. Pre-fix this fired inside every lambda which made
-    // Pro-Q redraw mid-batch (visible flicker). Done once now so the
-    // lattice settles to the final shape and Pro-Q paints once.
-    if (! noPlugin && totalUpdates > 0)
-    {
-        runOnMessageThreadSync ([&]()
-        {
-            if (auto* hp = hostedProcessor (processor))
-            {
-                hp->updateHostDisplay();
-                if (auto* ed = hp->getActiveEditor()) ed->repaint();
-            }
+            // Single updateHostDisplay + repaint after all writes settle.
+            hp->updateHostDisplay();
+            if (auto* ed = hp->getActiveEditor()) ed->repaint();
         });
     }
 

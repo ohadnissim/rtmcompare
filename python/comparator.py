@@ -1172,6 +1172,14 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
         rms = librosa.feature.rms(y=kw, frame_length=frame_length, hop_length=hop_length)[0]
         rms_db = 20 * np.log10(np.maximum(rms, 1e-10))
         rms_db = rms_db[rms_db > -70]  # absolute gate, BS.1770
+        # CRIT-8 fix: EBU R128 / BS.1770-4 LRA requires BOTH the absolute gate
+        # (-70 LUFS) AND a relative gate (-20 LU below the ungated mean of the
+        # gated distribution).  Without the relative gate, LRA is over-reported
+        # by 6–12 LU on orchestral/acoustic material where quiet passages sit
+        # well below -50 LUFS.
+        if len(rms_db) >= 10:
+            ungated_mean = float(np.mean(rms_db))
+            rms_db = rms_db[rms_db > ungated_mean - 20.0]  # relative gate, EBU R128
         if len(rms_db) < 10:
             return 0.0
         return float(np.percentile(rms_db, 95) - np.percentile(rms_db, 10))

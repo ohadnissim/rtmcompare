@@ -31,7 +31,10 @@ def detect_distortion(path_a: str, path_b: str, sr: int = 44100) -> dict:
     mono_b = librosa.to_mono(y_b)
 
     clipping = detect_clipping(mono_a, mono_b, sr)
-    true_peaks = detect_true_peaks(mono_a, mono_b, sr)
+    # CRIT-9 fix: pass the stereo arrays so detect_true_peaks measures per-channel
+    # (worst-case across L and R) as required by BS.1770-4 Annex 2.  The mono
+    # downmix was averaging L+R which could miss a one-channel clip.
+    true_peaks = detect_true_peaks(mono_a, mono_b, sr, stereo_a=y_a, stereo_b=y_b)
     limiting = detect_over_limiting(mono_a, mono_b, sr)
     harmonics = detect_harmonic_distortion(mono_a, mono_b, sr)
 
@@ -262,19 +265,48 @@ def _count_clip_regions(y, threshold=0.9995, min_consecutive=3):
 
 
 def detect_true_peaks(mono_a: np.ndarray, mono_b: np.ndarray,
-                      sr: int, oversample: int = 4) -> dict:
-    """Detect inter-sample peaks by oversampling."""
-    up_a = resample_poly(mono_a, oversample, 1)
-    up_b = resample_poly(mono_b, oversample, 1)
+                      sr: int, oversample: int = 4,
+                      stereo_a: np.ndarray | None = None,
+                      stereo_b: np.ndarray | None = None) -> dict:
+    """Detect inter-sample peaks by 4× polyphase oversampling.
 
-    tp_a = float(20 * np.log10(max(np.max(np.abs(up_a)), 1e-10)))
-    tp_b = float(20 * np.log10(max(np.max(np.abs(up_b)), 1e-10)))
+    CRIT-9 fix: BS.1770-4 Annex 2 requires per-channel true peak then
+    worst-case across channels.  The previous implementation measured only
+    the mono downmix, which averages L+R and can miss a one-channel clip
+    (e.g. a limiter hitting only one side, or a mid/side asymmetry).
+    When stereo arrays are supplied they are preferred; otherwise we fall
+    back to the passed mono signal (backwards-compatible for single-channel
+    material or callers that only have mono data available).
+    """
+    def _tp_db(arrays: list[np.ndarray]) -> tuple[float, int]:
+        """Worst-case true peak dBTP + over-count across a list of channels."""
+        worst_amp = 0.0
+        over_cnt = 0
+        for ch in arrays:
+            up = resample_poly(ch.astype(np.float64), oversample, 1)
+            worst_amp = max(worst_amp, float(np.max(np.abs(up))))
+            over_cnt += int(np.sum(np.abs(up) > 1.0))
+        return float(20 * np.log10(max(worst_amp, 1e-10))), over_cnt
+
+    channels_a: list[np.ndarray]
+    channels_b: list[np.ndarray]
+    if stereo_a is not None and stereo_a.ndim == 2 and stereo_a.shape[0] >= 2:
+        channels_a = [stereo_a[c] for c in range(stereo_a.shape[0])]
+    else:
+        channels_a = [mono_a]
+    if stereo_b is not None and stereo_b.ndim == 2 and stereo_b.shape[0] >= 2:
+        channels_b = [stereo_b[c] for c in range(stereo_b.shape[0])]
+    else:
+        channels_b = [mono_b]
+
+    tp_a, over_a = _tp_db(channels_a)
+    tp_b, over_b = _tp_db(channels_b)
 
     return {
         "a_true_peak_db": round(tp_a, 1),
         "b_true_peak_db": round(tp_b, 1),
-        "a_over_count": int(np.sum(np.abs(up_a) > 1.0)),
-        "b_over_count": int(np.sum(np.abs(up_b) > 1.0)),
+        "a_over_count": over_a,
+        "b_over_count": over_b,
     }
 
 

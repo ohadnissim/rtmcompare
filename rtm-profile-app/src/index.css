@@ -34,6 +34,18 @@
   /* Active / hover gold tint — NEVER gold fill */
   --gold-tint: rgba(208,176,102,0.12);
   --gold-tint-hover: rgba(208,176,102,0.06);
+  /* Role accent colours — used by ProfileRadar and role badges.
+     CRIT-5 fix: these were referenced in ProfileRadar.tsx ROLE_COLORS but
+     never defined here, causing role color badges to render as transparent
+     and the radar to always fall back to --role-default purple. */
+  --role-mastering:  #7B4FFF;
+  --role-mixing:     #00E5FF;
+  --role-tracking:   #FFB830;
+  --role-default:    #7B4FFF;
+  /* RGB channels for rgba() usage */
+  --role-mastering-rgb: 123, 79, 255;
+  --role-mixing-rgb:     0, 229, 255;
+  --role-tracking-rgb:  255, 184, 48;
 
   /* Typography */
   --font-display: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
