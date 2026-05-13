@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   analyzeFiles: (fileA: string, fileB: string, fast?: boolean, profile?: string) =>
-    ipcRenderer.invoke('analyze-files', fileA, fileB, fast ?? true, profile ?? 'ohad'),
+    ipcRenderer.invoke('analyze-files', fileA, fileB, fast ?? true, profile ?? ''),
   // Returns an unsubscribe function. Callers MUST invoke it when their
   // component unmounts or starts a new analysis — otherwise each run
   // stacks a new listener on the renderer-side ipcRenderer and old

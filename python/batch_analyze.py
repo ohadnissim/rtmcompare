@@ -287,7 +287,7 @@ def _emit_progress(kind: str, **extra):
         pass
 
 
-def _run_deep_for_file(path: str, profile: str = "ohad", timeout_sec: int = 180) -> dict:
+def _run_deep_for_file(path: str, profile: str = "", timeout_sec: int = 180) -> dict:
     """
     Run the full single-file pipeline (analyze.py with A==B == ref-only
     mode) as a subprocess and return the parsed JSON result. Returns

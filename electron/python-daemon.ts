@@ -355,7 +355,7 @@ export async function daemonAnalyze(
   fileB: string,
   onProgress: (msg: string) => void,
   fast = true,
-  profile = 'ohad'
+  profile = ''
 ): Promise<unknown> {
   return daemonRequest('analyze', { file_a: fileA, file_b: fileB, fast, profile }, onProgress)
 }
@@ -367,7 +367,7 @@ export async function daemonAnalyzeSingle(
   file: string,
   onProgress: (msg: string) => void,
   fast = true,
-  profile = 'ohad'
+  profile = ''
 ): Promise<unknown> {
   return daemonRequest('analyze_single', { file, fast, profile }, onProgress)
 }

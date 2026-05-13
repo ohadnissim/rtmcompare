@@ -191,7 +191,7 @@ def main():
     fast_mode = "--fast" in sys.argv
 
     # Parse profile
-    profile_id = "ohad"
+    profile_id = ""
     for arg in sys.argv:
         if arg.startswith("--profile="):
             profile_id = arg.split("=", 1)[1]

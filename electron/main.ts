@@ -1037,7 +1037,7 @@ ipcMain.handle('copy-to-clipboard', async (_e, text: string) => {
   return true
 })
 
-ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast: boolean = true, profile: string = 'ohad') => {
+ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast: boolean = true, profile: string = '') => {
   assertSafeAudioPath(fileA, 'analyze-files (A)')
   assertSafeAudioPath(fileB, 'analyze-files (B)')
   const sendProgress = (msg: string) => {

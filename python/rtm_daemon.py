@@ -17,7 +17,7 @@ Legacy subprocess mode (unchanged from analyze.py contract):
 JSON-RPC PROTOCOL (newline-delimited, stdin → stdout)
 ------------------------------------------------------
 Request:
-    {"id": "uuid", "method": "analyze",        "params": {"file_a": "...", "file_b": "...", "fast": true, "profile": "ohad"}}
+    {"id": "uuid", "method": "analyze",        "params": {"file_a": "...", "file_b": "...", "fast": true, "profile": ""}}
     {"id": "uuid", "method": "analyze_single", "params": {"file": "..."}}
     {"id": "uuid", "method": "ping"}
     {"id": "uuid", "method": "shutdown"}
@@ -201,7 +201,7 @@ def _handle_analyze(request_id: str, params: dict) -> dict:
     file_a = params.get("file_a", "")
     file_b = params.get("file_b", "")
     fast = bool(params.get("fast", True))
-    profile_id = params.get("profile", "ohad")
+    profile_id = params.get("profile", "")
 
     if not file_a or not file_b:
         return {"id": request_id, "error": "analyze requires file_a and file_b params"}
@@ -274,7 +274,7 @@ def _handle_analyze_single(request_id: str, params: dict) -> dict:
         "file_a": file_path,
         "file_b": file_path,
         "fast": params.get("fast", True),
-        "profile": params.get("profile", "ohad"),
+        "profile": params.get("profile", ""),
     })
 
 

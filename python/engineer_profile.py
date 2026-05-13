@@ -285,7 +285,7 @@ def _compute_ms_tips(y_stereo, sr):
     return tips
 
 
-def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=None):
+def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
     """
     Generate "What would [Engineer] do?" tips.
 

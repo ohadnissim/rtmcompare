@@ -198,7 +198,7 @@ export default function SongDetailPanel({
  } catch {}
  }
  try {
- const result = await window.electronAPI.analyzeFiles(song.path, song.path, true, 'ohad')
+ const result = await window.electronAPI.analyzeFiles(song.path, song.path, true, '')
  // Cache + report regardless of mount state so re-opening is instant.
  cache.set(song.path, result)
  onAnalysisChange?.({ state: 'done' })

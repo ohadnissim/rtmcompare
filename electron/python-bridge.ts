@@ -213,7 +213,7 @@ export async function analyzePython(
   fileB: string,
   onProgress: (msg: string) => void,
   fast: boolean = true,
-  profile: string = 'ohad'
+  profile: string = ''
 ): Promise<any> {
   // Ensure deps are installed before running
   await ensureDeps(onProgress)

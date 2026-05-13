@@ -517,7 +517,7 @@ export default function App() {
  })()
  return () => { cancelled = true }
  }, [historyBump])
- const [profile, setProfile] = useState('ohad')
+ const [profile, setProfile] = useState('')
 
  // ── Reference library (recent + saved favourites) ─────────────────────
  // Two lists:
@@ -565,7 +565,7 @@ export default function App() {
  })
  }, [])
  const isSaved = (path: string) => savedRefs.some(r => r.path === path)
- const [profiles, setProfiles] = useState<ProfileInfo[]>([{ id: 'ohad', name: 'Ohad Nissim' }])
+ const [profiles, setProfiles] = useState<ProfileInfo[]>([])
  const [profileError, setProfileError] = useState<string | null>(null)
 
  const refreshProfiles = useCallback(async () => {
@@ -597,7 +597,7 @@ export default function App() {
  if (!window.electronAPI?.deleteCustomProfile) return
  await window.electronAPI.deleteCustomProfile(id)
  await refreshProfiles()
- if (profile === id) setProfile('ohad')
+ if (profile === id) setProfile('')
  }, [profile, refreshProfiles])
 
  // ── Version-history capture. Writes one entry per completed analysis
