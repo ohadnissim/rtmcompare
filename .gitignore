@@ -38,7 +38,8 @@ __pycache__/
 *.pyo
 
 # ── Local-only ───────────────────────────────────────────────────────
-model-cache/
+.claude/        # MED-8: skill files, session memory, API keys — never commit
+model-cache/    # NIT-1: 503 MB model weights — already excluded, adding comment
 .env
 .env.local
 .env.*.local

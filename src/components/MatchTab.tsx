@@ -49,7 +49,11 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  // hasResults: true when the analysis produced actionable EQ recommendations.
  // The mode picker collapses to an "Advanced ▾" disclosure when false so the
  // tab doesn't look busy before the user has anything to act on.
- const hasResults = (results.recommendations && results.recommendations.length > 0) || !!results.spectrum_a
+ // MED-6 fix: removed `|| !!results.spectrum_a`. spectrum_a is populated
+ // immediately after file load (just the FFT), so the old condition made
+ // hasResults true before match recommendations were ready, surfacing an
+ // empty mode picker. Gate solely on recommendations.
+ const hasResults = !!(results.recommendations && results.recommendations.length > 0)
 
  // Engineer profile bands shaped like the Match panel's Band type, so they
  // can be mixed into Hybrid's derivation.
@@ -67,7 +71,7 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  const modePicker = (
  <div className="flex items-center justify-center">
  <div
- className="inline-flex items-center gap-1 p-1 rounded-full"
+ className="inline-flex items-center gap-1 p-1 rounded-sm"
  style={{ backgroundColor: 'rgba(48,44,39,0.5)', border: '1px solid rgba(168,161,150,0.12)' }}
  >
  <ModePill
@@ -201,7 +205,7 @@ function ModePill({ active, onClick, label, hint, disabled }: {
  onClick={onClick}
  disabled={disabled}
  title={hint}
- className="text-[11px] px-4 py-1.5 rounded-full transition-all uppercase tracking-[0.14em] disabled:cursor-not-allowed"
+ className="text-[11px] px-4 py-1.5 rounded-sm transition-all uppercase tracking-[0.14em] disabled:cursor-not-allowed"
  style={{
  backgroundColor: active ? 'rgba(208,176,102,0.15)' : 'transparent',
  color: disabled ? 'var(--color-sand-600)' : active ? 'var(--color-accent)' : 'var(--color-sand-300)',

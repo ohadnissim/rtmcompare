@@ -1152,11 +1152,16 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
               2 * (K * K - Vh) / denom,
               (Vh - Vb * K / 0.7071 + K * K) / denom]
         a1 = [1.0, 2 * (K * K - 1) / denom, (1 - K / 0.7071 + K * K) / denom]
-        # Stage 2: high-pass, fc=38.13 Hz, Q=√2 (Butterworth 2nd-order)
+        # Stage 2: RLB high-pass, fc=38.1354 Hz, Q=0.5003 per BS.1770-4 §2.3.
+        # MED-7 fix: prior fallback used Q=0.7071 (√2/2), diverging from the
+        # primary _bs1770_k_weight path which uses Qr=0.5003270373253953. This
+        # caused ~1–2 LU error on 96 kHz files when pyloudnorm failed. Use the
+        # same Q as the primary path throughout.
+        _Qr = 0.5003270373253953
         K2 = np.tan(np.pi * 38.1345865 / sr)
-        denom2 = 1 + K2 * 1.41421356 + K2 * K2
+        denom2 = 1 + K2 / _Qr + K2 * K2
         b2 = [1 / denom2, -2 / denom2, 1 / denom2]
-        a2 = [1.0, 2 * (K2 * K2 - 1) / denom2, (1 - K2 * 1.41421356 + K2 * K2) / denom2]
+        a2 = [1.0, 2 * (K2 * K2 - 1) / denom2, (1 - K2 / _Qr + K2 * K2) / denom2]
         try:
             kw = lfilter(b1, a1, mono.astype(np.float64))
             kw = lfilter(b2, a2, kw)

@@ -276,13 +276,13 @@ def main():
             result["headroom"] = {"a": headroom, "b": headroom, "true_peak_a": true_peak, "true_peak_b": true_peak}
 
             progress("Scanning for digital clicks on downmix...")
-            result["clicks"] = detect_clicks_single(downmix_path)
+            result["clicks"] = detect_clicks_single(downmix_path, sr=info_a.samplerate)
 
             progress("Checking for distortion on downmix...")
-            result["distortion"] = detect_distortion_single(downmix_path)
+            result["distortion"] = detect_distortion_single(downmix_path, sr=info_a.samplerate)
 
             progress("Checking tonal balance on downmix...")
-            result["tonal_issues"] = detect_tonal_issues(downmix_path, downmix_path)
+            result["tonal_issues"] = detect_tonal_issues(downmix_path, downmix_path, sr=info_a.samplerate)
 
             progress("Generating visualizations on downmix...")
             result.update(generate_all_viz_data(downmix_path, downmix_path))
@@ -329,13 +329,13 @@ def main():
             # Run quality checks on the downmix
             downmix_path = result.get("atmos_downmix_path", file_atmos)
             progress("Scanning for digital clicks...")
-            result["clicks"] = detect_clicks(file_stereo, downmix_path)
+            result["clicks"] = detect_clicks(file_stereo, downmix_path, sr=info_a.samplerate)
 
             progress("Checking for distortion...")
-            result["distortion"] = detect_distortion(file_stereo, downmix_path)
+            result["distortion"] = detect_distortion(file_stereo, downmix_path, sr=info_a.samplerate)
 
             progress("Checking tonal balance...")
-            result["tonal_issues"] = detect_tonal_issues(file_stereo, downmix_path)
+            result["tonal_issues"] = detect_tonal_issues(file_stereo, downmix_path, sr=info_a.samplerate)
 
             progress("Generating visualizations...")
             result.update(generate_all_viz_data(file_stereo, downmix_path))
@@ -415,14 +415,19 @@ def main():
         # Use single-file detection when ref-only (file_a == file_b)
         is_ref_only = is_ref_only_path
 
+        # MED-9: pass native SR to all detectors so they don't silently
+        # resample 48/96 kHz files to 44100 before analysis. This matters
+        # for hum bin alignment (60/120 Hz lands in a different bin at 48k)
+        # and onset window sizing in click detection.
+        _native_sr = info_a.samplerate
         progress("Scanning for digital clicks...")
-        result["clicks"] = detect_clicks_single(file_a) if is_ref_only else detect_clicks(file_a, file_b)
+        result["clicks"] = detect_clicks_single(file_a, sr=_native_sr) if is_ref_only else detect_clicks(file_a, file_b, sr=_native_sr)
 
         progress("Checking for distortion...")
-        result["distortion"] = detect_distortion_single(file_a) if is_ref_only else detect_distortion(file_a, file_b)
+        result["distortion"] = detect_distortion_single(file_a, sr=_native_sr) if is_ref_only else detect_distortion(file_a, file_b, sr=_native_sr)
 
         progress("Checking tonal balance...")
-        result["tonal_issues"] = detect_tonal_issues(file_a, file_b)
+        result["tonal_issues"] = detect_tonal_issues(file_a, file_b, sr=_native_sr)
 
         progress("Generating visualizations...")
         result.update(generate_all_viz_data(file_a, file_b, deep_scan=not fast_mode))

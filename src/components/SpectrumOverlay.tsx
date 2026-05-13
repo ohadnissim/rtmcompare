@@ -281,7 +281,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  const padX = 0
  const padY = 10
  // 28px left margin reserved for the dB axis labels
- const axisW = 28
+ const axisW = 30  // MED-5: widened by 2px to prevent clipping of 9px font labels
 
  const { normA, normB, diffBands } = useMemo(() => {
  // 5.2.0 perf fix (audit P2-25): the previous Math.max(...dataA, ...dataB)
@@ -398,7 +398,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  />
  <text
  x={axisW - 2} y={y + 3}
- textAnchor="end" fontSize="8"
+ textAnchor="end" fontSize="9"
  fontFamily="monospace"
  fill="rgba(168,161,150,0.5)"
  >
@@ -449,7 +449,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  <span className="text-[9px] font-bold px-1 rounded" style={{ color, backgroundColor: 'rgba(20,19,19,0.85)' }}>
  {ann.diff > 0 ? '+' : ''}{ann.diff.toFixed(1)}
  </span>
- <div className="w-1.5 h-1.5 rounded-full mt-0.5" style={{ backgroundColor: color }} />
+ <div className="w-1.5 h-1.5 mt-0.5" style={{ backgroundColor: color, borderRadius: 1 }} />
  </div>
  </div>
  )
@@ -501,7 +501,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  {[...annotations].sort((a, b) => a.index - b.index).map((ann, i) => (
  <span
  key={i}
- className="text-[10px] px-2 py-1 rounded-full"
+ className="text-[10px] px-2 py-1 rounded-sm"
  style={{
  color: ann.diff > 0 ? 'var(--color-data-pass)' : 'var(--color-danger)',
  backgroundColor: ann.diff > 0 ? 'rgba(52,211,153,0.1)' : 'rgba(244,63,94,0.1)',

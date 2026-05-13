@@ -2909,6 +2909,14 @@ ${visqolLine}
 }
 
 ipcMain.handle('share-as-html', async (_event, payload: { title: string; reportJson: string }) => {
+  // MED-1: cap payload to prevent main-thread stall on huge analysis results.
+  // 5 MB covers any realistic single-comparison result; album batch could be larger
+  // but is not a supported use-case for the share feature.
+  const MAX_REPORT_BYTES = 5 * 1024 * 1024 // 5 MB
+  if (!payload?.reportJson || payload.reportJson.length > MAX_REPORT_BYTES) {
+    return { success: false, error: `Report too large (${Math.round((payload?.reportJson?.length ?? 0) / 1024)} KB > 5120 KB)` }
+  }
+
   const result = await dialog.showSaveDialog({
     title: 'Save Shareable Report',
     defaultPath: `${(payload.title || 'rtm-report').replace(/[^a-z0-9_-]/gi, '_')}.html`,
@@ -2916,9 +2924,13 @@ ipcMain.handle('share-as-html', async (_event, payload: { title: string; reportJ
   })
   if (result.canceled || !result.filePath) return { success: false }
 
-  const html = buildShareHtml(payload.title, payload.reportJson)
-  fs.writeFileSync(result.filePath, html, 'utf8')
-  return { success: true, filePath: result.filePath }
+  try {
+    const html = buildShareHtml(payload.title, payload.reportJson)
+    fs.writeFileSync(result.filePath, html, 'utf8')
+    return { success: true, filePath: result.filePath }
+  } catch (err: any) {
+    return { success: false, error: err?.message ?? 'Write failed' }
+  }
 })
 
 ipcMain.handle('rtm-certify', async (_event, fileA: string, fileB: string) => {
