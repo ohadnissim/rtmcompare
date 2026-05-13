@@ -57,6 +57,7 @@ export function AnnotationLayer({ tabId }: Props) {
     <>
       {/* Overlay — does NOT block pointer events */}
       <div
+        data-tour-learn="annotations"
         style={{
           position: 'fixed',
           inset: 0,
@@ -206,7 +207,15 @@ export function AnnotationLayer({ tabId }: Props) {
             boxSizing: 'border-box',
           }}
         >
+          {/* CRIT-7 fix: associate label with textarea for screen readers */}
+          <label
+            htmlFor="rtm-annotation-note"
+            style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap' }}
+          >
+            Annotation note
+          </label>
           <textarea
+            id="rtm-annotation-note"
             value={noteText}
             onChange={e => setNoteText(e.target.value)}
             rows={4}

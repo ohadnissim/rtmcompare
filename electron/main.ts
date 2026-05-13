@@ -889,7 +889,8 @@ ipcMain.handle('load-custom-profile', async () => {
       id = `${baseName}_${n++}`
     }
     const destPath = path.join(USER_PROFILES_DIR, `${id}.json`)
-    fs.writeFileSync(destPath, JSON.stringify(data, null, 2))
+    // CRIT-3 fix: atomic write so a crash mid-write doesn't leave a truncated profile JSON.
+    atomicWriteFileSync(destPath, JSON.stringify(data, null, 2))
 
     return {
       id,
@@ -2303,7 +2304,8 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
         const fullSidecar: Record<string, unknown> = { ...sidecar as Record<string, unknown> }
         if (blindTest) fullSidecar.blindTest = blindTest
         if (earTraining) fullSidecar.earTraining = earTraining
-        fs.writeFileSync(sidecarPath, JSON.stringify(fullSidecar, null, 2), 'utf8')
+        // CRIT-3 fix: atomic write so a crash mid-write doesn't corrupt the grade record.
+        atomicWriteFileSync(sidecarPath, JSON.stringify(fullSidecar, null, 2))
       } catch { /* sidecar write is best-effort, never fail the PDF */ }
       return { ok: true, path: finalPath }
     } catch (err: any) {
@@ -3029,11 +3031,18 @@ ipcMain.handle('rtm-certify', async (_event, fileA: string, fileB: string) => {
     // every other secondary Python spawn, and kills the process automatically
     // so it can never become an orphan on app-quit.
     const { stdout, stderr } = await watchdogSpawn(proc, 'rtm-certify')
+    // Scan lines in reverse for the last JSON object. Handles both compact
+    // (single-line) and pretty-printed (multi-line) output by also trying to
+    // parse the entire stdout as a fallback.
     const lines = stdout.split('\n')
     let result: any = null
     for (let i = lines.length - 1; i >= 0; i--) {
       const t = lines[i].trim()
       if (t.startsWith('{')) { try { result = JSON.parse(t); break } catch {} }
+    }
+    if (!result) {
+      // Fallback: try the whole stdout in case of pretty-printed multi-line JSON.
+      try { result = JSON.parse(stdout.trim()) } catch {}
     }
     if (!result) throw new Error(`no JSON output; stderr: ${stderr.slice(-200)}`)
     if (result.error) return { ok: false, error: result.error }
