@@ -30,6 +30,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # MED-20: read plugin version from CMakeLists.txt so the workflow
+      # never needs manual bumping when the version changes.
+      - name: Extract version from CMakeLists.txt
+        id: version
+        run: |
+          $ver = (Select-String -Path CMakeLists.txt -Pattern 'project\(RtmSend VERSION ([0-9]+\.[0-9]+\.[0-9]+)\)').Matches[0].Groups[1].Value
+          if (-not $ver) { Write-Error "Could not parse version from CMakeLists.txt"; exit 1 }
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "Plugin version: $ver"
+        shell: pwsh
+
       - name: Cache JUCE
         id: cache-juce
         uses: actions/cache@v4
@@ -136,29 +147,29 @@ jobs:
                        Sort-Object FullName -Descending | Select-Object -First 1).FullName
           & $signtool sign /f $env:PFX_PATH /p $env:PFX_PASSWORD `
             /tr http://timestamp.digicert.com /td sha256 /fd sha256 `
-            scripts\RTM-Send-1.2.0-Setup.exe
+            scripts\RTM-Send-${{ steps.version.outputs.version }}-Setup.exe
         shell: pwsh
 
       - name: SHA-256
         run: |
-          $installer = "scripts\RTM-Send-1.2.0-Setup.exe"
+          $installer = "scripts\RTM-Send-${{ steps.version.outputs.version }}-Setup.exe"
           $hash = (Get-FileHash $installer -Algorithm SHA256).Hash
-          [System.IO.File]::WriteAllText("$installer.sha256", "$hash  RTM-Send-1.2.0-Setup.exe`n",
+          [System.IO.File]::WriteAllText("$installer.sha256", "$hash  RTM-Send-${{ steps.version.outputs.version }}-Setup.exe`n",
             [System.Text.ASCIIEncoding]::new())
         shell: pwsh
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RTM-Send-Windows-1.2.0
+          name: RTM-Send-Windows-${{ steps.version.outputs.version }}
           path: |
-            scripts/RTM-Send-1.2.0-Setup.exe
-            scripts/RTM-Send-1.2.0-Setup.exe.sha256
+            scripts/RTM-Send-${{ steps.version.outputs.version }}-Setup.exe
+            scripts/RTM-Send-${{ steps.version.outputs.version }}-Setup.exe.sha256
 
       - name: Upload raw VST3 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: RTM-Send-VST3-raw-1.2.0
+          name: RTM-Send-VST3-raw-${{ steps.version.outputs.version }}
           path: ${{ steps.paths.outputs.vst3_dir }}
 
       - name: Attach to Release on tag push
@@ -166,5 +177,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            scripts/RTM-Send-1.2.0-Setup.exe
-            scripts/RTM-Send-1.2.0-Setup.exe.sha256
+            scripts/RTM-Send-${{ steps.version.outputs.version }}-Setup.exe
+            scripts/RTM-Send-${{ steps.version.outputs.version }}-Setup.exe.sha256

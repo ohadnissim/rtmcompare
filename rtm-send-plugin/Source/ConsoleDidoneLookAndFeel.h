@@ -192,7 +192,7 @@ public:
         return label.getFont();
     }
 
-    // ── Font loading note ──────────────────────────────────────────
+    // ── Font loading note  [MED-19 — requires CMake change] ────────
     // Title and subtitle labels use juce::Font("Instrument Serif", ...)
     // which resolves against the system font stack. This works when
     // Instrument Serif is installed system-wide (e.g. Google Fonts

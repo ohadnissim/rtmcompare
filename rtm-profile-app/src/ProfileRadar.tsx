@@ -167,9 +167,9 @@ export default function ProfileRadar({
     ctx.fill()
 
     // ── Frequency labels at key positions ───────────────────────
-    // Show labels at cardinal + selected positions: 20Hz, 1kHz, 20kHz
-    // and a few others spread around
-    const labelIndices = [0, 7, 17, 30]  // 20Hz, 100Hz, 2kHz, 20kHz
+    // MED-16: 8 labels spread across the 31-band arc for readable context.
+    // Indices into FREQ_LABELS: 20Hz, 63Hz, 250Hz, 500Hz, 1kHz, 4kHz, 10kHz, 20kHz
+    const labelIndices = [0, 5, 10, 14, 17, 23, 28, 30]
     ctx.save()
     ctx.font = '10px "JetBrains Mono", monospace'
     ctx.fillStyle = 'rgba(255,255,255,0.45)'
@@ -195,6 +195,51 @@ export default function ProfileRadar({
     ctx.fillText('0 dB', cx + zeroR + 4, cy)
     ctx.restore()
 
+    // ── Legend ───────────────────────────────────────────────────
+    // MED-17: add role-color swatch, MAD-band, and dB-ring legend
+    // so the chart is self-explanatory without referring to external docs.
+    ctx.save()
+    ctx.font = '9px "JetBrains Mono", monospace'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    const legendX = 10
+    let legendY = 14
+    const swatchW = 10
+    const swatchH = 8
+    const gap = 14
+
+    // Role colour swatch
+    ctx.fillStyle = `rgba(${r},${g},${b},0.85)`
+    ctx.fillRect(legendX, legendY - swatchH / 2, swatchW, swatchH)
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
+    ctx.fillText(role || 'Engineer curve', legendX + swatchW + 4, legendY)
+    legendY += gap
+
+    // MAD band (only if curveMad exists)
+    if (curveMad && curveMad.length > 0) {
+      ctx.fillStyle = `rgba(${r},${g},${b},0.18)`
+      ctx.fillRect(legendX, legendY - swatchH / 2, swatchW, swatchH)
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.35)`
+      ctx.lineWidth = 0.5
+      ctx.strokeRect(legendX, legendY - swatchH / 2, swatchW, swatchH)
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'
+      ctx.fillText('±MAD band', legendX + swatchW + 4, legendY)
+      legendY += gap
+    }
+
+    // 0 dB ring
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([3, 3])
+    ctx.beginPath()
+    ctx.moveTo(legendX, legendY)
+    ctx.lineTo(legendX + swatchW, legendY)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'
+    ctx.fillText('0 dB ring', legendX + swatchW + 4, legendY)
+    ctx.restore()
+
     // ── N tracks counter ─────────────────────────────────────────
     ctx.save()
     ctx.font = '10px "JetBrains Mono", monospace'
@@ -213,7 +258,7 @@ export default function ProfileRadar({
         width,
         height,
         display: 'block',
-        borderRadius: 6,
+        borderRadius: 2,  // NIT-7: match instrument-display aesthetic (was 6px)
       }}
       aria-label={`Frequency fingerprint radar for ${role}, ${sampleCount} tracks`}
     />

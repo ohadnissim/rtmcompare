@@ -643,7 +643,8 @@ export default function App() {
                 Build failed.
               </div>
               <div style={{ color: V.sand100, fontSize: 13, lineHeight: 1.45 }}>
-                {result.error}
+                {/* MED-18: fallback body so users aren't left with empty error box */}
+                {result.error || 'An unexpected error occurred. Check that Python is installed and the input files are valid audio.'}
               </div>
               {result.partialCount != null && result.partialCount > 0 && (
                 <div style={{ color: V.sand400, fontSize: 12, marginTop: 6 }}>
