@@ -88,7 +88,7 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     // hook tells the LookAndFeel which button to paint primary.
     sendSingleButton.setButtonText ("Analyze");
     sendSingleButton.setComponentID ("rtm-primary");
-    sendSingleButton.setTooltip ("Analyse this buffer as a standalone master - LUFS / TP / spectrum / engineer tips.");
+    sendSingleButton.setTooltip ("Analyze this buffer as a standalone master - LUFS / TP / spectrum / engineer tips.");  // NIT-3: US English
     sendSingleButton.onClick = [this] { onSendClicked (RtmSendAudioProcessor::Route::Single); };
     addAndMakeVisible (sendSingleButton);
 
@@ -97,13 +97,13 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     sendCompareButton.onClick = [this] { onSendClicked (RtmSendAudioProcessor::Route::CompareB); };
     addAndMakeVisible (sendCompareButton);
 
-    sendBatchButton.setButtonText ("Album / Batch");
-    sendBatchButton.setTooltip ("Add this capture to the Album / Batch surface in RTMcompare. Multiple sends accumulate into one table.");
+    sendBatchButton.setButtonText ("Batch");  // NIT-4: collapse to single word
+    sendBatchButton.setTooltip ("Add to Album / Batch in RTMcompare. Multiple sends accumulate into one table.");
     sendBatchButton.onClick = [this] { onSendClicked (RtmSendAudioProcessor::Route::Batch); };
     addAndMakeVisible (sendBatchButton);
 
     statusLabel.setText("Ready.", juce::dontSendNotification);
-    statusLabel.setFont(juce::Font(10.0f));
+    statusLabel.setFont(juce::Font(12.0f));  // NIT-5: was 10px — too small to read comfortably
     statusLabel.setColour(juce::Label::textColourId, LF::kSandMuted);
     statusLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(statusLabel);

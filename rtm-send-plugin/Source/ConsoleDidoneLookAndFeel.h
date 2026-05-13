@@ -106,6 +106,10 @@ public:
                          bool /*isMouseOverButton*/, bool /*isButtonDown*/) override
     {
         const auto componentID = button.getComponentID();
+        // NIT-6: once Instrument Serif is bundled (see MED-19 in this file),
+        // use instrumentSerifRegular.withHeight(11.0f) for rtm-primary buttons
+        // to match the Console Didone brand voice. Until then, fall back to the
+        // platform default serif/monospaced at 11pt with tighter tracking.
         const auto font = juce::Font (11.0f, juce::Font::plain).withExtraKerningFactor (0.12f);
         g.setFont (font);
 

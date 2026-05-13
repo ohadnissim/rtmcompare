@@ -67,7 +67,9 @@ REGION_NAMES = {
     (17, 20): ("Upper Mids", "1-1.6 kHz"),
     (20, 23): ("Presence", "2-3.15 kHz"),
     (23, 26): ("Brilliance", "4-6.3 kHz"),
-    (26, 29): ("Air", "8-12.5 kHz"),
+    (26, 28): ("Air", "8-12.5 kHz"),       # NIT-10: was (26,29); trimmed to avoid
+    # overlap with Ultra High. The 12.5 kHz band (index 28) belongs to
+    # Ultra High which starts at (28, 31) per the 5.7.x audit fix below.
     # 5.7.x audit fix: extended Ultra High from (29, 31) to (28, 31)
     # so it averages 3 bands instead of 2. Combined with the 1-octave
     # Hann smoothing the prior 2-band region was effectively

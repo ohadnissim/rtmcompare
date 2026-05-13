@@ -399,7 +399,19 @@ void RpcServer::handleConnection (std::unique_ptr<juce::StreamingSocket> conn)
     // half-open connection from wedging the thread indefinitely.
     {
         const auto firstLine = readLine (*conn, shouldExit, kConnectionInactivityMs).trim();
-        if (firstLine != rpcAuthToken)
+        // NIT-1: constant-time compare so an attacker can't infer token length
+        // from connection-close timing. XOR every byte; OR the accumulated
+        // diff so a short-circuit branch can't leak the first mismatch byte.
+        const auto tokenBytes = rpcAuthToken.toUTF8();
+        const auto inputBytes = firstLine.toUTF8();
+        const size_t tLen = std::strlen(tokenBytes.getAddress());
+        const size_t iLen = std::strlen(inputBytes.getAddress());
+        uint8_t diff = static_cast<uint8_t>(tLen ^ iLen);  // length mismatch sets a bit
+        const size_t cmpLen = std::min(tLen, iLen);
+        for (size_t bi = 0; bi < cmpLen; ++bi)
+            diff |= static_cast<uint8_t>(tokenBytes[static_cast<int>(bi)])
+                  ^ static_cast<uint8_t>(inputBytes[static_cast<int>(bi)]);
+        if (diff != 0)
             return;  // close silently — do not respond
     }
 
@@ -794,22 +806,26 @@ juce::var RpcServer::handleRecommendEq (const juce::var& params)
             "Reload the matching plugin and try again." };
     }
 
-    if (minVersionRaw.isNotEmpty() && maxVersionRaw.isNotEmpty()
+    // NIT-2: check each version bound independently so a min_version-only
+    // recommendation still enforces the lower bound (the old guard required
+    // BOTH to be present, silently skipping a lone min_version constraint).
+    if ((minVersionRaw.isNotEmpty() || maxVersionRaw.isNotEmpty())
         && pluginVersion.isNotEmpty())
     {
-        // 5.7.1 Tier-3: natural-string compare (juce::String::compareNatural)
-        // groups digit runs and sorts "1.10" > "1.9" correctly. This is
-        // the JUCE idiom for semver-ish comparisons without pulling in a
-        // dependency.
-        const auto minV = normaliseSemver(minVersionRaw);
-        const auto maxV = normaliseSemver(maxVersionRaw);
-        const auto pv   = normaliseSemver(pluginVersion);
-        if (pv.compareNatural(minV) < 0 || pv.compareNatural(maxV) > 0)
+        const auto pv = normaliseSemver(pluginVersion);
+        const auto minV = minVersionRaw.isNotEmpty() ? normaliseSemver(minVersionRaw) : juce::String();
+        const auto maxV = maxVersionRaw.isNotEmpty() ? normaliseSemver(maxVersionRaw) : juce::String();
+        const bool belowMin = minV.isNotEmpty() && pv.compareNatural(minV) < 0;
+        const bool aboveMax = maxV.isNotEmpty() && pv.compareNatural(maxV) > 0;
+        if (belowMin || aboveMax)
         {
+            const auto rangeStr =
+                (minV.isEmpty() ? juce::String("≤") + maxV :
+                 maxV.isEmpty() ? juce::String("≥") + minV :
+                 juce::String("[") + minV + juce::String(", ") + maxV + juce::String("]"));
             throw RpcError { kErrVersionMismatch,
                 juce::String("Hosted plugin version ") + pv
-                + juce::String(" is outside [") + minV
-                + juce::String(", ") + maxV + juce::String("].") };
+                + juce::String(" is outside ") + rangeStr + juce::String(".") };
         }
     }
 

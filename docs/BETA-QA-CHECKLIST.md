@@ -25,7 +25,7 @@ For **every** format in **every** host you care about:
 ### RTM Send.app (Standalone)
 - [ ] Launches from /Applications without a Gatekeeper dialog
 - [ ] Audio input device picker works
-- [ ] "Single" / "Compare B" / "Album" buttons all fire
+- [ ] "Analyze" / "Compare" / "Batch" buttons all fire
 - [ ] Status line updates with the sent-path confirmation
 - [ ] No gibberish / box-glyphs in any text on screen
 - [ ] Closing + reopening re-reads the session-name field correctly
@@ -54,7 +54,7 @@ For **every** format in **every** host you care about:
       for non-PACE-signed builds; shipped commercially once Avid
       certified)
 - [ ] Inserts on Master Fader
-- [ ] Single / Compare / Album buttons fire
+- [ ] Analyze / Compare / Batch buttons fire
 
 ---
 
@@ -64,13 +64,13 @@ With RTM Suite open and a DAW loaded:
 
 ### Source = Last N seconds
 - [ ] Play 30s of audio through the insert point
-- [ ] Click Single → File A slot populates, toast appears, clicking
+- [ ] Click Analyze → File A slot populates, toast appears, clicking
       "Analyze Reference Only" runs to completion and shows results
-- [ ] Click Compare B with File A loaded → File B slot populates, toast
+- [ ] Click Compare with File A loaded → File B slot populates, toast
       appears, clicking "Compare" runs analysis
-- [ ] Click Compare B with NO File A → promotes drop to File A
+- [ ] Click Compare with NO File A → promotes drop to File A
       automatically; toast explains the promotion
-- [ ] Click Album/Batch → File A populates + toast hints at album mode
+- [ ] Click Batch → File A populates + toast hints at album mode
 
 ### Source = Loop Region
 - [ ] Set loop points in DAW, playback crosses them
@@ -120,7 +120,7 @@ With RTM Suite open and a DAW loaded:
 - [ ] All automated gates PASS
 - [ ] All smoke tests in at least **three** hosts PASS (pick a cross-
       section: Logic + Wavelab + Ableton)
-- [ ] All four routes tested (Single / Compare B / Album / chip-click
+- [ ] All four routes tested (Analyze / Compare / Batch / chip-click
       fallback)
 - [ ] DMG mounts, drag-to-install works, app launches without any
       dialog

@@ -21,6 +21,9 @@ def _bench(label, fn, *args, iters=5, warmup=2):
 
 
 def main():
+    # NIT-11: 44100 is the benchmark-only sample rate — intentionally fixed
+    # so timing comparisons between runs are reproducible. Production paths
+    # use sr=None (native) via librosa.load.
     sr = 44100
     # 60 seconds of synthetic stereo at full sample-rate
     n = sr * 60

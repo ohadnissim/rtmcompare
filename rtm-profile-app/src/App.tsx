@@ -477,7 +477,7 @@ export default function App() {
         marginBottom: 12,
         borderRadius: 'var(--radius)',
         border: `1px solid ${deepScan ? 'rgba(208,176,102,0.45)' : 'var(--border)'}`,
-        backgroundColor: deepScan ? 'rgba(208,176,102,0.06)' : 'rgba(31,27,23,0.5)',
+        backgroundColor: deepScan ? 'var(--gold-tint-hover)' : 'var(--color-sand-800)',  // NIT-8: CSS vars
         cursor: busy ? 'not-allowed' : 'pointer',
         transition: 'border-color 120ms, background-color 120ms',
       }}>
@@ -580,7 +580,8 @@ export default function App() {
                 Profile written.
               </div>
               <div style={{ color: V.sand100 }}>
-                {result.sample_count} track{result.sample_count === 1 ? '' : 's'} analyzed
+                {/* NIT-9: guard against null/undefined sample_count */}
+                {result.sample_count ?? 0} track{(result.sample_count ?? 0) === 1 ? '' : 's'} analyzed
                 {result.skipped
                   ? <span style={{ color: V.sand400 }}> · {result.skipped} skipped</span>
                   : null}
