@@ -373,7 +373,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
       )}
 
       {!sourceLoaded && !loadError && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(168,161,150,0.7)', fontSize: 13, fontStyle: 'italic' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(168,161,150,0.7)', fontSize: 13, fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>
           <span style={{
             display: 'inline-block', width: 14, height: 14, borderRadius: '50%',
             border: '2px solid rgba(208,176,102,0.25)',
@@ -454,7 +454,7 @@ function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStart
       {/* Source clip selector — Golden Ears uses pink noise; we also offer drums,
           vocal-shaped noise, synth mix, and the student's loaded File A. */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.55)', marginBottom: 8 }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.55)', marginBottom: 8 }}>
           Source material
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -514,7 +514,7 @@ function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStart
               }}
             >
               <div style={{
-                fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+                fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
                 color: unlocked ? 'var(--color-accent)' : 'rgba(168,161,150,0.5)',
                 marginBottom: 6,
               }}>
@@ -557,8 +557,8 @@ function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStart
                 </div>
               )}
               {!unlocked && (
-                <div style={{ fontSize: 10, fontStyle: 'italic', color: 'rgba(168,161,150,0.5)' }}>
-                  Reach 70% on Advanced of the previous drill to unlock.
+                <div style={{ fontSize: 10, fontFamily: 'var(--font-display)', fontStyle: 'italic', color: 'rgba(168,161,150,0.5)' }}>
+                  Reach 70% on Advanced of the previous drill to open the next drill.
                 </div>
               )}
             </div>
@@ -572,7 +572,7 @@ function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStart
 function StatBlock({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(168,161,150,0.55)', marginBottom: 3 }}>
+      <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(168,161,150,0.55)', marginBottom: 3 }}>
         {label}
       </div>
       <div style={{ fontSize: 16, color: 'var(--color-text-primary)', fontFamily: 'var(--font-display, serif)' }}>
@@ -622,7 +622,7 @@ function DrillScreen({
       </div>
 
       {/* Question */}
-      <div style={{ fontSize: 14, color: 'rgba(168,161,150,0.8)', marginBottom: 16, fontStyle: 'italic' }}>
+      <div style={{ fontSize: 14, color: 'rgba(168,161,150,0.8)', marginBottom: 16, fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>
         {getDrillPrompt(drill)}
       </div>
 
@@ -672,7 +672,7 @@ function DrillScreen({
           borderRadius: 2,
           marginBottom: 18,
         }}>
-          <div style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: wasCorrect ? '#7bc49e' : '#e07060', marginBottom: 6 }}>
+          <div style={{ fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: wasCorrect ? '#7bc49e' : '#e07060', marginBottom: 6 }}>
             {wasCorrect ? '✓ Correct' : '✗ Not quite'}
           </div>
           <div style={{ fontSize: 13, color: 'var(--color-text-primary)', lineHeight: 1.5 }}>
@@ -701,13 +701,13 @@ function HeatMapScreen({ progress }: { progress: EarTrainingProgress }) {
         these are the EQ bands you're least likely to identify by ear in a real session.
       </div>
       {fid.length === 0 ? (
-        <div style={{ color: 'rgba(168,161,150,0.5)', fontStyle: 'italic' }}>
+        <div style={{ color: 'rgba(168,161,150,0.5)', fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>
           Not enough data yet. Run the Frequency ID drill at least 3 times per band.
         </div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ color: 'rgba(168,161,150,0.55)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            <tr style={{ color: 'rgba(168,161,150,0.55)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
               <th style={{ textAlign: 'left', padding: '6px 12px' }}>Band</th>
               <th style={{ textAlign: 'right', padding: '6px 12px' }}>Attempts</th>
               <th style={{ textAlign: 'right', padding: '6px 12px' }}>Accuracy</th>
@@ -812,7 +812,7 @@ const navBtnStyle: React.CSSProperties = {
   borderRadius: 2,
   color: 'rgba(168,161,150,0.8)',
   fontSize: 11,
-  letterSpacing: '0.08em',
+  letterSpacing: '0.14em',
   textTransform: 'uppercase',
   cursor: 'pointer',
   fontFamily: 'inherit',

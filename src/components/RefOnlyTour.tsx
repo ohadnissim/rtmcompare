@@ -24,7 +24,7 @@ const STEPS: RefOnlyTourStep[] = [
  {
  placement: 'center',
  // 5.7.2 copy:
- title: 'Just one file? You\'re in the right place.',
+ title: 'Single-file mode',
  // 5.7.2 copy:
  body: 'This is where a master gets finished. Drop a file, or send one over from your DAW. Everything you need to ship is on this page. Esc to close the tour any time.',
  },
@@ -48,7 +48,7 @@ const STEPS: RefOnlyTourStep[] = [
  selector: '[data-tour-ref="verdict"]',
  placement: 'top',
  // 5.7.2 copy:
- title: 'Ship it, or fix what?',
+ title: 'Verdict + next action',
  // 5.7.2 copy:
  body: 'Green light or one clear next move — "Ship it," "Pull the limiter 0.5 dB," or "Fix the 12 clipped samples at 01:47." Flip on Compliance for a pass/fail grid across every platform.',
  },
@@ -66,7 +66,7 @@ const STEPS: RefOnlyTourStep[] = [
  // 5.7.2 copy:
  title: 'A/B player',
  // 5.7.2 copy:
- body: 'Listen in stereo, mono, mid, side, or "phone." The EQ bank in the header lets you audition any proposed move live — toggle bands, ride the Amount slider, hear it without restarting. Space / A / B / M / L on the keyboard.',
+ body: 'Stereo, mono, M, S, or phone-speaker IR (200 Hz HPF, 4 kHz LPF, ear-bud response). The EQ bank in the header lets you audition any proposed move live — toggle bands, ride the Amount slider, hear it without restarting. Space / A / B / M / L on the keyboard.',
  },
  {
  selector: '[data-tour-ref="master-assistant"]',
@@ -97,7 +97,7 @@ const STEPS: RefOnlyTourStep[] = [
  // 5.7.2 copy:
  title: 'Want to go deeper?',
  // 5.7.2 copy:
- body: 'Two header toggles: **Advanced QC** unlocks masking, phase, transient density, waveform diff. **Learn mode** adds "why this matters" notes on every panel. Both off by default — flip them on when you want more.',
+ body: 'Two header toggles: **Advanced QC** adds masking, phase, transient density, waveform diff. **Learn mode** adds "why this matters" notes on every panel. Both off by default — flip them on when you want more.',
  },
 ]
 
@@ -256,7 +256,7 @@ export default function RefOnlyTour({
  <div className="p-4 space-y-2">
  <div className="flex items-center justify-between">
  {/* 5.7.2 copy: */}
- <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: '#d0b066' }}>
+ <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: '#d0b066' }}>
  Single file · {state.step + 1} / {STEPS.length}
  </span>
  {/* 5.7.2 copy: */}

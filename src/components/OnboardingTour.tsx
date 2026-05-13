@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Wordmark from './shell/Wordmark'
 
 /**
@@ -31,63 +31,7 @@ const DEFAULT_UPLOAD_STEPS: TourStep[] = [
  // 5.7.2 copy:
  title: 'Drop two tracks here',
  // 5.7.2 copy:
- body: 'Left side, the sound you want to chase. Right side, the mix or master you\'re working on. WAV, FLAC, MP3, AIFF, or ADM BWF — we\'ll take it.',
- },
- {
- selector: '[data-tour="scan-mode"]',
- placement: 'top',
- // 5.7.2 copy:
- title: 'Fast or Deep',
- // 5.7.2 copy:
- body: 'Fast gets you every measurement in under a minute. Deep adds stem separation so you can see each element on its own. Pick Fast unless you want to dig into the parts.',
- },
- {
- selector: '[data-tour="profile"]',
- placement: 'top',
- // 5.7.2 copy:
- title: 'Your sound, saved',
- // 5.7.2 copy:
- body: 'A profile is your house style — target curve, loudness, width, dynamics. Load a preset, build your own, or import one from a colleague.',
- },
- {
- selector: '[data-tour="recent"]',
- placement: 'top',
- // 5.7.2 copy:
- title: 'Keep your references close',
- // 5.7.2 copy:
- body: 'Star the tracks you reach for again and again. They\'ll be one click away next time, no re-importing.',
- },
- {
- selector: '[data-tour="analyze"]',
- placement: 'top',
- // 5.7.2 copy:
- title: 'Hit Compare',
- // 5.7.2 copy:
- body: 'One click and you\'re off. Or use Analyze Reference Only if you just want to check a single file. Everything runs on your machine — nothing uploads.',
- },
- {
- selector: '[data-tour="analyze-album"]',
- placement: 'top',
- // 5.7.2 copy:
- title: 'Got a whole album?',
- // 5.7.2 copy:
- body: 'Drop a folder. You\'ll get a sortable table of every track in seconds — loudness, peaks, length, ISRCs, the lot. Outliers flagged automatically.',
- },
- {
- selector: '[data-tour="analyze-album"]',
- placement: 'top',
- // 5.7.2 copy:
- title: 'Click into any track',
- // 5.7.2 copy:
- body: 'Tap a row to open that song. Arrow keys jump between tracks. Each one gets its own notes, and you can A/B any track against any other.',
- },
- {
- selector: '[data-tour="load-session"]',
- placement: 'top',
- // 5.7.2 copy:
- title: 'Pick up where you left off',
- // 5.7.2 copy:
- body: 'Save Session keeps every measurement, note, and favourite in one file. Load it tomorrow and you\'re right back in — no waiting on re-analysis.',
+ body: 'Left side, the sound you want to chase. Right side, the mix or master you\'re working on. WAV, FLAC, MP3, AIFF, ADM BWF. 16/24/32-bit, up to 192 kHz.',
  },
 ]
 
@@ -180,24 +124,104 @@ export default function OnboardingTour({ externalTour }: { externalTour?: Return
 /* ─── Welcome Modal ──────────────────────────────────────────────────────── */
 
 function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
- return (
- <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ backgroundColor: 'rgba(14,13,11,0.92)' }}>
- <div className="max-w-xl mx-6 p-10 text-center space-y-6"
- style={{ borderRadius: '2px', backgroundColor: '#151411', border: '1px solid rgba(208,176,102,0.25)' }}>
- <div>
- {/* 5.7.2 copy: */}
- <div className="text-[10px] tracking-[0.3em] uppercase" style={{ color: '#8d867b' }}>For people who care how it sounds</div>
- <div className="mt-2"><Wordmark size="lg" /></div>
- {/* 5.7.2 copy: */}
- <div className="text-[10px] tracking-[0.2em] uppercase mt-1" style={{ color: '#d0b066' }}>Listen, compare, ship</div>
- </div>
+ const startBtnRef = useRef<HTMLButtonElement | null>(null)
+ const containerRef = useRef<HTMLDivElement | null>(null)
 
+ // Focus the primary action when the modal mounts.
+ useEffect(() => {
+ startBtnRef.current?.focus()
+ }, [])
+
+ // Tab cycle + Escape to skip — matches CommandPalette focus-trap pattern.
+ const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+ if (e.key === 'Escape') {
+ e.preventDefault()
+ onSkip()
+ return
+ }
+ if (e.key !== 'Tab') return
+ const container = containerRef.current
+ if (!container) return
+ const focusable = container.querySelectorAll<HTMLElement>(
+ 'input, button, [tabindex]:not([tabindex="-1"])'
+ )
+ if (focusable.length === 0) return
+ const first = focusable[0]
+ const last = focusable[focusable.length - 1]
+ if (e.shiftKey) {
+ if (document.activeElement === first) { e.preventDefault(); last.focus() }
+ } else {
+ if (document.activeElement === last) { e.preventDefault(); first.focus() }
+ }
+ }
+
+ return (
+ <div
+ ref={containerRef}
+ role="dialog"
+ aria-modal="true"
+ aria-labelledby="welcome-modal-title"
+ onKeyDown={handleKeyDown}
+ className="fixed inset-0 z-[100] flex items-center justify-center"
+ style={{ backgroundColor: 'rgba(14,13,11,0.92)' }}
+ >
+ <div className="relative max-w-3xl mx-6 p-10 grid grid-cols-5 gap-10"
+ style={{ borderRadius: '2px', backgroundColor: 'var(--color-sand-900)', border: '1px solid rgba(168,161,150,0.12)' }}>
+ {/* Decorative mark — demoted to sand so the single gold on this
+    surface is the primary CTA border (Console Didone single-gold rule). */}
+ <span
+ aria-hidden="true"
+ className="absolute"
+ style={{
+ top: '20px',
+ right: '20px',
+ width: '4px',
+ height: '4px',
+ backgroundColor: 'var(--color-sand-600)',
+ transform: 'rotate(45deg)',
+ }}
+ />
+
+ {/* Left column — wordmark, promise, primary action. */}
+ <div className="col-span-3 flex flex-col">
+ <div className="text-left"><Wordmark size="lg" /></div>
  {/* 5.7.2 copy: */}
- <p className="text-sm leading-relaxed" style={{ color: '#b5afa4' }}>
- From <span style={{ color: '#ebe7e0' }}>&ldquo;something&apos;s off&rdquo;</span> to <span style={{ color: '#d0b066' }}>knowing exactly what</span> in three clicks. Level-matched A/B, honest streaming previews, and EQ moves you can hear before you commit.
+ <h2 id="welcome-modal-title" className="mt-4 text-left" style={{ fontSize: '18px', lineHeight: 1.4, color: 'var(--color-text-primary)', fontWeight: 400 }}>
+ Mastering QC, level-matched.
+ </h2>
+ {/* 5.7.2 copy: */}
+ <p className="mt-3 text-left text-sm leading-relaxed" style={{ color: 'var(--color-sand-300)' }}>
+ Level-matched A/B, codec-accurate streaming previews (AAC LC, Opus, HE-AAC v2), and EQ moves you can audition before render.
  </p>
 
- <div className="grid grid-cols-2 gap-3 text-left">
+ <div className="mt-auto pt-8 flex items-center gap-4">
+ <button
+ ref={startBtnRef}
+ onClick={onStart}
+ className="text-[11px] px-5 py-2.5 transition-colors"
+ style={{
+ borderRadius: '2px',
+ backgroundColor: 'var(--color-bg-app)',
+ color: 'var(--color-text-primary)',
+ border: '2px solid var(--color-accent)',
+ }}
+ >
+ {/* 5.7.2 copy: */}
+ Walk me through it
+ </button>
+ <button
+ onClick={onSkip}
+ className="text-[11px] px-2 py-2 transition-colors"
+ style={{ color: 'var(--color-text-muted)', background: 'transparent', border: 'none' }}
+ >
+ {/* 5.7.2 copy: */}
+ Skip
+ </button>
+ </div>
+ </div>
+
+ {/* Right column — vertical hairline + four pillars stacked. */}
+ <div className="col-span-2 pl-8 flex flex-col gap-5" style={{ borderLeft: '1px solid var(--color-sand-700)' }}>
  {/* 5.7.2 copy: */}
  <Pillar title="Drop. Compare." body="Two files, levels matched, every difference laid out side by side." />
  {/* 5.7.2 copy: */}
@@ -207,35 +231,6 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
  {/* 5.7.2 copy: */}
  <Pillar title="Stays on your Mac." body="Every measurement runs locally. Your audio never leaves." />
  </div>
-
- <div className="flex items-center justify-center gap-3 pt-2">
- <button
- onClick={onSkip}
- className="text-[11px] px-4 py-2 transition-colors"
- style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
- >
- {/* 5.7.2 copy: */}
- I&apos;ll poke around
- </button>
- <button
- onClick={onStart}
- className="text-[11px] px-6 py-2.5 transition-colors"
- style={{
- borderRadius: '2px',
- backgroundColor: 'transparent',
- color: '#d0b066',
- border: '1px solid rgba(208,176,102,0.55)',
- }}
- >
- {/* 5.7.2 copy: */}
- Show me around
- </button>
- </div>
-
- {/* 5.7.2 copy: */}
- <p className="text-[9px]" style={{ color: '#a8a29e' }}>
- Local-first. Your audio stays on your Mac.
- </p>
  </div>
  </div>
  )
@@ -243,9 +238,9 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
 
 function Pillar({ title, body }: { title: string; body: string }) {
  return (
- <div className="p-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.04)', border: '1px solid rgba(208,176,102,0.1)' }}>
- <div className="text-[11px] tracking-[0.12em] uppercase mb-1" style={{ color: '#d0b066' }}>{title}</div>
- <div className="text-[11px]" style={{ color: '#a8a196' }}>{body}</div>
+ <div>
+ <div className="text-[10px] tracking-[0.18em] uppercase mb-1" style={{ color: 'var(--color-text-primary)' }}>{title}</div>
+ <div className="text-[11px] leading-relaxed" style={{ color: 'var(--color-sand-300)' }}>{body}</div>
  </div>
  )
 }
@@ -381,16 +376,18 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  className="fixed z-[100] p-5 space-y-3"
  style={{
  ...popoverStyle,
- backgroundColor: '#151411',
+ backgroundColor: 'var(--color-sand-900)',
  border: '1px solid rgba(208,176,102,0.35)',
  borderRadius: '2px',
+ maxHeight: 'calc(100vh - 2rem)',
+ overflowY: 'auto',
  // Smooth movement between steps — no more teleport.
  transition: 'left 300ms cubic-bezier(0.2, 0.8, 0.2, 1), top 300ms cubic-bezier(0.2, 0.8, 0.2, 1), width 300ms ease',
  }}
  onClick={e => e.stopPropagation()}
  >
  <div className="flex items-center justify-between">
- <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>
+ <span className="text-[9px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>
  Step {stepIndex + 1} of {totalSteps}
  </span>
  {/* 5.7.2 copy: */}
@@ -409,7 +406,7 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  for something that isn't there. */}
  {!rect && (
  // 5.7.2 copy:
- <p className="text-[10px] italic pt-1" style={{ color: '#8d867b' }}>
+ <p className="text-[10px] font-display italic pt-1" style={{ color: 'var(--color-text-muted)' }}>
  You&apos;ll see this one once it shows up on screen. Keep going, or close the tour and explore.
  </p>
  )}
@@ -424,15 +421,15 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  <button
  onClick={onPrev}
  className="text-[10px] px-3 py-1.5"
- style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  >Back</button>
  )}
  <button
  onClick={onNext}
  className="text-[10px] px-4 py-1.5"
- style={{ borderRadius: '2px', backgroundColor: 'transparent', color: '#d0b066', border: '1px solid rgba(208,176,102,0.55)' }}
+ style={{ borderRadius: '2px', backgroundColor: 'transparent', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.55)' }}
  >
- {isLast ? 'Got it' : 'Next'}
+ {isLast ? 'Done' : 'Next'}
  </button>
  </div>
  </div>

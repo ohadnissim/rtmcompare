@@ -17,7 +17,7 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  <div className="space-y-4">
  <div className="space-y-1">
  <div className="flex items-center gap-2">
- <h2 className="text-lg font-semibold">Downmix Fidelity</h2>
+ <h2 className="text-lg">Downmix Fidelity</h2>
  <InfoTooltip text="Compares the original stereo mix against the Atmos stereo downmix. Differences show what changes when the Atmos mix is folded to stereo." />
  </div>
  <p className="text-xs text-dark-400">{delta.insight}</p>
@@ -41,8 +41,8 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  borderRadius: '2px',
  left: isPositive ? '50%' : `${50 + pct}%`,
  width: `${Math.abs(pct)}%`,
- backgroundColor: Math.abs(cat.diff_db) > 1.5 ? '#e07a4f' :
- Math.abs(cat.diff_db) > 0.5 ? '#f59e0b' : '#6b8cbb',
+ backgroundColor: Math.abs(cat.diff_db) > 1.5 ? 'var(--color-data-warn)' :
+ Math.abs(cat.diff_db) > 0.5 ? 'var(--color-warm-amber)' : 'var(--color-data-a)',
  opacity: 0.7,
  }}
  />

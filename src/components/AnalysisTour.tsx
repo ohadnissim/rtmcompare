@@ -29,15 +29,6 @@ const STEPS: AnalysisTourStep[] = [
  },
  {
  tab: 'overview',
- selector: '[data-tour="advanced-qc"]',
- placement: 'bottom',
- // 5.7.2 copy:
- title: 'Advanced QC',
- // 5.7.2 copy:
- body: 'Flip this on when you want the deep dive — masking, phase per band, transient density, the works. Off by default so the page stays clean.',
- },
- {
- tab: 'overview',
  selector: '[data-tour-target="player"]',
  placement: 'bottom',
  // 5.7.2 copy:
@@ -318,7 +309,7 @@ export default function AnalysisTour({
  className="fixed z-[100] p-5 space-y-3"
  style={{
  ...popoverStyle,
- backgroundColor: '#151411',
+ backgroundColor: 'var(--color-sand-900)',
  border: '1px solid rgba(208,176,102,0.35)',
  // Smooth movement between steps. Eases `left / top / width`
  // over 300 ms — short enough not to feel sluggish, long enough
@@ -328,28 +319,28 @@ export default function AnalysisTour({
  onClick={e => e.stopPropagation()}
  >
  <div className="flex items-center justify-between">
- <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>
+ <span className="text-[9px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>
  Tab {stepIndex + 1} of {totalSteps}
  </span>
  {/* 5.7.2 copy: */}
  <button
  onClick={stopTour}
  className="text-[10px]"
- style={{ color: '#a8a29e' }}
+ style={{ color: 'var(--color-sand-300)' }}
  >Close tour</button>
  </div>
  <h3 className="text-base" style={{ color: '#f5f2ed', fontWeight: 500 }}>{step.title}</h3>
- <p className="text-[12px] leading-relaxed" style={{ color: '#a8a196' }}>{step.body}</p>
+ <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-sand-300)' }}>{step.body}</p>
  {!rect && (
  // 5.7.2 copy:
- <p className="text-[10px] italic pt-1" style={{ color: '#8d867b' }}>
+ <p className="text-[10px] font-display italic pt-1" style={{ color: 'var(--color-text-muted)' }}>
  You&apos;ll see this one once it shows up on screen. Keep going, or close and explore.
  </p>
  )}
  <div className="flex items-center justify-between pt-1">
  <div className="flex items-center gap-1">
  {Array.from({ length: totalSteps }).map((_, i) => (
- <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: i === stepIndex ? '#d0b066' : '#3e3a33' }} />
+ <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: i === stepIndex ? 'var(--color-accent)' : 'var(--color-sand-600)' }} />
  ))}
  </div>
  <div className="flex items-center gap-2">
@@ -357,13 +348,13 @@ export default function AnalysisTour({
  <button
  onClick={prevStep}
  className="text-[10px] px-3 py-1.5"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  >Back</button>
  )}
  <button
  onClick={nextStep}
  className="text-[10px] px-4 py-1.5"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-app)' }}
  >
  {isLast ? 'Got it' : 'Next'}
  </button>

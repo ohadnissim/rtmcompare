@@ -396,7 +396,7 @@ export default function SongDetailPanel({
  the edges of the song list. */}
  <div className="flex items-start justify-between gap-4 flex-wrap">
  <div className="min-w-0 flex-1">
- <div className="text-[10px] tracking-[0.2em] uppercase mb-1" style={{ color: '#d0b066' }}>
+ <div className="text-[10px] tracking-[0.18em] uppercase mb-1" style={{ color: 'var(--color-accent)' }}>
  Song detail
  </div>
  <div className="flex items-center gap-2">
@@ -404,7 +404,7 @@ export default function SongDetailPanel({
  onClick={onPrev}
  disabled={!onPrev}
  className="w-7 h-7 rounded-full flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/[0.04]"
- style={{ border: '1px solid rgba(168,161,150,0.2)', color: '#a8a29e' }}
+ style={{ border: '1px solid rgba(168,161,150,0.2)', color: 'var(--color-sand-300)' }}
  title="Previous song (←)"
  aria-label="Previous song"
  >
@@ -412,8 +412,8 @@ export default function SongDetailPanel({
  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
  </svg>
  </button>
- <h3 className="text-xl flex-1 min-w-0 truncate" style={{ color: '#ebe7e0', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400 }} title={displayName}>
- {displayName}
+ <h3 className="text-xl flex-1 min-w-0 truncate" style={{ color: 'var(--color-text-primary)', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400 }} title={displayName || 'Untitled track'}>
+ {displayName || <span style={{ color: 'var(--color-text-muted)' }}>Untitled track</span>}
  </h3>
  {/* Position in the current album sort order. Shown after the
  title so users never have to count rows in the overview to
@@ -421,7 +421,7 @@ export default function SongDetailPanel({
  {indexInList != null && totalInList != null && totalInList > 0 && (
  <span
  className="text-[10px] font-mono tabular-nums flex-shrink-0"
- style={{ color: '#7a7164' }}
+ style={{ color: 'var(--color-text-muted)' }}
  title={`Track ${indexInList} of ${totalInList} in the current sort order`}
  >
  {indexInList} / {totalInList}
@@ -431,7 +431,7 @@ export default function SongDetailPanel({
  onClick={onNext}
  disabled={!onNext}
  className="w-7 h-7 rounded-full flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/[0.04]"
- style={{ border: '1px solid rgba(168,161,150,0.2)', color: '#a8a29e' }}
+ style={{ border: '1px solid rgba(168,161,150,0.2)', color: 'var(--color-sand-300)' }}
  title="Next song (→)"
  aria-label="Next song"
  >
@@ -440,22 +440,22 @@ export default function SongDetailPanel({
  </svg>
  </button>
  </div>
- <div className="text-[11px] mt-1 truncate" style={{ color: '#7a7164' }}>
- {song.artist && <span style={{ color: '#a8a29e' }}>{song.artist}</span>}
+ <div className="text-[11px] mt-1 truncate" style={{ color: 'var(--color-text-muted)' }}>
+ {song.artist && <span style={{ color: 'var(--color-sand-300)' }}>{song.artist}</span>}
  {song.artist && song.album && <span> · </span>}
  {song.album && <>{song.album}</>}
  {(song.artist || song.album) && <span> · </span>}
  <span className="font-mono">{song.filename}</span>
  </div>
  {/* Compact metadata strip — panel consensus to collapse SR/BD/ch/ISRC. */}
- <div className="text-[10px] font-mono mt-0.5" style={{ color: '#7a7164' }}>
+ <div className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
  {formatMetadataStrip(m)}
  </div>
  </div>
  <button
  onClick={onClose}
- className="text-[10px] uppercase tracking-[0.12em] transition-colors hover:text-sand-200"
- style={{ color: '#8d867b' }}
+ className="text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-sand-200"
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Close
  </button>
@@ -474,17 +474,17 @@ export default function SongDetailPanel({
  style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.5)', border: '1px solid rgba(168,161,150,0.15)' }}
  >
  <div className="flex-1 min-w-[16rem]">
- <div className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>
+ <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>
  Deep analysis
  </div>
- <div className="text-[12px] mt-1" style={{ color: '#a8a29e' }}>
- Unlock clicks · distortion · hum · phase bands · key / BPM / harmonics · streaming normalisation preview · loudness-over-time. ~15–25 s per track.
+ <div className="text-[12px] mt-1" style={{ color: 'var(--color-sand-300)' }}>
+ Adds clicks · distortion · hum · phase bands · key / BPM / harmonics · streaming normalisation preview · loudness-over-time. ~15–25 s per track.
  </div>
  </div>
  <button
  onClick={runDeepAnalysis}
  className="text-[11px] px-4 py-2 transition-colors hover:bg-white/[0.03]"
- style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.4)' }}
  title="Run the full single-file deep analysis for this song. Result is cached for the rest of the session."
  >
  Run deep analysis
@@ -504,22 +504,22 @@ export default function SongDetailPanel({
  >
  <div className="flex items-center justify-between mb-2">
  <div className="flex items-center gap-2">
- <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#c5a55a' }} />
- <span className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#c5a55a' }}>
+ <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-accent)' }} />
+ <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>
  Deep analysis running
  </span>
  </div>
- <span className="font-mono text-[11px]" style={{ color: '#c5a55a' }}>
+ <span className="font-mono text-[11px]" style={{ color: 'var(--color-accent)' }}>
  {progressPct}% · {elapsedSec}s
  </span>
  </div>
  <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(197,165,90,0.15)' }}>
  <div
  className="h-full transition-[width] duration-1000 ease-linear"
- style={{ width: `${progressPct}%`, backgroundColor: '#c5a55a' }}
+ style={{ width: `${progressPct}%`, backgroundColor: 'var(--color-accent)' }}
  />
  </div>
- <div className="mt-2 text-[10px] italic" style={{ color: '#a8a29e' }}>
+ <div className="mt-2 text-[10px] font-display italic" style={{ color: 'var(--color-sand-300)' }}>
  {analysisMsg || 'Working…'}
  </div>
  </div>
@@ -530,11 +530,11 @@ export default function SongDetailPanel({
  className="px-4 py-3 flex items-center justify-between gap-3"
  style={{ borderRadius: '2px', backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
  >
- <span className="text-[11px]" style={{ color: '#e05a5a' }}>⚠ Deep analysis failed — {error}</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-danger)' }}>⚠ Deep analysis failed — {error}</span>
  <button
  onClick={runDeepAnalysis}
  className="text-[10px] px-3 py-1"
- style={{ borderRadius: '2px', color: '#e05a5a', border: '1px solid rgba(224,90,90,0.4)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-danger)', border: '1px solid rgba(224,90,90,0.4)' }}
  >
  Try again
  </button>
@@ -547,26 +547,26 @@ export default function SongDetailPanel({
  with platform-specific findings. Persists in localStorage. */}
  <div className="flex items-center justify-end gap-3 flex-wrap">
  {triageMode && (
- <label className="flex items-center gap-1.5 text-[9px]" style={{ color: '#7a7164' }}>
- <span className="uppercase tracking-[0.15em]">DSP profile</span>
+ <label className="flex items-center gap-1.5 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+ <span className="uppercase tracking-[0.16em]">DSP profile</span>
  <select
  value={dspProfileId}
  onChange={e => setDspProfile(e.target.value)}
  className="text-[10px] px-2 py-0.5 rounded bg-transparent focus:outline-none"
- style={{ color: '#ebe7e0', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-text-primary)', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Overlay a DSP's specific delivery spec on the Attention list (target LUFS, TP ceiling, SR/BD minimum, ISRC rules)."
  >
- <option value="" style={{ backgroundColor: '#1f1b17' }}>— generic —</option>
+ <option value="" style={{ backgroundColor: 'var(--color-bg-panel)' }}>— generic —</option>
  {Object.values(DSP_PROFILES).map(p => (
- <option key={p.id} value={p.id} style={{ backgroundColor: '#1f1b17' }}>{p.name}</option>
+ <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--color-bg-panel)' }}>{p.name}</option>
  ))}
  </select>
  </label>
  )}
  <button
  onClick={toggleTriage}
- className="text-[10px] uppercase tracking-[0.12em] transition-colors hover:text-sand-200"
- style={{ color: triageMode ? '#d0b066' : '#7a7164' }}
+ className="text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-sand-200"
+ style={{ color: triageMode ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
  title="Triage Mode brings back the Ready-to-Deliver verdict + Attention list at the top of the panel. Useful for QC / label-ops; off by default for engineer workflow."
  >
  {triageMode ? '▾ Triage mode · on' : '▸ Triage mode'}
@@ -578,7 +578,7 @@ export default function SongDetailPanel({
  <ReadyToDeliverVerdict verdict={verdict} compact />
  {attention.length > 0 && (
  <div className="space-y-1.5">
- <div className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>Attention</div>
+ <div className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>Attention</div>
  <AttentionList items={attention} onJump={jumpTo} />
  </div>
  )}
@@ -597,23 +597,23 @@ export default function SongDetailPanel({
  on top. */}
  {hasAnyTargets && (
  <div className="flex items-center gap-2 flex-wrap">
- <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: '#d0b066' }}>A/B reference</span>
+ <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent)' }}>A/B reference</span>
  <select
  value={compareTargetPath || ''}
  onChange={e => setCompareTargetPath(e.target.value || null)}
  className="text-[11px] px-2 py-1 rounded bg-transparent focus:outline-none"
- style={{ color: '#ebe7e0', border: '1px solid rgba(168,161,150,0.2)', minWidth: 240 }}
+ style={{ color: 'var(--color-text-primary)', border: '1px solid rgba(168,161,150,0.2)', minWidth: 240 }}
  title="Pick another album track, a favorite / uploaded reference, or the cohort reference. Engages the same A/B player used in Compare mode; B stays on this song, A is whatever you pick here."
  >
- <option value="" style={{ backgroundColor: '#1f1b17' }}>— solo transport (no A/B) —</option>
+ <option value="" style={{ backgroundColor: 'var(--color-bg-panel)' }}>— solo transport (no A/B) —</option>
  {/* Revisions — auto-detected siblings of the current file
  (same base stem, different _v2 / _REV3 / _FINAL suffix).
  Pinned at the very top during iterative mastering
  sessions, engineers want "previous rev" one click away. */}
  {compareTargets?.revisions && compareTargets.revisions.length > 0 && (
- <optgroup label="↻ Revisions of this track" style={{ backgroundColor: '#1f1b17' }}>
+ <optgroup label="↻ Revisions of this track" style={{ backgroundColor: 'var(--color-bg-panel)' }}>
  {compareTargets.revisions.filter(t => t.path !== song.path).map(t => (
- <option key={`rev:${t.path}`} value={t.path} style={{ backgroundColor: '#1f1b17' }}>↻ {t.label}</option>
+ <option key={`rev:${t.path}`} value={t.path} style={{ backgroundColor: 'var(--color-bg-panel)' }}>↻ {t.label}</option>
  ))}
  </optgroup>
  )}
@@ -622,28 +622,28 @@ export default function SongDetailPanel({
  mastering ops will always reach for this first if it's
  set. */}
  {compareTargets?.cohort && compareTargets.cohort.path !== song.path && (
- <optgroup label="★ Cohort reference" style={{ backgroundColor: '#1f1b17' }}>
- <option value={compareTargets.cohort.path} style={{ backgroundColor: '#1f1b17' }}>★ {compareTargets.cohort.label}</option>
+ <optgroup label="★ Cohort reference" style={{ backgroundColor: 'var(--color-bg-panel)' }}>
+ <option value={compareTargets.cohort.path} style={{ backgroundColor: 'var(--color-bg-panel)' }}>★ {compareTargets.cohort.label}</option>
  </optgroup>
  )}
  {compareTargets?.favorites && compareTargets.favorites.length > 0 && (
- <optgroup label="★ Favorites" style={{ backgroundColor: '#1f1b17' }}>
+ <optgroup label="★ Favorites" style={{ backgroundColor: 'var(--color-bg-panel)' }}>
  {compareTargets.favorites.filter(t => t.path !== song.path).map(t => (
- <option key={`fav:${t.path}`} value={t.path} style={{ backgroundColor: '#1f1b17' }}>★ {t.label}</option>
+ <option key={`fav:${t.path}`} value={t.path} style={{ backgroundColor: 'var(--color-bg-panel)' }}>★ {t.label}</option>
  ))}
  </optgroup>
  )}
  {compareTargets?.session && compareTargets.session.length > 0 && (
- <optgroup label="⊕ This session" style={{ backgroundColor: '#1f1b17' }}>
+ <optgroup label="⊕ This session" style={{ backgroundColor: 'var(--color-bg-panel)' }}>
  {compareTargets.session.filter(t => t.path !== song.path).map(t => (
- <option key={`sess:${t.path}`} value={t.path} style={{ backgroundColor: '#1f1b17' }}>⊕ {t.label}</option>
+ <option key={`sess:${t.path}`} value={t.path} style={{ backgroundColor: 'var(--color-bg-panel)' }}>⊕ {t.label}</option>
  ))}
  </optgroup>
  )}
  {compareTargets?.album && compareTargets.album.length > 0 && (
- <optgroup label="Album tracks" style={{ backgroundColor: '#1f1b17' }}>
+ <optgroup label="Album tracks" style={{ backgroundColor: 'var(--color-bg-panel)' }}>
  {compareTargets.album.filter(t => t.path !== song.path).map(t => (
- <option key={`alb:${t.path}`} value={t.path} style={{ backgroundColor: '#1f1b17' }}>{t.label}</option>
+ <option key={`alb:${t.path}`} value={t.path} style={{ backgroundColor: 'var(--color-bg-panel)' }}>{t.label}</option>
  ))}
  </optgroup>
  )}
@@ -657,7 +657,7 @@ export default function SongDetailPanel({
  onClick={() => onAddReference()}
  disabled={!!uploadingReference}
  className="text-[11px] px-2 py-1 rounded transition-colors hover:bg-white/[0.03] disabled:opacity-60"
- style={{ color: '#a8a29e', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-sand-300)', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Load a reference file from your library. It stays in this session's dropdown; star it to keep it across sessions."
  >
  {uploadingReference ? '…' : '+ Load'}
@@ -666,7 +666,7 @@ export default function SongDetailPanel({
  {addReferenceError && (
  <span
  className="text-[10px] px-2 py-1 rounded cursor-pointer"
- style={{ color: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
+ style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
  role="alert"
  title="Click to dismiss"
  onClick={() => onClearAddReferenceError?.()}
@@ -682,7 +682,7 @@ export default function SongDetailPanel({
  <button
  onClick={onToggleFavorite}
  className="text-[13px] px-2 py-1 rounded transition-colors hover:bg-white/[0.03]"
- style={{ color: isReferenceFavorited ? '#d0b066' : '#7a7164', border: '1px solid rgba(168,161,150,0.2)', lineHeight: 1 }}
+ style={{ color: isReferenceFavorited ? 'var(--color-accent)' : 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)', lineHeight: 1 }}
  title={isReferenceFavorited ? 'Remove from favorites' : 'Save as favorite — stays available across sessions'}
  aria-label={isReferenceFavorited ? 'Remove from favorites' : 'Add to favorites'}
  >
@@ -691,7 +691,7 @@ export default function SongDetailPanel({
  )}
 
  {compareTarget && (
- <span className="text-[10px]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  Press <span className="font-mono">A</span> / <span className="font-mono">B</span> / <span className="font-mono">X</span> to flip, <span className="font-mono">space</span> play/pause.
  </span>
  )}
@@ -722,13 +722,13 @@ export default function SongDetailPanel({
  aria-label={isPlaying ? 'Pause' : 'Play'}
  >
  {isPlaying ? (
- <svg className="w-4 h-4" fill="#e07a4f" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+ <svg className="w-4 h-4" fill="var(--color-data-warn)" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
  ) : (
- <svg className="w-4 h-4" fill="#d0b066" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+ <svg className="w-4 h-4" fill="var(--color-accent)" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
  )}
  </button>
  <div className="flex-1 flex items-center gap-3">
- <span className="text-[10px] font-mono tabular-nums" style={{ color: '#a8a29e', minWidth: 40 }}>
+ <span className="text-[10px] font-mono tabular-nums" style={{ color: 'var(--color-sand-300)', minWidth: 60 }}>
  {fmtTime(pos)}
  </span>
  <div
@@ -741,9 +741,9 @@ export default function SongDetailPanel({
  onSeek(ratio * duration)
  }}
  >
- <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{ width: `${duration > 0 ? (pos / duration) * 100 : 0}%`, backgroundColor: '#d0b066' }} />
+ <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{ width: `${duration > 0 ? (pos / duration) * 100 : 0}%`, backgroundColor: 'var(--color-accent)' }} />
  </div>
- <span className="text-[10px] font-mono tabular-nums" style={{ color: '#7a7164', minWidth: 40, textAlign: 'right' }}>
+ <span className="text-[10px] font-mono tabular-nums" style={{ color: 'var(--color-text-muted)', minWidth: 60, textAlign: 'right' }}>
  {fmtTime(duration)}
  </span>
  </div>
@@ -770,7 +770,7 @@ export default function SongDetailPanel({
  badge={(() => {
  const attenuated = full.streaming_preview.b.filter(r => r.action === 'attenuated').length
  return (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#c5a55a', backgroundColor: 'rgba(197,165,90,0.12)' }}>
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(197,165,90,0.12)' }}>
  {attenuated} of {full.streaming_preview.b.length} attenuated
  </span>
  )
@@ -823,15 +823,15 @@ export default function SongDetailPanel({
  {song.spectrum && song.spectrum.length === 31 && (
  <div className="space-y-1.5">
  <div className="flex items-center justify-between flex-wrap gap-2">
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
  Tonal balance · 31-band
  {compareTarget && compareTarget.spectrum && (
- <span className="ml-2 normal-case tracking-normal" style={{ color: '#6b8cbb' }}>
+ <span className="ml-2 normal-case tracking-normal" style={{ color: 'var(--color-data-a)' }}>
  · overlaid vs {compareTarget.label}
  </span>
  )}
  </span>
- <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>dB · peak-normalised</span>
+ <span className="text-[9px] font-mono" style={{ color: 'var(--color-text-muted)' }}>dB · peak-normalised</span>
  </div>
  <SpectrumCurve spectrum={song.spectrum} compareSpectrum={compareTarget?.spectrum} compareLabel={compareTarget?.label} />
  </div>
@@ -843,7 +843,7 @@ export default function SongDetailPanel({
  title="Clicks & Glitches"
  tooltip="Digital clicks, pops, edit artefacts. Click any entry to jump the transport there."
  badge={
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#c5a55a', backgroundColor: 'rgba(150,128,58,0.12)' }}>
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(150,128,58,0.12)' }}>
  {full.clicks.length} detected
  </span>
  }
@@ -941,7 +941,7 @@ export default function SongDetailPanel({
  )}
 
  {error && (
- <div className="text-[11px] italic" style={{ color: '#e05a5a' }}>
+ <div className="text-[11px] font-display italic" style={{ color: 'var(--color-danger)' }}>
  Deep analysis failed — {error}. Basic metrics shown above.
  </div>
  )}
@@ -954,12 +954,12 @@ export default function SongDetailPanel({
 function StatCard({ label, value, unit, warn }: { label: string; value: string; unit: string; warn?: boolean }) {
  return (
  <div className="px-3 py-2.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)', border: '1px solid rgba(168,161,150,0.06)' }}>
- <div className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>{label}</div>
+ <div className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-text-muted)' }}>{label}</div>
  <div className="flex items-baseline gap-1.5 mt-1">
- <span className="font-mono tabular-nums text-base" style={{ color: warn ? '#e07a4f' : '#e7e5e4', fontWeight: 300 }}>
+ <span className="font-mono tabular-nums text-base" style={{ color: warn ? 'var(--color-data-warn)' : 'var(--color-sand-100)', fontWeight: 300 }}>
  {value}
  </span>
- {unit && <span className="text-[9px]" style={{ color: '#7a7164' }}>{unit}</span>}
+ {unit && <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{unit}</span>}
  </div>
  </div>
  )
@@ -1010,27 +1010,27 @@ function SpectrumCurve({ spectrum, compareSpectrum, compareLabel }: {
  <div className="px-4 py-3 space-y-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.35)', border: '1px solid rgba(168,161,150,0.06)' }}>
  <svg viewBox={`0 0 ${width} ${height + 18}`} className="w-full" preserveAspectRatio="none">
  {[-20, -40].map(db => (
- <line key={db} x1={0} x2={width} y1={toY(db)} y2={toY(db)} stroke="#3e3a33" strokeWidth={0.5} strokeDasharray="2 3" />
+ <line key={db} x1={0} x2={width} y1={toY(db)} y2={toY(db)} stroke="var(--color-sand-600)" strokeWidth={0.5} strokeDasharray="2 3" />
  ))}
  <path d={fillPath} fill="rgba(208,176,102,0.15)" />
- <path d={d} fill="none" stroke="#d0b066" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+ <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
  {compareD && (
- <path d={compareD} fill="none" stroke="#6b8cbb" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3" opacity="0.8" />
+ <path d={compareD} fill="none" stroke="var(--color-data-a)" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3" opacity="0.8" />
  )}
  {labels.map((l, i) => (
- <text key={i} x={(labelAt[i] / 30) * width} y={height + 14} fontSize="9" fill="#7a7164" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
+ <text key={i} x={(labelAt[i] / 30) * width} y={height + 14} fontSize="9" fill="var(--color-text-muted)" textAnchor="middle" fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace">
  {l} Hz
  </text>
  ))}
  </svg>
  {compareLabel && (
- <div className="flex items-center gap-4 text-[9px]" style={{ color: '#7a7164' }}>
+ <div className="flex items-center gap-4 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
  <span className="flex items-center gap-1.5">
- <span className="inline-block w-3 h-0.5" style={{ backgroundColor: '#d0b066' }} />
+ <span className="inline-block w-3 h-0.5" style={{ backgroundColor: 'var(--color-accent)' }} />
  This song
  </span>
  <span className="flex items-center gap-1.5">
- <span className="inline-block w-3 border-t border-dashed" style={{ borderColor: '#6b8cbb' }} />
+ <span className="inline-block w-3 border-t border-dashed" style={{ borderColor: 'var(--color-data-a)' }} />
  {compareLabel}
  </span>
  </div>
@@ -1066,8 +1066,8 @@ function SongInfoBlock({ info }: { info: any }) {
  {harmonics.length > 0 && (
  <div className="space-y-2">
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>Key frequencies</span>
- <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>Key frequencies</span>
+ <span className="text-[9px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  20 Hz → 20 kHz (log)
  </span>
  </div>
@@ -1081,7 +1081,7 @@ function SongInfoBlock({ info }: { info: any }) {
  if (left < 0 || left > 100) return null
  const isRoot = h.is_root
  const isOctave = h.is_octave
- const color = isRoot ? '#e07a4f' : isOctave ? '#6b8cbb' : '#6ec577'
+ const color = isRoot ? 'var(--color-data-warn)' : isOctave ? 'var(--color-data-a)' : 'var(--color-data-pass)'
  const height = isRoot ? '100%' : isOctave ? '70%' : '45%'
  const width = isRoot ? 3 : isOctave ? 2 : 1
  return (
@@ -1099,7 +1099,7 @@ function SongInfoBlock({ info }: { info: any }) {
  )
  })}
  </div>
- <div className="flex justify-between mt-3 text-[7px]" style={{ color: '#8d867b' }}>
+ <div className="flex justify-between mt-3 text-[7px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>20</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k</span>
  </div>
  </div>
@@ -1108,7 +1108,7 @@ function SongInfoBlock({ info }: { info: any }) {
  {harmonics.map((h, i) => (
  <span key={i} className="text-[9px] px-2 py-0.5 rounded font-mono" style={{
  backgroundColor: h.is_root ? 'rgba(224,122,79,0.15)' : h.is_octave ? 'rgba(107,140,187,0.1)' : 'rgba(110,197,119,0.08)',
- color: h.is_root ? '#e07a4f' : h.is_octave ? '#6b8cbb' : '#78716c',
+ color: h.is_root ? 'var(--color-data-warn)' : h.is_octave ? 'var(--color-data-a)' : 'var(--color-text-muted)',
  fontWeight: h.is_root ? 600 : 400,
  }}>
  {h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)} Hz
@@ -1125,9 +1125,9 @@ function SongInfoBlock({ info }: { info: any }) {
 function MiniStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
  return (
  <div className="p-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)' }}>
- <div className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>{label}</div>
- <div className="text-sm font-medium mt-0.5" style={{ color: '#e7e5e4' }}>{value}</div>
- {sub && <div className="text-[9px] mt-0.5" style={{ color: '#8d867b' }}>{sub}</div>}
+ <div className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-text-muted)' }}>{label}</div>
+ <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--color-sand-100)' }}>{value}</div>
+ {sub && <div className="text-[9px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{sub}</div>}
  </div>
  )
 }
@@ -1144,12 +1144,12 @@ function SongNotes({ value, onChange }: { value: string; onChange: (v: string) =
  <div className="" style={{ borderRadius: '2px', backgroundColor: 'rgba(18,16,14,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="flex items-center justify-between px-3 py-2">
  <div className="flex items-center gap-2">
- <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>Notes</span>
+ <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>Notes</span>
  {hasContent && (
- <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c5a55a' }} title="Has notes" />
+ <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }} title="Has notes" />
  )}
  </div>
- <span className="text-[9px]" style={{ color: '#8d867b' }}>Saved with session · included in PDF</span>
+ <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Saved with session · included in PDF</span>
  </div>
  <div className="px-3 pb-3">
  <textarea
@@ -1161,7 +1161,7 @@ function SongNotes({ value, onChange }: { value: string; onChange: (v: string) =
  style={{
  borderRadius: '2px',
  backgroundColor: 'rgba(12,10,8,0.6)',
- color: '#ebe7e0',
+ color: 'var(--color-text-primary)',
  border: '1px solid rgba(168,161,150,0.12)',
  lineHeight: 1.5,
  }}

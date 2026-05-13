@@ -31,19 +31,19 @@ export default function TempoDriftPanel({ drift }: Props) {
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Tempo Over Time</h2>
+ <h2 className="text-lg">Tempo Over Time</h2>
  <p className="text-xs text-dark-400">
  Sliding-window BPM. Large range (&gt;3 BPM) suggests variable tempo — live takes or un-quantised productions.
  </p>
  </div>
  <div className="flex items-center gap-3 text-right">
  <div>
- <div className="text-[9px] uppercase tracking-[0.1em] text-dark-500">Median</div>
+ <div className="text-[9px] uppercase tracking-[0.14em] text-dark-500">Median</div>
  <div className="text-base font-mono text-dark-100">{drift.median_bpm.toFixed(1)} BPM</div>
  </div>
  <div>
- <div className="text-[9px] uppercase tracking-[0.1em] text-dark-500">Range</div>
- <div className="text-base font-mono" style={{ color: drift.drift ? '#d0b066' : '#6fa37e' }}>
+ <div className="text-[9px] uppercase tracking-[0.14em] text-dark-500">Range</div>
+ <div className="text-base font-mono" style={{ color: drift.drift ? 'var(--color-accent)' : 'var(--color-success)' }}>
  ±{(drift.range_bpm / 2).toFixed(1)}
  </div>
  </div>
@@ -62,12 +62,12 @@ export default function TempoDriftPanel({ drift }: Props) {
  strokeWidth="0.5"
  strokeDasharray="4 3"
  />
- <path d={path} fill="none" stroke="#d0b066" strokeWidth="2" />
+ <path d={path} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
  {/* Points */}
  {drift.timeline.map((p, i) => {
  const x = (i / (drift.timeline.length - 1)) * w
  const y = h - ((p.bpm - yMin) / (yMax - yMin)) * h
- return <circle key={i} cx={x} cy={y} r={2} fill="#d0b066" />
+ return <circle key={i} cx={x} cy={y} r={2} fill="var(--color-accent)" />
  })}
  </svg>
  <div className="flex justify-between mt-1 text-[9px] text-dark-500 font-mono">
@@ -77,7 +77,7 @@ export default function TempoDriftPanel({ drift }: Props) {
  </div>
 
  {drift.drift && (
- <div className="text-[11px] px-3 py-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.10)', color: '#d0b066' }}>
+ <div className="text-[11px] px-3 py-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.10)', color: 'var(--color-accent)' }}>
  Tempo range {drift.range_bpm.toFixed(1)} BPM — this track varies in tempo across the timeline. Expect beat-grid misalignment if you're DJ-syncing or re-cutting.
  </div>
  )}

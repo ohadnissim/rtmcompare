@@ -127,7 +127,7 @@ export default function StudentWorkspace() {
           justifyContent: 'center',
           writingMode: 'vertical-rl',
           fontSize: 9,
-          letterSpacing: '0.12em',
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
           padding: '12px 0',
           userSelect: 'none',
@@ -156,7 +156,7 @@ export default function StudentWorkspace() {
         {/* Step label */}
         <div style={{
           fontSize: 9,
-          letterSpacing: '0.12em',
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
           color: 'var(--color-accent)',
           marginBottom: 10,
@@ -190,7 +190,7 @@ export default function StudentWorkspace() {
                 style={{
                   fontSize: 11,
                   color: 'var(--color-sand-400)',
-                  fontStyle: 'italic',
+                  fontFamily: 'var(--font-display)', fontStyle: 'italic',
                   marginTop: 5,
                   marginBottom: 0,
                   lineHeight: 1.5,
@@ -208,7 +208,7 @@ export default function StudentWorkspace() {
             style={{
               display: 'block',
               fontSize: 10,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
               color: 'var(--color-sand-400)',
               marginBottom: 4,
@@ -254,7 +254,7 @@ export default function StudentWorkspace() {
           }}
         >
           <div style={{
-            fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
+            fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
             color: 'var(--color-sand-400)', marginBottom: 6,
           }}>
             Your Identity
@@ -312,7 +312,7 @@ export default function StudentWorkspace() {
             <div
               style={{
                 fontSize: 10,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 color: 'var(--color-accent)',
                 marginBottom: 6,

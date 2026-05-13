@@ -14,10 +14,10 @@ interface Props {
 }
 
 function corrColor(c: number): string {
- if (c < 0) return '#c96765' // out of phase
- if (c < 0.3) return '#d0b066' // ambiguous
- if (c < 0.7) return '#b5afa4' // decorrelated (wide)
- return '#6fa37e' // mono-compatible
+ if (c < 0) return 'var(--color-danger)' // out of phase
+ if (c < 0.3) return 'var(--color-accent)' // ambiguous
+ if (c < 0.7) return 'var(--color-sand-300)' // decorrelated (wide)
+ return 'var(--color-success)' // mono-compatible
 }
 
 function corrLabel(c: number): string {
@@ -63,9 +63,9 @@ function overallScore(bands: Band[]): number {
 }
 
 function scoreColor(s: number): string {
- if (s >= 75) return '#6fa37e'
- if (s >= 50) return '#d0b066'
- return '#c96765'
+ if (s >= 75) return 'var(--color-success)'
+ if (s >= 50) return 'var(--color-accent)'
+ return 'var(--color-danger)'
 }
 
 function scoreLabel(s: number): string {
@@ -86,7 +86,7 @@ export default function PhaseBandsPanel({ bandsA, bandsB, labelA, labelB }: Prop
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="flex items-start justify-between gap-4">
  <div className="space-y-1 flex-1">
- <h2 className="text-lg font-semibold">Phase Correlation — Per Band</h2>
+ <h2 className="text-lg">Phase Correlation — Per Band</h2>
  <p className="text-xs text-dark-400">
  +1 = mono-compatible · 0 = wide stereo · −1 = cancels in mono. Sub and Bass bands matter most — that's where mono cancellation is audible.
  </p>
@@ -128,7 +128,7 @@ export default function PhaseBandsPanel({ bandsA, bandsB, labelA, labelB }: Prop
  <span className="w-24 text-center text-[10px]" style={{ color: verdictColor }}>
  {verdict}
  </span>
- <span className="flex-[2] pl-3 text-[10px]" style={{ color: fix ? '#d0b066' : '#8d867b' }}>
+ <span className="flex-[2] pl-3 text-[10px]" style={{ color: fix ? 'var(--color-accent)' : 'var(--color-text-muted)' }}>
  {fix || '—'}
  </span>
  </div>
@@ -143,7 +143,7 @@ function ScoreCard({ label, score }: { label: string; score: number }) {
  const color = scoreColor(score)
  return (
  <div className="px-3 py-2 text-center min-w-[110px]" style={{ backgroundColor: 'rgba(42,41,39,0.45)', border: `1px solid ${color}40` }}>
- <div className="text-[9px] uppercase tracking-[0.12em]" style={{ color: '#8d867b' }}>{label}</div>
+ <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>{label}</div>
  <div className="flex items-baseline justify-center gap-1">
  <span className="text-2xl font-semibold font-mono" style={{ color }}>{score}</span>
  <span className="text-[10px] text-dark-500">/100</span>

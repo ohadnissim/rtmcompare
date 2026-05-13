@@ -136,6 +136,15 @@
   --color-violation:         var(--color-warm-red);
   --color-violation-soft:    rgba(201,103,101,0.12);   /* delta-cell tint */
 
+  /* ── Data-viz palette ───────────────────────────────────────
+     Visualisations (waveforms, spectra, vectorscope, EQ curves)
+     need stable channel-identity colors that don't overload the
+     semantic accent/success/danger tokens. */
+  --color-data-a:     #6b8cbb;   /* File A — slate-blue family, distinct from --color-slate-blue */
+  --color-data-b:     #e07a4f;   /* File B — warm orange, distinct from --color-warning */
+  --color-data-pass:  #6ec577;   /* Bright sage — passes / OK markers in data viz only */
+  --color-data-warn:  #e07a4f;   /* Same as data-b intentionally — semantic aliases that can diverge later */
+
   /* ── Overflow menu ──────────────────────────────────────────────
      Sizing only. Colours come from existing semantic aliases. The
      shadow combines a deep ambient drop + a 1px inset highlight so

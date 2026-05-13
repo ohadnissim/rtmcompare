@@ -48,14 +48,14 @@ export default function StreamingDeltaHeatmap({
 
  return (
  <div className="overflow-hidden" style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.6)', border: '1px solid rgba(168,161,150,0.08)' }}>
- <div className="flex items-center justify-between px-3 py-1.5 text-[9px] uppercase tracking-[0.12em]" style={{ color: '#7a7164', borderBottom: '1px solid rgba(168,161,150,0.06)' }}>
+ <div className="flex items-center justify-between px-3 py-1.5 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)', borderBottom: '1px solid rgba(168,161,150,0.06)' }}>
  <span>{dsp} limiter · where it engaged</span>
- <span className="font-mono" style={{ color: worstGrDb < -1 ? '#e05a5a' : worstGrDb < -0.3 ? '#d0b066' : '#6ec577' }}>
+ <span className="font-mono" style={{ color: worstGrDb < -1 ? 'var(--color-danger)' : worstGrDb < -0.3 ? 'var(--color-accent)' : 'var(--color-data-pass)' }}>
  {worstGrDb < -0.3 ? `worst ${worstGrDb.toFixed(1)} dB` : 'clean'}
  </span>
  </div>
  {!hasData ? (
- <p className="text-[10px] italic px-3 py-2" style={{ color: '#8d867b' }}>
+ <p className="text-[10px] font-display italic px-3 py-2" style={{ color: 'var(--color-text-muted)' }}>
  Play the Sound Check twin (≋) first — the heatmap draws from the limiter's gain-reduction envelope.
  </p>
  ) : (
@@ -97,7 +97,7 @@ export default function StreamingDeltaHeatmap({
  </div>
  )}
  {hasData && (
- <div className="flex items-center justify-between px-3 py-1 text-[9px]" style={{ color: '#8d867b' }}>
+ <div className="flex items-center justify-between px-3 py-1 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>0 s</span>
  <span>{(windowSec / 2).toFixed(0)} s</span>
  <span>{windowSec.toFixed(0)} s</span>

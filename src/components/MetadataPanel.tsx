@@ -111,9 +111,9 @@ export default function MetadataPanel({ metadata, labelA, labelB, pathA, pathB, 
  // user knows their file is missing critical tags.
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-3" style={{ borderRadius: '2px' }}>
- <h2 className="text-lg font-semibold">File Metadata</h2>
+ <h2 className="text-lg">File Metadata</h2>
  <div className="px-3 py-2" style={{ backgroundColor: 'rgba(201,103,101,0.08)', border: '1px solid rgba(201,103,101,0.3)', borderRadius: '2px' }}>
- <div className="text-[11px] font-medium" style={{ color: '#c96765' }}>✕ No metadata tags found</div>
+ <div className="text-[11px] font-medium" style={{ color: 'var(--color-danger)' }}>✕ No metadata tags found</div>
  <div className="text-[10px] text-dark-400 mt-1">
  This file has no BEXT / iXML / LIST-INFO / ID3 tags.
  </div>
@@ -128,7 +128,7 @@ export default function MetadataPanel({ metadata, labelA, labelB, pathA, pathB, 
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">File Metadata (BEXT / iXML / INFO)</h2>
+ <h2 className="text-lg">File Metadata (BEXT / iXML / INFO)</h2>
  <p className="text-xs text-dark-400">
  Delivery-grade metadata embedded in the WAV/BWF.
  </p>
@@ -170,11 +170,11 @@ export default function MetadataPanel({ metadata, labelA, labelB, pathA, pathB, 
 }
 
 function BroadcastBanner({ label, status }: { label: string; status: { ok: boolean; missing: string[] } }) {
- const color = status.ok ? '#6fa37e' : '#c5a55a'
+ const color = status.ok ? 'var(--color-success)' : 'var(--color-accent)'
  return (
  <div className="px-3 py-2" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}40`, borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color }}>
  {status.ok ? '✓ Broadcast audit trail intact' : '⚠ Broadcast audit trail incomplete'}
  </span>
  <span className="text-[10px] text-dark-500 truncate max-w-[40%]" title={label}>{label}</span>
@@ -189,11 +189,11 @@ function BroadcastBanner({ label, status }: { label: string; status: { ok: boole
 }
 
 function DeliveryBanner({ label, status }: { label: string; status: { ok: boolean; missing: string[] } }) {
- const color = status.ok ? '#6fa37e' : '#c96765'
+ const color = status.ok ? 'var(--color-success)' : 'var(--color-danger)'
  return (
  <div className="px-3 py-2" style={{ backgroundColor: `${color}10`, border: `1px solid ${color}40`, borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color }}>
  {status.ok ? '✓ Delivery-ready' : '✕ Missing for DDEX'}
  </span>
  <span className="text-[10px] text-dark-500 truncate max-w-[40%]" title={label}>{label}</span>
@@ -224,7 +224,7 @@ function MetaBlock({ label, meta }: { label: string; meta: Meta }) {
  <UmidRow value={meta.bext.umid} />
  {meta.bext.coding_history_parsed && meta.bext.coding_history_parsed.length > 0 && (
  <div className="mt-2 space-y-1">
- <div className="text-[9px] uppercase tracking-[0.1em] text-dark-500">Coding history</div>
+ <div className="text-[9px] uppercase tracking-[0.14em] text-dark-500">Coding history</div>
  <div className="space-y-0.5 max-h-40 overflow-y-auto">
  {meta.bext.coding_history_parsed.map((entry, i) => (
  <div key={i} className="bg-dark-900/40 rounded px-2 py-1 text-[10px]">
@@ -243,7 +243,7 @@ function MetaBlock({ label, meta }: { label: string; meta: Meta }) {
  )}
  {!meta.bext.coding_history_parsed?.length && meta.bext.coding_history && (
  <div className="mt-2 space-y-1">
- <div className="text-[9px] uppercase tracking-[0.1em] text-dark-500">Coding history</div>
+ <div className="text-[9px] uppercase tracking-[0.14em] text-dark-500">Coding history</div>
  <div className="font-mono text-[10px] text-dark-400 whitespace-pre-wrap max-h-24 overflow-y-auto bg-dark-900/40 rounded p-1.5">
  {meta.bext.coding_history}
  </div>
@@ -299,7 +299,7 @@ function MetaBlock({ label, meta }: { label: string; meta: Meta }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
  return (
  <div className="space-y-1">
- <div className="text-[9px] uppercase tracking-[0.12em] text-dark-500">{title}</div>
+ <div className="text-[9px] uppercase tracking-[0.14em] text-dark-500">{title}</div>
  {children}
  </div>
  )
@@ -323,7 +323,7 @@ function UmidRow({ value }: { value?: string }) {
  <button
  onClick={copy}
  className="text-[9px] px-1.5 py-0.5 rounded transition-colors flex-shrink-0"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Copy UMID to clipboard"
  >
  copy
@@ -346,7 +346,7 @@ function Row({ label, value, mono }: { label: string; value?: string; mono?: boo
  <span
  className="text-[9px] px-1.5 py-0.5 rounded"
  style={{
- color: isrcValid ? '#6fa37e' : '#c96765',
+ color: isrcValid ? 'var(--color-success)' : 'var(--color-danger)',
  backgroundColor: isrcValid ? 'rgba(111,163,126,0.12)' : 'rgba(201,103,101,0.14)',
  }}
  title={isrcValid

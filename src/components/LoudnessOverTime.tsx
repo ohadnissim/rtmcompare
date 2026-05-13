@@ -102,7 +102,7 @@ export default function LoudnessOverTime({ result, side = 'b', durationSec }: Pr
  border: '1px solid rgba(168,161,150,0.08)',
  }}>
  <div className="flex items-center justify-between flex-wrap gap-2">
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: '#7a7164' }}>
  Loudness over time · short-term LUFS
  </span>
  <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
@@ -134,7 +134,7 @@ export default function LoudnessOverTime({ result, side = 'b', durationSec }: Pr
  fill={alt ? 'rgba(208,176,102,0.04)' : 'rgba(107,140,187,0.04)'} />
  <text x={(x1 + x2) / 2} y={padTop + 12} fontSize="9" fill="#b5afa4" textAnchor="middle"
  fontFamily="ui-sans-serif, -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
- style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+ style={{ textTransform: 'uppercase', letterSpacing: '0.14em' }}>
  {s.label}
  </text>
  </g>

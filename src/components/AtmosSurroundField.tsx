@@ -44,9 +44,9 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  ? (isActive ? 6 : 3)
  : 4 + normalizedLevel * 10
 
- let color = '#6b8cbb'
- if (ch.group === 'height') color = '#a855f7'
- if (ch.group === 'lfe') color = '#f43f5e'
+ let color = 'var(--color-data-a)'
+ if (ch.group === 'height') color = 'var(--color-slate-blue)'
+ if (ch.group === 'lfe') color = 'var(--color-danger)'
 
  return {
  ...ch,
@@ -62,7 +62,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Surround Field</h2>
+ <h2 className="text-lg">Surround Field</h2>
  <p className="text-xs text-dark-400">
  Top-down speaker layout — circle size = energy level
  </p>
@@ -106,7 +106,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  {/* Label */}
  <text
  x={ch.pos.x} y={ch.pos.y + ch.radius + 5}
- textAnchor="middle" fontSize="3" fill={ch.isActive ? '#a8a29e' : '#8d867b'}
+ textAnchor="middle" fontSize="3" fill={ch.isActive ? 'var(--color-sand-300)' : 'var(--color-text-muted)'}
  >
  {ch.channel}
  </text>
@@ -119,7 +119,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  <div className="space-y-4 min-w-[140px]">
  <div className="space-y-1">
  <span className="text-[10px] text-dark-500 uppercase tracking-wider">Height Energy</span>
- <div className="text-xl font-semibold" style={{ color: heightRatio > 0.05 ? '#a855f7' : '#8d867b' }}>
+ <div className="text-xl font-semibold" style={{ color: heightRatio > 0.05 ? 'var(--color-slate-blue)' : 'var(--color-text-muted)' }}>
  {(heightRatio * 100).toFixed(1)}%
  </div>
  <span className="text-[10px] text-dark-500">
@@ -132,7 +132,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
 
  <div className="space-y-1">
  <span className="text-[10px] text-dark-500 uppercase tracking-wider">Center Extraction</span>
- <div className="text-xl font-semibold" style={{ color: centerExtraction > 0.5 ? '#6ec577' : '#e07a4f' }}>
+ <div className="text-xl font-semibold" style={{ color: centerExtraction > 0.5 ? 'var(--color-data-pass)' : 'var(--color-data-warn)' }}>
  {(centerExtraction * 100).toFixed(0)}%
  </div>
  <span className="text-[10px] text-dark-500">
@@ -146,15 +146,15 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  {/* Legend */}
  <div className="space-y-1.5 pt-2 border-t border-dark-700/50">
  <div className="flex items-center gap-2">
- <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#6b8cbb' }} />
+ <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-data-a)' }} />
  <span className="text-[10px] text-dark-500">Ear-level</span>
  </div>
  <div className="flex items-center gap-2">
- <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#a855f7' }} />
+ <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-slate-blue)' }} />
  <span className="text-[10px] text-dark-500">Height</span>
  </div>
  <div className="flex items-center gap-2">
- <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f43f5e' }} />
+ <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-danger)' }} />
  <span className="text-[10px] text-dark-500">LFE</span>
  </div>
  </div>

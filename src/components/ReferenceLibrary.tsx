@@ -128,14 +128,14 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  >
  <div
  className="overflow-hidden max-w-5xl w-full max-h-[90vh] flex flex-col"
- style={{ borderRadius: '2px', backgroundColor: '#151411', border: '1px solid rgba(208,176,102,0.3)' }}
+ style={{ borderRadius: '2px', backgroundColor: 'var(--color-sand-900)', border: '1px solid rgba(208,176,102,0.3)' }}
  onClick={e => e.stopPropagation()}
  >
  {/* Header */}
  <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(168,161,150,0.1)' }}>
  <div>
- <h2 className="text-lg" style={{ color: '#ebe7e0', fontWeight: 500 }}>{title}</h2>
- <p className="text-[10px] mt-0.5" style={{ color: '#7a7164' }}>
+ <h2 className="text-lg" style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{title}</h2>
+ <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
  {records.length} reference{records.length === 1 ? '' : 's'} ·
  auto-analysed (LUFS · TP · LRA · 31-band spectrum · BPM · key)
  </p>
@@ -145,7 +145,7 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  onClick={handleAdd}
  disabled={adding}
  className="text-[11px] px-4 py-1.5 transition-colors disabled:opacity-50"
- style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ style={{ borderRadius: '2px', backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-app)' }}
  title="Pick an audio file and add it to the library. Quick-scan runs automatically."
  >
  {adding ? 'Scanning…' : '+ Add reference'}
@@ -153,7 +153,7 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  <button
  onClick={onClose}
  className="text-[11px] px-3 py-1.5"
- style={{ borderRadius: '2px', color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  Close
  </button>
@@ -171,13 +171,13 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  style={{
  borderRadius: '2px',
  backgroundColor: 'rgba(30,28,24,0.6)',
- color: '#ebe7e0',
+ color: 'var(--color-text-primary)',
  border: '1px solid rgba(168,161,150,0.15)',
  }}
  />
  {allTags.length > 0 && (
  <div className="flex items-center gap-1 flex-wrap">
- <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>Tags</span>
+ <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-text-muted)' }}>Tags</span>
  {allTags.map(t => (
  <button
  key={t}
@@ -185,7 +185,7 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  className="text-[10px] px-2 py-0.5 rounded-full transition-colors"
  style={{
  backgroundColor: activeTag === t ? 'rgba(208,176,102,0.25)' : 'rgba(168,161,150,0.08)',
- color: activeTag === t ? '#d0b066' : '#a8a29e',
+ color: activeTag === t ? 'var(--color-accent)' : 'var(--color-sand-300)',
  border: `1px solid ${activeTag === t ? 'rgba(208,176,102,0.5)' : 'rgba(168,161,150,0.15)'}`,
  }}
  >
@@ -199,19 +199,19 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  {/* Body */}
  <div className="flex-1 overflow-y-auto px-6 py-4">
  {error && (
- <div className="mb-3 px-3 py-2 rounded text-[11px]" style={{ backgroundColor: 'rgba(224,90,90,0.08)', color: '#e05a5a', border: '1px solid rgba(224,90,90,0.3)' }}>
+ <div className="mb-3 px-3 py-2 rounded text-[11px]" style={{ backgroundColor: 'rgba(224,90,90,0.08)', color: 'var(--color-danger)', border: '1px solid rgba(224,90,90,0.3)' }}>
  ⚠ {error}
  </div>
  )}
  {loading && records.length === 0 && (
- <p className="text-center text-[11px] py-8" style={{ color: '#7a7164' }}>Loading library…</p>
+ <p className="text-center text-[11px] py-8" style={{ color: 'var(--color-text-muted)' }}>Loading library…</p>
  )}
  {!loading && records.length === 0 && (
  <div className="text-center py-16 space-y-3">
- <p className="text-[12px]" style={{ color: '#a8a29e' }}>
+ <p className="text-[12px]" style={{ color: 'var(--color-sand-300)' }}>
  The library is empty.
  </p>
- <p className="text-[10px] max-w-md mx-auto" style={{ color: '#7a7164' }}>
+ <p className="text-[10px] max-w-md mx-auto" style={{ color: 'var(--color-text-muted)' }}>
  Add a reference track you trust — a commercial release in your target genre, a past
  master you're proud of, or a rough mix your client loves. RTM auto-extracts the
  loudness curve, spectrum, and rhythm metadata so you can recall it in one click and
@@ -221,14 +221,14 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  onClick={handleAdd}
  disabled={adding}
  className="text-[11px] px-4 py-1.5"
- style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ style={{ borderRadius: '2px', backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-app)' }}
  >
  {adding ? 'Scanning…' : '+ Add your first reference'}
  </button>
  </div>
  )}
  {visible.length === 0 && records.length > 0 && !loading && (
- <p className="text-center text-[11px] py-8" style={{ color: '#7a7164' }}>
+ <p className="text-center text-[11px] py-8" style={{ color: 'var(--color-text-muted)' }}>
  No references match the current filter.
  </p>
  )}
@@ -314,24 +314,24 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  <button
  onClick={onPick}
  className="text-[12px] font-medium truncate text-left flex-1 hover:underline"
- style={{ color: '#ebe7e0' }}
+ style={{ color: 'var(--color-text-primary)' }}
  title={`Load "${record.filename}" into the reference slot`}
  >
  {record.filename}
  </button>
  <button
  onClick={onPick}
- className="text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 rounded"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
+ className="text-[9px] uppercase tracking-[0.16em] px-2 py-0.5 rounded"
+ style={{ color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)' }}
  >
  Use
  </button>
  </div>
 
  {/* Metrics strip */}
- <div className="flex items-center gap-3 text-[10px] font-mono" style={{ color: '#a8a29e' }}>
+ <div className="flex items-center gap-3 text-[10px] font-mono" style={{ color: 'var(--color-sand-300)' }}>
  <span title="Integrated LUFS">{lufsLabel}</span>
- <span style={{ color: '#7a7164' }} title="True peak">
+ <span style={{ color: 'var(--color-text-muted)' }} title="True peak">
  {tpLabel}
  </span>
  <span title="Loudness range">{lraLabel}</span>
@@ -347,17 +347,17 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  <span
  key={t}
  className="text-[9px] px-1.5 py-0.5 rounded-full"
- style={{ backgroundColor: 'rgba(124,164,163,0.12)', color: '#7ca4a3' }}
+ style={{ backgroundColor: 'rgba(124,164,163,0.12)', color: 'var(--color-teal)' }}
  >
  {t}
  </span>
  ))}
  {(!record.tags || record.tags.length === 0) && (
- <span className="text-[9px] italic" style={{ color: '#8d867b' }}>no tags</span>
+ <span className="text-[9px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>no tags</span>
  )}
  </div>
  {record.notes && (
- <p className="text-[10px] italic truncate" style={{ color: '#8d867b' }} title={record.notes}>
+ <p className="text-[10px] font-display italic truncate" style={{ color: 'var(--color-text-muted)' }} title={record.notes}>
  {record.notes}
  </p>
  )}
@@ -371,7 +371,7 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  placeholder="tags, comma-separated"
  className="w-full text-[10px] px-2 py-1 rounded outline-none"
  style={{
- backgroundColor: 'rgba(14,13,11,0.6)', color: '#ebe7e0',
+ backgroundColor: 'rgba(14,13,11,0.6)', color: 'var(--color-text-primary)',
  border: '1px solid rgba(168,161,150,0.15)',
  }}
  />
@@ -382,7 +382,7 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  rows={2}
  className="w-full text-[10px] px-2 py-1 rounded outline-none resize-none"
  style={{
- backgroundColor: 'rgba(14,13,11,0.6)', color: '#ebe7e0',
+ backgroundColor: 'rgba(14,13,11,0.6)', color: 'var(--color-text-primary)',
  border: '1px solid rgba(168,161,150,0.15)',
  }}
  />
@@ -390,12 +390,12 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  )}
 
  {/* Footer actions */}
- <div className="flex items-center justify-between pt-1 text-[9px]" style={{ color: '#8d867b' }}>
+ <div className="flex items-center justify-between pt-1 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
  {!editing ? (
  <button
  onClick={onEditToggle}
  className="hover:underline"
- style={{ color: '#7a7164' }}
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Edit tags / notes
  </button>
@@ -407,13 +407,13 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  notesInput.trim(),
  )}
  className="px-2 py-0.5 rounded"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
+ style={{ color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)' }}
  >
  Save
  </button>
  <button
  onClick={onEditToggle}
- style={{ color: '#8d867b' }}
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Cancel
  </button>
@@ -422,13 +422,13 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  <button
  onClick={() => setConfirmRemove(true)}
  className="hover:underline"
- style={{ color: '#7a7164' }}
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Remove
  </button>
  </div>
  {record.error && (
- <p className="text-[9px]" style={{ color: '#e05a5a' }}>Scan: {record.error}</p>
+ <p className="text-[9px]" style={{ color: 'var(--color-danger)' }}>Scan: {record.error}</p>
  )}
  </div>
  </>
@@ -492,8 +492,8 @@ function SpectrumThumbnail({ bands }: { bands: number[] }) {
  </text>
  )
  })}
- {d && <path d={`${d} L ${(w - pad.r).toFixed(1)} ${(h - pad.b).toFixed(1)} L ${pad.l.toFixed(1)} ${(h - pad.b).toFixed(1)} Z`} fill="#d0b066" opacity="0.12" />}
- {d && <path d={d} fill="none" stroke="#d0b066" strokeWidth="1.2" />}
+ {d && <path d={`${d} L ${(w - pad.r).toFixed(1)} ${(h - pad.b).toFixed(1)} L ${pad.l.toFixed(1)} ${(h - pad.b).toFixed(1)} Z`} fill="var(--color-accent)" opacity="0.12" />}
+ {d && <path d={d} fill="none" stroke="var(--color-accent)" strokeWidth="1.2" />}
  </svg>
  </div>
  )

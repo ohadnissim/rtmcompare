@@ -194,9 +194,9 @@ export default function AtmosPreflightPanel({ result }: Props) {
  c.status === 'warn' || acc === 'warn' ? 'warn' : 'pass',
  'pass')
  const palette = {
- pass: { color: '#6ec577', bg: 'rgba(110,197,119,0.08)', tag: 'READY' },
- warn: { color: '#c5a55a', bg: 'rgba(197,165,90,0.08)', tag: 'WARN' },
- block: { color: '#e05a5a', bg: 'rgba(224,90,90,0.08)', tag: 'HOLD' },
+ pass: { color: 'var(--color-data-pass)', bg: 'rgba(110,197,119,0.08)', tag: 'READY' },
+ warn: { color: 'var(--color-accent)', bg: 'rgba(197,165,90,0.08)', tag: 'WARN' },
+ block: { color: 'var(--color-danger)', bg: 'rgba(224,90,90,0.08)', tag: 'HOLD' },
  }[worst]
  return (
  <div className="p-5 space-y-3" style={{
@@ -211,7 +211,7 @@ export default function AtmosPreflightPanel({ result }: Props) {
  >
  {palette.tag}
  </span>
- <span className="font-medium" style={{ color: '#ebe7e0', fontSize: 15 }}>
+ <span className="font-medium" style={{ color: 'var(--color-text-primary)', fontSize: 15 }}>
  Atmos Preflight — {worst === 'block' ? 'fix before delivery' : worst === 'warn' ? 'advisory issues' : 'Apple Music–ready'}
  </span>
  </div>
@@ -225,18 +225,18 @@ export default function AtmosPreflightPanel({ result }: Props) {
 }
 
 function CheckRow({ check }: { check: Check }) {
- const color = check.status === 'pass' ? '#6ec577' : check.status === 'warn' ? '#c5a55a' : '#e05a5a'
+ const color = check.status === 'pass' ? 'var(--color-data-pass)' : check.status === 'warn' ? 'var(--color-accent)' : 'var(--color-danger)'
  const icon = check.status === 'pass' ? '✓' : check.status === 'warn' ? '⚠' : '✗'
  return (
- <div className="flex items-start gap-3 text-[11px]" style={{ color: '#b5afa4' }}>
+ <div className="flex items-start gap-3 text-[11px]" style={{ color: 'var(--color-sand-300)' }}>
  <span className="font-mono mt-0.5" style={{ color }}>{icon}</span>
  <div className="flex-1">
  <div className="flex items-baseline gap-2 flex-wrap">
- <span className="font-medium" style={{ color: '#ebe7e0' }}>{check.name}</span>
+ <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{check.name}</span>
  <span className="font-mono text-[10px]" style={{ color }}>{check.value}</span>
- <span className="font-mono text-[10px]" style={{ color: '#8d867b' }}>target {check.target}</span>
+ <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-muted)' }}>target {check.target}</span>
  </div>
- <div className="text-[10px] mt-0.5" style={{ color: '#8d867b' }}>{check.note}</div>
+ <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{check.note}</div>
  </div>
  </div>
  )

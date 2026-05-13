@@ -235,27 +235,27 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  style={{ borderRadius: '2px',
  backgroundColor: 'rgba(111,163,126,0.08)',
  border: '1px solid rgba(111,163,126,0.25)',
- color: '#b5afa4',
+ color: 'var(--color-sand-300)',
  }}
  >
- <div className="text-[9px] uppercase tracking-[0.15em] mb-1" style={{ color: '#6fa37e' }}>
+ <div className="text-[9px] uppercase tracking-[0.16em] mb-1" style={{ color: 'var(--color-success)' }}>
  Why this panel
  </div>
  <p className="mb-1.5" style={{ color: '#d9d4c8' }}>
  Master Assistant composes a full delivery chain for whichever DSP you pick: <strong>gain → HPF → EQ → compressor → 4× TP limiter → dither</strong>. Every stage shows its settings and rationale; preview the chain live in the main player before you render.
  </p>
- <p className="mb-1" style={{ color: '#8d867b' }}>
- <strong style={{ color: '#a8a29e' }}>Gain</strong> moves the master towards the platform's normalisation target so the limiter sees a consistent starting level. <strong style={{ color: '#a8a29e' }}>HPF</strong> strips sub-rumble phone speakers can't play. <strong style={{ color: '#a8a29e' }}>EQ</strong> applies the engineer-profile / reference-match moves. <strong style={{ color: '#a8a29e' }}>Compressor</strong> glues density when LRA &gt; 12 LU. <strong style={{ color: '#a8a29e' }}>TP limiter</strong> catches inter-sample overs that streaming ingest would otherwise squash. <strong style={{ color: '#a8a29e' }}>Dither</strong> shapes quantisation noise when rendering at 16-bit.
+ <p className="mb-1" style={{ color: 'var(--color-text-muted)' }}>
+ <strong style={{ color: 'var(--color-sand-300)' }}>Gain</strong> moves the master towards the platform's normalisation target so the limiter sees a consistent starting level. <strong style={{ color: 'var(--color-sand-300)' }}>HPF</strong> strips sub-rumble phone speakers can't play. <strong style={{ color: 'var(--color-sand-300)' }}>EQ</strong> applies the engineer-profile / reference-match moves. <strong style={{ color: 'var(--color-sand-300)' }}>Compressor</strong> glues density when LRA &gt; 12 LU. <strong style={{ color: 'var(--color-sand-300)' }}>TP limiter</strong> catches inter-sample overs that streaming ingest would otherwise squash. <strong style={{ color: 'var(--color-sand-300)' }}>Dither</strong> shapes quantisation noise when rendering at 16-bit.
  </p>
- <p className="text-[10px] italic" style={{ color: '#8d867b' }}>
+ <p className="text-[10px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
  Three tabs: <strong>Chain</strong> = the full pipeline · <strong>Engineer Tips</strong> = tonal moves from the loaded profile · <strong>Reference Match</strong> = match a library track's spectrum. All three feed the same EQ bank in the main player; whichever tab you engage auditions live.
  </p>
  </div>
  )}
  <div className="flex items-start justify-between gap-3 flex-wrap">
  <div>
- <h2 className="text-lg font-semibold" style={{ color: '#ebe7e0' }}>Master Assistant</h2>
- <p className="text-[11px] mt-0.5" style={{ color: '#7a7164' }}>
+ <h2 className="text-lg" style={{ color: 'var(--color-text-primary)' }}>Master Assistant</h2>
+ <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
  Pick a delivery target, preview the full chain live in the main player,
  render a delivery-ready master in one click.
  </p>
@@ -268,7 +268,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  onClick={() => setProfileId(p.id)}
  className="text-[10px] px-3 py-1 transition-colors"
  style={{ borderRadius: '2px',
- color: profileId === p.id ? '#d0b066' : '#8d867b',
+ color: profileId === p.id ? 'var(--color-accent)' : 'var(--color-text-muted)',
  backgroundColor: profileId === p.id ? 'rgba(208,176,102,0.15)' : 'transparent',
  border: `1px solid ${profileId === p.id ? 'rgba(208,176,102,0.4)' : 'transparent'}`,
  }}
@@ -292,9 +292,9 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <button
  key={t.id}
  onClick={() => setTab(t.id)}
- className="text-[10px] uppercase tracking-[0.15em] px-3 py-1 rounded-full transition-colors"
+ className="text-[10px] uppercase tracking-[0.16em] px-3 py-1 rounded-full transition-colors"
  style={{
- color: tab === t.id ? '#d0b066' : '#8d867b',
+ color: tab === t.id ? 'var(--color-accent)' : 'var(--color-text-muted)',
  backgroundColor: tab === t.id ? 'rgba(208,176,102,0.15)' : 'transparent',
  border: `1px solid ${tab === t.id ? 'rgba(208,176,102,0.35)' : 'transparent'}`,
  }}
@@ -310,7 +310,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  {result.engineer_tips ? (
  <EngineerTipsPanel tips={result.engineer_tips} fileB={fileB} />
  ) : (
- <p className="text-[11px] italic" style={{ color: '#7a7164' }}>
+ <p className="text-[11px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
  No engineer profile active on this analysis — load a profile at scan time to generate tonal EQ tips.
  </p>
  )}
@@ -327,7 +327,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  )}
 
  {tab === 'chain' && !chain && (
- <div className="text-[11px] italic" style={{ color: '#7a7164' }}>Pick a valid target above.</div>
+ <div className="text-[11px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>Pick a valid target above.</div>
  )}
 
  {tab === 'chain' && chain && (
@@ -339,7 +339,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  {chain.warnings.length > 0 && (
  <ul
  className="px-3 py-2 text-[11px] space-y-0.5"
- style={{ backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.3)', color: '#d0b066', borderRadius: '2px' }}
+ style={{ backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.3)', color: 'var(--color-accent)', borderRadius: '2px' }}
  >
  {chain.warnings.map((w, i) => (
  <li key={i}>⚠ {w}</li>
@@ -350,18 +350,18 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  {/* RIAA toggle — vinyl-only. Collapsed unless the user is
  in a workflow where it matters; we keep it inline for
  discoverability. Applies post-EQ / pre-limit. */}
- <div className="flex items-center gap-3 text-[11px]" style={{ color: '#8d867b' }}>
+ <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
  <label className="flex items-center gap-2 cursor-pointer">
  <input
  type="checkbox"
  checked={riaaEnabled}
  onChange={e => setRiaaEnabled(e.target.checked)}
- className="accent-[#d0b066]"
+ className="accent-[var(--color-accent)]"
  />
  <span>RIAA pre-emphasis (vinyl cut)</span>
  </label>
  {riaaEnabled && (
- <span className="text-[9px]" style={{ color: '#d0b066' }}>
+ <span className="text-[9px]" style={{ color: 'var(--color-accent)' }}>
  standard IEC 60098 curve — 50 Hz / 500 Hz / 2.122 kHz time constants, unity at 1 kHz
  </span>
  )}
@@ -372,7 +372,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <button
  onClick={applyPreview}
  className="text-[11px] px-4 py-1.5"
- style={{ backgroundColor: 'rgba(208,176,102,0.18)', color: '#d0b066', border: '1px solid rgba(208,176,102,0.45)', borderRadius: '2px' }}
+ style={{ backgroundColor: 'rgba(208,176,102,0.18)', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.45)', borderRadius: '2px' }}
  title="Load the proposed EQ bands into the A/B player's EQ bank to audition tone changes live. The Amount slider in the player header scales the gains; whatever you set there is what renders."
  >
  Preview in main player
@@ -381,7 +381,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  onClick={renderFinal}
  disabled={rendering || !fileB}
  className="text-[11px] px-4 py-1.5 disabled:opacity-50"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b', borderRadius: '2px' }}
+ style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-app)', borderRadius: '2px' }}
  title={fileB
  ? `Render a ${chain.bitDepth}-bit / ${chain.sampleRate / 1000} kHz WAV with the full chain baked in at the current Amount scaling, plus BEXT / iXML metadata embedded.`
  : 'Load a file to render'}
@@ -392,7 +392,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  onClick={renderStems}
  disabled={rendering}
  className="text-[11px] px-3 py-1.5"
- style={{ color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)', borderRadius: '2px' }}
+ style={{ color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: '2px' }}
  title="Pick a folder containing stems (vocals/drums/bass/other WAVs). RTM applies the chain minus the final limiter to each stem and writes <name>_mastered.wav next to each. Useful when the limiter lives on the summed mix downstream."
  >
  Stem-level render…
@@ -400,7 +400,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <button
  onClick={() => { eq.clear(); setRenderMsg(null); setError(null); setRiaaEnabled(false) }}
  className="text-[11px] px-3 py-1.5"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)', borderRadius: '2px' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)', borderRadius: '2px' }}
  >
  Clear
  </button>
@@ -410,7 +410,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  <RenderCompleteBanner message={renderMsg} onDismiss={() => setRenderMsg(null)} />
  )}
  {error && (
- <div className="text-[11px] px-3 py-2 rounded" style={{ color: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.3)' }}>
+ <div className="text-[11px] px-3 py-2 rounded" style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(224,90,90,0.06)', border: '1px solid rgba(224,90,90,0.3)' }}>
  ⚠ {error}
  </div>
  )}
@@ -488,7 +488,7 @@ function ChainTable({ chain }: { chain: MasterChain }) {
  className="flex items-start px-3 py-2"
  style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(168,161,150,0.06)' }}
  >
- <span className="w-24 text-[9px] uppercase tracking-[0.15em] pt-0.5" style={{ color: '#7a7164' }}>
+ <span className="w-24 text-[9px] uppercase tracking-[0.16em] pt-0.5" style={{ color: 'var(--color-text-muted)' }}>
  {(() => {
  // Wire the small glossary of chain-stage terms into TeachTerm
  // so hovering the stage label in Learn mode reveals the
@@ -507,7 +507,7 @@ function ChainTable({ chain }: { chain: MasterChain }) {
  <span
  className="ml-1.5 px-1 py-px rounded-sm"
  style={{
- color: r.status === 'on' ? '#d0b066' : '#8d867b',
+ color: r.status === 'on' ? 'var(--color-accent)' : 'var(--color-text-muted)',
  backgroundColor: r.status === 'on' ? 'rgba(208,176,102,0.12)' : 'transparent',
  border: `1px solid ${r.status === 'on' ? 'rgba(208,176,102,0.35)' : 'rgba(87,83,78,0.3)'}`,
  fontSize: 8,
@@ -518,8 +518,8 @@ function ChainTable({ chain }: { chain: MasterChain }) {
  )}
  </span>
  <div className="flex-1">
- <div className="text-[12px] font-mono" style={{ color: '#ebe7e0' }}>{r.value}</div>
- <div className="text-[10px] mt-0.5" style={{ color: '#8d867b' }}>{r.detail}</div>
+ <div className="text-[12px] font-mono" style={{ color: 'var(--color-text-primary)' }}>{r.value}</div>
+ <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{r.detail}</div>
  </div>
  </div>
  ))}
@@ -545,24 +545,24 @@ function RenderCompleteBanner({ message, onDismiss }: { message: string; onDismi
  className="px-3 py-2 flex items-start gap-3"
  style={{
  borderRadius: '2px',
- color: '#6ec577',
+ color: 'var(--color-data-pass)',
  backgroundColor: 'rgba(110,197,119,0.06)',
  border: '1px solid rgba(110,197,119,0.3)',
  }}
  >
  <span className="text-[14px] leading-none pt-0.5">✓</span>
  <div className="flex-1 min-w-0">
- <div className="text-[11px] uppercase tracking-[0.15em]" style={{ color: '#6ec577' }}>
+ <div className="text-[11px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-data-pass)' }}>
  Master ready
  </div>
- <div className="text-[11px] mt-0.5 break-all" style={{ color: '#ebe7e0' }}>{message}</div>
+ <div className="text-[11px] mt-0.5 break-all" style={{ color: 'var(--color-text-primary)' }}>{message}</div>
  </div>
  <div className="flex items-center gap-2 flex-shrink-0">
  {path && window.electronAPI?.revealInFinder && (
  <button
  onClick={reveal}
  className="text-[10px] px-2 py-0.5"
- style={{ color: '#6ec577', border: '1px solid rgba(110,197,119,0.45)', borderRadius: '2px' }}
+ style={{ color: 'var(--color-data-pass)', border: '1px solid rgba(110,197,119,0.45)', borderRadius: '2px' }}
  title={`Reveal ${path} in Finder / Explorer`}
  >
  Reveal
@@ -571,7 +571,7 @@ function RenderCompleteBanner({ message, onDismiss }: { message: string; onDismi
  <button
  onClick={onDismiss}
  className="text-[10px] px-2 py-0.5"
- style={{ color: '#7a7164', border: '1px solid rgba(168,161,150,0.2)', borderRadius: '2px' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)', borderRadius: '2px' }}
  >
  Dismiss
  </button>

@@ -14,11 +14,11 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  if (!hum) return null
 
  const SEVERITY_COLOR: Record<string, string> = {
- none: '#6fa37e',
- subtle: '#d0b066',
- audible: '#c96765',
+ none: 'var(--color-success)',
+ subtle: 'var(--color-accent)',
+ audible: 'var(--color-danger)',
  }
- const color = SEVERITY_COLOR[hum.severity] || '#6fa37e'
+ const color = SEVERITY_COLOR[hum.severity] || 'var(--color-success)'
 
  const copyPreset = async () => {
  if (!hum.notch_preset.length) return
@@ -41,7 +41,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Hum / Buzz Check</h2>
+ <h2 className="text-lg">Hum / Buzz Check</h2>
  <p className="text-xs text-dark-400">
  Scans for 50/60 Hz AC mains hum and its harmonics. Common issue on guitar / vocal recordings, ground loops, poor grounding.
  </p>
@@ -74,7 +74,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  {hum.notch_preset.length > 0 && (
  <div className="space-y-1.5">
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color }}>
  Suggested notch preset
  </span>
  <div className="flex items-center gap-2">
@@ -83,7 +83,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  role="status"
  aria-live="polite"
  className="text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded"
- style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066' }}
+ style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: 'var(--color-accent)' }}
  >
  {toast}
  </span>
@@ -91,7 +91,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  <button
  onClick={copyPreset}
  className="text-[10px] px-2 py-1 transition-colors"
- style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)' }}
  >
  Copy preset
  </button>
@@ -102,11 +102,11 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  <div key={i} className="flex gap-4">
  <span className="text-dark-300">{n.freq.toFixed(1)} Hz</span>
  <span className="text-dark-500">Q = {n.q.toFixed(1)}</span>
- <span style={{ color: '#c96765' }}>{n.gain_db.toFixed(1)} dB</span>
+ <span style={{ color: 'var(--color-danger)' }}>{n.gain_db.toFixed(1)} dB</span>
  </div>
  ))}
  </div>
- <p className="text-[9px] text-dark-500 italic">
+ <p className="text-[9px] text-dark-500 font-display italic">
  Paste into Pro-Q, Pro-MB, or any parametric EQ. High-Q bells at these frequencies remove the hum while leaving musical content unaffected.
  </p>
  </div>

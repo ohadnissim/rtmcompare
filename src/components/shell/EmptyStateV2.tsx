@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Wordmark from './Wordmark'
 import Colophon from './Colophon'
 import RTMBadge from './RTMBadge'
@@ -63,8 +63,11 @@ export default function EmptyStateV2({
  onOpenRecents,
  error,
 }: Props) {
- const [recentsOpen, setRecentsOpen] = useState(false)
- const recentCount = recents?.length ?? 0
+ // recents prop kept for API stability; the count is no longer surfaced
+ // in the footer (the dead "Recent (N)" button was removed — inline
+ // RecentAnalyses below the dropzones is the source of truth).
+ void recents
+ void onOpenRecents
 
  return (
  <section
@@ -252,35 +255,11 @@ export default function EmptyStateV2({
  >
  <div /> {/* left spacer */}
  <Colophon />
- <div style={{ justifySelf: 'end' }}>
- {recentCount > 0 && (
- <button
- type="button"
- onClick={() => {
- setRecentsOpen((v) => !v)
- onOpenRecents?.()
- }}
- aria-expanded={recentsOpen}
- style={{
- fontFamily: 'var(--font-sans)',
- fontWeight: 500,
- fontSize: 'var(--text-metric-eyebrow)',
- letterSpacing: 'var(--tracking-metric-eyebrow)',
- textTransform: 'uppercase',
- color: 'var(--color-text-dim)',
- background: 'transparent',
- border: 'none',
- cursor: 'pointer',
- padding: 0,
- transition: 'color 120ms var(--easing-shell)',
- }}
- onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-text-secondary)')}
- onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-dim)')}
- >
- ↘ Recent ({recentCount})
- </button>
- )}
- </div>
+ {/* Right footer slot intentionally empty — the legacy "Recent (N)"
+     button was dead (no scroll target, popover never wired up). The
+     inline RecentAnalyses card below the dropzones is now the single
+     source of truth for recent history. */}
+ <div style={{ justifySelf: 'end' }} />
  </footer>
  </section>
  )

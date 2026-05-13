@@ -11,7 +11,7 @@ export default function MissingElements({ elements }: Props) {
  <div className="bg-dark-900 p-6 border border-dark-700/50">
  <div className="flex items-center gap-3">
  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(110,197,119,0.1)' }}>
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#6ec577" strokeWidth={2}>
+ <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="var(--color-data-pass)" strokeWidth={2}>
  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
  </svg>
  </div>
@@ -30,7 +30,7 @@ export default function MissingElements({ elements }: Props) {
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Missing Elements</h2>
+ <h2 className="text-lg">Missing Elements</h2>
  <p className="text-xs text-dark-400">
  Elements that are significantly quieter or absent in the Atmos downmix compared to the stereo original
  </p>
@@ -69,7 +69,7 @@ function ElementRow({ element }: { element: MissingElement }) {
  className="flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold flex-shrink-0"
  style={{
  backgroundColor: isMissing ? 'rgba(224,90,90,0.15)' : 'rgba(224,122,79,0.15)',
- color: isMissing ? '#e05a5a' : '#e07a4f',
+ color: isMissing ? 'var(--color-danger)' : 'var(--color-data-warn)',
  }}
  >
  {isMissing ? '!' : '~'}
@@ -81,14 +81,14 @@ function ElementRow({ element }: { element: MissingElement }) {
  <span className="text-sm font-medium text-dark-200">{element.name}</span>
  <span
  className="text-xs font-mono"
- style={{ color: isMissing ? '#e05a5a' : '#e07a4f' }}
+ style={{ color: isMissing ? 'var(--color-danger)' : 'var(--color-data-warn)' }}
  >
  {element.diff_db > 0 ? '+' : ''}{element.diff_db.toFixed(1)} dB
  </span>
  <span
  className="text-[10px] px-1.5 py-0.5 rounded"
  style={{
- color: isMissing ? '#e05a5a' : '#e07a4f',
+ color: isMissing ? 'var(--color-danger)' : 'var(--color-data-warn)',
  backgroundColor: isMissing ? 'rgba(224,90,90,0.1)' : 'rgba(224,122,79,0.1)',
  }}
  >
@@ -101,7 +101,7 @@ function ElementRow({ element }: { element: MissingElement }) {
  {/* Expand */}
  <svg
  className="w-3 h-3 flex-shrink-0 transition-transform"
- style={{ color: '#8d867b', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+ style={{ color: 'var(--color-text-muted)', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
  >
  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -110,7 +110,7 @@ function ElementRow({ element }: { element: MissingElement }) {
 
  {expanded && (
  <div className="px-4 pb-3 pl-13">
- <p className="text-[11px] italic" style={{ color: '#8a8580' }}>
+ <p className="text-[11px] font-display italic" style={{ color: '#8a8580' }}>
  {element.suggestion}
  </p>
  </div>

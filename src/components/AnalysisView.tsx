@@ -148,7 +148,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  // top-level tabs; collapsing avoids an empty "Downmix" slot in
  // atmos-solo mode and keeps ADM sessions from fragmenting the tab row.
  if (isAtmos || isAtmosSolo) {
- t.push({ id: 'atmos', label: 'Atmos', icon: '◈' })
+ t.push({ id: 'atmos', label: 'Atmos', icon: '' })
  }
  return t
  }, [isAtmos, isAtmosSolo, isSolo, results.engineer_tips, results.mastering_delta])
@@ -280,98 +280,75 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <span className="text-sand-400 text-xs">vs</span>
  <div className="flex items-center gap-2">
  <span className="text-sand-300">{labelB}</span>
- <DurationPill seconds={results.duration_sec_b ?? results.duration_sec} tint="#d0b066" compact />
+ <DurationPill seconds={results.duration_sec_b ?? results.duration_sec} tint="var(--color-accent)" compact />
  </div>
  </>)}
  {isAtmosSolo && (
- <span className="text-[10px] px-2 py-0.5 rounded-full tracking-[0.15em] uppercase" style={{ backgroundColor: 'rgba(168,85,247,0.12)', color: '#a855f7' }}>
+ <span className="text-[10px] px-2 py-0.5 tracking-[0.16em] uppercase" style={{ borderRadius: '2px', backgroundColor: 'rgba(138,149,171,0.12)', color: 'var(--color-slate-blue)' }}>
  Atmos Solo · {results.atmos?.channel_layout}
  </span>
  )}
  </div>
  <div className="flex items-center gap-3">
  <SpecDriftBadge analysisVersion={results.spec_versions?.version} stampedSpecs={results.spec_versions} />
- <span className="text-[10px]" style={{ color: '#8d867b' }}>Press <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ backgroundColor: '#272524', color: '#78716c' }}>?</kbd> for shortcuts</span>
+ <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>Press <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ backgroundColor: '#272524', color: '#78716c' }}>?</kbd> for shortcuts</span>
  <ClientReportButton results={results} fileA={fileA} fileB={fileB} />
  <ExportButton results={results} fileA={fileA} fileB={fileB} />
  </div>
  </div>
 
- {/* File warnings (sample rate mismatch, length difference) */}
- {results.file_warnings && results.file_warnings.length > 0 && (
- <div className="space-y-1.5">
- {results.file_warnings.map((w, i) => (
- <div key={i} className="flex items-center justify-center gap-2 text-xs px-4 py-2 rounded-full" style={{ backgroundColor: 'rgba(150,128,58,0.08)', color: '#c5a55a', border: '1px solid rgba(150,128,58,0.15)' }}>
- <span>⚠</span>
- <span>{w.message}</span>
+ {/* Meta-strip — left-aligned. Severity carried by the 2px left rule color.
+   Replaces the prior stack of centered rounded-full pills. */}
+ {((results.file_warnings && results.file_warnings.length > 0) ||
+   (results.generation_loss && results.generation_loss.verdict !== 'likely_lossless') ||
+   (!isSolo && results.level_matched && !isAtmos) ||
+   isAtmos) && (
+ <div className="flex items-start gap-4 flex-wrap">
+ {results.file_warnings && results.file_warnings.map((w, i) => (
+ <div key={`fw-${i}`} className="flex items-baseline gap-2 pl-3 border-l-2" style={{ borderColor: 'var(--color-warning)' }}>
+ <span className="text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--color-text-muted)' }}>FILE</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{w.message}</span>
  </div>
  ))}
- </div>
- )}
-
- {/* Generation-loss warning — only shown when the detector flags the
-   master as likely having been through a prior lossy encode (e.g.
-   MP3 re-encoded to WAV). Surfaced as an amber badge so it's
-   visible before the user reads any metric detail. */}
  {results.generation_loss && results.generation_loss.verdict !== 'likely_lossless' && (
-  <div className="flex justify-center">
-   <div
-    className="flex items-center gap-2 text-xs px-4 py-2 rounded-full"
-    style={{
-     backgroundColor: results.generation_loss.verdict === 'likely_prior_lossy'
-      ? 'rgba(224,82,82,0.08)' : 'rgba(150,128,58,0.08)',
-     color: results.generation_loss.verdict === 'likely_prior_lossy'
-      ? '#e05252' : '#c5a55a',
-     border: `1px solid ${results.generation_loss.verdict === 'likely_prior_lossy'
-      ? 'rgba(224,82,82,0.2)' : 'rgba(150,128,58,0.15)'}`,
-    }}
-    title={results.generation_loss.summary}
-   >
-    <span>{results.generation_loss.verdict === 'likely_prior_lossy' ? '🔴' : '⚠'}</span>
-    <span>
-     {results.generation_loss.verdict === 'likely_prior_lossy'
-      ? 'Prior lossy encode detected'
-      : 'Possible prior lossy encode'}
-     {' '}— {Math.round(results.generation_loss.probability * 100)}% probability.{' '}
-     {results.generation_loss.summary}
-    </span>
-   </div>
-  </div>
- )}
-
- {/* Level match badge — in Atmos vs Stereo the downmix IS B, so the note is
- "downmix in player · level balanced" rather than the dB-delta number. */}
- {!isSolo && results.level_matched && !isAtmos && (
- <div className="flex justify-center">
- <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs" style={{ backgroundColor: 'rgba(110,197,119,0.08)', color: '#6ec577', border: '1px solid rgba(110,197,119,0.15)' }}>
- <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
- <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
- </svg>
- Level-matched — differences below are real, not volume.
- <InfoTooltip text="Both files are adjusted to the same loudness before comparing, so differences reflect actual mix decisions — not just volume changes." />
+ <div
+  className="flex items-baseline gap-2 pl-3 border-l-2"
+  style={{ borderColor: results.generation_loss.verdict === 'likely_prior_lossy' ? 'var(--color-danger)' : 'var(--color-warning)' }}
+  title={results.generation_loss.summary}
+ >
+ <span className="text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--color-text-muted)' }}>ENCODE</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>
+ {results.generation_loss.verdict === 'likely_prior_lossy'
+  ? 'Prior lossy encode detected'
+  : 'Possible prior lossy encode'}
+ {' '}— {Math.round(results.generation_loss.probability * 100)}% probability
+ </span>
  </div>
+ )}
+ {!isSolo && results.level_matched && !isAtmos && (
+ <div className="flex items-baseline gap-2 pl-3 border-l-2" style={{ borderColor: 'var(--color-text-muted)' }}>
+ <span className="text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--color-text-muted)' }}>LEVEL</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>matched — differences below are real, not volume</span>
+ <InfoTooltip text="Both files are adjusted to the same loudness before comparing, so differences reflect actual mix decisions — not just volume changes." />
  </div>
  )}
  {isAtmos && (
- <div className="flex justify-center">
- <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs" style={{ backgroundColor: 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.15)' }}>
- Downmix in player · level balanced for A/B
+ <div className="flex items-baseline gap-2 pl-3 border-l-2" style={{ borderColor: 'var(--color-text-muted)' }}>
+ <span className="text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--color-text-muted)' }}>PLAYER</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>downmix · level balanced for A/B</span>
  <InfoTooltip text="The A/B player plays your stereo reference against the Atmos stereo downmix, level-matched. Overview metrics below show the original Atmos measurements (not the downmix)." />
  </div>
- </div>
  )}
-
- {/* Atmos comparison badge */}
  {isAtmos && results.atmos && (
- <div className="flex justify-center">
- <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs" style={{ backgroundColor: 'rgba(168,85,247,0.08)', color: '#a855f7', border: '1px solid rgba(168,85,247,0.15)' }}>
- <span>◈</span>
- Stereo vs Atmos {results.atmos.channel_layout}
- {results.atmos.programme_name && (
- <span className="text-dark-400">— {results.atmos.programme_name}</span>
- )}
+ <div className="flex items-baseline gap-2 pl-3 border-l-2" style={{ borderColor: 'var(--color-text-muted)' }}>
+ <span className="text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--color-text-muted)' }}>ATMOS</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>
+ Stereo vs {results.atmos.channel_layout}
+ {results.atmos.programme_name && ` — ${results.atmos.programme_name}`}
+ </span>
  <InfoTooltip text={`Comparing original stereo mix against ${results.atmos.channel_count}-channel Atmos bed. The stereo analysis below uses the Atmos stereo downmix. Spatial metrics show channel energy, height usage, and surround balance.`} />
  </div>
+ )}
  </div>
  )}
 
@@ -383,7 +360,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <div
  role="tablist"
  aria-label="Analysis sections"
- className="sticky z-20 -mx-8 px-8 bg-sand-950/96 backdrop-blur-md border-b border-dark-700/30"
+ className="sticky z-20 -mx-8 px-8 bg-sand-950 border-b border-dark-700/30"
  style={{ top: 'var(--app-sticky-top, 100px)' }}
  >
  <div className="flex" style={{ display: learnEnabled ? 'none' : 'flex' }}>
@@ -399,7 +376,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  aria-selected={activeTab === tab.id}
  aria-label={tab.label}
  data-tour-tab={tab.id}
- className={`flex items-center gap-1.5 px-5 py-3 text-[10px] tracking-[0.12em] uppercase transition-all border-b-2 ${activeTab === tab.id ? 'text-sand-50 border-terra font-normal' : 'text-sand-500 border-transparent font-light'}`}
+ className={`flex items-center gap-1.5 px-5 py-3 text-[11px] tracking-[0.14em] uppercase transition-all border-b-2 ${activeTab === tab.id ? 'text-sand-50 border-terra font-normal' : 'text-sand-400 border-transparent font-normal'}`}
  >
  <span className="hidden sm:inline">{tab.label}</span>
  <span className="sm:hidden" aria-hidden="true">{tab.icon}</span>
@@ -462,24 +439,24 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  return (
  <div className="border p-3 text-[11px] space-y-1.5" style={{ borderRadius: '2px', borderColor: 'rgba(124,164,163,0.35)', backgroundColor: 'rgba(124,164,163,0.06)' }}>
  <div className="flex items-center justify-between gap-3">
- <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: '#7ca4a3' }}>
+ <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-teal)' }}>
  Advanced QC enabled
  </div>
  {hasAnyDeepOnly && (
- <span className="text-[9px] uppercase tracking-[0.14em]" style={{ color: '#7a7164' }}>
- Re-analyze with Deep Scan to unlock the rest
+ <span className="text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
+ Re-analyze with Deep Scan for stem-separated metrics
  </span>
  )}
  </div>
  {hasAnyLive && (
  <div style={{ color: '#a8a196' }}>
- <span style={{ color: '#7ca4a3' }}>Active now:</span>{' '}
- <span style={{ color: '#ebe7e0' }}>{live.join(', ')}</span>
+ <span style={{ color: 'var(--color-teal)' }}>Active now:</span>{' '}
+ <span style={{ color: 'var(--color-text-primary)' }}>{live.join(', ')}</span>
  </div>
  )}
  {hasAnyDeepOnly && (
  <div style={{ color: '#a8a196' }}>
- <span style={{ color: '#7a7164' }}>Deep Scan unlocks:</span>{' '}
+ <span style={{ color: 'var(--color-text-muted)' }}>Deep Scan adds:</span>{' '}
  <span style={{ color: '#a8a196' }}>{deepOnly.join(', ')}</span>
  </div>
  )}
@@ -534,43 +511,42 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 mb-5">
  {/* LUFS-I hero */}
  <div className="px-6 py-5" style={{ borderRight: '1px solid rgba(168,161,150,0.08)' }}>
- <div className="text-[10px] tracking-[0.2em] uppercase mb-2" style={{ color: '#7a7164' }}>
+ <div className="text-[10px] tracking-[0.18em] uppercase mb-2" style={{ color: 'var(--color-text-muted)' }}>
  Integrated · LUFS
  </div>
  <div className="flex items-baseline gap-3">
- <span className="font-mono tabular-nums" style={{ fontSize: 32, lineHeight: 1, color: '#d0b066', fontWeight: 300 }}>
+ <span className="font-mono tabular-nums" style={{ fontSize: 'var(--text-metric-value)', lineHeight: 1, color: 'var(--color-accent)' }}>
  {lufsB.toFixed(1)}
  </span>
- <span className="text-[11px] font-mono" style={{ color: '#8d867b' }}>
+ <span className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  {fmtDelta(lufsDelta)} {isAtmos && <span className="text-[9px] opacity-60">(Atmos)</span>}
  </span>
  </div>
- <div className="text-[10px] mt-1" style={{ color: '#8d867b' }}>
+ <div className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
  Reference: <span className="font-mono">{lufsA.toFixed(1)}</span>
  </div>
  </div>
  {/* True Peak hero */}
  <div className="px-6 py-5">
- <div className="text-[10px] tracking-[0.2em] uppercase mb-2" style={{ color: tpWarn ? '#e07a4f' : '#7a7164' }}>
+ <div className="text-[10px] tracking-[0.18em] uppercase mb-2" style={{ color: tpWarn ? '#e07a4f' : 'var(--color-text-muted)' }}>
  True Peak · dBTP
  </div>
  <div className="flex items-baseline gap-3">
  <span
  className="font-mono tabular-nums"
  style={{
- fontSize: 32,
+ fontSize: 'var(--text-metric-value)',
  lineHeight: 1,
- color: tpWarn ? '#e07a4f' : '#d0b066',
- fontWeight: 300,
+ color: tpWarn ? '#e07a4f' : 'var(--color-accent)',
  }}
  >
  {tpB != null ? tpB.toFixed(1) : '—'}
  </span>
- <span className="text-[11px] font-mono" style={{ color: '#8d867b' }}>
+ <span className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  {fmtDelta(tpDelta)} {isAtmos && <span className="text-[9px] opacity-60">(Atmos)</span>}
  </span>
  </div>
- <div className="text-[10px] mt-1" style={{ color: '#8d867b' }}>
+ <div className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
  Reference: <span className="font-mono">{tpA != null ? tpA.toFixed(1) : '—'}</span>
  </div>
  </div>
@@ -587,7 +563,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <thead>
  <tr className="border-b border-dark-700/30">
  <th className="text-left px-4 py-2.5 text-dark-500 font-normal w-28"></th>
- <th className="text-center px-3 py-2.5 text-dark-300 font-medium">
+ <th className="text-right px-3 py-2.5 text-dark-300 font-medium">
  <span className="inline-flex items-center gap-1.5">
  {labelA}
  {results.reference_check && (
@@ -595,17 +571,17 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  )}
  </span>
  </th>
- <th className="text-center px-3 py-2.5 font-medium text-terra">{labelB}</th>
- <th className="text-center px-3 py-2.5 text-dark-500 font-normal w-20">Diff</th>
+ <th className="text-right px-3 py-2.5 font-medium text-terra">{labelB}</th>
+ <th className="text-right px-3 py-2.5 text-dark-500 font-normal w-20">Diff</th>
  </tr>
  </thead>
  <tbody>
  {(results.duration_sec_a != null || results.duration_sec_b != null) && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Length</td>
- <td className="text-center font-mono text-dark-300">{formatDuration(results.duration_sec_a ?? results.duration_sec)}</td>
- <td className="text-center font-mono text-terra">{formatDuration(results.duration_sec_b ?? results.duration_sec)}</td>
- <td className="text-center font-mono text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-300">{formatDuration(results.duration_sec_a ?? results.duration_sec)}</td>
+ <td className="text-right font-mono tabular-nums text-terra">{formatDuration(results.duration_sec_b ?? results.duration_sec)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">
  {(() => {
  const a = results.duration_sec_a ?? results.duration_sec ?? 0
  const b = results.duration_sec_b ?? results.duration_sec ?? 0
@@ -624,15 +600,15 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  )}
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Integrated</td>
- <td className="text-center font-mono text-dark-300">{results.overall.lufs_a.toFixed(1)} LUFS</td>
- <td className="text-center font-mono text-terra">
+ <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.lufs_a.toFixed(1)} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-terra">
  {(isAtmos && results.atmos_qc?.specs?.loudness_lufs != null
  ? results.atmos_qc.specs.loudness_lufs
  : results.overall.lufs_b
  ).toFixed(1)} LUFS
  {isAtmos && <span className="text-[9px] text-dark-500 ml-1">(Atmos)</span>}
  </td>
- <td className="text-center font-mono text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-500">
  {(() => {
  const b = isAtmos && results.atmos_qc?.specs?.loudness_lufs != null
  ? results.atmos_qc.specs.loudness_lufs
@@ -653,10 +629,10 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const dg = results.dialog_gate!
  const pillColor =
  dg.confidence === 'high' ? { fg: '#6ec577', bg: 'rgba(110,197,119,0.12)' } :
- dg.confidence === 'medium' ? { fg: '#d0b066', bg: 'rgba(208,176,102,0.12)' } :
+ dg.confidence === 'medium' ? { fg: 'var(--color-accent)', bg: 'rgba(208,176,102,0.12)' } :
  dg.confidence === 'insufficient' ? { fg: '#e07a4f', bg: 'rgba(224,122,79,0.12)' } :
- dg.confidence === 'error' ? { fg: '#e05a5a', bg: 'rgba(224,90,90,0.12)' } :
- { fg: '#8d867b', bg: 'rgba(141,134,123,0.12)' } // low / none
+ dg.confidence === 'error' ? { fg: 'var(--color-danger)', bg: 'rgba(224,90,90,0.12)' } :
+ { fg: 'var(--color-text-muted)', bg: 'rgba(141,134,123,0.12)' } // low / none
  const hideLufs = dg.confidence === 'error' || dg.confidence === 'insufficient' || dg.lufs_i == null
  return (
  <>
@@ -664,29 +640,29 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <td className="px-4 py-2 text-dark-400">
  Dialog (gated)
  </td>
- <td className="text-center font-mono text-dark-300" colSpan={2}>
+ <td className="text-right font-mono tabular-nums text-dark-300" colSpan={2}>
  <span className="inline-flex items-center justify-center gap-2">
- <span style={{ color: hideLufs ? '#8d867b' : '#ebe7e0' }}>
+ <span style={{ color: hideLufs ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
  {hideLufs ? '-' : `${dg.lufs_i!.toFixed(1)} LKFS`}
  </span>
  <span
- className="text-[9px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full"
- style={{ color: pillColor.fg, backgroundColor: pillColor.bg }}
+ className="text-[9px] uppercase tracking-[0.14em] px-2 py-0.5"
+ style={{ color: pillColor.fg, backgroundColor: pillColor.bg, borderRadius: '2px' }}
  title={`Detector confidence: ${dg.confidence}`}
  >
  {dg.confidence}
  </span>
- <span style={{ color: '#8d867b' }}>
+ <span style={{ color: 'var(--color-text-muted)' }}>
  {`${dg.speech_pct.toFixed(0)}% speech`}
  </span>
  </span>
  </td>
- <td className="text-center font-mono text-dark-500">-</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">-</td>
  </tr>
  {dg.note && (
  <tr className="border-b border-dark-700/20">
  <td></td>
- <td className="px-4 pb-2 pt-0 text-[10px] italic" colSpan={3} style={{ color: '#8d867b' }}>
+ <td className="px-4 pb-2 pt-0 text-[10px] font-display italic" colSpan={3} style={{ color: 'var(--color-text-muted)' }}>
  {dg.note}
  </td>
  </tr>
@@ -697,31 +673,31 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {!isAtmos && results.overall.short_term_max_a != null && results.overall.short_term_max_b != null && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Short-Term Max <span className="text-[9px] text-dark-600">(3s)</span></td>
- <td className="text-center font-mono text-dark-300">{results.overall.short_term_max_a.toFixed(1)} LUFS</td>
- <td className="text-center font-mono text-terra">{results.overall.short_term_max_b.toFixed(1)} LUFS</td>
- <td className="text-center font-mono text-dark-500">{(results.overall.short_term_max_b - results.overall.short_term_max_a) > 0 ? '+' : ''}{(results.overall.short_term_max_b - results.overall.short_term_max_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.short_term_max_a.toFixed(1)} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-terra">{results.overall.short_term_max_b.toFixed(1)} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.short_term_max_b - results.overall.short_term_max_a) > 0 ? '+' : ''}{(results.overall.short_term_max_b - results.overall.short_term_max_a).toFixed(1)}</td>
  </tr>
  )}
  {!isAtmos && results.overall.momentary_max_a != null && results.overall.momentary_max_b != null && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Momentary Max <span className="text-[9px] text-dark-600">(400ms)</span></td>
- <td className="text-center font-mono text-dark-300">{results.overall.momentary_max_a.toFixed(1)} LUFS</td>
- <td className="text-center font-mono text-terra">{results.overall.momentary_max_b.toFixed(1)} LUFS</td>
- <td className="text-center font-mono text-dark-500">{(results.overall.momentary_max_b - results.overall.momentary_max_a) > 0 ? '+' : ''}{(results.overall.momentary_max_b - results.overall.momentary_max_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.momentary_max_a.toFixed(1)} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-terra">{results.overall.momentary_max_b.toFixed(1)} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.momentary_max_b - results.overall.momentary_max_a) > 0 ? '+' : ''}{(results.overall.momentary_max_b - results.overall.momentary_max_a).toFixed(1)}</td>
  </tr>
  )}
  {results.headroom && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">True Peak</td>
- <td className="text-center font-mono text-dark-300">{results.headroom.true_peak_a.toFixed(1)} dBTP</td>
- <td className="text-center font-mono text-terra">
+ <td className="text-right font-mono tabular-nums text-dark-300">{results.headroom.true_peak_a.toFixed(1)} dBTP</td>
+ <td className="text-right font-mono tabular-nums text-terra">
  {(isAtmos && results.atmos_qc?.specs?.true_peak_dbtp != null
  ? results.atmos_qc.specs.true_peak_dbtp
  : results.headroom.true_peak_b
  ).toFixed(1)} dBTP
  {isAtmos && <span className="text-[9px] text-dark-500 ml-1">(Atmos)</span>}
  </td>
- <td className="text-center font-mono text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-500">
  {(() => {
  const b = isAtmos && results.atmos_qc?.specs?.true_peak_dbtp != null
  ? results.atmos_qc.specs.true_peak_dbtp
@@ -735,9 +711,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {isAtmos && results.atmos?.binaural_tp?.true_peak_db != null && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Binaural TP <span className="text-[9px] text-dark-600">(approx)</span></td>
- <td className="text-center font-mono text-dark-500">—</td>
- <td className="text-center font-mono text-terra">{results.atmos.binaural_tp.true_peak_db.toFixed(1)} dBTP</td>
- <td className="text-center font-mono text-dark-500">—</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">—</td>
+ <td className="text-right font-mono tabular-nums text-terra">{results.atmos.binaural_tp.true_peak_db.toFixed(1)} dBTP</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">—</td>
  </tr>
  )}
  <tr className="border-b border-dark-700/20">
@@ -745,9 +721,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  className="px-4 py-2 text-dark-400"
  title="LRA — Loudness Range (BS.1770-4 / EBU R128). Difference between the loudest and quietest loudness-gated sections, in LU. Big LRA = dynamic; small LRA = over-limited. Modern pop sits 4–8 LU; classical can run 15+ LU."
  >LRA</td>
- <td className="text-center font-mono text-dark-300">{results.overall.dynamics_a.toFixed(1)} LU</td>
- <td className="text-center font-mono text-terra">{results.overall.dynamics_b.toFixed(1)} LU</td>
- <td className="text-center font-mono text-dark-500">{(results.overall.dynamics_b - results.overall.dynamics_a) > 0 ? '+' : ''}{(results.overall.dynamics_b - results.overall.dynamics_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.dynamics_a.toFixed(1)} LU</td>
+ <td className="text-right font-mono tabular-nums text-terra">{results.overall.dynamics_b.toFixed(1)} LU</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.dynamics_b - results.overall.dynamics_a) > 0 ? '+' : ''}{(results.overall.dynamics_b - results.overall.dynamics_a).toFixed(1)}</td>
  </tr>
  {results.overall.plr_a != null && results.overall.plr_b != null && (
  <tr className="border-b border-dark-700/20">
@@ -755,9 +731,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  className="px-4 py-2 text-dark-400"
  title="PLR — Peak-to-Loudness Ratio. True-peak minus integrated LUFS, in dB. How much crest-factor your master has. 8–12 dB is punchy; <6 dB is squashed; >14 dB is unusually dynamic for music."
  >PLR</td>
- <td className="text-center font-mono text-dark-300">{results.overall.plr_a.toFixed(1)} dB</td>
- <td className="text-center font-mono text-terra">{results.overall.plr_b.toFixed(1)} dB</td>
- <td className="text-center font-mono text-dark-500">{(results.overall.plr_b - results.overall.plr_a) > 0 ? '+' : ''}{(results.overall.plr_b - results.overall.plr_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.plr_a.toFixed(1)} dB</td>
+ <td className="text-right font-mono tabular-nums text-terra">{results.overall.plr_b.toFixed(1)} dB</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.plr_b - results.overall.plr_a) > 0 ? '+' : ''}{(results.overall.plr_b - results.overall.plr_a).toFixed(1)}</td>
  </tr>
  )}
  {!isAtmos && !isAtmosSolo && (
@@ -766,9 +742,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  Stereo Width
  <span className="text-[9px] text-dark-600 ml-1">({describeWidth(results.overall.width_a)})</span>
  </td>
- <td className="text-center font-mono text-dark-300">{describeWidth(results.overall.width_a)}</td>
- <td className="text-center font-mono text-terra">{describeWidth(results.overall.width_b)}</td>
- <td className="text-center font-mono text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-300">{describeWidth(results.overall.width_a)}</td>
+ <td className="text-right font-mono tabular-nums text-terra">{describeWidth(results.overall.width_b)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-500">
  {widthDelta(results.overall.width_a, results.overall.width_b)}
  </td>
  </tr>
@@ -915,7 +891,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <div className="p-8 text-center space-y-2"
  style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <p className="text-sm" style={{ color: '#a8a29e' }}>No delivery checks for this file</p>
- <p className="text-[11px]" style={{ color: '#8d867b' }}>
+ <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
  Streaming normalization and embedded metadata appear here for stereo WAV/FLAC/AIFF files.
  </p>
  </div>
@@ -958,11 +934,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  defaultOpen={false}
  badge={
  outliers.length > 0 ? (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#c5a55a', backgroundColor: 'rgba(150,128,58,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px', color: 'var(--color-accent)', backgroundColor: 'rgba(150,128,58,0.1)' }}>
  {outliers.length} above ±0.5 dB
  </span>
  ) : (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px', color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
  All within ±0.5 dB
  </span>
  )
@@ -995,7 +971,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  tooltip="Where elements compete for the same frequency range. In Deep Scan this is per-stem (kick vs bass, vocal vs instruments, etc.). Otherwise shows full-mix density flags."
  why="Masking is why mixes sound muddy, crowded, or 'never clear no matter how much I EQ'. Two elements fighting for the same frequency means neither wins; one has to move. Side-chain, cut, or LPF the interferer instead of adding more EQ to the victim."
  badge={
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#d0b066', backgroundColor: 'rgba(208,176,102,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px', color: 'var(--color-accent)', backgroundColor: 'rgba(208,176,102,0.1)' }}>
  {results.masking.overlaps.length} flagged
  </span>
  }
@@ -1029,11 +1005,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  why="The named complaints you hear in every mixing book: boominess, muddiness, harshness, sibilance, boxiness, thinness. Each maps to a known frequency band. Objective flags save an hour of 'does this sound harsh to you?' back-and-forth."
  badge={
  results.tonal_issues && results.tonal_issues.length > 0 ? (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#c5a55a', backgroundColor: 'rgba(150,128,58,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px', color: 'var(--color-accent)', backgroundColor: 'rgba(150,128,58,0.1)' }}>
  {results.tonal_issues.length} detected
  </span>
  ) : (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px', color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
  Clean
  </span>
  )
@@ -1059,16 +1035,17 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {isAtmos && !isAtmosSolo && (
  <div className="flex items-center justify-center">
  <div
- className="inline-flex items-center gap-1 p-1 rounded-full"
- style={{ backgroundColor: 'rgba(48,44,39,0.5)', border: '1px solid rgba(168,161,150,0.12)' }}
+ className="inline-flex items-center gap-1 p-1"
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)', border: '1px solid rgba(168,161,150,0.12)' }}
  >
  <button
  onClick={() => setAtmosView('immersive')}
- className="text-[11px] px-4 py-1.5 rounded-full transition-all uppercase tracking-[0.1em]"
+ className="text-[11px] px-4 py-1.5 transition-all uppercase tracking-[0.14em]"
  style={{
- backgroundColor: atmosView === 'immersive' ? 'rgba(168,85,247,0.15)' : 'transparent',
- color: atmosView === 'immersive' ? '#a855f7' : '#a8a29e',
- border: `1px solid ${atmosView === 'immersive' ? 'rgba(168,85,247,0.4)' : 'transparent'}`,
+ borderRadius: '2px',
+ backgroundColor: atmosView === 'immersive' ? 'rgba(138,149,171,0.15)' : 'transparent',
+ color: atmosView === 'immersive' ? 'var(--color-slate-blue)' : '#a8a29e',
+ border: `1px solid ${atmosView === 'immersive' ? 'rgba(138,149,171,0.4)' : 'transparent'}`,
  fontWeight: atmosView === 'immersive' ? 500 : 400,
  }}
  title="Native Atmos view — surround field, object trajectories, per-channel energy"
@@ -1077,11 +1054,12 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </button>
  <button
  onClick={() => setAtmosView('downmix')}
- className="text-[11px] px-4 py-1.5 rounded-full transition-all uppercase tracking-[0.1em]"
+ className="text-[11px] px-4 py-1.5 transition-all uppercase tracking-[0.14em]"
  style={{
- backgroundColor: atmosView === 'downmix' ? 'rgba(168,85,247,0.15)' : 'transparent',
- color: atmosView === 'downmix' ? '#a855f7' : '#a8a29e',
- border: `1px solid ${atmosView === 'downmix' ? 'rgba(168,85,247,0.4)' : 'transparent'}`,
+ borderRadius: '2px',
+ backgroundColor: atmosView === 'downmix' ? 'rgba(138,149,171,0.15)' : 'transparent',
+ color: atmosView === 'downmix' ? 'var(--color-slate-blue)' : '#a8a29e',
+ border: `1px solid ${atmosView === 'downmix' ? 'rgba(138,149,171,0.4)' : 'transparent'}`,
  fontWeight: atmosView === 'downmix' ? 500 : 400,
  }}
  title="How the stereo downmix compares to the stereo reference"
@@ -1098,11 +1076,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  dialog timing) so it sits at the top of every Atmos view. */}
  {results.atmos && (
  <div className="flex flex-wrap items-center gap-3 px-4 py-2"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.18)' }}>
- <span className="text-[10px] uppercase tracking-[0.2em]" style={{ color: '#a855f7' }}>
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(138,149,171,0.06)', border: '1px solid rgba(138,149,171,0.18)' }}>
+ <span className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-slate-blue)' }}>
  Atmos · {results.atmos.channel_layout}
  </span>
- <DurationPill seconds={results.duration_sec_b ?? results.duration_sec} label="Length" tint="#a855f7" compact />
+ <DurationPill seconds={results.duration_sec_b ?? results.duration_sec} label="Length" tint="var(--color-slate-blue)" compact />
  {results.atmos.programme_name && (
  <span className="text-[11px]" style={{ color: '#b394d4' }}>
  {results.atmos.programme_name}
@@ -1136,8 +1114,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  tooltip="Checks your Atmos file against Dolby's delivery specifications for music streaming platforms (Apple Music, Tidal, Amazon Music). Verifies loudness, true peak, sample rate, bit depth, channel activity, and more."
  why="Apple Music, Tidal, and Amazon reject Atmos deliveries that miss spec: wrong sample rate, too-hot TP, inactive channels, missing ADM. A spec-fail is a one-week slip while delivery re-bounces and re-ingests. Catch it before upload."
  badge={
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{
- color: results.atmos_qc.status === 'pass' ? '#6ec577' : results.atmos_qc.status === 'warning' ? '#c5a55a' : '#e05a5a',
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px',
+ color: results.atmos_qc.status === 'pass' ? '#6ec577' : results.atmos_qc.status === 'warning' ? 'var(--color-accent)' : 'var(--color-danger)',
  backgroundColor: results.atmos_qc.status === 'pass' ? 'rgba(110,197,119,0.1)' : results.atmos_qc.status === 'warning' ? 'rgba(150,128,58,0.1)' : 'rgba(224,90,90,0.1)',
  }}>
  {results.atmos_qc.score}/100
@@ -1243,14 +1221,14 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  why="The stereo downmix reaches about 90% of your audience (anyone not on an Atmos-capable Apple Music / Tidal / Amazon setup). If the kick disappears or the vocal drops 3 dB in the fold-down, most listeners hear the wrong mix. Flag offenders before they ship."
  badge={
  results.atmos.missing_elements.length > 0 ? (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{
- color: results.atmos.missing_elements.some(e => e.severity === 'missing') ? '#e05a5a' : '#c5a55a',
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px',
+ color: results.atmos.missing_elements.some(e => e.severity === 'missing') ? 'var(--color-danger)' : 'var(--color-accent)',
  backgroundColor: results.atmos.missing_elements.some(e => e.severity === 'missing') ? 'rgba(224,90,90,0.1)' : 'rgba(150,128,58,0.1)',
  }}>
  {results.atmos.missing_elements.length} detected
  </span>
  ) : (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px', color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
  All present
  </span>
  )
@@ -1472,8 +1450,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  tooltip="Checks for clipping (samples hitting digital ceiling), inter-sample peaks (true peaks exceeding 0 dBTP), over-limiting (flat-topped waveforms), and new harmonic distortion from processing."
  why="Inter-sample peaks above 0 dBTP create audible clicks on MP3/AAC playback even when the source file looks clean. Streaming platforms will also engage their limiters. Fix with a -1 dBTP ceiling before encoding."
  badge={
- <span className="text-xs px-2 py-0.5 rounded-full" style={{
- color: results.distortion.severity === 'clean' ? '#6ec577' : results.distortion.severity === 'warning' ? '#c5a55a' : '#e05a5a',
+ <span className="text-xs px-2 py-0.5" style={{ borderRadius: '2px',
+ color: results.distortion.severity === 'clean' ? '#6ec577' : results.distortion.severity === 'warning' ? 'var(--color-accent)' : 'var(--color-danger)',
  backgroundColor: results.distortion.severity === 'clean' ? 'rgba(110,197,119,0.1)' : results.distortion.severity === 'warning' ? 'rgba(150,128,58,0.1)' : 'rgba(224,90,90,0.1)',
  }}>
  {results.distortion.severity === 'clean' ? 'Clean' : results.distortion.severity === 'warning' ? 'Warning' : 'Problem'}
@@ -1497,8 +1475,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  tooltip="Scans for sample-level spikes: single-sample discontinuities caused by bad edits, buffer glitches, or plugin artifacts. Only flags true digital artifacts, not musical transients like drum hits."
  why="Digital clicks are almost always unintended: bad edits, buffer underruns, plugin glitches. Even one is a defect. On headphones they're impossible to unhear. Catch these before mastering, not after a listener tweets about it."
  badge={
- <span className="text-xs px-2 py-0.5 rounded-full" style={{
- color: results.clicks && results.clicks.length > 0 ? '#c5a55a' : '#6ec577',
+ <span className="text-xs px-2 py-0.5" style={{ borderRadius: '2px',
+ color: results.clicks && results.clicks.length > 0 ? 'var(--color-accent)' : '#6ec577',
  backgroundColor: results.clicks && results.clicks.length > 0 ? 'rgba(150,128,58,0.1)' : 'rgba(110,197,119,0.1)',
  }}>
  {results.clicks && results.clicks.length > 0 ? `${results.clicks.length} found` : 'Clean'}
@@ -1523,7 +1501,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </div>
  <div>
  <p className="text-sm" style={{ color: '#e7e5e4' }}>No clicks or glitches detected</p>
- <p className="text-[11px]" style={{ color: '#8d867b' }}>Clean signal — no sample-level artifacts found</p>
+ <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Clean signal — no sample-level artifacts found</p>
  </div>
  </div>
  )}
@@ -1564,13 +1542,13 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
 function MetricBox({ label, value, sub, tooltip }: { label: string; value: string; sub: string; tooltip?: string }) {
  return (
- <div className="p-5 text-center space-y-1.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)' }}>
- <div className="flex items-center justify-center gap-1">
+ <div className="p-5 text-left space-y-1.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)' }}>
+ <div className="flex items-center gap-1">
  <p className="text-[10px] tracking-widest uppercase" style={{ color: '#968d7e' }}>{label}</p>
  {tooltip && <InfoTooltip text={tooltip} />}
  </div>
- <p className="text-xl font-medium text-terra">{value}</p>
- <p className="text-[11px]" style={{ color: '#7a7164' }}>{sub}</p>
+ <p className="font-display italic text-xl text-terra">{value}</p>
+ <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{sub}</p>
  </div>
  )
 }
@@ -1642,21 +1620,21 @@ function PerElementDrawer({ outliers, balanced, labelA, labelB }: {
  {!showBalanced ? (
  <button
  onClick={() => setShowBalanced(true)}
- className="text-[10px] tracking-[0.1em] uppercase transition-colors hover:text-[#d0b066]"
- style={{ color: '#8d867b' }}
+ className="text-[10px] tracking-[0.14em] uppercase transition-colors hover:text-[#d0b066]"
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Show {balanced.length} balanced element{balanced.length === 1 ? '' : 's'} <span className="opacity-70">(within ±0.5 dB)</span>
  </button>
  ) : (
  <>
  <div className="flex items-center justify-between mb-2">
- <span className="text-[10px] tracking-[0.1em] uppercase" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] tracking-[0.14em] uppercase" style={{ color: 'var(--color-text-muted)' }}>
  Balanced · within ±0.5 dB
  </span>
  <button
  onClick={() => setShowBalanced(false)}
- className="text-[10px] uppercase tracking-[0.1em] transition-colors hover:text-sand-200"
- style={{ color: '#8d867b' }}
+ className="text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-sand-200"
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Hide
  </button>
@@ -1718,8 +1696,8 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  : null
  const monoDotColour = monoRiskB == null
  ? '#3e3a33'
- : monoRiskB > 25 ? '#e05a5a'
- : monoRiskB > 12 ? '#c5a55a'
+ : monoRiskB > 25 ? 'var(--color-danger)'
+ : monoRiskB > 12 ? 'var(--color-accent)'
  : '#6ec577'
 
  // TP warnings disabled by user direction — show numbers only.
@@ -1738,8 +1716,8 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  {formatDuration(results.duration_sec_a ?? results.duration_sec)}
  </span>
  <span className="opacity-50">vs</span>
- <span className="font-mono truncate max-w-[30ch]" style={{ color: '#d0b066' }} title={labelB}>{labelB}</span>
- <span className="font-mono opacity-70" style={{ color: '#d0b066' }}>
+ <span className="font-mono truncate max-w-[30ch]" style={{ color: 'var(--color-accent)' }} title={labelB}>{labelB}</span>
+ <span className="font-mono opacity-70" style={{ color: 'var(--color-accent)' }}>
  {formatDuration(results.duration_sec_b ?? results.duration_sec)}
  </span>
  </div>
@@ -1771,7 +1749,7 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  />
  {/* Mono dot — colour-coded traffic light, numeric risk in brackets. */}
  <div className="inline-flex items-center gap-2 px-4 py-1 border-l" style={{ borderColor: 'rgba(168,161,150,0.1)' }}>
- <span className="text-[8px] uppercase tracking-[0.14em]" style={{ color: '#7a7164' }}>Mono</span>
+ <span className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>Mono</span>
  <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: monoDotColour }} title={monoRiskB != null ? `Mono-compat risk: ${Math.round(monoRiskB)} / 100${monoRiskA != null ? ` · reference ${Math.round(monoRiskA)}` : ''}` : 'Mono-compat unknown'} />
  {monoRiskB != null && (
  <span className="font-mono tabular-nums text-[10px]" style={{ color: '#a8a29e' }}>
@@ -1784,14 +1762,13 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  {isAtmos && btp != null && (
  <div className="inline-flex items-center gap-2 px-4 py-1 border-l" style={{ borderColor: 'rgba(168,161,150,0.1)' }}
  title={btpWarn ? 'ILD-approx binaural headroom is over Apple\'s −1 dBTP guideline. Verify on Apple\'s renderer before delivery — this is not a substitute.' : 'ILD-approx binaural-headroom estimate (no HRTF render). Apple\'s renderer is the authority for delivery sign-off.'}>
- <span className="text-[8px] uppercase tracking-[0.14em]" style={{ color: btpWarn ? '#e07a4f' : '#a855f7' }}>
- Binaural TP <span style={{ color: '#7a7164' }}>(approx)</span>
+ <span className="text-[11px] uppercase tracking-[0.14em]" style={{ color: btpWarn ? '#e07a4f' : 'var(--color-slate-blue)' }}>
+ Binaural TP <span style={{ color: 'var(--color-text-muted)' }}>(approx)</span>
  </span>
- <span className="font-mono tabular-nums text-[11px]" style={{ color: btpWarn ? '#e07a4f' : '#ebe7e0' }}>
+ <span className="font-mono tabular-nums text-[11px]" style={{ color: btpWarn ? '#e07a4f' : 'var(--color-text-primary)' }}>
  {btp.toFixed(1)}
  </span>
- <span className="text-[8px]" style={{ color: '#7a7164' }}>dBTP</span>
- {btpWarn && <span className="text-[9px]" style={{ color: '#e07a4f' }}>⚠</span>}
+ <span className="text-[11px] tracking-[0.14em] uppercase" style={{ color: 'var(--color-text-muted)' }}>dBTP</span>
  </div>
  )}
  </div>
@@ -1821,18 +1798,18 @@ function CockpitMetric({ label, value, unit, delta, deltaUnit, warn, title }: {
  const deltaStr = fmtDelta(delta)
  return (
  <div className="inline-flex items-center gap-2 px-4 py-1 border-l first:border-l-0" style={{ borderColor: 'rgba(168,161,150,0.1)' }} title={title}>
- <span className="text-[8px] uppercase tracking-[0.14em]" style={{ color: '#7a7164' }}>{label}</span>
+ <span className="text-[11px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
  <span
  className="font-mono tabular-nums text-[11px]"
- style={{ color: warn ? '#e07a4f' : '#ebe7e0' }}
+ style={{ color: warn ? '#e07a4f' : 'var(--color-text-primary)' }}
  >
  {value}
  </span>
- <span className="text-[8px]" style={{ color: '#7a7164' }}>{unit}</span>
+ <span className="text-[11px] tracking-[0.14em] uppercase" style={{ color: 'var(--color-text-muted)' }}>{unit}</span>
  {deltaStr && (
  <span
  className="font-mono tabular-nums text-[10px]"
- style={{ color: '#d0b066', opacity: deltaStr === '±0' ? 0.5 : 1 }}
+ style={{ color: 'var(--color-accent)', opacity: deltaStr === '±0' ? 0.5 : 1 }}
  title={`Δ vs reference${deltaUnit ? ` (${deltaUnit})` : ''}`}
  >
  {deltaStr}
@@ -1852,7 +1829,7 @@ function CockpitMetric({ label, value, unit, delta, deltaUnit, warn, title }: {
  */
 function RefStatusDot({ check, labelA }: { check: any; labelA: string }) {
  const status = check?.status || 'good'
- const colour = status === 'good' ? '#6ec577' : status === 'fair' ? '#c5a55a' : '#e05a5a'
+ const colour = status === 'good' ? '#6ec577' : status === 'fair' ? 'var(--color-accent)' : 'var(--color-danger)'
  const clipCount = check?.stats?.clip_count ?? 0
  const bpm = check?.song_info?.bpm
  const key = check?.song_info?.key
@@ -1861,8 +1838,8 @@ function RefStatusDot({ check, labelA }: { check: any; labelA: string }) {
  lines.push(`${labelA} — reference quality: ${status.toUpperCase()}`)
  if (check?.summary) lines.push(check.summary)
  if (bpm) lines.push(`BPM ${bpm}${key ? ` · Key ${key}` : ''}`)
- if (clipCount > 0) lines.push(`⚠ ${clipCount} clipped sample${clipCount === 1 ? '' : 's'}`)
- if (tonalIssueCount > 0) lines.push(`⚠ ${tonalIssueCount} tonal issue${tonalIssueCount === 1 ? '' : 's'}`)
+ if (clipCount > 0) lines.push(`${clipCount} clipped sample${clipCount === 1 ? '' : 's'}`)
+ if (tonalIssueCount > 0) lines.push(`${tonalIssueCount} tonal issue${tonalIssueCount === 1 ? '' : 's'}`)
  if (status === 'good' && clipCount === 0 && tonalIssueCount === 0) {
  lines.push('No issues — clean target.')
  }
@@ -1884,8 +1861,8 @@ function StatBox({ label, value, sub, warn }: { label: string; value: string; su
  return (
  <div className="p-3 text-center space-y-1" style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <p className="text-[9px] tracking-widest uppercase" style={{ color: '#78716c' }}>{label}</p>
- <p className="text-sm font-medium" style={{ color: warn ? '#e05a5a' : '#e7e5e4' }}>{value}</p>
- {sub && <p className="text-[9px]" style={{ color: '#8d867b' }}>{sub}</p>}
+ <p className="text-sm font-medium font-mono tabular-nums" style={{ color: warn ? 'var(--color-danger)' : '#e7e5e4' }}>{value}</p>
+ {sub && <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{sub}</p>}
  </div>
  )
 }

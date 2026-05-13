@@ -13,12 +13,12 @@ const FREQ_LABELS = [
  '2 kHz', '2.5 kHz', '3.15 kHz', '4 kHz', '5 kHz', '6.3 kHz', '8 kHz', '10 kHz', '12.5 kHz', '16 kHz', '20 kHz',
 ]
 
-const GOLD = '#d0b066'
-const CREAM = '#ebe7e0'
-const MUTED = '#8d867b'
-const BLUE = '#6b8cbb'
-const GREEN = '#6ec577'
-const RED = '#e05a5a'
+const GOLD = 'var(--color-accent)'
+const CREAM = 'var(--color-text-primary)'
+const MUTED = 'var(--color-text-muted)'
+const BLUE = 'var(--color-data-a)'
+const GREEN = 'var(--color-data-pass)'
+const RED = 'var(--color-danger)'
 
 export default function MasteringDelta({ delta, overall }: Props) {
  const bands = Array.isArray(delta.per_band_gain_db) ? delta.per_band_gain_db : []

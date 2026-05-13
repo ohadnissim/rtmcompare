@@ -109,15 +109,15 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  className="w-full max-w-xl mx-4 mt-[12vh] overflow-hidden"
  style={{
  borderRadius: '2px',
- backgroundColor: '#151411',
- border: '1px solid rgba(208,176,102,0.25)',
+ backgroundColor: 'var(--color-sand-900)',
+ border: '1px solid rgba(168,161,150,0.12)',
  }}
  onClick={(e) => e.stopPropagation()}
  onKeyDown={handleKeyDownContainer}
  >
  {/* Search input */}
  <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid rgba(168,161,150,0.08)' }}>
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#d0b066" strokeWidth={1.8}>
+ <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="var(--color-accent)" strokeWidth={1.8}>
  <circle cx="10.5" cy="10.5" r="6.5" />
  <path strokeLinecap="round" d="M20 20l-4-4" />
  </svg>
@@ -142,7 +142,7 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  placeholder="Search metrics: kick, spotify, 90 hz, mono…"
  data-palette-input="1"
  className="flex-1 bg-transparent outline-none text-sm"
- style={{ color: '#ebe7e0' }}
+ style={{ color: 'var(--color-text-primary)' }}
  />
  <kbd className="text-[10px] px-1.5 py-0.5" style={{ borderRadius: '2px', color: '#a8a29e', border: '1px solid rgba(168,161,150,0.15)' }}>
  Esc
@@ -151,9 +151,16 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
 
  {/* Results */}
  <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-2">
+ {!query.trim() && results.length > 0 && (
+ <div className="px-5 pt-3 pb-1 text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-text-muted)' }}>
+ Type a metric, platform, or panel name
+ </div>
+ )}
  {results.length === 0 && (
- <div className="px-5 py-6 text-center text-[12px]" style={{ color: '#a8a29e' }}>
+ <div className="px-5 py-6">
+ <div className="pl-3 border-l-2 text-left text-[12px]" style={{ borderColor: 'var(--color-sand-700)', color: '#a8a29e' }}>
  No matches. Try "lufs", "kick", "spotify", "mono", "atmos"…
+ </div>
  </div>
  )}
  {results.map((r, i) => {
@@ -167,25 +174,25 @@ export default function CommandPalette({ onClose, onNavigate }: Props) {
  className="w-full flex items-center justify-between px-5 py-2.5 text-left transition-colors"
  style={{
  backgroundColor: active ? 'rgba(208,176,102,0.08)' : 'transparent',
- borderLeft: `2px solid ${active ? '#d0b066' : 'transparent'}`,
+ borderLeft: `2px solid ${active ? 'var(--color-accent)' : 'transparent'}`,
  }}
  >
  <div className="flex items-center gap-3 min-w-0">
  <span
- className="text-[11px] uppercase tracking-[0.12em] w-24 flex-shrink-0"
- style={{ color: active ? '#d0b066' : '#7a7164' }}
+ className="text-[11px] uppercase tracking-[0.14em] w-24 flex-shrink-0"
+ style={{ color: active ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
  >
  {r.hint || r.tab}
  </span>
  <span
  className="text-sm truncate"
- style={{ color: active ? '#ebe7e0' : '#a8a29e' }}
+ style={{ color: active ? 'var(--color-text-primary)' : '#a8a29e' }}
  >
  {r.label}
  </span>
  </div>
  {active && (
- <span className="text-[10px] uppercase tracking-[0.1em]" style={{ color: '#d0b066' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
  ↵ jump
  </span>
  )}

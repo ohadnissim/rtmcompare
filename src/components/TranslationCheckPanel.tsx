@@ -170,10 +170,10 @@ export default function TranslationCheckPanel({ file }: Props) {
   return (
     <div className="border p-3 space-y-3" style={{ borderRadius: '2px', borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: '#d0b066' }}>
+        <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>
           Translation check
         </span>
-        <span className="text-[10px]" style={{ color: '#7a7164' }}>
+        <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
           how the master sounds through real-world playback chains — click to audition the loudest 30 s
         </span>
       </div>
@@ -192,7 +192,7 @@ export default function TranslationCheckPanel({ file }: Props) {
                 style={{
                   backgroundColor: isActive ? 'rgba(208,176,102,0.25)' : 'rgba(208,176,102,0.08)',
                   border: `1px solid ${isActive ? 'rgba(208,176,102,0.55)' : 'rgba(208,176,102,0.25)'}`,
-                  color: isActive ? '#ebe7e0' : '#d0b066',
+                  color: isActive ? 'var(--color-text-primary)' : 'var(--color-accent)',
                   opacity: isLoading ? 0.6 : 1,
                   cursor: isLoading ? 'wait' : 'pointer',
                 }}
@@ -202,14 +202,14 @@ export default function TranslationCheckPanel({ file }: Props) {
                 {isLoading ? '…' : isActive ? '■' : '▶'}{' '}{env.short}
               </button>
               {insight && (typeof insight.lostLfDb === 'number' || typeof insight.presenceChangeDb === 'number') && (
-                <span className="text-[10px] font-mono" style={{ color: '#8d867b' }}>
-                  LF&nbsp;<span style={{ color: (insight.lostLfDb ?? 0) < -3 ? '#e07c5a' : '#a8a196' }}>{fmtSigned(insight.lostLfDb)}</span>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
+                  LF&nbsp;<span style={{ color: (insight.lostLfDb ?? 0) < -3 ? '#e07c5a' : 'var(--color-sand-300)' }}>{fmtSigned(insight.lostLfDb)}</span>
                   {' · '}
-                  Presence&nbsp;<span style={{ color: (insight.presenceChangeDb ?? 0) > 2 ? '#e07c5a' : '#a8a196' }}>{fmtSigned(insight.presenceChangeDb)}</span>
+                  Presence&nbsp;<span style={{ color: (insight.presenceChangeDb ?? 0) > 2 ? '#e07c5a' : 'var(--color-sand-300)' }}>{fmtSigned(insight.presenceChangeDb)}</span>
                 </span>
               )}
               {error && !isActive && !isLoading && (
-                <span className="text-[10px]" style={{ color: '#c96765' }} title={error}>
+                <span className="text-[10px]" style={{ color: 'var(--color-danger)' }} title={error}>
                   render ✕
                 </span>
               )}
@@ -217,7 +217,7 @@ export default function TranslationCheckPanel({ file }: Props) {
           )
         })}
       </div>
-      <p className="text-[10px] italic leading-relaxed" style={{ color: '#5a544a' }}>
+      <p className="text-[10px] font-display italic leading-relaxed" style={{ color: '#5a544a' }}>
         Biquad-filter approximations (no IRs in v5.0.4). Useful as a translation gut-check, not a substitute for actually testing on the target system. IR-based versions for car cabins and club PAs are on the v5.x roadmap.
       </p>
     </div>

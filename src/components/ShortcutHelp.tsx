@@ -60,20 +60,20 @@ export default function ShortcutHelp() {
  onClick={e => e.stopPropagation()}
  >
  <div className="text-center space-y-1">
- <h2 className="text-lg font-semibold" style={{ color: '#f5f5f4' }}>Keyboard Shortcuts</h2>
- <p className="text-[11px]" style={{ color: '#8d867b' }}>Press ? to toggle this overlay</p>
+ <h2 className="text-lg" style={{ color: '#f5f5f4' }}>Keyboard Shortcuts</h2>
+ <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Press ? to toggle this overlay</p>
  </div>
 
  <div className="space-y-2.5">
  {shortcuts.map((s, i) => (
  <div key={i} className="flex items-center justify-between">
- <span className="text-xs" style={{ color: '#a8a29e' }}>{s.action}</span>
+ <span className="text-xs" style={{ color: 'var(--color-sand-300)' }}>{s.action}</span>
  <div className="flex items-center gap-1">
  {s.keys.map((key, j) => (
  <kbd
  key={j}
  className="px-2 py-1 text-[10px] font-mono"
- style={{ borderRadius: '2px', backgroundColor: '#272524', color: '#e07a4f', border: '1px solid rgba(51,48,44,0.6)' }}
+ style={{ borderRadius: '2px', backgroundColor: 'var(--color-sand-700)', color: 'var(--color-data-warn)', border: '1px solid rgba(51,48,44,0.6)' }}
  >
  {key}
  </kbd>
@@ -86,7 +86,7 @@ export default function ShortcutHelp() {
  <button
  onClick={() => setShow(false)}
  className="w-full py-2 text-xs"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(87,83,78,0.2)', color: '#78716c' }}
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(87,83,78,0.2)', color: 'var(--color-text-muted)' }}
  >
  Close (Esc)
  </button>

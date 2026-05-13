@@ -25,10 +25,10 @@ interface Props {
  */
 
 const MOTION_COLOR: Record<string, string> = {
- 'static': '#8a95ab',
- 'slow': '#7ca4a3',
- 'active': '#d0b066',
- 'flying': '#c96765',
+ 'static': 'var(--color-slate-blue)',
+ 'slow': 'var(--color-teal)',
+ 'active': 'var(--color-accent)',
+ 'flying': 'var(--color-danger)',
 }
 
 export default function AtmosObjectView({ view }: Props) {
@@ -43,7 +43,7 @@ export default function AtmosObjectView({ view }: Props) {
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Object Trajectories (Atmos)</h2>
+ <h2 className="text-lg">Object Trajectories (Atmos)</h2>
  <p className="text-xs text-dark-400">
  Per-object position over time, extracted from ADM axml metadata.
  {object_count > 0 && ` ${object_count} object${object_count > 1 ? 's' : ''} carrying spatial data.`}
@@ -57,7 +57,7 @@ export default function AtmosObjectView({ view }: Props) {
  className="text-[10px] px-3 py-1 rounded-full transition-colors"
  style={{
  backgroundColor: tab === k ? 'rgba(208,176,102,0.2)' : 'transparent',
- color: tab === k ? '#d0b066' : '#8d867b',
+ color: tab === k ? 'var(--color-accent)' : 'var(--color-text-muted)',
  }}
  >
  {k === 'heatmap' ? 'Heatmap' : 'Trails'}
@@ -87,7 +87,7 @@ export default function AtmosObjectView({ view }: Props) {
  {heights_over_time.length > 1 && (
  <div className="bg-dark-800/40 p-3 space-y-1">
  <div className="flex items-center justify-between text-[10px] text-dark-500">
- <span className="uppercase tracking-[0.12em]">Objects in height channel over time</span>
+ <span className="uppercase tracking-[0.14em]">Objects in height channel over time</span>
  <span className="font-mono">0 → {Math.floor(duration_sec/60)}:{String(Math.floor(duration_sec)%60).padStart(2,'0')}</span>
  </div>
  <HeightOverTime data={heights_over_time} durationSec={duration_sec} />
@@ -105,7 +105,7 @@ export default function AtmosObjectView({ view }: Props) {
  <span className="w-20 text-right">Active</span>
  </div>
  {stats.slice(0, 40).map((s, i) => {
- const color = MOTION_COLOR[s.motion] || '#8d867b'
+ const color = MOTION_COLOR[s.motion] || 'var(--color-text-muted)'
  return (
  <div
  key={i}
@@ -116,7 +116,7 @@ export default function AtmosObjectView({ view }: Props) {
  <span className="flex-1 truncate text-dark-200" title={s.name}>{s.name}</span>
  <span className="w-20 text-center font-mono text-[10px]" style={{ color }}>{s.motion}</span>
  <span className="w-20 text-center font-mono text-[10px] text-dark-400">{s.travel_deg.toFixed(0)}°</span>
- <span className="w-20 text-center font-mono text-[10px]" style={{ color: s.height_pct > 0.2 ? '#d0b066' : '#8d867b' }}>
+ <span className="w-20 text-center font-mono text-[10px]" style={{ color: s.height_pct > 0.2 ? 'var(--color-accent)' : 'var(--color-text-muted)' }}>
  {Math.round(s.height_pct * 100)}%
  </span>
  <span className="w-20 text-right font-mono text-[9px] text-dark-500">
@@ -170,18 +170,18 @@ function HeatmapSphere({ grid }: { grid: number[][] }) {
  <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-64">
  {/* Reference rings */}
  {[0.33, 0.66, 1.0].map((f, i) => (
- <circle key={i} cx={cx} cy={cy} r={R * f} fill="none" stroke="#3e3a33" strokeWidth="0.5" strokeDasharray="3 4" opacity="0.55" />
+ <circle key={i} cx={cx} cy={cy} r={R * f} fill="none" stroke="var(--color-sand-600)" strokeWidth="0.5" strokeDasharray="3 4" opacity="0.55" />
  ))}
  {/* Cardinal markers */}
- <line x1={cx} y1={cy - R} x2={cx} y2={cy + R} stroke="#3e3a33" strokeWidth="0.5" opacity="0.5" />
- <line x1={cx - R} y1={cy} x2={cx + R} y2={cy} stroke="#3e3a33" strokeWidth="0.5" opacity="0.5" />
- <text x={cx} y={cy - R - 3} fontSize="9" fill="#6a6459" textAnchor="middle">FRONT</text>
- <text x={cx - R - 4} y={cy + 3} fontSize="9" fill="#6a6459" textAnchor="end">LEFT</text>
- <text x={cx + R + 4} y={cy + 3} fontSize="9" fill="#6a6459" textAnchor="start">RIGHT</text>
- <text x={cx} y={cy + R + 12} fontSize="9" fill="#6a6459" textAnchor="middle">REAR</text>
- <text x={cx + 4} y={cy - 4} fontSize="8" fill="#6a6459">horizon 0°</text>
- <text x={cx + 4} y={cy - R / 3 - 2} fontSize="8" fill="#6a6459">+30°</text>
- <text x={cx + 4} y={cy - 2 * R / 3 - 2} fontSize="8" fill="#6a6459">+60°</text>
+ <line x1={cx} y1={cy - R} x2={cx} y2={cy + R} stroke="var(--color-sand-600)" strokeWidth="0.5" opacity="0.5" />
+ <line x1={cx - R} y1={cy} x2={cx + R} y2={cy} stroke="var(--color-sand-600)" strokeWidth="0.5" opacity="0.5" />
+ <text x={cx} y={cy - R - 3} fontSize="9" fill="var(--color-sand-500)" textAnchor="middle">FRONT</text>
+ <text x={cx - R - 4} y={cy + 3} fontSize="9" fill="var(--color-sand-500)" textAnchor="end">LEFT</text>
+ <text x={cx + R + 4} y={cy + 3} fontSize="9" fill="var(--color-sand-500)" textAnchor="start">RIGHT</text>
+ <text x={cx} y={cy + R + 12} fontSize="9" fill="var(--color-sand-500)" textAnchor="middle">REAR</text>
+ <text x={cx + 4} y={cy - 4} fontSize="8" fill="var(--color-sand-500)">horizon 0°</text>
+ <text x={cx + 4} y={cy - R / 3 - 2} fontSize="8" fill="var(--color-sand-500)">+30°</text>
+ <text x={cx + 4} y={cy - 2 * R / 3 - 2} fontSize="8" fill="var(--color-sand-500)">+60°</text>
 
  {/* Heatmap dots */}
  {wedges}
@@ -202,7 +202,7 @@ function TrajectoryTrails({ trajectories, highlight }: {
  const cy = H / 2 + 10
 
  // Rainbow palette for trails
- const colors = ['#d0b066', '#7ca4a3', '#c96765', '#8a95ab', '#6fa37e', '#a37c52', '#c9a15f', '#8abcb3']
+ const colors = ['var(--color-accent)', 'var(--color-teal)', 'var(--color-danger)', 'var(--color-slate-blue)', 'var(--color-success)', '#a37c52', 'var(--color-warning)', '#8abcb3']
 
  const project = (az: number, el: number) => {
  const r = ((90 - Math.abs(el)) / 90) * R
@@ -214,10 +214,10 @@ function TrajectoryTrails({ trajectories, highlight }: {
  <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-64">
  {/* Reference rings */}
  {[0.33, 0.66, 1.0].map((f, i) => (
- <circle key={i} cx={cx} cy={cy} r={R * f} fill="none" stroke="#3e3a33" strokeWidth="0.5" strokeDasharray="3 4" opacity="0.4" />
+ <circle key={i} cx={cx} cy={cy} r={R * f} fill="none" stroke="var(--color-sand-600)" strokeWidth="0.5" strokeDasharray="3 4" opacity="0.4" />
  ))}
- <line x1={cx} y1={cy - R} x2={cx} y2={cy + R} stroke="#3e3a33" strokeWidth="0.5" opacity="0.35" />
- <line x1={cx - R} y1={cy} x2={cx + R} y2={cy} stroke="#3e3a33" strokeWidth="0.5" opacity="0.35" />
+ <line x1={cx} y1={cy - R} x2={cx} y2={cy + R} stroke="var(--color-sand-600)" strokeWidth="0.5" opacity="0.35" />
+ <line x1={cx - R} y1={cy} x2={cx + R} y2={cy} stroke="var(--color-sand-600)" strokeWidth="0.5" opacity="0.35" />
 
  {trajectories.map((tr, ti) => {
  const color = colors[ti % colors.length]
@@ -236,14 +236,14 @@ function TrajectoryTrails({ trajectories, highlight }: {
  {/* start dot */}
  <circle {...dotProps(project(tr.points[0].az, tr.points[0].el))} r={3} fill={color} />
  {/* end dot (larger) */}
- <circle {...dotProps(project(tr.points[tr.points.length-1].az, tr.points[tr.points.length-1].el))} r={4} fill={color} stroke="#0e0d0b" strokeWidth="1" />
+ <circle {...dotProps(project(tr.points[tr.points.length-1].az, tr.points[tr.points.length-1].el))} r={4} fill={color} stroke="var(--color-bg-app)" strokeWidth="1" />
  </g>
  )
  })}
- <text x={cx} y={cy - R - 3} fontSize="9" fill="#6a6459" textAnchor="middle">FRONT</text>
- <text x={cx - R - 4} y={cy + 3} fontSize="9" fill="#6a6459" textAnchor="end">LEFT</text>
- <text x={cx + R + 4} y={cy + 3} fontSize="9" fill="#6a6459" textAnchor="start">RIGHT</text>
- <text x={cx} y={cy + R + 12} fontSize="9" fill="#6a6459" textAnchor="middle">REAR</text>
+ <text x={cx} y={cy - R - 3} fontSize="9" fill="var(--color-sand-500)" textAnchor="middle">FRONT</text>
+ <text x={cx - R - 4} y={cy + 3} fontSize="9" fill="var(--color-sand-500)" textAnchor="end">LEFT</text>
+ <text x={cx + R + 4} y={cy + 3} fontSize="9" fill="var(--color-sand-500)" textAnchor="start">RIGHT</text>
+ <text x={cx} y={cy + R + 12} fontSize="9" fill="var(--color-sand-500)" textAnchor="middle">REAR</text>
  </svg>
  )
 }
@@ -265,10 +265,10 @@ function HeightOverTime({ data, durationSec }: { data: [number, number][]; durat
  }, [data, durationSec])
  return (
  <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-10" preserveAspectRatio="none">
- <line x1={0} x2={W} y1={H} y2={H} stroke="#3e3a33" strokeWidth="0.5" />
- <path d={path} fill="none" stroke="#d0b066" strokeWidth="1.5" />
+ <line x1={0} x2={W} y1={H} y2={H} stroke="var(--color-sand-600)" strokeWidth="0.5" />
+ <path d={path} fill="none" stroke="var(--color-accent)" strokeWidth="1.5" />
  {/* Fill under curve */}
- <path d={`${path} L ${W} ${H} L 0 ${H} Z`} fill="#d0b066" opacity="0.12" />
+ <path d={`${path} L ${W} ${H} L 0 ${H} Z`} fill="var(--color-accent)" opacity="0.12" />
  </svg>
  )
 }

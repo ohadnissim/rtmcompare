@@ -11,9 +11,9 @@ interface Props {
 }
 
 const STATUS_CONFIG = {
- pass: { color: '#6fa37e', bg: 'rgba(111,163,126,0.12)', icon: '✓', label: 'Pass' },
- warning: { color: '#d0b066', bg: 'rgba(208,176,102,0.12)', icon: '⚠', label: 'Warning' },
- fail: { color: '#c96765', bg: 'rgba(201,103,101,0.14)', icon: '✕', label: 'Fail' },
+ pass: { color: 'var(--color-success)', bg: 'rgba(111,163,126,0.12)', icon: '✓', label: 'Pass' },
+ warning: { color: 'var(--color-accent)', bg: 'rgba(208,176,102,0.12)', icon: '⚠', label: 'Warning' },
+ fail: { color: 'var(--color-danger)', bg: 'rgba(201,103,101,0.14)', icon: '✕', label: 'Fail' },
 }
 
 function CheckRow({ check }: { check: AtmosQCCheck }) {
@@ -55,7 +55,7 @@ function CheckRow({ check }: { check: AtmosQCCheck }) {
  {check.suggestion && (
  <svg
  className="w-3 h-3 flex-shrink-0 transition-transform"
- style={{ color: '#8d867b', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+ style={{ color: 'var(--color-text-muted)', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
  >
  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -66,7 +66,7 @@ function CheckRow({ check }: { check: AtmosQCCheck }) {
  {/* Expanded suggestion */}
  {expanded && check.suggestion && (
  <div className="px-4 pb-3 pl-12">
- <p className="text-[11px] italic" style={{ color: '#8a8580' }}>
+ <p className="text-[11px] font-display italic" style={{ color: '#8a8580' }}>
  {check.suggestion}
  </p>
  </div>
@@ -128,7 +128,7 @@ export default function AtmosQCPanel({ qc, scope = 'all' }: Props) {
  >
  {overallConfig.label}
  </span>
- <h2 className="text-lg font-semibold">Dolby Atmos QC</h2>
+ <h2 className="text-lg">Dolby Atmos QC</h2>
  </div>
  <p className="text-xs text-dark-400 mt-0.5">{qc.summary}</p>
  </div>
@@ -137,16 +137,16 @@ export default function AtmosQCPanel({ qc, scope = 'all' }: Props) {
  {/* Count badges */}
  <div className="flex items-center gap-2">
  {failCount > 0 && (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(224,90,90,0.1)' }}>
  {failCount} fail
  </span>
  )}
  {warnCount > 0 && (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#e07a4f', backgroundColor: 'rgba(224,122,79,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-data-warn)', backgroundColor: 'rgba(224,122,79,0.1)' }}>
  {warnCount} warn
  </span>
  )}
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-data-pass)', backgroundColor: 'rgba(110,197,119,0.1)' }}>
  {passCount} pass
  </span>
  </div>
@@ -175,7 +175,7 @@ export default function AtmosQCPanel({ qc, scope = 'all' }: Props) {
  ))
  }
  {scopedChecks.length === 0 && (
- <div className="text-[11px] text-dark-500 italic px-3 py-2">No checks in this scope.</div>
+ <div className="text-[11px] text-dark-500 font-display italic px-3 py-2">No checks in this scope.</div>
  )}
  </div>
 

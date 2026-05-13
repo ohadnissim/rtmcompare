@@ -114,7 +114,7 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
           color: (loading || !analysisResult) ? 'var(--color-sand-400)' : 'var(--color-text-primary)',
           fontSize: 11,
           textTransform: 'uppercase',
-          letterSpacing: '0.08em',
+          letterSpacing: '0.14em',
           padding: '6px 14px',
           cursor: (loading || !analysisResult) ? 'not-allowed' : 'pointer',
           fontFamily: 'inherit',

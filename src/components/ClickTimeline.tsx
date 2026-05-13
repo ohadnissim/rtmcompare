@@ -11,9 +11,9 @@ interface Props {
 }
 
 const severityConfig = {
- high: { color: '#f43f5e', bg: 'rgba(244,63,94,0.15)', label: 'Loud', markerSize: 14 },
- medium: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', label: 'Moderate', markerSize: 12 },
- low: { color: '#84858c', bg: 'rgba(132,133,140,0.12)', label: 'Subtle', markerSize: 10 },
+ high: { color: 'var(--color-danger)', bg: 'rgba(244,63,94,0.15)', label: 'Loud', markerSize: 14 },
+ medium: { color: 'var(--color-warm-amber)', bg: 'rgba(245,158,11,0.12)', label: 'Moderate', markerSize: 12 },
+ low: { color: 'var(--color-text-muted)', bg: 'rgba(132,133,140,0.12)', label: 'Subtle', markerSize: 10 },
 }
 
 // Pre-roll 1.5 s so the listener hears the bar leading into the click,
@@ -51,7 +51,7 @@ export default function ClickTimeline({ clicks, labelB, fileA, fileB, waveform, 
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Clicks & Glitches</h2>
+ <h2 className="text-lg">Clicks & Glitches</h2>
  <p className="text-xs text-dark-400">
  Potential clicks, pops, or glitches detected — bad edits, buffer errors, or plugin artifacts. Click play to verify.
  </p>
@@ -59,19 +59,19 @@ export default function ClickTimeline({ clicks, labelB, fileA, fileB, waveform, 
  <div className="flex items-center gap-2">
  {highCount > 0 && (
  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
- style={{ color: '#f43f5e', backgroundColor: 'rgba(244,63,94,0.15)' }}>
+ style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(244,63,94,0.15)' }}>
  {highCount} loud
  </span>
  )}
  {medCount > 0 && (
  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
- style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.12)' }}>
+ style={{ color: 'var(--color-warm-amber)', backgroundColor: 'rgba(245,158,11,0.12)' }}>
  {medCount} moderate
  </span>
  )}
  {lowCount > 0 && (
  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
- style={{ color: '#84858c', backgroundColor: 'rgba(132,133,140,0.12)' }}>
+ style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(132,133,140,0.12)' }}>
  {lowCount} subtle
  </span>
  )}
@@ -140,7 +140,7 @@ export default function ClickTimeline({ clicks, labelB, fileA, fileB, waveform, 
  style={{ backgroundColor: config.color, opacity: 0.5 }}
  />
  <div
- className="relative z-10 rounded-full border-2 shadow-lg hover:scale-125 transition-transform"
+ className="relative z-10 rounded-full border-2 hover:scale-125 transition-transform"
  style={{
  width: config.markerSize,
  height: config.markerSize,
@@ -523,7 +523,7 @@ function ClickRow({ click, fileA, fileB }: { click: ClickArtifact; fileA?: { pat
  style={{ backgroundColor: 'rgba(168,85,247,0.2)' }}
  title="Hear just the click (interpolated-residual isolation)"
  >
- <span className="text-[8px] font-bold" style={{ color: '#a855f7' }}>C</span>
+ <span className="text-[8px] font-bold" style={{ color: 'var(--color-slate-blue)' }}>C</span>
  </button>
 
  {/* Frequency-band solo — band-pass around 3 kHz (click sweet spot)
@@ -566,7 +566,7 @@ function ClickRow({ click, fileA, fileB }: { click: ClickArtifact; fileA?: { pat
  {errorMsg && (
  <span
  className="text-[10px] ml-2 flex-shrink-0"
- style={{ color: '#e05a5a' }}
+ style={{ color: 'var(--color-danger)' }}
  title={errorMsg}
  >
  ⚠ {errorMsg.length > 40 ? errorMsg.slice(0, 40) + '…' : errorMsg}

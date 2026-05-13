@@ -23,7 +23,7 @@ export default function LevelMeter({ label, valueA, valueB, diff, unit, labelA, 
  return (
  <div className="space-y-1.5">
  <div className="flex items-center justify-between">
-  <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+  <span className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
   <span className="text-xs font-mono" style={{ color: diffColor }}>
   {diffSign}{diff.toFixed(1)} {unit}
   </span>

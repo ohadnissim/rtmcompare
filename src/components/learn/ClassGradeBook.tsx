@@ -297,7 +297,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
 
   const thStyle: React.CSSProperties = {
     fontSize: 9,
-    letterSpacing: '0.08em',
+    letterSpacing: '0.14em',
     textTransform: 'uppercase',
     color: 'var(--color-sand-400)',
     padding: '6px 10px',
@@ -425,7 +425,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
           borderBottom: '1px solid rgba(208,176,102,0.2)',
           flexShrink: 0,
         }}>
-          <span style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>
+          <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>
             Class Grade Book
           </span>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -438,7 +438,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                 borderRadius: '2px',
                 color: records.length ? 'var(--color-accent)' : 'var(--color-sand-400)',
                 fontSize: 10,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 padding: '5px 12px',
                 cursor: records.length ? 'pointer' : 'not-allowed',
@@ -455,7 +455,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                 borderRadius: '2px',
                 color: 'var(--color-accent)',
                 fontSize: 11,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 padding: '5px 12px',
                 cursor: 'pointer',
@@ -499,6 +499,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             fontStyle: folder ? 'normal' : 'italic',
+            fontFamily: folder ? undefined : 'var(--font-display)',
           }}>
             {folder || 'No folder selected'}
           </span>
@@ -634,7 +635,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
               >
                 <span style={{
                   fontSize: 10,
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.14em',
                   textTransform: 'uppercase',
                   color: 'var(--color-accent)',
                 }}>
@@ -651,7 +652,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                   {/* Sub-section A: Per-criterion performance */}
                   {criterionNames.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
                         Per-Criterion Performance
                       </div>
                       {criterionNames.map((criterion, idx) => {
@@ -704,7 +705,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                   {/* MED: blind test calibration — data computed by blindTestInsights useMemo above */}
                   {blindTestInsights && (
                     <div>
-                      <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
                         Blind Test Calibration
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -723,7 +724,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                   {/* Sub-section C: Ear Training — data computed by earTrainingInsights useMemo above */}
                   {earTrainingInsights && (
                     <div>
-                      <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
                         Ear Training (Golden Ears Curriculum)
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -732,7 +733,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                         <div>Total drills completed: <span style={{ color: 'var(--color-sand-400)' }}>{earTrainingInsights.totalDrills}</span></div>
                         {earTrainingInsights.weakBandsClass.length > 0 && (
                           <div style={{ marginTop: 6 }}>
-                            <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(220,80,60,0.85)', marginBottom: 4 }}>
+                            <div style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(220,80,60,0.85)', marginBottom: 4 }}>
                               Class-wide weakest bands (Frequency ID)
                             </div>
                             {earTrainingInsights.weakBandsClass.map(b => (

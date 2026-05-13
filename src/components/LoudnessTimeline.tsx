@@ -83,25 +83,25 @@ export default function LoudnessTimeline({
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Loudness Over Time</h2>
+ <h2 className="text-lg">Loudness Over Time</h2>
  <p className="text-xs text-dark-400">LUFS plotted across the song — see where the master pushed harder</p>
  </div>
  <div className="flex items-center gap-3 text-xs">
  <div className="flex items-center gap-1.5">
- <div className="w-6 h-0.5 rounded" style={{ backgroundColor: '#6b8cbb' }} />
+ <div className="w-6 h-0.5 rounded" style={{ backgroundColor: 'var(--color-data-a)' }} />
  <span className="text-dark-400">{labelA}</span>
  </div>
  <div className="flex items-center gap-1.5">
- <div className="w-6 h-0.5 rounded" style={{ backgroundColor: '#e07a4f' }} />
+ <div className="w-6 h-0.5 rounded" style={{ backgroundColor: 'var(--color-data-warn)' }} />
  <span className="text-dark-400">{labelB}</span>
  </div>
  {hasMomentary && (
  <button
  onClick={() => setShowMomentary(v => !v)}
- className="text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full transition-colors"
+ className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full transition-colors"
  style={{
  backgroundColor: showMomentary ? 'rgba(208,176,102,0.15)' : 'rgba(87,83,78,0.18)',
- color: showMomentary ? '#d0b066' : '#8d867b',
+ color: showMomentary ? 'var(--color-accent)' : 'var(--color-text-muted)',
  border: `1px solid ${showMomentary ? 'rgba(208,176,102,0.40)' : 'transparent'}`,
  }}
  title="Overlay momentary LUFS (400 ms window) on top of the short-term (3 s) curves. Catches pumping artefacts and dialog-anchor detail that short-term averages away."
@@ -141,15 +141,15 @@ export default function LoudnessTimeline({
  the dominant visual, and momentary reads as a shadow of
  the faster-window energy. Only when user toggles on. */}
  {showMomentary && lufsMomentaryA && lufsMomentaryA.length > 1 && (
- <path d={makePath(lufsMomentaryA)} fill="none" stroke="#6b8cbb" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
+ <path d={makePath(lufsMomentaryA)} fill="none" stroke="var(--color-data-a)" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
  )}
  {showMomentary && lufsMomentaryB && lufsMomentaryB.length > 1 && (
- <path d={makePath(lufsMomentaryB)} fill="none" stroke="#e07a4f" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
+ <path d={makePath(lufsMomentaryB)} fill="none" stroke="var(--color-data-warn)" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
  )}
  {/* File A (short-term) */}
- <path d={makePath(lufsOverTimeA)} fill="none" stroke="#6b8cbb" strokeWidth="2" opacity="0.8" />
+ <path d={makePath(lufsOverTimeA)} fill="none" stroke="var(--color-data-a)" strokeWidth="2" opacity="0.8" />
  {/* File B (short-term) */}
- <path d={makePath(lufsOverTimeB)} fill="none" stroke="#e07a4f" strokeWidth="2" opacity="0.9" />
+ <path d={makePath(lufsOverTimeB)} fill="none" stroke="var(--color-data-warn)" strokeWidth="2" opacity="0.9" />
 
  {/* Y-axis label */}
  <text x={8} y={h / 2} textAnchor="middle" fontSize="8" fill="#696a71" transform={`rotate(-90, 8, ${h / 2})`}>LUFS</text>

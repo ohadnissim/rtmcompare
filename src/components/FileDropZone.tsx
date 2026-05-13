@@ -126,7 +126,7 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  {onToggleLock && (
  <button
  onClick={(e) => { e.stopPropagation(); onToggleLock() }}
- className="absolute top-2 left-2 h-7 px-2 flex items-center gap-1 text-[10px] uppercase tracking-[0.12em] transition-all"
+ className="absolute top-2 left-2 h-7 px-2 flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] transition-all"
  style={{
  borderRadius: '2px',
  backgroundColor: locked ? 'rgba(208,176,102,0.16)' : 'rgba(87,83,78,0.18)',

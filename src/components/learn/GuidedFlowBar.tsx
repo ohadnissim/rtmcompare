@@ -218,7 +218,7 @@ export default function GuidedFlowBar({
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
-                🎧 I'm a Student
+                I'm a Student
               </button>
               <button
                 onClick={() => chooseRole('teacher')}
@@ -232,7 +232,7 @@ export default function GuidedFlowBar({
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}
               >
-                🎓 I'm a Teacher
+                I'm a Teacher
               </button>
             </div>
           </div>
@@ -300,7 +300,7 @@ export default function GuidedFlowBar({
               ? '1px solid rgba(123,196,158,0.3)'
               : '1px solid rgba(208,176,102,0.3)',
           }}>
-            {effectiveRole === 'teacher' ? '🎓 Teacher Mode' : '🎧 Student Mode'}
+            {effectiveRole === 'teacher' ? 'Teacher Mode' : 'Student Mode'}
           </span>
           {previewingStudent && (
             <span style={{ fontSize: 9, color: 'rgba(123,196,158,0.6)', letterSpacing: '0.06em' }}>
@@ -323,7 +323,7 @@ export default function GuidedFlowBar({
             <span
               style={{
                 fontSize: 10,
-                letterSpacing: '0.1em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 color: 'var(--color-accent)',
               }}
@@ -385,7 +385,7 @@ export default function GuidedFlowBar({
               borderRadius: '2px',
               color: 'var(--color-sand-400)',
               fontSize: 10,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
               padding: '5px 10px',
               cursor: 'pointer',
@@ -409,7 +409,7 @@ export default function GuidedFlowBar({
               borderRadius: '2px',
               color: 'var(--color-sand-400)',
               fontSize: 10,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
               padding: '5px 10px',
               cursor: 'pointer',
@@ -419,7 +419,7 @@ export default function GuidedFlowBar({
               gap: 5,
             }}
           >
-            🎧 Blind Test
+            Blind Test
             {blindTest != null && (
               <span
                 style={{
@@ -455,7 +455,7 @@ export default function GuidedFlowBar({
                     ? 'var(--color-accent)'
                     : 'var(--color-sand-400)',
                   fontSize: 10,
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.14em',
                   textTransform: 'uppercase',
                   padding: '6px 12px',
                   cursor: 'pointer',
@@ -492,7 +492,7 @@ export default function GuidedFlowBar({
                 borderRadius: '2px',
                 color: previewingStudent ? 'var(--color-accent)' : 'var(--color-sand-400)',
                 fontSize: 10,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 padding: '5px 10px',
                 cursor: 'pointer',
@@ -518,7 +518,7 @@ export default function GuidedFlowBar({
                 borderRadius: '2px',
                 color: 'var(--color-sand-400)',
                 fontSize: 10,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 padding: '5px 10px',
                 cursor: 'pointer',
@@ -542,7 +542,7 @@ export default function GuidedFlowBar({
                 borderRadius: '2px',
                 color: 'var(--color-accent)',
                 fontSize: 10,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 padding: '5px 10px',
                 cursor: 'pointer',
@@ -648,7 +648,7 @@ export default function GuidedFlowBar({
                   <span
                     style={{
                       fontSize: 9,
-                      letterSpacing: '0.1em',
+                      letterSpacing: '0.14em',
                       textTransform: 'uppercase',
                       color: 'rgba(208,176,102,0.5)',
                       marginRight: 8,
@@ -721,7 +721,7 @@ export default function GuidedFlowBar({
               <div
                 style={{
                   fontSize: 10,
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.14em',
                   textTransform: 'uppercase',
                   color: 'var(--color-accent)',
                   marginBottom: 5,
@@ -793,7 +793,7 @@ export default function GuidedFlowBar({
                 }
                 return (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
-                    <span style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.45)', alignSelf: 'center', marginRight: 2 }}>
+                    <span style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.45)', alignSelf: 'center', marginRight: 2 }}>
                       Rubric:
                     </span>
                     {activeMetrics.map(m => (
@@ -801,7 +801,7 @@ export default function GuidedFlowBar({
                         key={m}
                         style={{
                           fontSize: 9,
-                          letterSpacing: '0.08em',
+                          letterSpacing: '0.14em',
                           textTransform: 'uppercase',
                           padding: '2px 6px',
                           border: '1px solid rgba(208,176,102,0.3)',
@@ -820,8 +820,7 @@ export default function GuidedFlowBar({
                 style={{
                   fontSize: 13,
                   color: 'var(--color-text-primary)',
-                  fontStyle: 'italic',
-                  fontFamily: 'var(--font-display, serif)',
+                  fontFamily: 'var(--font-display, serif)', fontStyle: 'italic',
                   margin: 0,
                   lineHeight: 1.5,
                 }}
@@ -890,7 +889,7 @@ export default function GuidedFlowBar({
 
             {/* Getting Started section */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
                 Getting Started
               </div>
               {[
@@ -899,7 +898,7 @@ export default function GuidedFlowBar({
                 { n: 3, text: 'If your instructor gave you an assignment file (.rtm-assignment.json), click "Load Assignment" to load the rubric.' },
                 { n: 4, text: 'Enter your Student ID in the assignment panel — use the same format as your Canvas Student ID.' },
                 { n: 5, text: 'Work through the 9 guided steps in the bar at the bottom. Each step has explanations and what to look for.' },
-                { n: 6, text: 'Click "🎧 Blind Test" to test your ears — make predictions before the meters are revealed.' },
+                { n: 6, text: 'Click "Blind Test" to test your ears — make predictions before the meters are revealed.' },
                 { n: 7, text: 'When you\'ve worked through the steps, click "Export Report" to generate your PDF.' },
                 { n: 8, text: 'Submit the PDF to your instructor as directed (email, folder, LMS upload).' },
               ].map(({ n, text }) => (
@@ -912,7 +911,7 @@ export default function GuidedFlowBar({
 
             {/* Blind Test section */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
                 Blind Test Mode
               </div>
               <p style={{ fontSize: 12, color: 'var(--color-text-primary)', lineHeight: 1.6, margin: 0 }}>
@@ -922,7 +921,7 @@ export default function GuidedFlowBar({
 
             {/* Troubleshooting section */}
             <div>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(208,176,102,0.8)', marginBottom: 10 }}>
                 Troubleshooting
               </div>
               {[

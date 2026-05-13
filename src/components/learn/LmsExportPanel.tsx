@@ -333,7 +333,7 @@ export function LmsExportPanel({ records }: Props) {
       }}>
         <span style={{
           fontSize: 10,
-          letterSpacing: '0.12em',
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
           color: 'var(--color-accent)',
           flexShrink: 0,
@@ -612,7 +612,7 @@ export function LmsExportPanel({ records }: Props) {
                 borderRadius: '2px',
                 color: (!selectedAssignmentId || status === 'uploading' || status === 'done') ? 'rgba(208,176,102,0.4)' : 'var(--color-accent)',
                 fontSize: 11,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 padding: '6px 16px',
                 cursor: (!selectedAssignmentId || status === 'uploading' || status === 'done') ? 'not-allowed' : 'pointer',

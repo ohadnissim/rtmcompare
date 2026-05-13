@@ -75,7 +75,7 @@ function BandSoloOverlay({ w, h, bands }: { w: number; h: number; bands: number 
             {(isHover || isSoloed) && (
               <line
                 x1={cx} y1={0} x2={cx} y2={h}
-                stroke={isSoloed ? '#7bc49e' : '#d0b066'}
+                stroke={isSoloed ? '#7bc49e' : 'var(--color-accent)'}
                 strokeWidth={isSoloed ? 1.4 : 0.7}
                 opacity={isSoloed ? 0.85 : 0.55}
                 pointerEvents="none"
@@ -93,12 +93,12 @@ const LABEL_INDICES = [0, 3, 6, 9, 12, 15, 17, 20, 23, 26, 28, 30]
 type ViewMode = 'stereo' | 'mid' | 'side' | 'delta'
 
 const viewConfig: Record<ViewMode, { label: string; colorB: string; description: string }> = {
- stereo: { label: 'Stereo', colorB: '#f59e0b', description: 'Full stereo mix EQ comparison' },
- mid: { label: 'Mid', colorB: '#3b82f6', description: 'Center channel — vocals, kick, bass, snare' },
- side: { label: 'Side', colorB: '#a855f7', description: 'Side channel — reverbs, stereo width, panned elements' },
+ stereo: { label: 'Stereo', colorB: 'var(--color-warm-amber)', description: 'Full stereo mix EQ comparison' },
+ mid: { label: 'Mid', colorB: 'var(--color-slate-blue)', description: 'Center channel — vocals, kick, bass, snare' },
+ side: { label: 'Side', colorB: 'var(--color-terra-light)', description: 'Side channel — reverbs, stereo width, panned elements' },
  // Delta = B − A, clamped ±3 dB around a zero baseline. Reads like a
  // "tilt map" — where B is brighter or darker than A per band.
- delta: { label: 'Δ B − A', colorB: '#d0b066', description: 'Per-band difference (B minus A), clamped ±3 dB — quick EQ-shape read.' },
+ delta: { label: 'Δ B − A', colorB: 'var(--color-accent)', description: 'Per-band difference (B minus A), clamped ±3 dB — quick EQ-shape read.' },
 }
 
 export default function SpectrumOverlay({
@@ -121,13 +121,13 @@ export default function SpectrumOverlay({
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Frequency Spectrum</h2>
+ <h2 className="text-lg">Frequency Spectrum</h2>
  <p className="text-xs text-dark-400">{config.description}</p>
  </div>
  {!singleFile && (
  <div className="flex items-center gap-3 text-xs">
  <div className="flex items-center gap-1.5">
- <div className="w-6 h-0.5 rounded" style={{ backgroundColor: '#6b7280' }} />
+ <div className="w-6 h-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-500)' }} />
  <span className="text-dark-400">{labelA}</span>
  </div>
  <div className="flex items-center gap-1.5">
@@ -155,7 +155,7 @@ export default function SpectrumOverlay({
  style={{
  borderRadius: '2px',
  backgroundColor: active ? 'rgba(255,255,255,0.08)' : 'transparent',
- color: active ? vc.colorB : '#84858c',
+ color: active ? vc.colorB : 'var(--color-text-muted)',
  borderBottom: active ? `2px solid ${vc.colorB}` : '2px solid transparent',
  }}
  >
@@ -238,12 +238,12 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
  {/* Positive / negative fills */}
  <defs>
  <linearGradient id="delta-up" x1="0" y1="0" x2="0" y2="1">
- <stop offset="0%" stopColor="#34d399" stopOpacity="0.32" />
- <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
+ <stop offset="0%" style={{ stopColor: 'var(--color-success)' }} stopOpacity="0.32" />
+ <stop offset="100%" style={{ stopColor: 'var(--color-success)' }} stopOpacity="0" />
  </linearGradient>
  <linearGradient id="delta-down" x1="0" y1="1" x2="0" y2="0">
- <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.32" />
- <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
+ <stop offset="0%" style={{ stopColor: 'var(--color-danger)' }} stopOpacity="0.32" />
+ <stop offset="100%" style={{ stopColor: 'var(--color-danger)' }} stopOpacity="0" />
  </linearGradient>
  <clipPath id="delta-above"><rect x={0} y={0} width={w} height={centerY} /></clipPath>
  <clipPath id="delta-below"><rect x={0} y={centerY} width={w} height={h - centerY} /></clipPath>
@@ -256,7 +256,7 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
  <g clipPath="url(#delta-below)">
  <path d={`${pathD} L ${w - padX} ${centerY} L ${padX} ${centerY} Z`} fill="url(#delta-down)" />
  </g>
- <path d={pathD} fill="none" stroke="#d0b066" strokeWidth="2" />
+ <path d={pathD} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
  {/* Click any band to solo that frequency on the player. */}
  <BandSoloOverlay w={w} h={h} bands={bands} />
  </svg>
@@ -266,8 +266,8 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
  ))}
  </div>
  <div className="flex items-center gap-3 mt-2 text-[10px] text-dark-500">
- <span><span style={{ color: '#34d399' }}>▲</span> B louder</span>
- <span><span style={{ color: '#f43f5e' }}>▼</span> B quieter</span>
+ <span><span style={{ color: 'var(--color-data-pass)' }}>▲</span> B louder</span>
+ <span><span style={{ color: 'var(--color-danger)' }}>▼</span> B quieter</span>
  <span className="ml-auto">Click any band to solo it · Clamped ±{CLAMP} dB</span>
  </div>
  </div>
@@ -396,9 +396,9 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  )
  })}
 
- <path d={makeFilledPath(normA)} fill="#6b7280" opacity="0.08" />
+ <path d={makeFilledPath(normA)} style={{ fill: 'var(--color-sand-500)' }} opacity="0.08" />
  <path d={makeFilledPath(normB)} fill={colorB} opacity="0.08" />
- <path d={makePath(normA)} fill="none" stroke="#6b7280" strokeWidth="2" opacity="0.6" />
+ <path d={makePath(normA)} fill="none" stroke="var(--color-sand-500)" strokeWidth="2" opacity="0.6" />
  <path d={makePath(normB)} fill="none" stroke={colorB} strokeWidth="2" opacity="0.9" />
 
  {/* Click-to-solo per band — see SoloContext.tsx. */}
@@ -410,7 +410,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  {annotations.map((ann, i) => {
  const leftPct = (ann.index / (bands - 1)) * 100
  const topPct = (1 - normB[ann.index]) * 100 * 0.9 + 5
- const color = ann.diff > 0 ? '#34d399' : '#f43f5e'
+ const color = ann.diff > 0 ? 'var(--color-data-pass)' : 'var(--color-danger)'
  return (
  <div key={i} className="absolute -translate-x-1/2" style={{ left: `${leftPct}%`, top: `${Math.max(2, topPct - 14)}%` }}>
  <div className="flex flex-col items-center">
@@ -471,7 +471,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  key={i}
  className="text-[10px] px-2 py-1 rounded-full"
  style={{
- color: ann.diff > 0 ? '#34d399' : '#f43f5e',
+ color: ann.diff > 0 ? 'var(--color-data-pass)' : 'var(--color-danger)',
  backgroundColor: ann.diff > 0 ? 'rgba(52,211,153,0.1)' : 'rgba(244,63,94,0.1)',
  }}
  >

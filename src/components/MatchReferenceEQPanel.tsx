@@ -313,9 +313,9 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  const medCount = recommendations.filter(r => r.priority === 'medium').length
 
  const priorityConfig = {
- high: { color: '#f43f5e', bg: 'rgba(244,63,94,0.12)', border: 'rgba(244,63,94,0.25)', label: 'High' },
- medium: { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.20)', label: 'Med' },
- low: { color: '#34d399', bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.20)', label: 'Low' },
+ high: { color: 'var(--color-danger)', bg: 'rgba(244,63,94,0.12)', border: 'rgba(244,63,94,0.25)', label: 'High' },
+ medium: { color: 'var(--color-warm-amber)', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.20)', label: 'Med' },
+ low: { color: 'var(--color-data-pass)', bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.20)', label: 'Low' },
  }
 
  return (
@@ -325,7 +325,7 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5">
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">{title ?? 'Recommendations'}</h2>
+ <h2 className="text-lg">{title ?? 'Recommendations'}</h2>
  <p className="text-xs text-dark-400">
  {subtitle ?? (<>How to bring <span className="text-amber-400">{labelB}</span> closer to <span className="text-dark-200">{labelA}</span>'s style while keeping improvements</>)}
  </p>
@@ -383,8 +383,8 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  onClick={() => isSoloed ? clearSolo() : setSolo(band.freq, 4)}
  className="text-[9px] font-mono uppercase tracking-[0.14em] px-1.5 py-0.5 rounded transition-colors"
  style={{
- color: isSoloed ? '#0e0d0b' : '#a8a29e',
- backgroundColor: isSoloed ? '#d0b066' : 'rgba(168,161,150,0.10)',
+ color: isSoloed ? 'var(--color-bg-app)' : 'var(--color-sand-300)',
+ backgroundColor: isSoloed ? 'var(--color-accent)' : 'rgba(168,161,150,0.10)',
  }}
  title={isSoloed
  ? `Soloed at ${formatSoloFreq(band.freq)} — click to clear (or Esc)`
@@ -404,16 +404,16 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  aria-pressed={bandEnabledForRec}
  className={`text-[10px] font-mono tabular-nums transition-colors group/chip ${bandEnabledForRec ? 'is-active' : ''}`}
  style={{
- color: bandEnabledForRec ? '#d0b066' : '#a8a29e',
- borderBottom: `1px solid ${bandEnabledForRec ? '#d0b066' : 'rgba(168,161,150,0.25)'}`,
+ color: bandEnabledForRec ? 'var(--color-accent)' : 'var(--color-sand-300)',
+ borderBottom: `1px solid ${bandEnabledForRec ? 'var(--color-accent)' : 'rgba(168,161,150,0.25)'}`,
  paddingBottom: 1,
  background: 'transparent',
  }}
  onMouseEnter={(e) => {
- if (!bandEnabledForRec) (e.currentTarget as HTMLElement).style.color = '#d0b066'
+ if (!bandEnabledForRec) (e.currentTarget as HTMLElement).style.color = 'var(--color-accent)'
  }}
  onMouseLeave={(e) => {
- if (!bandEnabledForRec) (e.currentTarget as HTMLElement).style.color = '#a8a29e'
+ if (!bandEnabledForRec) (e.currentTarget as HTMLElement).style.color = 'var(--color-sand-300)'
  }}
  title={bandEnabledForRec ? 'EQ band active — click to bypass' : 'Apply this move to the EQ chain below'}
  >
@@ -438,21 +438,21 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
 
  {bands.length > 0 && (
  <div className="flex items-center justify-between pt-2 border-t border-dark-700/30">
- <p className="text-[10px] text-dark-500 italic">
+ <p className="text-[10px] text-dark-500 font-display italic">
  Click any move above to apply — audition live, then export or bounce.
  </p>
  <div className="flex items-center gap-4">
  <button
  onClick={() => setBandEnabled(bands.map(() => true))}
- className="text-[10px] tracking-[0.1em] uppercase transition-colors hover:text-[#d0b066]"
- style={{ color: '#d0b066' }}
+ className="text-[10px] tracking-[0.14em] uppercase transition-colors hover:text-[var(--color-accent)]"
+ style={{ color: 'var(--color-accent)' }}
  >
  Apply all
  </button>
  <button
  onClick={() => setBandEnabled(bands.map(() => false))}
- className="text-[10px] tracking-[0.1em] uppercase transition-colors hover:text-[#a8a29e]"
- style={{ color: '#8d867b' }}
+ className="text-[10px] tracking-[0.14em] uppercase transition-colors hover:text-[var(--color-sand-300)]"
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Bypass all
  </button>
@@ -467,7 +467,7 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  <>
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2">
- <span className="text-[10px] uppercase tracking-[0.12em] text-dark-500">
+ <span className="text-[10px] uppercase tracking-[0.14em] text-dark-500">
  Match moves — derived EQ
  </span>
  <InfoTooltip text={`Parametric EQ bands derived from the spectrum difference between ${labelA} and ${labelB}. Positive gain boosts where B is quieter than A; negative gain cuts where B is hotter. Audition below and export to your DAW, or apply and bounce a corrected WAV.`} />
@@ -515,8 +515,8 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  </>
  ) : (
  <div className="bg-dark-900 p-6 border border-dark-700/50 text-center space-y-2">
- <p className="text-sm" style={{ color: '#a8a29e' }}>No EQ moves needed</p>
- <p className="text-[11px]" style={{ color: '#8d867b' }}>
+ <p className="text-sm" style={{ color: 'var(--color-sand-300)' }}>No EQ moves needed</p>
+ <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
  {labelA} and {labelB} are within {MIN_DIFF_DB} dB across every region — tonal balance already matches.
  </p>
  </div>

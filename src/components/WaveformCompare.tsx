@@ -36,13 +36,14 @@ export default function WaveformCompare({ waveformA, waveformB, labelA, labelB, 
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">{singleFile ? 'Waveform' : 'Waveform Compare'}</h2>
+ <h2 className="text-lg">{singleFile ? 'Waveform' : 'Waveform Compare'}</h2>
  <p className="text-xs text-dark-400">Visualize dynamics and limiting — see the shape of the audio</p>
  </div>
  {!singleFile && (
- <div className="flex items-center gap-2">
+ <div role="radiogroup" aria-label="Waveform view" className="flex items-center gap-2">
  <button
  onClick={() => setView('overlay')}
+ aria-pressed={view === 'overlay'}
  className="text-[10px] px-2 py-1 rounded"
  style={{
  backgroundColor: view === 'overlay' ? 'rgba(255,255,255,0.08)' : 'transparent',
@@ -53,6 +54,7 @@ export default function WaveformCompare({ waveformA, waveformB, labelA, labelB, 
  </button>
  <button
  onClick={() => setView('split')}
+ aria-pressed={view === 'split'}
  className="text-[10px] px-2 py-1 rounded"
  style={{
  backgroundColor: view === 'split' ? 'rgba(255,255,255,0.08)' : 'transparent',
@@ -69,32 +71,32 @@ export default function WaveformCompare({ waveformA, waveformB, labelA, labelB, 
  {view === 'overlay' ? (
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-28" preserveAspectRatio="none">
  <line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
- <path d={makePath(waveformA, h / 2, h * 0.4)} fill="#6b8cbb" opacity="0.45" />
- <path d={makePath(waveformB, h / 2, h * 0.4)} fill="#e07a4f" opacity="0.4" />
+ <path d={makePath(waveformA, h / 2, h * 0.4)} style={{ fill: 'var(--color-slate-blue)' }} opacity="0.45" />
+ <path d={makePath(waveformB, h / 2, h * 0.4)} style={{ fill: 'var(--color-danger)' }} opacity="0.4" />
  </svg>
  ) : (
  <div className="space-y-1">
  {/* File A */}
  <div className="relative">
- <span className="absolute top-0 left-1 text-[9px] z-10" style={{ color: '#6b8cbb' }}>{labelA}</span>
+ <span className="absolute top-0 left-1 text-[9px] z-10" style={{ color: 'var(--color-slate-blue)' }}>{labelA}</span>
  <svg viewBox={`0 0 ${w} ${h / 2}`} className="w-full h-16" preserveAspectRatio="none">
  <line x1={0} y1={h / 4} x2={w} y2={h / 4} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
- <path d={makePath(waveformA, h / 4, h * 0.2)} fill="#6b8cbb" opacity="0.6" />
+ <path d={makePath(waveformA, h / 4, h * 0.2)} style={{ fill: 'var(--color-slate-blue)' }} opacity="0.6" />
  </svg>
  </div>
  {/* File B */}
  <div className="relative">
- <span className="absolute top-0 left-1 text-[9px] z-10" style={{ color: '#e07a4f' }}>{labelB}</span>
+ <span className="absolute top-0 left-1 text-[9px] z-10" style={{ color: 'var(--color-danger)' }}>{labelB}</span>
  <svg viewBox={`0 0 ${w} ${h / 2}`} className="w-full h-16" preserveAspectRatio="none">
  <line x1={0} y1={h / 4} x2={w} y2={h / 4} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
- <path d={makePath(waveformB, h / 4, h * 0.2)} fill="#e07a4f" opacity="0.55" />
+ <path d={makePath(waveformB, h / 4, h * 0.2)} style={{ fill: 'var(--color-danger)' }} opacity="0.55" />
  </svg>
  </div>
  </div>
  )}
 
  {/* Time ruler */}
- <div className="flex justify-between mt-1 px-1 text-[8px] text-dark-500">
+ <div className="flex justify-between mt-1 px-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>0:00</span>
  <span>{formatTime(durationSec / 4)}</span>
  <span>{formatTime(durationSec / 2)}</span>
@@ -107,11 +109,11 @@ export default function WaveformCompare({ waveformA, waveformB, labelA, labelB, 
  {!singleFile && (
  <div className="flex items-center gap-4 text-xs">
  <div className="flex items-center gap-1.5">
- <div className="w-4 h-3 rounded-sm" style={{ backgroundColor: '#6b8cbb', opacity: 0.6 }} />
+ <div className="w-4 h-3" style={{ backgroundColor: 'var(--color-slate-blue)', borderRadius: '2px', opacity: 0.6 }} />
  <span className="text-dark-400">{labelA}</span>
  </div>
  <div className="flex items-center gap-1.5">
- <div className="w-4 h-3 rounded-sm" style={{ backgroundColor: '#e07a4f', opacity: 0.55 }} />
+ <div className="w-4 h-3" style={{ backgroundColor: 'var(--color-danger)', borderRadius: '2px', opacity: 0.55 }} />
  <span className="text-dark-400">{labelB}</span>
  </div>
  </div>

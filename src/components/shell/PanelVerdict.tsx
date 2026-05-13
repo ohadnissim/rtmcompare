@@ -190,7 +190,7 @@ export default function PanelVerdict({
  fontFamily: 'var(--font-sans)',
  fontWeight: 600,
  fontSize: 11,
- letterSpacing: '0.1em',
+ letterSpacing: '0.14em',
  textTransform: 'uppercase',
  color: 'var(--color-accent)',
  }}
@@ -287,7 +287,7 @@ export default function PanelVerdict({
  fontFamily: 'var(--font-sans)',
  fontSize: 10,
  fontWeight: 600,
- letterSpacing: '0.08em',
+ letterSpacing: '0.14em',
  textTransform: 'uppercase',
  color: 'rgba(220,80,60,0.9)',
  marginBottom: 4,

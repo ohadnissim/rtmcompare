@@ -58,11 +58,11 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  style={{
  backgroundColor: 'rgba(30,28,24,0.5)',
  border: '1px solid rgba(168,161,150,0.08)',
- color: '#7a7164',
+ color: 'var(--color-text-muted)',
  }}
  >
  Reference Match EQ needs a 31-band spectrum for the current track.
- Run a Deep Scan (Compare or Single-file mode) to unlock this.
+ Run a Deep Scan (Compare or Single-file mode) — required for reference matching.
  </div>
  )
  }
@@ -77,10 +77,10 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  >
  <div className="flex items-center justify-between gap-3 flex-wrap">
  <div>
- <h3 className="text-sm font-semibold" style={{ color: '#ebe7e0' }}>
+ <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
  Reference Match EQ
  </h3>
- <p className="text-[10px] mt-0.5" style={{ color: '#7a7164' }}>
+ <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
  Pick a reference from your library — RTM proposes EQ moves to match its tonal balance,
  auditions them live through the main player.
  </p>
@@ -89,7 +89,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  onClick={() => setLibraryOpen(true)}
  className="text-[11px] px-3 py-1.5"
  style={{
- color: '#d0b066',
+ color: 'var(--color-accent)',
  border: '1px solid rgba(208,176,102,0.35)',
  backgroundColor: 'rgba(208,176,102,0.06)',
  }}
@@ -99,7 +99,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  </div>
 
  {picked && !proposal && (
- <div className="text-[11px]" style={{ color: '#c96765' }}>
+ <div className="text-[11px]" style={{ color: 'var(--color-danger)' }}>
  Selected reference has no spectrum (probably pre-library-format). Delete and re-add it.
  </div>
  )}
@@ -117,21 +117,21 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
 
  {/* Score + action row */}
  <div className="flex items-center justify-between gap-3 flex-wrap">
- <div className="flex items-baseline gap-3 text-[11px]" style={{ color: '#a8a29e' }}>
+ <div className="flex items-baseline gap-3 text-[11px]" style={{ color: 'var(--color-sand-300)' }}>
  <span>
  Match score:
  <span
  className="ml-1.5 font-mono font-medium"
  style={{
- color: proposal.matchScore >= 80 ? '#6ec577'
- : proposal.matchScore >= 55 ? '#d0b066'
- : '#e07a4f',
+ color: proposal.matchScore >= 80 ? 'var(--color-data-pass)'
+ : proposal.matchScore >= 55 ? 'var(--color-accent)'
+ : 'var(--color-data-warn)',
  }}
  >
  {proposal.matchScore}
  </span>
  </span>
- <span className="text-[10px]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  gap closed {(proposal.rmsBefore - proposal.rmsAfter).toFixed(1)} dB RMS
  ({proposal.rmsBefore.toFixed(1)} → {proposal.rmsAfter.toFixed(1)})
  </span>
@@ -140,7 +140,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  <button
  onClick={applyToEQ}
  className="text-[11px] px-3 py-1"
- style={{ backgroundColor: '#d0b066', color: '#0e0d0b' }}
+ style={{ backgroundColor: 'var(--color-accent)', color: 'var(--color-bg-app)' }}
  title="Load these bands into the EQ bank and engage it in the main A/B player"
  >
  Apply & audition
@@ -148,7 +148,7 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  <button
  onClick={() => { eq.clear(); setPicked(null) }}
  className="text-[11px] px-3 py-1"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
  >
  Clear
  </button>
@@ -242,24 +242,24 @@ function MatchCurves({ source, reference, predicted, currentLabel, referenceLabe
  })}
 
  {/* Source (current track) — dusky blue */}
- <path d={path(source)} fill="none" stroke="#6b8cbb" strokeWidth="1.2" opacity="0.8" />
+ <path d={path(source)} fill="none" stroke="var(--color-data-a)" strokeWidth="1.2" opacity="0.8" />
  {/* Reference — gold */}
- <path d={path(reference)} fill="none" stroke="#d0b066" strokeWidth="1.5" />
+ <path d={path(reference)} fill="none" stroke="var(--color-accent)" strokeWidth="1.5" />
  {/* Predicted after EQ — teal dashed */}
- <path d={path(predicted)} fill="none" stroke="#7ca4a3" strokeWidth="1.4" strokeDasharray="4 2" />
+ <path d={path(predicted)} fill="none" stroke="var(--color-teal)" strokeWidth="1.4" strokeDasharray="4 2" />
  </svg>
  {/* Legend */}
- <div className="flex items-center gap-4 px-3 py-1.5 text-[9px]" style={{ color: '#8d867b', borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="flex items-center gap-4 px-3 py-1.5 text-[9px]" style={{ color: 'var(--color-text-muted)', borderTop: '1px solid rgba(168,161,150,0.08)' }}>
  <span className="flex items-center gap-1.5">
- <span className="w-3 h-px" style={{ backgroundColor: '#6b8cbb' }} />
+ <span className="w-3 h-px" style={{ backgroundColor: 'var(--color-data-a)' }} />
  {currentLabel}
  </span>
  <span className="flex items-center gap-1.5">
- <span className="w-3 h-px" style={{ backgroundColor: '#d0b066' }} />
+ <span className="w-3 h-px" style={{ backgroundColor: 'var(--color-accent)' }} />
  Reference · {referenceLabel}
  </span>
  <span className="flex items-center gap-1.5">
- <span className="w-3 h-px border-t border-dashed" style={{ borderColor: '#7ca4a3' }} />
+ <span className="w-3 h-px border-t border-dashed" style={{ borderColor: 'var(--color-teal)' }} />
  Predicted after EQ
  </span>
  </div>
@@ -270,30 +270,30 @@ function MatchCurves({ source, reference, predicted, currentLabel, referenceLabe
 function BandsTable({ bands }: { bands: EQBand[] }) {
  if (bands.length === 0) {
  return (
- <div className="text-[11px]" style={{ color: '#6ec577' }}>
+ <div className="text-[11px]" style={{ color: 'var(--color-data-pass)' }}>
  ✓ Already close to the reference — no meaningful moves proposed.
  </div>
  )
  }
  return (
  <div className="overflow-hidden" style={{ border: '1px solid rgba(168,161,150,0.08)' }}>
- <div className="flex items-center px-3 py-1.5 text-[9px] uppercase tracking-[0.12em]" style={{ color: '#7a7164', backgroundColor: 'rgba(14,13,11,0.4)' }}>
+ <div className="flex items-center px-3 py-1.5 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(14,13,11,0.4)' }}>
  <span className="w-16">Freq</span>
  <span className="w-14 text-right">Gain</span>
  <span className="w-12 text-right">Q</span>
  <span className="flex-1 pl-4">Move</span>
  </div>
  {bands.map(b => (
- <div key={b.id} className="flex items-center px-3 py-1.5 text-[11px] font-mono" style={{ color: '#a8a29e', borderTop: '1px solid rgba(168,161,150,0.05)' }}>
+ <div key={b.id} className="flex items-center px-3 py-1.5 text-[11px] font-mono" style={{ color: 'var(--color-sand-300)', borderTop: '1px solid rgba(168,161,150,0.05)' }}>
  <span className="w-16">{b.freq >= 1000 ? `${(b.freq / 1000).toFixed(b.freq % 1000 === 0 ? 0 : 1)}k` : b.freq}</span>
  <span
  className="w-14 text-right"
- style={{ color: b.gain_db > 0 ? '#6ec577' : '#e07a4f' }}
+ style={{ color: b.gain_db > 0 ? 'var(--color-data-pass)' : 'var(--color-data-warn)' }}
  >
  {b.gain_db > 0 ? '+' : ''}{b.gain_db.toFixed(1)} dB
  </span>
  <span className="w-12 text-right">{b.q.toFixed(1)}</span>
- <span className="flex-1 pl-4 text-[10px]" style={{ color: '#8d867b' }}>{b.label || ''}</span>
+ <span className="flex-1 pl-4 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{b.label || ''}</span>
  </div>
  ))}
  </div>

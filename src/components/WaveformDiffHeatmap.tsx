@@ -44,9 +44,9 @@ function describeHotspot(hs: Hotspot, labelB: string): string {
 /** Magnitude-based colour — matches the brand palette. */
 function magnitudeColour(diffDb: number): string {
  const mag = Math.abs(diffDb)
- if (mag > 4) return '#e05a5a' // red
- if (mag >= 2) return '#e07a4f' // amber
- return '#8d867b' // muted
+ if (mag > 4) return 'var(--color-danger)' // red
+ if (mag >= 2) return 'var(--color-data-warn)' // amber
+ return 'var(--color-text-muted)' // muted
 }
 
 function formatTime(sec: number): string {
@@ -94,9 +94,9 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Where does the mix diverge?</h2>
+ <h2 className="text-lg">Where does the mix diverge?</h2>
  <p className="text-xs text-dark-400">
- Spectrum diff heatmap — <span style={{ color: '#c96765' }}>warm</span> = {labelB} louder than {labelA}, <span style={{ color: '#7ca4a3' }}>cool</span> = quieter.
+ Spectrum diff heatmap — <span style={{ color: 'var(--color-danger)' }}>warm</span> = {labelB} louder than {labelA}, <span style={{ color: 'var(--color-teal)' }}>cool</span> = quieter.
  Reads left-to-right by time, bottom-to-top by frequency.
  </p>
  </div>
@@ -131,8 +131,8 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  const cy = h - (fi + 0.5) * cellH
  return (
  <g key={i}>
- <circle cx={cx} cy={cy} r={6} fill="none" stroke="#ebe7e0" strokeWidth="1" />
- <text x={cx + 8} y={cy + 3} fontSize="8" fill="#ebe7e0">
+ <circle cx={cx} cy={cy} r={6} fill="none" stroke="var(--color-text-primary)" strokeWidth="1" />
+ <text x={cx + 8} y={cy + 3} fontSize="8" fill="var(--color-text-primary)">
  {hs.diff_db > 0 ? '+' : ''}{hs.diff_db.toFixed(1)}dB
  </text>
  </g>
@@ -145,7 +145,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  const hz = freqs[fi]
  const label = hz >= 1000 ? `${hz / 1000}k` : `${hz}`
  return (
- <text key={fi} x={4} y={y + 3} fontSize="8" fill="#6a6459">{label}</text>
+ <text key={fi} x={4} y={y + 3} fontSize="8" fill="var(--color-sand-500)">{label}</text>
  )
  })}
 
@@ -156,7 +156,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  const t = pct * diff.duration_sec
  const label = `${Math.floor(t / 60)}:${String(Math.floor(t) % 60).padStart(2, '0')}`
  return (
- <text key={i} x={x} y={h + 14} fontSize="8" fill="#6a6459" textAnchor="middle">{label}</text>
+ <text key={i} x={x} y={h + 14} fontSize="8" fill="var(--color-sand-500)" textAnchor="middle">{label}</text>
  )
  })}
  </svg>
@@ -167,7 +167,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  {diff.hotspots.length > 0 && (
  <div className="bg-dark-800/40 p-3 space-y-1">
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.12em] text-dark-500">Biggest divergence points</span>
+ <span className="text-[10px] uppercase tracking-[0.14em] text-dark-500">Biggest divergence points</span>
  <span className="text-[9px] text-dark-500">[^] hotter in {labelB} &middot; [v] quieter in {labelB}</span>
  </div>
  {[...diff.hotspots]
@@ -175,7 +175,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  .slice(0, 6)
  .map((hs, i) => {
  const arrow = hs.diff_db > 0 ? '^' : 'v'
- const arrowColor = hs.diff_db > 0 ? '#e05a5a' : '#78716c'
+ const arrowColor = hs.diff_db > 0 ? 'var(--color-danger)' : 'var(--color-text-muted)'
  const dbColor = magnitudeColour(hs.diff_db)
  const clickable = Boolean(onHotspotClick)
  const rowClasses = 'flex items-center text-[11px] px-2 py-1 transition-colors'
@@ -201,7 +201,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  <span className="w-20 font-mono text-right pr-3" style={{ color: dbColor }}>
  {hs.diff_db > 0 ? '+' : ''}{hs.diff_db.toFixed(1)} dB
  </span>
- <span className="flex-1 text-[10px]" style={{ color: '#ebe7e0', opacity: 0.72 }}>
+ <span className="flex-1 text-[10px]" style={{ color: 'var(--color-text-primary)', opacity: 0.72 }}>
  {describeHotspot(hs, labelB)}
  </span>
  </div>

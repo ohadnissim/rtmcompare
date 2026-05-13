@@ -8,9 +8,9 @@ interface Props {
 }
 
 const priorityConfig = {
- high: { label: 'High', color: '#f43f5e', bg: 'rgba(244,63,94,0.12)', border: 'rgba(244,63,94,0.25)' },
- medium: { label: 'Med', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.20)' },
- low: { label: 'Low', color: '#34d399', bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.20)' },
+ high: { label: 'High', color: 'var(--color-danger)', bg: 'rgba(244,63,94,0.12)', border: 'rgba(244,63,94,0.25)' },
+ medium: { label: 'Med', color: 'var(--color-warm-amber)', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.20)' },
+ low: { label: 'Low', color: 'var(--color-data-pass)', bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.20)' },
 }
 
 export default function Recommendations({ recommendations, labelA, labelB }: Props) {
@@ -23,7 +23,7 @@ export default function Recommendations({ recommendations, labelA, labelB }: Pro
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Recommendations</h2>
+ <h2 className="text-lg">Recommendations</h2>
  <p className="text-xs text-dark-400">
  How to bring <span className="text-amber-400">{labelB}</span> closer to{' '}
  <span className="text-dark-200">{labelA}</span>'s style while keeping improvements

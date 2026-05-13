@@ -133,7 +133,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: 10,
-  letterSpacing: '0.08em',
+  letterSpacing: '0.14em',
   textTransform: 'uppercase',
   color: 'var(--color-sand-400)',
   marginBottom: 4,
@@ -141,7 +141,7 @@ const labelStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: 10,
-  letterSpacing: '0.1em',
+  letterSpacing: '0.14em',
   textTransform: 'uppercase',
   color: 'var(--color-accent)',
   marginBottom: 10,
@@ -282,7 +282,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         <span
           style={{
             fontSize: 11,
-            letterSpacing: '0.12em',
+            letterSpacing: '0.14em',
             textTransform: 'uppercase',
             color: 'var(--color-accent)',
           }}
@@ -408,7 +408,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
               fontSize: 10,
               color: 'var(--color-sand-400)',
               marginTop: 3,
-              fontStyle: 'italic',
+              fontFamily: 'var(--font-display)', fontStyle: 'italic',
             }}
           >
             Students won't be able to change the reference.
@@ -440,7 +440,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
               fontSize: 10,
               color: 'var(--color-sand-400)',
               marginTop: 3,
-              fontStyle: 'italic',
+              fontFamily: 'var(--font-display)', fontStyle: 'italic',
             }}
           >
             Students can't change the delivery spec chip.
@@ -499,7 +499,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             Pick Folder
           </button>
         </div>
-        <div style={{ fontSize: 10, color: 'var(--color-sand-400)', marginTop: 4, fontStyle: 'italic' }}>
+        <div style={{ fontSize: 10, color: 'var(--color-sand-400)', marginTop: 4, fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>
           Students drop their .rtm-report.json files here. The Grade Book scans this folder.
         </div>
       </div>
@@ -530,7 +530,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
                 borderRadius: '2px',
                 color: 'var(--color-accent)',
                 fontSize: 10,
-                letterSpacing: '0.08em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 padding: '2px 7px',
                 cursor: 'pointer',
@@ -627,7 +627,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
               borderRadius: '2px',
               color: 'var(--color-accent)',
               fontSize: 9,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
               padding: '2px 7px',
               cursor: 'pointer',
@@ -652,7 +652,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             key={i}
             style={{
               fontSize: 9,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
               color: 'var(--color-sand-400)',
             }}
@@ -748,7 +748,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       <div
         style={{
           fontSize: 10,
-          color: weightOk ? 'var(--color-accent)' : '#e05a5a',
+          color: weightOk ? 'var(--color-accent)' : 'var(--color-danger)',
           marginBottom: 8,
         }}
       >
@@ -779,7 +779,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             borderRadius: '2px',
             color: (title.trim() && weightOk) ? 'var(--color-text-primary)' : 'var(--color-sand-400)',
             fontSize: 12,
-            letterSpacing: '0.08em',
+            letterSpacing: '0.14em',
             padding: '8px 14px',
             cursor: (title.trim() && weightOk) ? 'pointer' : 'not-allowed',
             textTransform: 'uppercase',
@@ -839,7 +839,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             background: 'transparent',
             border: '1px solid rgba(168,161,150,0.2)',
             borderRadius: '2px',
-            color: weightOk ? 'var(--color-sand-400)' : '#e05a5a',
+            color: weightOk ? 'var(--color-sand-400)' : 'var(--color-danger)',
             fontSize: 11,
             letterSpacing: '0.06em',
             padding: '7px 14px',

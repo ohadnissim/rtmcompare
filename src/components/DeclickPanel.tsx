@@ -39,13 +39,13 @@ const ALGORITHMS: { value: Algorithm; label: string }[] = [
 // below (SliderRow / StatCell / BypassToggle) can reach them without
 // prop-drilling.
 const BG = '#0a0a0a'
-const INK = '#ebe7e0'
-const GOLD = '#d0b066'
+const INK = 'var(--color-text-primary)'
+const GOLD = 'var(--color-accent)'
 const GOLD_DIM = 'rgba(208,176,102,0.25)'
-const MUTED = '#8d867b'
-const PANEL = '#151411'
+const MUTED = 'var(--color-text-muted)'
+const PANEL = 'var(--color-sand-900)'
 const HAIRLINE = 'rgba(208,176,102,0.18)'
-const TRACK = '#2a2722'
+const TRACK = 'var(--color-sand-700)'
 
 export default function DeclickPanel({ filePath, onRendered }: Props) {
  const [algorithm, setAlgorithm] = useState<Algorithm>('multiband')
@@ -187,7 +187,7 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
 
  {/* Algorithm dropdown */}
  <div className="space-y-1.5">
- <label className="text-[10px] uppercase tracking-[0.15em]" style={{ color: MUTED }}>
+ <label className="text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>
  Algorithm
  </label>
  <select
@@ -235,7 +235,7 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  hint="Bias detection toward low or high frequencies."
  signed
  />
- <div className="flex justify-between text-[10px] uppercase tracking-[0.15em] px-[92px] pr-[120px]" style={{ color: MUTED }}>
+ <div className="flex justify-between text-[10px] uppercase tracking-[0.16em] px-[92px] pr-[120px]" style={{ color: MUTED }}>
  <span>LF</span>
  <span>HF</span>
  </div>
@@ -282,7 +282,7 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  {error && (
  <div
  className="text-[11px] px-3 py-2"
- style={{ color: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.08)', borderRadius: '2px' }}
+ style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(224,90,90,0.08)', borderRadius: '2px' }}
  >
  {error}
  </div>
@@ -373,7 +373,7 @@ function SliderRow({
  return (
  <div className="space-y-1">
  <div className="flex items-center justify-between">
- <label className="text-[10px] uppercase tracking-[0.15em]" style={{ color: MUTED }}>
+ <label className="text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>
  {label}
  </label>
  {hint && (
@@ -435,7 +435,7 @@ function formatBound(v: number, signed?: boolean): string {
 function StatCell({ label, value }: { label: string; value: string }) {
  return (
  <div className="flex flex-col">
- <span className="text-[9px] uppercase tracking-[0.15em]" style={{ color: MUTED }}>{label}</span>
+ <span className="text-[9px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>{label}</span>
  <span style={{ color: INK }}>{value}</span>
  </div>
  )

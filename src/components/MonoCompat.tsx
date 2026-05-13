@@ -24,9 +24,9 @@ interface Props {
 
 export default function MonoCompat({ mono, labelA, labelB }: Props) {
  const getStatus = (risk: number): { color: string; label: string } => {
- if (risk < 8) return { color: '#6ec577', label: 'Excellent' }
- if (risk < 20) return { color: '#c5a55a', label: 'Acceptable' }
- return { color: '#e05a5a', label: 'High Risk' }
+ if (risk < 8) return { color: 'var(--color-data-pass)', label: 'Excellent' }
+ if (risk < 20) return { color: 'var(--color-accent)', label: 'Acceptable' }
+ return { color: 'var(--color-danger)', label: 'High Risk' }
  }
 
  const riskA = mono.risk_a ?? mono.mono_loss_a_pct
@@ -39,14 +39,14 @@ export default function MonoCompat({ mono, labelA, labelB }: Props) {
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Mono Compatibility</h2>
+ <h2 className="text-lg">Mono Compatibility</h2>
  <p className="text-xs text-dark-400">
  Mono-loss % is how much <strong>energy disappears</strong> when L/R are summed — lower is better. Weighted risk amplifies low-band cancellation because that's where the damage is audible.
  </p>
  </div>
  {worsened && (
  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
- style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.12)' }}>
+ style={{ color: 'var(--color-warm-amber)', backgroundColor: 'rgba(245,158,11,0.12)' }}>
  Degraded
  </span>
  )}
@@ -54,15 +54,15 @@ export default function MonoCompat({ mono, labelA, labelB }: Props) {
 
  {/* Scoring legend — helps readers understand the numbers */}
  <div className="grid grid-cols-3 gap-2 text-[10px]">
- <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(110,197,119,0.10)', color: '#6ec577', borderRadius: '2px' }}>
+ <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(110,197,119,0.10)', color: 'var(--color-data-pass)', borderRadius: '2px' }}>
  <div className="font-semibold">&lt; 5% loss</div>
  <div className="opacity-80">Excellent — mono-safe</div>
  </div>
- <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(197,165,90,0.10)', color: '#c5a55a', borderRadius: '2px' }}>
+ <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(197,165,90,0.10)', color: 'var(--color-accent)', borderRadius: '2px' }}>
  <div className="font-semibold">5–15% loss</div>
  <div className="opacity-80">Acceptable — narrow the widest band</div>
  </div>
- <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(224,90,90,0.10)', color: '#e05a5a', borderRadius: '2px' }}>
+ <div className="px-2.5 py-1.5" style={{ backgroundColor: 'rgba(224,90,90,0.10)', color: 'var(--color-danger)', borderRadius: '2px' }}>
  <div className="font-semibold">&gt; 15% loss</div>
  <div className="opacity-80">High risk — phone/bluetooth will suffer</div>
  </div>
@@ -70,8 +70,8 @@ export default function MonoCompat({ mono, labelA, labelB }: Props) {
 
  {/* Overall risk summary */}
  <div className="grid grid-cols-2 gap-4">
- <RiskSummary label={labelA} risk={riskA} status={statusA} barColor="#6b7280" />
- <RiskSummary label={labelB} risk={riskB} status={statusB} barColor="#c5a55a" />
+ <RiskSummary label={labelA} risk={riskA} status={statusA} barColor="var(--color-sand-500)" />
+ <RiskSummary label={labelB} risk={riskB} status={statusB} barColor="var(--color-accent)" />
  </div>
 
  {/* Per-band waterfall — compact heatmap strip showing mono-fold
@@ -142,9 +142,9 @@ function RiskSummary({
  <div className="space-y-1">
  <div className="relative h-3 bg-dark-700 rounded-full overflow-hidden">
  <div className="absolute inset-0 flex opacity-20">
- <div className="w-[13%]" style={{ backgroundColor: '#6ec577' }} />
- <div className="w-[20%]" style={{ backgroundColor: '#c5a55a' }} />
- <div className="flex-1" style={{ backgroundColor: '#e05a5a' }} />
+ <div className="w-[13%]" style={{ backgroundColor: 'var(--color-data-pass)' }} />
+ <div className="w-[20%]" style={{ backgroundColor: 'var(--color-accent)' }} />
+ <div className="flex-1" style={{ backgroundColor: 'var(--color-danger)' }} />
  </div>
  <div
  className="absolute top-0 bottom-0 rounded-full"
@@ -211,14 +211,14 @@ function BandRow({
  <span className="font-medium text-dark-200">{band.name}</span>
  <span className="text-[9px] text-dark-500 font-mono">{band.freq_range}</span>
  {degraded && (
- <span className="text-[8px] px-1 py-0.5 rounded" style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)' }}>
+ <span className="text-[8px] px-1 py-0.5 rounded" style={{ color: 'var(--color-warm-amber)', backgroundColor: 'rgba(245,158,11,0.1)' }}>
  +{delta.toFixed(0)}%
  </span>
  )}
  </div>
  <div className="text-[9px] text-dark-500 mt-0.5">{band.note}</div>
  {fixHintB && (
- <div className="text-[10px] mt-0.5" style={{ color: '#d0b066' }}>→ {fixHintB}</div>
+ <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-accent)' }}>→ {fixHintB}</div>
  )}
  </div>
  <div className="w-20 flex items-center justify-center pt-1">
@@ -246,7 +246,7 @@ function ImpactDots({ impact }: { impact: number }) {
  key={i}
  className="w-1 h-1 rounded-full"
  style={{
- backgroundColor: i < n ? '#c5a55a' : '#3e3a33',
+ backgroundColor: i < n ? 'var(--color-accent)' : 'var(--color-sand-600)',
  opacity: i < n ? 0.8 : 0.3,
  }}
  />
@@ -256,9 +256,9 @@ function ImpactDots({ impact }: { impact: number }) {
 }
 
 function lossColor(loss: number): string {
- if (loss < 5) return '#6ec577'
- if (loss < 15) return '#c5a55a'
- return '#e05a5a'
+ if (loss < 5) return 'var(--color-data-pass)'
+ if (loss < 15) return 'var(--color-accent)'
+ return 'var(--color-danger)'
 }
 
 /**
@@ -295,10 +295,10 @@ function MonoWaterfall({ bandsA, bandsB, labelA, labelB }: {
  return (
  <div className="p-3" style={{ backgroundColor: 'rgba(48,44,39,0.35)', border: '1px solid rgba(168,161,150,0.08)', borderRadius: '2px' }}>
  <div className="flex items-center justify-between mb-2">
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
  Mono-risk waterfall
  </span>
- <span className="text-[9px] font-mono" style={{ color: '#8d867b' }}>
+ <span className="text-[9px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  low ← → high · cell = phase-cancellation risk (decorrelated wide content does not light up)
  </span>
  </div>
@@ -319,7 +319,7 @@ function MonoWaterfallRow({ label, bands, heightFor }: {
  return (
  <div className="flex items-end gap-1">
  {label && (
- <span className="text-[9px] font-mono w-20 flex-shrink-0 truncate" style={{ color: '#a8a29e' }}>{label}</span>
+ <span className="text-[9px] font-mono w-20 flex-shrink-0 truncate" style={{ color: 'var(--color-sand-300)' }}>{label}</span>
  )}
  <div className="flex-1 flex items-end gap-1" style={{ height: 48 }}>
  {bands.map((b, i) => (

@@ -12,7 +12,7 @@ interface Props {
 }
 
 const PRIORITY_CONFIG = {
- high: { color: '#e05a5a', bg: 'rgba(224,90,90,0.08)', label: 'Key' },
+ high: { color: 'var(--color-danger)', bg: 'rgba(224,90,90,0.08)', label: 'Key' },
  medium: { color: '#e07a4f', bg: 'rgba(224,122,79,0.08)', label: 'Suggested' },
  low: { color: '#6ec577', bg: 'rgba(110,197,119,0.08)', label: 'Fine-tune' },
 }
@@ -110,9 +110,11 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  return (
  <div className="space-y-6">
  {/* Match Score + Radar + Curve upload CTA */}
- <div className="grid grid-cols-3 gap-4">
- <MatchScore score={tips.match_score || 0} engineer={tips.engineer} />
+ <div className="grid grid-cols-5 gap-4">
  <div className="col-span-2">
+ <MatchScore score={tips.match_score || 0} engineer={tips.engineer} />
+ </div>
+ <div className="col-span-3">
  <RadarChart tips={tips} />
  </div>
  </div>
@@ -123,7 +125,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  <div className="flex items-center justify-between px-4 py-3"
  style={{ backgroundColor: 'rgba(124,164,163,0.06)', border: '1px solid rgba(124,164,163,0.25)', borderRadius: '2px' }}>
  <div className="flex-1 pr-3">
- <div className="text-xs font-medium" style={{ color: '#7ca4a3' }}>
+ <div className="text-xs font-medium" style={{ color: 'var(--color-teal)' }}>
  Swap the target curve · use your own reference
  </div>
  <div className="text-[10px] text-dark-400 mt-0.5">
@@ -144,7 +146,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  }
  }}
  className="text-[11px] px-3 py-1.5 transition-colors"
- style={{ backgroundColor: 'rgba(124,164,163,0.15)', color: '#7ca4a3', border: '1px solid rgba(124,164,163,0.35)', borderRadius: '2px' }}
+ style={{ backgroundColor: 'rgba(124,164,163,0.15)', color: 'var(--color-teal)', border: '1px solid rgba(124,164,163,0.35)', borderRadius: '2px' }}
  >
  Load target curve…
  </button>
@@ -154,7 +156,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
 
  {/* Tips list header + export */}
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.12em] text-dark-500">Suggested moves</span>
+ <span className="text-[10px] uppercase tracking-[0.14em] text-dark-500">Suggested moves</span>
  {filters.length > 0 && (
  <EQExportButton
  bands={scaledFilters as any}
@@ -271,7 +273,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
 // ─── Match Score (0-100 circle) ─────────────────────────────────────────────
 
 function MatchScore({ score, engineer }: { score: number; engineer: string }) {
- const color = score >= 80 ? '#6ec577' : score >= 50 ? '#e07a4f' : '#e05a5a'
+ const color = score >= 80 ? '#6ec577' : score >= 50 ? '#e07a4f' : 'var(--color-danger)'
  // Grounding copy so the number isn't floating in a vacuum (panel
  // feedback: "60 doesn't tell me if I'm close to Spotify-ready or if I
  // need to rework the master"). Three plain-language bands, picked so
@@ -294,8 +296,8 @@ function MatchScore({ score, engineer }: { score: number; engineer: string }) {
  </div>
  <div className="text-center">
  <p className="text-[11px]" style={{ color, fontWeight: 500 }}>{verdict.label}</p>
- <p className="text-[9px] mt-0.5" style={{ color: '#7a7164' }}>{verdict.sub}</p>
- <p className="text-[9px] mt-1.5" style={{ color: '#8d867b' }}>vs {engineer}'s style</p>
+ <p className="text-[9px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{verdict.sub}</p>
+ <p className="text-[9px] mt-1.5" style={{ color: 'var(--color-text-muted)' }}>vs {engineer}'s style</p>
  </div>
  </div>
  )
@@ -1067,7 +1069,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  onClick={() => setLevelMatch(v => !v)}
  className="text-[10px] px-2.5 py-1 transition-colors"
  style={{
- color: levelMatch ? '#6ec577' : '#8d867b',
+ color: levelMatch ? '#6ec577' : 'var(--color-text-muted)',
  backgroundColor: levelMatch ? 'rgba(110,197,119,0.10)' : 'transparent',
  border: `1px solid ${levelMatch ? 'rgba(110,197,119,0.40)' : 'rgba(168,161,150,0.20)'}`,
  borderRadius: '2px',
@@ -1083,7 +1085,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  onClick={() => eq.setEnabled(!eq.enabled)}
  className="text-[10px] px-2.5 py-1 transition-colors"
  style={{
- color: eq.enabled ? '#d0b066' : '#8d867b',
+ color: eq.enabled ? 'var(--color-accent)' : 'var(--color-text-muted)',
  backgroundColor: eq.enabled ? 'rgba(208,176,102,0.12)' : 'transparent',
  border: `1px solid ${eq.enabled ? 'rgba(208,176,102,0.45)' : 'rgba(168,161,150,0.2)'}`,
  borderRadius: '2px',
@@ -1106,7 +1108,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
    style={{
      border: '1px solid rgba(168,161,150,0.18)',
      backgroundColor: 'rgba(168,161,150,0.04)',
-     color: '#8d867b',
+     color: 'var(--color-text-muted)',
      fontFamily: 'monospace',
      borderRadius: '2px',
    }}
@@ -1125,9 +1127,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
      style={{
        backgroundColor:
          conn.state === 'connected' && conn.hasProfile && !conn.isAuto ? '#6ec577'
-         : conn.state === 'connected' && conn.isAuto ? '#d0b066'
+         : conn.state === 'connected' && conn.isAuto ? 'var(--color-accent)'
          : conn.state === 'connected' ? '#6b8cbb'
-         : conn.state === 'no-plugin' ? '#d0b066'
+         : conn.state === 'no-plugin' ? 'var(--color-accent)'
          : conn.state === 'disconnected' ? '#5a5a5a'
          : '#3a3835',
      }}
@@ -1144,9 +1146,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  style={{
  color: sendStatus === 'sent' ? '#6ec577'
    : sendStatus === 'error' ? '#e07a4f'
-   : sendStatus === 'sending' ? '#d0b066'
+   : sendStatus === 'sending' ? 'var(--color-accent)'
    : conn.state !== 'connected' ? '#5a5a5a'
-   : '#8d867b',
+   : 'var(--color-text-muted)',
  backgroundColor: sendStatus === 'sent' ? 'rgba(110,197,119,0.10)'
    : sendStatus === 'error' ? 'rgba(224,122,79,0.10)'
    : sendStatus === 'sending' ? 'rgba(208,176,102,0.12)'
@@ -1183,7 +1185,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  </button>
  {bestPlugin && (
    <span
-     className="text-[10px] italic"
+     className="text-[10px] font-display italic"
      style={{ color: '#a89572', marginLeft: 4 }}
      title={bestPlugin.reasoning}
    >
@@ -1193,7 +1195,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  <button
  onClick={() => setListeningOpen(v => !v)}
  className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-white/[0.05]"
- style={{ color: listeningOpen ? '#d0b066' : '#8d867b', border: '1px solid rgba(168,161,150,0.15)' }}
+ style={{ color: listeningOpen ? 'var(--color-accent)' : 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.15)' }}
  title="Listening settings: true-peak limiter, level-matched A/B"
  aria-label="Listening settings"
  >
@@ -1212,18 +1214,18 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  {/* Left rail — per-band chip stack with on/off + trim nudge */}
  <div className="lg:col-span-5 space-y-1.5">
  <div className="flex items-center justify-between px-1 pb-1">
- <span className="text-[10px] uppercase tracking-[0.12em] text-dark-500">Bands</span>
+ <span className="text-[10px] uppercase tracking-[0.14em] text-dark-500">Bands</span>
  <div className="flex items-center gap-3">
  <button
  onClick={enableAll}
- className="text-[10px] tracking-[0.08em] uppercase hover:text-[#d0b066] transition-colors"
- style={{ color: '#8d867b' }}
+ className="text-[10px] tracking-[0.14em] uppercase hover:text-[#d0b066] transition-colors"
+ style={{ color: 'var(--color-text-muted)' }}
  title="Enable all bands"
  >All</button>
  <button
  onClick={disableAll}
- className="text-[10px] tracking-[0.08em] uppercase hover:text-[#a8a29e] transition-colors"
- style={{ color: '#8d867b' }}
+ className="text-[10px] tracking-[0.14em] uppercase hover:text-[#a8a29e] transition-colors"
+ style={{ color: 'var(--color-text-muted)' }}
  title="Disable all bands"
  >None</button>
  </div>
@@ -1244,7 +1246,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  className="flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:bg-white/[0.03]"
  style={{
  backgroundColor: isSoloed ? 'rgba(208,176,102,0.12)' : enabled ? 'rgba(208,176,102,0.05)' : 'transparent',
- borderLeft: `2px solid ${isSoloed ? '#d0b066' : enabled ? (isBoost ? '#6ec577' : '#e07a4f') : 'transparent'}`,
+ borderLeft: `2px solid ${isSoloed ? 'var(--color-accent)' : enabled ? (isBoost ? '#6ec577' : '#e07a4f') : 'transparent'}`,
  opacity: isMuted ? 0.45 : 1,
  borderRadius: '2px',
  }}
@@ -1264,7 +1266,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  <span
  className="font-mono tabular-nums text-sm flex-shrink-0 w-14 text-right"
  style={{
- color: enabled ? (isBoost ? '#6ec577' : '#e07a4f') : '#8d867b',
+ color: enabled ? (isBoost ? '#6ec577' : '#e07a4f') : 'var(--color-text-muted)',
  }}
  title={eqAmount < 100 ? `Scaled to ${eqAmount}% of ${fullDisplay} dB` : undefined}
  >
@@ -1272,10 +1274,10 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  </span>
  {/* Frequency + region */}
  <div className="flex-1 min-w-0">
- <div className="text-[11px]" style={{ color: enabled ? '#ebe7e0' : '#8d867b' }}>
+ <div className="text-[11px]" style={{ color: enabled ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
  {f.region}
  </div>
- <div className="text-[10px] font-mono" style={{ color: enabled ? '#7a7164' : '#8d867b' }}>
+ <div className="text-[10px] font-mono" style={{ color: enabled ? 'var(--color-text-muted)' : 'var(--color-text-muted)' }}>
  {f.freq >= 1000 ? `${(f.freq/1000).toFixed(f.freq >= 10000 ? 0 : 1)}k Hz` : `${f.freq} Hz`}
  <span className="mx-1 opacity-50">·</span>
  Q {f.q.toFixed(1)}
@@ -1287,11 +1289,11 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  <button
  type="button"
  onClick={(e) => { e.stopPropagation(); toggleSolo(i) }}
- className="w-6 h-6 text-[9px] tracking-[0.08em] uppercase font-mono flex-shrink-0 flex items-center justify-center transition-colors"
+ className="w-6 h-6 text-[9px] tracking-[0.14em] uppercase font-mono flex-shrink-0 flex items-center justify-center transition-colors"
  style={{
- color: isSoloed ? '#d0b066' : '#8d867b',
+ color: isSoloed ? 'var(--color-accent)' : 'var(--color-text-muted)',
  backgroundColor: 'transparent',
- border: `1px solid ${isSoloed ? '#d0b066' : 'rgba(168,161,150,0.25)'}`,
+ border: `1px solid ${isSoloed ? 'var(--color-accent)' : 'rgba(168,161,150,0.25)'}`,
  borderRadius: '2px',
  }}
  title={isSoloed ? 'Clear solo (Esc)' : 'Solo in place — only this band sounds; others stay in the chain at 0 dB'}
@@ -1330,13 +1332,13 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  {playing ? (
  <svg className="w-4 h-4" fill="#e07a4f" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
  ) : (
- <svg className="w-4 h-4" fill="#d0b066" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+ <svg className="w-4 h-4" fill="var(--color-accent)" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
  )}
  </button>
 
  {/* Amount fader */}
  <div className="flex-1 flex items-center gap-2">
- <label className="text-[10px] uppercase tracking-[0.1em] text-dark-500 w-14 flex-shrink-0">Amount</label>
+ <label className="text-[10px] uppercase tracking-[0.14em] text-dark-500 w-14 flex-shrink-0">Amount</label>
  <input
  type="range"
  min="0"
@@ -1346,9 +1348,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  onChange={(e) => setEqAmount(Number(e.target.value))}
  aria-label={`EQ amount ${eqAmount} percent`}
  className="flex-1 accent-terra"
- style={{ accentColor: '#d0b066' }}
+ style={{ accentColor: 'var(--color-accent)' }}
  />
- <span className="text-[11px] font-mono tabular-nums w-10 text-right flex-shrink-0" style={{ color: eqAmount === 100 ? '#8d867b' : '#d0b066' }}>
+ <span className="text-[11px] font-mono tabular-nums w-10 text-right flex-shrink-0" style={{ color: eqAmount === 100 ? 'var(--color-text-muted)' : 'var(--color-accent)' }}>
  {eqAmount}%
  </span>
  </div>
@@ -1357,10 +1359,10 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  A/B framing. The button IS the A (dry) vs B (wet) toggle. */}
  <button
  onClick={toggleBypass}
- className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase transition-colors flex-shrink-0"
+ className="px-4 py-2 text-[11px] font-semibold tracking-[0.14em] uppercase transition-colors flex-shrink-0"
  style={{
  backgroundColor: 'rgba(208,176,102,0.08)',
- color: bypassed ? '#8d867b' : '#d0b066',
+ color: bypassed ? 'var(--color-text-muted)' : 'var(--color-accent)',
  border: '1px solid rgba(208,176,102,0.3)',
  borderRadius: '2px',
  }}
@@ -1371,7 +1373,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  </div>
 
  {/* Hint strip */}
- <p className="text-[10px] text-dark-500 italic">
+ <p className="text-[10px] text-dark-500 font-display italic">
  Click the waveform to re-centre the 15 s loop · drag to set a custom region.
  </p>
  </div>
@@ -1380,32 +1382,32 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  {/* Listening settings popover — anchored top-right, click ⚙ to toggle */}
  {listeningOpen && (
  <div
- className="absolute right-6 top-14 z-20 p-4 space-y-3 min-w-[260px]"
+ className="absolute right-6 top-14 z-20 p-4 space-y-3 min-w-[260px] max-w-[calc(100vw-3rem)]"
  style={{
- backgroundColor: '#1e1c18',
+ backgroundColor: 'var(--color-bg-panel)',
  border: '1px solid rgba(208,176,102,0.3)',
  borderRadius: '2px',
  }}
  >
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>Listening</span>
+ <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>Listening</span>
  <button
  onClick={() => setListeningOpen(false)}
  className="text-sand-500 hover:text-sand-200 text-lg leading-none"
  aria-label="Close"
  >×</button>
  </div>
- <p className="text-[10px] text-dark-500 italic">Set once, then forget — these affect both the preview and the bounce.</p>
+ <p className="text-[10px] text-dark-500 font-display italic">Applies to preview and rendered bounce.</p>
  <label className="flex items-start gap-2 cursor-pointer">
  <input
  type="checkbox"
  checked={tpLimit}
  onChange={(e) => setTpLimit(e.target.checked)}
  className="mt-0.5"
- style={{ accentColor: '#d0b066' }}
+ style={{ accentColor: 'var(--color-accent)' }}
  />
  <div className="flex-1">
- <div className="text-[11px]" style={{ color: '#ebe7e0' }}>
+ <div className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>
  Safety limiter
  </div>
  <div
@@ -1425,7 +1427,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  style={{ accentColor: '#6ec577' }}
  />
  <div className="flex-1">
- <div className="text-[11px]" style={{ color: '#ebe7e0' }}>
+ <div className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>
  Level-matched A/B
  </div>
  <div className="text-[9px] text-dark-500 mt-0.5">
@@ -1552,9 +1554,9 @@ function WaveformLoopPicker({ envelope, duration, loopStart, loopEnd, onChange }
  </>
  )}
  </div>
- <div className="flex items-center justify-between text-[10px] font-mono" style={{ color: '#7a7164' }}>
+ <div className="flex items-center justify-between text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  <span>{fmtSec(loopStart)}</span>
- <span className="uppercase tracking-[0.1em] text-[9px]" style={{ color: '#d0b066' }}>
+ <span className="uppercase tracking-[0.14em] text-[9px]" style={{ color: 'var(--color-accent)' }}>
  Loop · {fmtDur(loopEnd != null && loopStart != null ? loopEnd - loopStart : null)}
  </span>
  <span>{fmtSec(loopEnd)}</span>
@@ -1639,15 +1641,15 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
  style={{ backgroundColor: 'rgba(14,13,11,0.4)', border: '1px solid rgba(168,161,150,0.15)', borderRadius: '2px' }}
  title={move.q_note ? `Q ${move.q.toFixed(1)} — ${move.q_note}` : `Q ${move.q.toFixed(1)}`}
  >
- <span style={{ color: '#8d867b' }}>{fmtFreq(move.freq)}</span>
- <span style={{ color: move.gain_db >= 0 ? '#6fa37e' : '#c96765' }}>
+ <span style={{ color: 'var(--color-text-muted)' }}>{fmtFreq(move.freq)}</span>
+ <span style={{ color: move.gain_db >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
  {move.gain_db >= 0 ? '+' : ''}{move.gain_db.toFixed(1)} dB
  </span>
- <span style={{ color: '#d0b066' }}>Q {move.q.toFixed(1)}</span>
+ <span style={{ color: 'var(--color-accent)' }}>Q {move.q.toFixed(1)}</span>
  </span>
  )}
 
- <svg className="w-3 h-3 flex-shrink-0 transition-transform" style={{ color: '#8d867b', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+ <svg className="w-3 h-3 flex-shrink-0 transition-transform" style={{ color: 'var(--color-text-muted)', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
  </svg>
  </button>
@@ -1655,7 +1657,7 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
  <div className="px-4 pb-3 pl-28 space-y-1">
  <p className="text-[10px] text-dark-500">{tip.detail}</p>
  {move?.q_note && (
- <p className="text-[10px]" style={{ color: '#d0b066' }}>
+ <p className="text-[10px]" style={{ color: 'var(--color-accent)' }}>
  Q shape: <strong>{move.q_note}</strong> — {move.q_note === 'narrow — surgical'
  ? 'tight, corrective — fixes a resonant peak without affecting the band next door.'
  : move.q_note === 'wide — tonal shift'
@@ -1671,7 +1673,7 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
 
 function StatCompare({ label, current, target, diff, unit }: { label: string; current: string; target: string; diff: number; unit: string }) {
  const isClose = Math.abs(diff) < 1.5
- const color = isClose ? '#6ec577' : Math.abs(diff) > 3 ? '#e05a5a' : '#e07a4f'
+ const color = isClose ? '#6ec577' : Math.abs(diff) > 3 ? 'var(--color-danger)' : '#e07a4f'
  return (
  <div className="p-3 text-center space-y-1.5" style={{ backgroundColor: 'rgba(26,25,24,0.5)', borderRadius: '2px' }}>
  <p className="text-[9px] text-dark-600 uppercase tracking-wider">{label}</p>

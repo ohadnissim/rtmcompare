@@ -66,13 +66,12 @@ export default function ProfileDropdown({
    <div ref={wrapRef} className="relative inline-block">
      <button
        onClick={() => setOpen(v => !v)}
-       className="flex items-center gap-2 px-3 py-1.5 transition-colors"
+       className="flex items-center gap-2 px-3 py-1.5 transition-colors text-[11px]"
        style={{
          borderRadius: '2px',
          color: '#d6cdc0',
          backgroundColor: 'rgba(168,161,150,0.06)',
          border: '1px solid rgba(168,161,150,0.20)',
-         fontSize: 11,
        }}
        title={current?.description || 'Engineer profile used for tonal recommendations'}
      >
@@ -99,16 +98,22 @@ export default function ProfileDropdown({
                <button
                  key={p.id}
                  onClick={() => { onSelect(p.id); setOpen(false) }}
-                 className="w-full flex items-center justify-between gap-3 px-3 py-1.5 transition-colors"
+                 role="menuitemradio"
+                 aria-checked={p.id === selected}
+                 className="w-full flex items-center justify-between gap-3 px-3 py-1.5 transition-colors text-[11px]"
                  style={{
-                   color: p.id === selected ? '#d0b066' : '#d6cdc0',
+                   color: p.id === selected ? 'var(--color-accent)' : '#d6cdc0',
                    backgroundColor: p.id === selected ? 'rgba(208,176,102,0.10)' : 'transparent',
-                   fontSize: 11,
                  }}
                  onMouseEnter={e => { if (p.id !== selected) e.currentTarget.style.backgroundColor = 'rgba(168,161,150,0.08)' }}
                  onMouseLeave={e => { if (p.id !== selected) e.currentTarget.style.backgroundColor = 'transparent' }}
                >
-                 <span className="text-left truncate">{p.name}</span>
+                 <span className="flex items-center gap-2 min-w-0 text-left">
+                   <span aria-hidden="true" className="inline-flex w-2 justify-center" style={{ color: 'var(--color-accent)' }}>
+                     {p.id === selected ? '•' : ''}
+                   </span>
+                   <span className="truncate">{p.name}</span>
+                 </span>
                  {typeof p.sample_count === 'number' && p.sample_count > 0 && (
                    <span className="opacity-50 text-[10px] tabular-nums shrink-0">{p.sample_count} tracks</span>
                  )}
@@ -120,31 +125,37 @@ export default function ProfileDropdown({
            <>
              <div className="my-1 border-t" style={{ borderColor: 'rgba(168,161,150,0.15)' }} />
              <div className="py-1">
-               <div className="px-3 py-1 text-[10px] uppercase tracking-wider" style={{ color: '#7a7468' }}>Your profiles</div>
+               <div className="px-3 py-1 text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Your profiles</div>
                {userMade.map(p => (
                  <div
                    key={p.id}
-                   className="group w-full flex items-center justify-between gap-2 pl-3 pr-2 py-1.5"
+                   className="group w-full flex items-center justify-between gap-2 pl-3 pr-2 py-1.5 text-[11px]"
                    style={{
-                     color: p.id === selected ? '#d0b066' : '#d6cdc0',
+                     color: p.id === selected ? 'var(--color-accent)' : '#d6cdc0',
                      backgroundColor: p.id === selected ? 'rgba(208,176,102,0.10)' : 'transparent',
-                     fontSize: 11,
                    }}
                  >
                    <button
                      onClick={() => { onSelect(p.id); setOpen(false) }}
-                     className="flex-1 text-left truncate"
+                     role="menuitemradio"
+                     aria-checked={p.id === selected}
+                     className="flex-1 flex items-start gap-2 text-left truncate"
                      style={{ color: 'inherit' }}
                    >
-                     <div className="truncate">{p.name}</div>
-                     {typeof p.sample_count === 'number' && p.sample_count > 0 && (
-                       <div className="opacity-50 text-[10px] tabular-nums">{p.sample_count} tracks</div>
-                     )}
+                     <span aria-hidden="true" className="inline-flex w-2 justify-center pt-[2px]" style={{ color: 'var(--color-accent)' }}>
+                       {p.id === selected ? '•' : ''}
+                     </span>
+                     <span className="min-w-0 flex-1">
+                       <div className="truncate">{p.name}</div>
+                       {typeof p.sample_count === 'number' && p.sample_count > 0 && (
+                         <div className="opacity-50 text-[10px] tabular-nums">{p.sample_count} tracks</div>
+                       )}
+                     </span>
                    </button>
                    {onDelete && (
                      <button
                        onClick={(e) => { e.stopPropagation(); onDelete(p.id) }}
-                       className="opacity-0 group-hover:opacity-60 hover:opacity-100 text-[10px] px-1"
+                       className="opacity-30 group-hover:opacity-100 focus-visible:opacity-100 hover:opacity-100 text-[14px] min-w-[24px] min-h-[24px] flex items-center justify-center"
                        style={{ color: '#a89572' }}
                        title={`Remove "${p.name}" from your profiles`}
                        aria-label="Delete profile"
@@ -162,8 +173,8 @@ export default function ProfileDropdown({
              <div className="my-1 border-t" style={{ borderColor: 'rgba(168,161,150,0.15)' }} />
              <button
                onClick={() => { onLoadCustom(); setOpen(false) }}
-               className="w-full text-left px-3 py-1.5 transition-colors"
-               style={{ color: '#a89572', fontSize: 11 }}
+               className="w-full text-left px-3 py-1.5 transition-colors text-[11px]"
+               style={{ color: '#a89572' }}
                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(168,161,150,0.08)' }}
                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
              >

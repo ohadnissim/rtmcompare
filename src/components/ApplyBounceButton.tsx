@@ -160,7 +160,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  onChange={(e) => setMatchLoudness(e.target.checked)}
  style={{ accentColor: '#d0b066' }}
  />
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: matchLoudness ? '#d0b066' : '#8d867b' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: matchLoudness ? '#d0b066' : '#8d867b' }}>
  Match {(refLufs as number).toFixed(1)} LUFS
  </span>
  </label>
@@ -180,7 +180,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  onChange={(e) => setTpLimit(e.target.checked)}
  style={{ accentColor: '#d0b066' }}
  />
- <span className="text-[10px] uppercase tracking-[0.12em]" style={{ color: tpLimit ? '#d0b066' : '#8d867b' }}>
+ <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: tpLimit ? '#d0b066' : '#8d867b' }}>
  TP limit
  </span>
  </label>

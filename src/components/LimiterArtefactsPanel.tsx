@@ -17,11 +17,11 @@ import { AnalysisResult } from '../types'
 type LimiterArtefacts = NonNullable<AnalysisResult['limiter_artefacts']>
 
 const BRAND = {
-  gold: '#d0b066',
-  cream: '#ebe7e0',
-  red: '#e05a5a',
-  amber: '#e07a4f',
-  muted: '#8d867b',
+  gold: 'var(--color-accent)',
+  cream: 'var(--color-text-primary)',
+  red: 'var(--color-danger)',
+  amber: 'var(--color-data-warn)',
+  muted: 'var(--color-text-muted)',
 } as const
 
 /** Severity badge colours — match the broader QC vocab used across panels. */
@@ -30,12 +30,12 @@ function severityColours(severity: LimiterArtefacts['severity']) {
     case 'problem':
       return { fg: BRAND.red, bg: 'rgba(224,90,90,0.1)', label: 'Problem' }
     case 'warning':
-      return { fg: '#c5a55a', bg: 'rgba(150,128,58,0.1)', label: 'Warning' }
+      return { fg: 'var(--color-accent)', bg: 'rgba(150,128,58,0.1)', label: 'Warning' }
     case 'advisory':
       return { fg: BRAND.amber, bg: 'rgba(224,122,79,0.1)', label: 'Advisory' }
     case 'clean':
     default:
-      return { fg: '#6ec577', bg: 'rgba(110,197,119,0.1)', label: 'Clean' }
+      return { fg: 'var(--color-data-pass)', bg: 'rgba(110,197,119,0.1)', label: 'Clean' }
   }
 }
 
@@ -95,7 +95,7 @@ export default function LimiterArtefactsPanel({ artefacts, compact }: Props) {
       {/* Severity headline + confidence pill */}
       <div className="flex items-center gap-2 flex-wrap">
         <span
-          className="text-[9px] uppercase tracking-[0.15em]"
+          className="text-[9px] uppercase tracking-[0.16em]"
           style={{ color: BRAND.gold }}
         >
           Limiter artefacts
@@ -108,7 +108,7 @@ export default function LimiterArtefactsPanel({ artefacts, compact }: Props) {
           {sev.label}
         </span>
         <span
-          className="text-[9px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full"
+          className="text-[9px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full"
           style={{ color: conf.fg, backgroundColor: conf.bg }}
           title="Detector confidence. High = multiple probes agree. Medium = single strong probe. Low = weak / single-indicator hit, down-weighted in the verdict."
         >
@@ -140,7 +140,7 @@ export default function LimiterArtefactsPanel({ artefacts, compact }: Props) {
 
       {/* Issues list - omitted in compact mode (Attention rows already cover it). */}
       {!compact && artefacts.issues && artefacts.issues.length > 0 && (
-        <ul className="space-y-1 text-[11px] pt-1" style={{ color: '#b5afa4' }}>
+        <ul className="space-y-1 text-[11px] pt-1" style={{ color: 'var(--color-sand-300)' }}>
           {artefacts.issues.map((issue, i) => (
             <li key={i} className="flex items-start gap-2">
               <span style={{ color: sev.fg }}>!</span>
@@ -171,7 +171,7 @@ function MetricCell({
       title={tooltip}
     >
       <span
-        className="text-[9px] uppercase tracking-[0.12em]"
+        className="text-[9px] uppercase tracking-[0.14em]"
         style={{ color: BRAND.muted }}
       >
         {label}

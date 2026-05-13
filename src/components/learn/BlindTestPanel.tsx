@@ -369,13 +369,13 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
             <div
               style={{
                 fontSize: 11,
-                letterSpacing: '0.12em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 color: 'rgba(208,176,102,0.9)',
                 marginBottom: 6,
               }}
             >
-              🎧  BLIND TEST — Trust Your Ears First
+              BLIND TEST — Trust Your Ears First
             </div>
             <div
               style={{
@@ -444,7 +444,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                   <div
                     style={{
                       fontSize: 10,
-                      letterSpacing: '0.1em',
+                      letterSpacing: '0.14em',
                       textTransform: 'uppercase',
                       color: 'rgba(208,176,102,0.7)',
                       marginBottom: 6,
@@ -543,7 +543,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                 <div
                   style={{
                     fontSize: 10,
-                    letterSpacing: '0.1em',
+                    letterSpacing: '0.14em',
                     textTransform: 'uppercase',
                     color: 'rgba(208,176,102,0.7)',
                     marginBottom: 8,
@@ -653,7 +653,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                 <div
                   style={{
                     fontSize: 10,
-                    letterSpacing: '0.1em',
+                    letterSpacing: '0.14em',
                     textTransform: 'uppercase',
                     color: 'rgba(208,176,102,0.7)',
                     marginBottom: 8,
@@ -713,7 +713,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                 <div
                   style={{
                     fontSize: 10,
-                    letterSpacing: '0.1em',
+                    letterSpacing: '0.14em',
                     textTransform: 'uppercase',
                     color: 'rgba(208,176,102,0.7)',
                     marginBottom: 8,
@@ -784,7 +784,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                   borderRadius: '2px',
                   color: allAnswered ? 'rgba(208,176,102,1)' : 'rgba(168,161,150,0.4)',
                   fontSize: 11,
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.14em',
                   textTransform: 'uppercase',
                   padding: '8px 20px',
                   cursor: allAnswered ? 'pointer' : 'not-allowed',
@@ -830,7 +830,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                   <div
                     style={{
                       fontSize: 11,
-                      letterSpacing: '0.1em',
+                      letterSpacing: '0.14em',
                       textTransform: 'uppercase',
                       color: 'rgba(208,176,102,0.85)',
                       marginBottom: 4,
@@ -843,8 +843,8 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                   </p>
                 </div>
                 {!analysisResult && (
-                  <p style={{ fontSize: 10, color: 'rgba(208,176,102,0.55)', margin: '0 0 8px 0', fontStyle: 'italic' }}>
-                    Run an analysis first to unlock the reveal.
+                  <p style={{ fontSize: 10, color: 'rgba(208,176,102,0.55)', margin: '0 0 8px 0', fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>
+                    Run an analysis first to reveal.
                   </p>
                 )}
                 <button
@@ -857,7 +857,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                     borderRadius: '2px',
                     color: analysisResult ? 'rgba(208,176,102,1)' : 'rgba(208,176,102,0.35)',
                     fontSize: 11,
-                    letterSpacing: '0.1em',
+                    letterSpacing: '0.14em',
                     textTransform: 'uppercase',
                     padding: '8px 18px',
                     cursor: analysisResult ? 'pointer' : 'not-allowed',
@@ -888,7 +888,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       key={h}
                       style={{
                         fontSize: 9,
-                        letterSpacing: '0.12em',
+                        letterSpacing: '0.14em',
                         textTransform: 'uppercase',
                         color: 'rgba(168,161,150,0.5)',
                       }}
@@ -993,7 +993,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                   <div
                     style={{
                       fontSize: 10,
-                      letterSpacing: '0.1em',
+                      letterSpacing: '0.14em',
                       textTransform: 'uppercase',
                       color: 'rgba(208,176,102,0.6)',
                       marginBottom: 4,
@@ -1039,7 +1039,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       <div
                         style={{
                           fontSize: 9,
-                          letterSpacing: '0.12em',
+                          letterSpacing: '0.14em',
                           textTransform: 'uppercase',
                           color: 'rgba(208,176,102,0.6)',
                           marginBottom: 6,
@@ -1088,7 +1088,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       <div
                         style={{
                           fontSize: 9,
-                          letterSpacing: '0.12em',
+                          letterSpacing: '0.14em',
                           textTransform: 'uppercase',
                           color: 'rgba(208,176,102,0.6)',
                           marginBottom: 6,
@@ -1122,7 +1122,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       <div
                         style={{
                           fontSize: 9,
-                          letterSpacing: '0.12em',
+                          letterSpacing: '0.14em',
                           textTransform: 'uppercase',
                           color: 'rgba(208,176,102,0.6)',
                           marginBottom: 6,
@@ -1220,7 +1220,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       <span
                         style={{
                           fontSize: 10,
-                          letterSpacing: '0.08em',
+                          letterSpacing: '0.14em',
                           textTransform: 'uppercase',
                           color: 'rgba(208,176,102,0.6)',
                           width: 140,

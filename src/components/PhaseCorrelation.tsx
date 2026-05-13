@@ -51,20 +51,20 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Phase Correlation</h2>
+ <h2 className="text-lg">Phase Correlation</h2>
  <p className="text-xs text-dark-400">L/R phase relationship over time — red zones indicate phase issues</p>
  </div>
  <div className="flex items-center gap-3 text-[10px]">
- <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#6b7280' }} /> {labelA}: <span className="font-mono">{avgA.toFixed(2)}</span></span>
- <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#f59e0b' }} /> {labelB}: <span className="font-mono text-amber-400">{avgB.toFixed(2)}</span></span>
+ <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-500)' }} /> {labelA}: <span className="font-mono">{avgA.toFixed(2)}</span></span>
+ <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-warm-amber)' }} /> {labelB}: <span className="font-mono text-amber-400">{avgB.toFixed(2)}</span></span>
  </div>
  </div>
 
  <div className="bg-dark-800 p-3 overflow-hidden" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-32" preserveAspectRatio="none">
  {/* Zone backgrounds */}
- <rect x={padX} y={padY} width={w - padX * 2} height={(h - padY * 2) / 2} fill="#34d399" opacity="0.03" />
- <rect x={padX} y={padY + (h - padY * 2) / 2} width={w - padX * 2} height={(h - padY * 2) / 2} fill="#f43f5e" opacity="0.03" />
+ <rect x={padX} y={padY} width={w - padX * 2} height={(h - padY * 2) / 2} fill="var(--color-data-pass)" opacity="0.03" />
+ <rect x={padX} y={padY + (h - padY * 2) / 2} width={w - padX * 2} height={(h - padY * 2) / 2} fill="var(--color-danger)" opacity="0.03" />
 
  {/* Grid lines */}
  <line x1={padX} y1={padY + (h - padY * 2) / 2} x2={w - padX} y2={padY + (h - padY * 2) / 2} stroke="#4c4d52" strokeWidth="0.5" opacity="0.5" />
@@ -76,18 +76,18 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
  const x1 = padX + (zone.start / phaseOverTimeB.length) * (w - padX * 2)
  const x2 = padX + (zone.end / phaseOverTimeB.length) * (w - padX * 2)
  return (
- <rect key={i} x={x1} y={padY} width={x2 - x1} height={h - padY * 2} fill="#f43f5e" opacity="0.1" />
+ <rect key={i} x={x1} y={padY} width={x2 - x1} height={h - padY * 2} fill="var(--color-danger)" opacity="0.1" />
  )
  })}
 
  {/* Y-axis labels */}
- <text x={padX - 4} y={padY + 4} textAnchor="end" fontSize="8" fill="#34d399">+1</text>
+ <text x={padX - 4} y={padY + 4} textAnchor="end" fontSize="8" fill="var(--color-data-pass)">+1</text>
  <text x={padX - 4} y={padY + (h - padY * 2) / 2 + 3} textAnchor="end" fontSize="8" fill="#696a71">0</text>
- <text x={padX - 4} y={h - padY + 2} textAnchor="end" fontSize="8" fill="#f43f5e">-1</text>
+ <text x={padX - 4} y={h - padY + 2} textAnchor="end" fontSize="8" fill="var(--color-danger)">-1</text>
 
  {/* Curves */}
- <path d={makePath(phaseOverTimeA)} fill="none" stroke="#6b7280" strokeWidth="1" opacity="0.5" />
- <path d={makePath(phaseOverTimeB)} fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" />
+ <path d={makePath(phaseOverTimeA)} fill="none" stroke="var(--color-sand-500)" strokeWidth="1" opacity="0.5" />
+ <path d={makePath(phaseOverTimeB)} fill="none" stroke="var(--color-warm-amber)" strokeWidth="1.5" opacity="0.8" />
  </svg>
 
  {/* Time ruler */}

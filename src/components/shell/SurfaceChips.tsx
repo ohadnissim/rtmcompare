@@ -108,7 +108,7 @@ export default function SurfaceChips({ className }: Props) {
  fontFamily: 'var(--font-sans)',
  fontWeight: 500,
  fontSize: 'var(--text-metric-eyebrow)',
- letterSpacing: '0.12em',
+ letterSpacing: '0.14em',
  textTransform: 'uppercase',
  padding: '2px 10px',
  border: 'none',

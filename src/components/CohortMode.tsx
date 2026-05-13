@@ -98,13 +98,13 @@ export default function CohortMode({ rows, reference, onPickReference, onLoadRef
  style={{ borderRadius: '2px', backgroundColor: 'rgba(48,44,39,0.4)', border: '1px solid rgba(208,176,102,0.18)' }}>
  <div className="flex items-start justify-between gap-4 flex-wrap">
  <div className="min-w-0">
- <div className="text-[10px] tracking-[0.2em] uppercase mb-1" style={{ color: '#d0b066' }}>
+ <div className="text-[10px] tracking-[0.18em] uppercase mb-1" style={{ color: 'var(--color-accent)' }}>
  Cohort Mode · Reference
  </div>
- <div className="text-sm truncate" style={{ color: '#ebe7e0', maxWidth: '40ch' }} title={reference.path}>
+ <div className="text-sm truncate" style={{ color: 'var(--color-text-primary)', maxWidth: '40ch' }} title={reference.path}>
  {reference.filename}
  </div>
- <div className="text-[10px] font-mono mt-0.5" style={{ color: '#7a7164' }}>
+ <div className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
  {reference.lufs_i != null && <>{reference.lufs_i.toFixed(1)} LUFS · </>}
  {reference.true_peak_dbtp != null && <>{reference.true_peak_dbtp.toFixed(1)} dBTP · </>}
  {reference.lra != null && <>{reference.lra.toFixed(1)} LU · </>}
@@ -114,17 +114,17 @@ export default function CohortMode({ rows, reference, onPickReference, onLoadRef
  <div className="flex items-center gap-3 text-[10px]">
  <button
  onClick={() => onPickReference(null)}
- className="uppercase tracking-[0.12em] transition-colors hover:text-sand-200"
- style={{ color: '#8d867b' }}
+ className="uppercase tracking-[0.14em] transition-colors hover:text-sand-200"
+ style={{ color: 'var(--color-text-muted)' }}
  >
  Clear reference
  </button>
- <span style={{ color: '#3e3a33' }}>·</span>
- <span className="uppercase tracking-[0.1em]" style={{ color: '#7a7164' }}>Sort</span>
+ <span style={{ color: 'var(--color-sand-600)' }}>·</span>
+ <span className="uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>Sort</span>
  <button
  onClick={() => setSort(s => (s === 'order' ? 'distance' : 'order'))}
- className="uppercase tracking-[0.12em] transition-colors"
- style={{ color: '#d0b066' }}
+ className="uppercase tracking-[0.14em] transition-colors"
+ style={{ color: 'var(--color-accent)' }}
  >
  {sort === 'order' ? 'track order' : 'by distance'}
  </button>
@@ -157,13 +157,13 @@ export default function CohortMode({ rows, reference, onPickReference, onLoadRef
  }
  if (warnings.length === 0) return null
  return (
- <div className="space-y-0.5 pt-1 text-[11px]" style={{ color: '#b5afa4' }}>
- <div className="text-[10px] uppercase tracking-[0.12em] mb-1" style={{ color: '#d0b066' }}>
+ <div className="space-y-0.5 pt-1 text-[11px]" style={{ color: 'var(--color-sand-300)' }}>
+ <div className="text-[10px] uppercase tracking-[0.14em] mb-1" style={{ color: 'var(--color-accent)' }}>
  Class-wide drift
  </div>
  {warnings.slice(0, 6).map((w, i) => (
  <div key={i}>
- <span style={{ color: '#e07a4f' }}>⚠</span> {w}.
+ <span style={{ color: 'var(--color-data-warn)' }}>⚠</span> {w}.
  </div>
  ))}
  </div>
@@ -204,7 +204,7 @@ function DriftHeatmap({ deltas }: {
  <div className="overflow-x-auto">
  <div className="min-w-[600px]">
  {/* X-axis (frequency) labels */}
- <div className="flex items-center gap-2 text-[9px] font-mono mb-1" style={{ color: '#7a7164' }}>
+ <div className="flex items-center gap-2 text-[9px] font-mono mb-1" style={{ color: 'var(--color-text-muted)' }}>
  <div className="w-[28ch] flex-shrink-0" />
  <div className="flex-1 grid" style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}>
  {BAND_CENTRES.map((f, i) => (
@@ -213,7 +213,7 @@ function DriftHeatmap({ deltas }: {
  </div>
  ))}
  </div>
- <div className="w-[7ch] flex-shrink-0 text-right" style={{ color: '#d0b066' }}>RMS</div>
+ <div className="w-[7ch] flex-shrink-0 text-right" style={{ color: 'var(--color-accent)' }}>RMS</div>
  </div>
  {/* Rows */}
  {withData.map((d, idx) => (
@@ -224,10 +224,10 @@ function DriftHeatmap({ deltas }: {
  >
  <div
  className="w-[28ch] flex-shrink-0 text-[10px] truncate"
- style={{ color: '#a8a29e' }}
+ style={{ color: 'var(--color-sand-300)' }}
  title={d.row.filename}
  >
- {d.row.track_number ? <span className="font-mono" style={{ color: '#7a7164' }}>{d.row.track_number.padStart(2, '0')} </span> : null}
+ {d.row.track_number ? <span className="font-mono" style={{ color: 'var(--color-text-muted)' }}>{d.row.track_number.padStart(2, '0')} </span> : null}
  {d.row.filename}
  </div>
  <div
@@ -252,14 +252,14 @@ function DriftHeatmap({ deltas }: {
  </div>
  <div
  className="w-[7ch] flex-shrink-0 text-right text-[10px] font-mono tabular-nums"
- style={{ color: d.distance != null && d.distance > 3 ? '#e07a4f' : '#d0b066' }}
+ style={{ color: d.distance != null && d.distance > 3 ? 'var(--color-data-warn)' : 'var(--color-accent)' }}
  >
  {d.distance != null ? d.distance.toFixed(1) : '—'}
  </div>
  </div>
  ))}
  {/* Legend */}
- <div className="flex items-center justify-end gap-4 mt-2 text-[9px] font-mono" style={{ color: '#7a7164' }}>
+ <div className="flex items-center justify-end gap-4 mt-2 text-[9px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  <span className="inline-flex items-center gap-1">
  <span className="inline-block w-3 h-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(107,140,187,0.9)' }} /> −8 dB
  </span>
@@ -293,8 +293,8 @@ function CohortExplainer() {
  return (
  <button
  onClick={() => setOpen(true)}
- className="text-[10px] uppercase tracking-[0.12em] transition-colors hover:text-sand-200"
- style={{ color: '#8d867b' }}
+ className="text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-sand-200"
+ style={{ color: 'var(--color-text-muted)' }}
  >
  What is Cohort Mode?
  </button>
@@ -302,23 +302,23 @@ function CohortExplainer() {
  }
  return (
  <div className="px-4 py-3 text-[11px] space-y-2"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.55)', border: '1px solid rgba(208,176,102,0.2)', color: '#b5afa4' }}>
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.55)', border: '1px solid rgba(208,176,102,0.2)', color: 'var(--color-sand-300)' }}>
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.2em]" style={{ color: '#d0b066' }}>What you're looking at</span>
- <button onClick={dismiss} className="text-[10px] uppercase tracking-[0.1em] transition-colors hover:text-sand-200" style={{ color: '#8d867b' }} title="Dismiss — you can reopen from the 'What is Cohort Mode?' link.">
+ <span className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent)' }}>What you're looking at</span>
+ <button onClick={dismiss} className="text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-sand-200" style={{ color: 'var(--color-text-muted)' }} title="Dismiss — you can reopen from the 'What is Cohort Mode?' link.">
  Got it
  </button>
  </div>
  <p>
- Cohort Mode measures every track in this batch against a <b style={{ color: '#d0b066' }}>reference</b> —
+ Cohort Mode measures every track in this batch against a <b style={{ color: 'var(--color-accent)' }}>reference</b> —
  either one you promote from the album (click <span className="font-mono">ref ↑</span> on any row) or a file
  you drop in. It answers <i>"does this album sit together, or are a few tracks drifting?"</i>
  </p>
  <ul className="space-y-1 pl-4 list-disc">
- <li><b style={{ color: '#ebe7e0' }}>Heatmap rows</b> — one per track. Each cell is one of 31 ISO frequency bands. <span style={{ color: '#d0b066' }}>Gold</span> = louder than reference in that band; <span style={{ color: '#6b8cbb' }}>blue</span> = quieter.</li>
- <li><b style={{ color: '#ebe7e0' }}>What's meaningful</b> — deltas inside ±1.5 dB are noise; ±3 dB is noticeable; ±6 dB and the track will stand out on the album.</li>
- <li><b style={{ color: '#ebe7e0' }}>RMS column</b> — a single number summarising total tonal distance from the reference. Sort by it to see which track strays the most.</li>
- <li><b style={{ color: '#ebe7e0' }}>Class-wide drift</b> — below the heatmap. Flags bands where most of the album pulls the same direction (often a mastering-bus curve choice worth double-checking).</li>
+ <li><b style={{ color: 'var(--color-text-primary)' }}>Heatmap rows</b> — one per track. Each cell is one of 31 ISO frequency bands. <span style={{ color: 'var(--color-accent)' }}>Gold</span> = louder than reference in that band; <span style={{ color: 'var(--color-data-a)' }}>blue</span> = quieter.</li>
+ <li><b style={{ color: 'var(--color-text-primary)' }}>What's meaningful</b> — deltas inside ±1.5 dB are noise; ±3 dB is noticeable; ±6 dB and the track will stand out on the album.</li>
+ <li><b style={{ color: 'var(--color-text-primary)' }}>RMS column</b> — a single number summarising total tonal distance from the reference. Sort by it to see which track strays the most.</li>
+ <li><b style={{ color: 'var(--color-text-primary)' }}>Class-wide drift</b> — below the heatmap. Flags bands where most of the album pulls the same direction (often a mastering-bus curve choice worth double-checking).</li>
  </ul>
  </div>
  )

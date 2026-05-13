@@ -69,13 +69,13 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
  <div className="flex items-center justify-between gap-3 flex-wrap">
- <h2 className="text-lg font-semibold">Streaming Normalization Preview</h2>
+ <h2 className="text-lg">Streaming Normalization Preview</h2>
  {/* Sound Check twin window override — null = auto-detect
  loudest 30 s; numeric = render the twin starting at this
  second. Useful for ambient / post-rock / albums where
  the "loudest 30s" isn't representative. */}
  {(fileA || fileB) && (
- <label className="text-[10px] flex items-center gap-2" style={{ color: '#7a7164' }}>
+ <label className="text-[10px] flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
  Twin starts at
  <input
  type="number"
@@ -88,7 +88,7 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  setTwinStartSec(v === '' ? null : Math.max(0, Number(v)))
  }}
  className="w-20 px-2 py-0.5 rounded outline-none font-mono"
- style={{ backgroundColor: 'rgba(14,13,11,0.6)', color: '#d0b066', border: '1px solid rgba(168,161,150,0.15)' }}
+ style={{ backgroundColor: 'rgba(14,13,11,0.6)', color: 'var(--color-accent)', border: '1px solid rgba(168,161,150,0.15)' }}
  title="Seconds from the start. Leave blank to auto-detect the loudest 30 s window."
  />
  <span>s</span>
@@ -96,7 +96,7 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  <button
  onClick={() => setTwinStartSec(null)}
  className="px-1.5 rounded"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.15)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.15)' }}
  >auto</button>
  )}
  </label>
@@ -185,10 +185,10 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  return (
  <div className="space-y-2 pt-1">
  <div className="flex items-center gap-2">
- <span className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>
+ <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>
  Streaming delta heatmap
  </span>
- <span className="text-[10px]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  where the DSP's limiter engaged on the 30-second preview
  </span>
  </div>
@@ -204,7 +204,7 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  )
  })()}
 
- <p className="text-[10px] text-dark-500 italic">
+ <p className="text-[10px] text-dark-500 font-display italic">
  Target values per each platform's loudness-normalisation spec (current as of 2026). <TeachTerm term="interSample">TP breach</TeachTerm> flags indicate the platform's <TeachTerm term="tpLimiter">limiter</TeachTerm> will engage after gain adjustment.
  </p>
  </div>
@@ -221,9 +221,9 @@ function PlatformCell({ row, file, side, audition, twin, integratedLufs, twinSta
  twinStartSec: number | null
 }) {
  const actionColor =
- row.action === 'attenuated' ? '#d0b066' :
- row.action === 'boosted' ? '#8a95ab' :
- '#6fa37e'
+ row.action === 'attenuated' ? 'var(--color-accent)' :
+ row.action === 'boosted' ? 'var(--color-slate-blue)' :
+ 'var(--color-success)'
  const key: AuditionKey = `${row.name}::${side}`
  const twinKey: AuditionKey = `twin::${row.name}::${side}`
  const dspId = row.dsp || DSP_ID_BY_NAME[row.name] || row.name.toLowerCase()
@@ -266,11 +266,11 @@ function PlatformCell({ row, file, side, audition, twin, integratedLufs, twinSta
  : `Play 30 s at ${row.delta_db > 0 ? '+' : ''}${row.delta_db.toFixed(1)} dB (gain-only preview of ${row.name}'s normalisation)`}
  >
  {isLoading ? (
- <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#d0b066' }} />
+ <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-accent)' }} />
  ) : isPlaying ? (
- <svg className="w-2.5 h-2.5" fill="#d0b066" viewBox="0 0 12 12"><rect x="2" y="2" width="3" height="8" /><rect x="7" y="2" width="3" height="8" /></svg>
+ <svg className="w-2.5 h-2.5" fill="var(--color-accent)" viewBox="0 0 12 12"><rect x="2" y="2" width="3" height="8" /><rect x="7" y="2" width="3" height="8" /></svg>
  ) : (
- <svg className="w-2.5 h-2.5" fill="#d0b066" viewBox="0 0 12 12"><path d="M3 2 L10 6 L3 10 Z" /></svg>
+ <svg className="w-2.5 h-2.5" fill="var(--color-accent)" viewBox="0 0 12 12"><path d="M3 2 L10 6 L3 10 Z" /></svg>
  )}
  </button>
  )}
@@ -295,9 +295,9 @@ function PlatformCell({ row, file, side, audition, twin, integratedLufs, twinSta
  : `Play 30 s through ${row.name}'s real chain (gain + TP limiter + AAC codec). Hear exactly what listeners get.${twinInfo?.post_limiter_peak_db != null ? ` · Limiter peak ${twinInfo.post_limiter_peak_db.toFixed(1)} dB` : ''}`}
  >
  {isTwinLoading ? (
- <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#7ca4a3' }} />
+ <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-teal)' }} />
  ) : (
- <span className="text-[7px] font-bold tracking-tighter" style={{ color: '#7ca4a3' }}>
+ <span className="text-[7px] font-bold tracking-tighter" style={{ color: 'var(--color-teal)' }}>
  {isTwinPlaying ? '■' : '≋'}
  </span>
  )}
@@ -318,7 +318,7 @@ function PlatformCell({ row, file, side, audition, twin, integratedLufs, twinSta
  {twinError && !isTwinPlaying && !isTwinLoading && (
  <span
  className="text-[9px] px-1.5 py-0.5 rounded font-mono cursor-help"
- style={{ color: '#c96765', backgroundColor: 'rgba(201,103,101,0.15)' }}
+ style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(201,103,101,0.15)' }}
  title={`Sound Check twin render failed: ${twinError}`}
  >
  render ✕

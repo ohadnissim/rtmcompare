@@ -765,16 +765,16 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  >
  ← Back
  </button>
- <span className="text-[10px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>Album · Batch</span>
- <span className="text-sm" style={{ color: '#ebe7e0' }}>{folderName || 'Folder'}</span>
- <span className="text-[11px]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>Album · Batch</span>
+ <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{folderName || 'Folder'}</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
  {results.length} track{results.length === 1 ? '' : 's'}
  </span>
  {/* Tour replay — runs the in-context batch tour on demand. */}
  <button
  onClick={() => batchTour.startTour()}
  className="text-[10px] uppercase tracking-[0.14em] px-2 py-1 rounded transition-colors hover:text-sand-200"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.18)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.18)' }}
  title="Replay the batch-view tour — tabs, notes, Cohort Mode, song-tab surfaces."
  >
  Tour
@@ -797,14 +797,14 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03] disabled:cursor-wait"
  style={{
  borderRadius: '2px',
- color: cohortRefLoading ? '#c5a55a' : '#a8a29e',
+ color: cohortRefLoading ? 'var(--color-accent)' : 'var(--color-sand-300)',
  border: `1px solid ${cohortRefLoading ? 'rgba(197,165,90,0.4)' : 'rgba(168,161,150,0.2)'}`,
  }}
  title="Load an external reference file (WAV / FLAC). Engages Cohort Mode with drift heatmap + per-track distance against your reference."
  >
  {cohortRefLoading ? (
  <span className="inline-flex items-center gap-1.5">
- <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#c5a55a' }} />
+ <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-accent)' }} />
  {cohortRefMsg || 'Analysing reference…'}
  </span>
  ) : (
@@ -815,7 +815,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  {cohortRefError && (
  <span
  className="text-[10px] px-2 py-1 rounded"
- style={{ color: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
+ style={{ color: 'var(--color-danger)', backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
  role="alert"
  title="Click to dismiss"
  onClick={() => setCohortRefError(null)}
@@ -833,7 +833,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03]"
  style={{
  borderRadius: '2px',
- color: reissueMode ? '#d0b066' : '#8d867b',
+ color: reissueMode ? 'var(--color-accent)' : 'var(--color-text-muted)',
  border: `1px solid ${reissueMode ? 'rgba(208,176,102,0.4)' : 'rgba(168,161,150,0.2)'}`,
  }}
  title="Archival Reissue mode: old-master vs new-master comparison. Auto-suggests the oldest / 'original'-named master as the A-side reference across every song tab."
@@ -843,7 +843,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <button
  onClick={saveSession}
  className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03]"
- style={{ borderRadius: '2px', color: '#a8a29e', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-sand-300)', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Save this album session (results, notes, open tabs) to a .rtmalbum.json file you can reopen later without re-analysing."
  >
  Save session
@@ -854,7 +854,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <button
  onClick={loadSession}
  className="text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03]"
- style={{ borderRadius: '2px', color: '#a8a29e', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-sand-300)', border: '1px solid rgba(168,161,150,0.2)' }}
  title="Load a previously-saved .rtmalbum.json session. Replaces the current batch view."
  >
  Load session
@@ -888,13 +888,13 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  style={{
  borderRadius: '2px',
  backgroundColor: activeTab === OVERVIEW_TAB ? 'rgba(208,176,102,0.12)' : 'transparent',
- color: activeTab === OVERVIEW_TAB ? '#d0b066' : '#a8a29e',
+ color: activeTab === OVERVIEW_TAB ? 'var(--color-accent)' : 'var(--color-sand-300)',
  border: `1px solid ${activeTab === OVERVIEW_TAB ? 'rgba(208,176,102,0.4)' : 'transparent'}`,
  fontWeight: activeTab === OVERVIEW_TAB ? 500 : 400,
  }}
  title="Album overview — cohort, hero stats, table, album notes"
  >
- <span className="uppercase tracking-[0.12em]">Overview</span>
+ <span className="uppercase tracking-[0.14em]">Overview</span>
  </button>
  {/* One song slot — not an array. The active song sits to the right
  of Overview; clicking a different row rotates this slot in
@@ -916,30 +916,30 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  border: '1px solid rgba(208,176,102,0.4)',
  }}
  >
- <div className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 text-[10px] tracking-[0.05em]" style={{ color: '#d0b066', fontWeight: 500 }} title={r.filename}>
+ <div className="flex items-center gap-1.5 pl-3 pr-2 py-1.5 text-[10px] tracking-[0.05em]" style={{ color: 'var(--color-accent)', fontWeight: 500 }} title={r.filename}>
  <span className="font-mono opacity-50" style={{ fontSize: 9 }}>
  {(r.track_number || String((idx === -1 ? 0 : idx) + 1).padStart(2, '0')).padStart(2, '0')}
  </span>
  <span className="truncate max-w-[22ch]">{name}</span>
  {ana?.state === 'running' && (
- <span className="font-mono text-[9px]" style={{ color: '#c5a55a' }} title={`Deep analysis running — ${analysisPct(ana)}%`}>
+ <span className="font-mono text-[9px]" style={{ color: 'var(--color-accent)' }} title={`Deep analysis running — ${analysisPct(ana)}%`}>
  {analysisPct(ana)}%
  </span>
  )}
  {ana?.state === 'done' && (
- <span className="text-[9px]" style={{ color: '#6ec577' }} title="Deep analysis ready">✓</span>
+ <span className="text-[9px]" style={{ color: 'var(--color-data-pass)' }} title="Deep analysis ready">✓</span>
  )}
  {hasNote && (
- <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c5a55a' }} title="Has notes" />
+ <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }} title="Has notes" />
  )}
  {isPlayingRow && (
- <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#d0b066' }} />
+ <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }} />
  )}
  </div>
  <button
  onClick={(e) => { e.stopPropagation(); closeSongTab(activeSongPath) }}
  className="pr-2 pl-1 py-1.5 transition-colors hover:text-sand-200"
- style={{ color: '#d0b066', fontSize: 12, lineHeight: 1 }}
+ style={{ color: 'var(--color-accent)', fontSize: 12, lineHeight: 1 }}
  title="Close tab (returns to Overview)"
  aria-label={`Close ${name} tab`}
  >
@@ -965,19 +965,19 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  borderRadius: '2px',
  backgroundColor: 'rgba(111,163,126,0.08)',
  border: '1px solid rgba(111,163,126,0.25)',
- color: '#b5afa4',
+ color: 'var(--color-sand-300)',
  }}
  >
- <div className="text-[9px] uppercase tracking-[0.15em] mb-1" style={{ color: '#6fa37e' }}>
+ <div className="text-[9px] uppercase tracking-[0.16em] mb-1" style={{ color: 'var(--color-success)' }}>
  Why this surface
  </div>
  <p className="mb-1.5" style={{ color: '#d9d4c8' }}>
  Album / EP deliveries need <strong>cohort consistency</strong> (LUFS, LRA, TP, tonality) across every track. One bright track next to nine dark ones reads as an engineering mistake, not an artistic choice. This surface is the single-pane read on that consistency.
  </p>
- <p className="mb-1" style={{ color: '#8d867b' }}>
- <strong style={{ color: '#a8a29e' }}>Cohort Mode</strong> pins one track as the reference; every other track's distance from it renders as a heatmap. <strong style={{ color: '#a8a29e' }}>Loudness anchor</strong> reframes the Δ column from "vs. album median" to "vs. Spotify −14" / "Apple −16" / "R128 −23" so you can read delivery headroom directly. <strong style={{ color: '#a8a29e' }}>Album notes</strong> and <strong style={{ color: '#a8a29e' }}>per-song notes</strong> ride along in the PDF export. Click any row to rotate a song-detail tab in the slot to the right of Overview.
+ <p className="mb-1" style={{ color: 'var(--color-text-muted)' }}>
+ <strong style={{ color: 'var(--color-sand-300)' }}>Cohort Mode</strong> pins one track as the reference; every other track's distance from it renders as a heatmap. <strong style={{ color: 'var(--color-sand-300)' }}>Loudness anchor</strong> reframes the Δ column from "vs. album median" to "vs. Spotify −14" / "Apple −16" / "R128 −23" so you can read delivery headroom directly. <strong style={{ color: 'var(--color-sand-300)' }}>Album notes</strong> and <strong style={{ color: 'var(--color-sand-300)' }}>per-song notes</strong> ride along in the PDF export. Click any row to rotate a song-detail tab in the slot to the right of Overview.
  </p>
- <p className="text-[10px] italic" style={{ color: '#8d867b' }}>
+ <p className="text-[10px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
  <strong>Reissue mode</strong> (top-right toggle) reframes the batch for old-master vs. new-master. Auto-suggests the likely "original" as the A-side reference across every song tab. <strong>DDP Preflight</strong> exports a per-track pass/fail receipt. <strong>Save session</strong> writes a .rtmalbum.json so the engineer can reopen the exact state without re-analysing.
  </p>
  </div>
@@ -1017,7 +1017,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  without doing the subtraction in their head. Narrow row,
  lives right under the stats so the relationship is obvious. */}
  <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: 'rgba(168,161,150,0.08)' }}>
- <span className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-text-muted)' }}>
  Loudness anchor
  </span>
  <div className="flex gap-1 p-0.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.5)' }}>
@@ -1035,7 +1035,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  className="text-[10px] px-2.5 py-1 rounded"
  style={{
  backgroundColor: active ? 'rgba(208,176,102,0.18)' : 'transparent',
- color: active ? '#d0b066' : '#8d867b',
+ color: active ? 'var(--color-accent)' : 'var(--color-text-muted)',
  border: active ? '1px solid rgba(208,176,102,0.35)' : '1px solid transparent',
  }}
  title={opt.title}
@@ -1046,7 +1046,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  )
  })}
  </div>
- <span className="text-[10px]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  {lufsAnchor === 'median'
  ? 'Δ column compares tracks to each other (outlier view).'
  : `Δ column shows headroom vs. ${lufsAnchor} LUFS.`}
@@ -1074,18 +1074,18 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <table className="w-full text-[11px]">
  <thead>
  <tr style={{ backgroundColor: 'rgba(30,28,24,0.6)' }}>
- <th className="px-2 py-2 text-center w-8" style={{ color: '#7a7164' }}></th>
+ <th className="px-2 py-2 text-center w-8" style={{ color: 'var(--color-text-muted)' }}></th>
  <TH label="#" onClick={() => toggleSort('track_number')} active={sortKey === 'track_number'} dir={sortDir} />
  <TH label="Filename" onClick={() => toggleSort('filename')} active={sortKey === 'filename'} dir={sortDir} align="left" />
  <TH label="LUFS-I" onClick={() => toggleSort('lufs_i')} active={sortKey === 'lufs_i'} dir={sortDir} />
  <TH label="TP" onClick={() => toggleSort('true_peak_dbtp')} active={sortKey === 'true_peak_dbtp'} dir={sortDir} />
  <TH label="LRA" onClick={() => toggleSort('lra')} active={sortKey === 'lra'} dir={sortDir} />
  <TH label="Length" onClick={() => toggleSort('duration_sec')} active={sortKey === 'duration_sec'} dir={sortDir} />
- <th className="px-3 py-2 text-center w-20" style={{ color: '#7a7164' }}>SR · BD</th>
- <th className="px-3 py-2 text-left" style={{ color: '#7a7164' }}>ISRC</th>
- <th className="px-3 py-2 text-center w-14" style={{ color: '#7a7164' }}>Mono</th>
- {reference && <th className="px-3 py-2 text-center w-16" style={{ color: '#d0b066' }}>Δ vs ref</th>}
- <th className="px-3 py-2 text-center w-10" style={{ color: '#7a7164' }}></th>
+ <th className="px-3 py-2 text-center w-20" style={{ color: 'var(--color-text-muted)' }}>SR · BD</th>
+ <th className="px-3 py-2 text-left" style={{ color: 'var(--color-text-muted)' }}>ISRC</th>
+ <th className="px-3 py-2 text-center w-14" style={{ color: 'var(--color-text-muted)' }}>Mono</th>
+ {reference && <th className="px-3 py-2 text-center w-16" style={{ color: 'var(--color-accent)' }}>Δ vs ref</th>}
+ <th className="px-3 py-2 text-center w-10" style={{ color: 'var(--color-text-muted)' }}></th>
  </tr>
  </thead>
  <tbody>
@@ -1127,9 +1127,9 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  aria-label={playingPath === r.path ? 'Pause' : 'Play'}
  >
  {playingPath === r.path ? (
- <svg className="w-2.5 h-2.5" viewBox="0 0 12 12" fill="#d0b066"><rect x="2" y="2" width="3" height="8" /><rect x="7" y="2" width="3" height="8" /></svg>
+ <svg className="w-2.5 h-2.5" viewBox="0 0 12 12" fill="var(--color-accent)"><rect x="2" y="2" width="3" height="8" /><rect x="7" y="2" width="3" height="8" /></svg>
  ) : (
- <svg className="w-2.5 h-2.5" viewBox="0 0 12 12" fill="#d0b066"><path d="M3 2 L10 6 L3 10 Z" /></svg>
+ <svg className="w-2.5 h-2.5" viewBox="0 0 12 12" fill="var(--color-accent)"><path d="M3 2 L10 6 L3 10 Z" /></svg>
  )}
  </button>
  </td>
@@ -1137,7 +1137,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <td className="px-3 py-2 text-left text-dark-200">
  <div className="flex items-center gap-2">
  <span className="truncate max-w-[32ch]" title={r.filename}>{r.filename}</span>
- {r.title && <span className="text-[10px]" style={{ color: '#a8a29e' }}>· {r.title}</span>}
+ {r.title && <span className="text-[10px]" style={{ color: 'var(--color-sand-300)' }}>· {r.title}</span>}
  {/* Deep-analysis indicator — appears the moment the
  user opens a song tab for the first time, so
  they know analysis is actually running. Stays as
@@ -1146,17 +1146,17 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  {songAnalysis[r.path]?.state === 'running' && (
  <span
  className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded"
- style={{ color: '#c5a55a', backgroundColor: 'rgba(197,165,90,0.1)' }}
+ style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(197,165,90,0.1)' }}
  title={`Deep analysis running (${analysisElapsedSec(songAnalysis[r.path])}s elapsed) — ${songAnalysis[r.path].message || 'working…'}`}
  >
- <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#c5a55a' }} />
+ <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-accent)' }} />
  {analysisPct(songAnalysis[r.path])}%
  </span>
  )}
  {songAnalysis[r.path]?.state === 'done' && (
  <span
  className="ml-auto text-[10px]"
- style={{ color: '#6ec577' }}
+ style={{ color: 'var(--color-data-pass)' }}
  title="Deep analysis ready — open the tab to view."
  >
  ✓ deep
@@ -1165,16 +1165,16 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  </div>
  </td>
  <td className="px-3 py-2 text-center font-mono">
- <span style={{ color: lufsOutlier ? '#e05a5a' : '#e7e5e4' }}>
+ <span style={{ color: lufsOutlier ? 'var(--color-danger)' : 'var(--color-sand-100)' }}>
  {r.lufs_i != null ? r.lufs_i.toFixed(1) : '—'}
  </span>
  {lufsDelta != null && Math.abs(lufsDelta) >= 0.5 && (
- <span className="ml-1 text-[9px]" style={{ color: lufsOutlier ? '#e05a5a' : '#7a7164' }}>
+ <span className="ml-1 text-[9px]" style={{ color: lufsOutlier ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
  {lufsDelta > 0 ? '+' : ''}{lufsDelta.toFixed(1)}
  </span>
  )}
  </td>
- <td className="px-3 py-2 text-center font-mono" style={{ color: tpHot ? '#e05a5a' : '#e7e5e4' }}>
+ <td className="px-3 py-2 text-center font-mono" style={{ color: tpHot ? 'var(--color-danger)' : 'var(--color-sand-100)' }}>
  {r.true_peak_dbtp != null ? r.true_peak_dbtp.toFixed(1) : '—'}
  </td>
  <td className="px-3 py-2 text-center font-mono text-dark-300">
@@ -1189,16 +1189,16 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  </td>
  <td className="px-3 py-2 text-left font-mono text-[10px]">
  {r.isrc ? (
- <span style={{ color: isrcDup ? '#e05a5a' : '#8d867b' }} title={isrcDup ? 'Duplicate ISRC across album' : undefined}>
+ <span style={{ color: isrcDup ? 'var(--color-danger)' : 'var(--color-text-muted)' }} title={isrcDup ? 'Duplicate ISRC across album' : undefined}>
  {r.isrc}{isrcDup && ' ⚠'}
  </span>
  ) : (
- <span style={{ color: '#c5a55a' }}>missing</span>
+ <span style={{ color: 'var(--color-accent)' }}>missing</span>
  )}
  </td>
  <td className="px-3 py-2 text-center font-mono text-[10px]">
  {r.mono_compat_loss_pct != null ? (
- <span style={{ color: r.mono_compat_loss_pct > 30 ? '#c5a55a' : '#7a7164' }}>
+ <span style={{ color: r.mono_compat_loss_pct > 30 ? 'var(--color-accent)' : 'var(--color-text-muted)' }}>
  {r.mono_compat_loss_pct}%
  </span>
  ) : '—'}
@@ -1207,8 +1207,8 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  {reference && (
  <td className="px-3 py-2 text-center font-mono text-[10px]">
  {(() => {
- if (!reference.spectrum || !r.spectrum || reference.spectrum.length !== 31 || r.spectrum.length !== 31) return <span style={{ color: '#3e3a33' }}>—</span>
- if (r.path === reference.path) return <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: '#d0b066' }}>ref</span>
+ if (!reference.spectrum || !r.spectrum || reference.spectrum.length !== 31 || r.spectrum.length !== 31) return <span style={{ color: 'var(--color-sand-600)' }}>—</span>
+ if (r.path === reference.path) return <span className="text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-accent)' }}>ref</span>
  // 5.7.0: smooth both spectra before the cohort-distance calc.
  // A kick fundamental in a different key reads as a narrow
  // mismatch even when broad-band balance is close. Smoothing
@@ -1220,7 +1220,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  const rms = Math.sqrt(delta.reduce((s, d) => s + d * d, 0) / delta.length)
  const warn = rms > 3
  return (
- <span style={{ color: warn ? '#e07a4f' : '#d0b066' }} title={`${rms.toFixed(2)} dB RMS distance from reference across 31 bands`}>
+ <span style={{ color: warn ? 'var(--color-data-warn)' : 'var(--color-accent)' }} title={`${rms.toFixed(2)} dB RMS distance from reference across 31 bands`}>
  {rms.toFixed(1)}
  </span>
  )
@@ -1230,12 +1230,12 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  {/* Ref ↑ — promote this row as the reference. */}
  <td className="px-3 py-2 text-center">
  {reference?.path === r.path ? (
- <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: '#d0b066' }} title="Current cohort reference">ref</span>
+ <span className="text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-accent)' }} title="Current cohort reference">ref</span>
  ) : (
  <button
  onClick={() => setReference(r)}
- className="text-[9px] uppercase tracking-[0.1em] hover:text-[#d0b066] transition-colors"
- style={{ color: '#8d867b' }}
+ className="text-[9px] uppercase tracking-[0.14em] hover:text-[var(--color-accent)] transition-colors"
+ style={{ color: 'var(--color-text-muted)' }}
  title="Use this track as the cohort reference"
  >
  ref ↑
@@ -1250,10 +1250,10 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  </div>
 
  {/* Footer notes — outliers + duplicate ISRCs surfaced as plain text */}
- <div className="space-y-1 text-[11px]" style={{ color: '#8d867b' }}>
+ <div className="space-y-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
  {stats.lufsMedian != null && results.filter(r => r.lufs_i != null && Math.abs(r.lufs_i - stats.lufsMedian!) > 1.5).map(r => (
  <div key={r.path}>
- <span style={{ color: '#e05a5a' }}>⚠</span> {r.filename} is {
+ <span style={{ color: 'var(--color-danger)' }}>⚠</span> {r.filename} is {
  ((r.lufs_i! - stats.lufsMedian!) > 0 ? '+' : '') + (r.lufs_i! - stats.lufsMedian!).toFixed(1)
  } LU from the album median — consider re-levelling.
  </div>
@@ -1406,12 +1406,12 @@ function NotesBlock({ label, placeholder, value, onChange }: {
  aria-expanded={open}
  >
  <div className="flex items-center gap-2">
- <span className="text-[10px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>{label}</span>
+ <span className="text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>{label}</span>
  {hasContent && (
- <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#c5a55a' }} title="Has notes" />
+ <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }} title="Has notes" />
  )}
  </div>
- <span className="text-[11px]" style={{ color: '#7a7164' }}>{open ? '−' : '+'}</span>
+ <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{open ? '−' : '+'}</span>
  </button>
  {open && (
  <div className="px-4 pb-3">
@@ -1424,13 +1424,13 @@ function NotesBlock({ label, placeholder, value, onChange }: {
  style={{
  borderRadius: '2px',
  backgroundColor: 'rgba(18,16,14,0.6)',
- color: '#ebe7e0',
+ color: 'var(--color-text-primary)',
  border: '1px solid rgba(168,161,150,0.12)',
  fontFamily: 'ui-sans-serif, -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif',
  lineHeight: 1.5,
  }}
  />
- <div className="mt-1 text-[9px]" style={{ color: '#8d867b' }}>
+ <div className="mt-1 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
  Saved with this session · included in PDF export
  </div>
  </div>
@@ -1477,7 +1477,7 @@ function TH({ label, onClick, active, dir, align = 'center' }: {
  <th
  className={`px-3 py-2 cursor-pointer select-none hover:text-sand-200 transition-colors text-${align}`}
  onClick={onClick}
- style={{ color: active ? '#d0b066' : '#7a7164', fontWeight: active ? 500 : 400 }}
+ style={{ color: active ? 'var(--color-accent)' : 'var(--color-text-muted)', fontWeight: active ? 500 : 400 }}
  >
  {label}
  {active && <span className="ml-1 text-[9px]">{dir === 'asc' ? '↑' : '↓'}</span>}
@@ -1488,8 +1488,8 @@ function TH({ label, onClick, active, dir, align = 'center' }: {
 function StatCard({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
  return (
  <div>
- <div className="text-[10px] tracking-[0.2em] uppercase mb-1" style={{ color: '#7a7164' }}>{label}</div>
- <div className="text-xl font-mono" style={{ color: warn ? '#e05a5a' : '#d0b066', fontWeight: 300 }}>
+ <div className="text-[10px] tracking-[0.18em] uppercase mb-1" style={{ color: 'var(--color-text-muted)' }}>{label}</div>
+ <div className="text-xl font-mono" style={{ color: warn ? 'var(--color-danger)' : 'var(--color-accent)', fontWeight: 300 }}>
  {value}
  </div>
  </div>
@@ -1581,22 +1581,22 @@ function buildBatchPdfHtml(
  body { margin: 0; padding: 0; }
  .eyebrow { font-size: 8pt; letter-spacing: 0.24em; text-transform: uppercase; color: #b48f3a; }
  h1 { font-family: "Playfair Display", Georgia, serif; font-weight: 400; letter-spacing: 0.02em; font-size: 26pt; margin: 0 0 4pt; }
- .sub { color: #7a7164; font-size: 9pt; }
- .meta { color: #7a7164; font-size: 9pt; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4pt; }
+ .sub { color: var(--color-text-muted); font-size: 9pt; }
+ .meta { color: var(--color-text-muted); font-size: 9pt; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4pt; }
  .hairline { border: none; border-top: 1px solid #d8cba5; margin: 12pt 0 10pt; }
  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12pt; margin: 10pt 0 14pt; padding: 10pt 0; border-top: 1px solid #ecdfbf; border-bottom: 1px solid #ecdfbf; }
- .stat .l { font-size: 8pt; letter-spacing: 0.2em; text-transform: uppercase; color: #8d867b; }
+ .stat .l { font-size: 8pt; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-text-muted); }
  .stat .v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 300; font-size: 18pt; color: #b48f3a; }
  .stat.warn .v { color: #a23d2f; }
  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
  th, td { padding: 6pt 7pt; text-align: center; border-bottom: 1px solid #ecdfbf; }
- th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.12em; color: #7a7164; font-weight: 500; background: #f4eddb; }
+ th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.12em; color: var(--color-text-muted); font-weight: 500; background: #f4eddb; }
  td:nth-child(2) { text-align: left; }
- td.num { color: #7a7164; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+ td.num { color: var(--color-text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
  td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
- td .delta { font-size: 8pt; margin-left: 4pt; color: #8d867b; }
+ td .delta { font-size: 8pt; margin-left: 4pt; color: var(--color-text-muted); }
  td.warn, td.warn .delta, td.warn code { color: #a23d2f; }
- td .sub, td.sub { color: #8d867b; font-size: 8.5pt; }
+ td .sub, td.sub { color: var(--color-text-muted); font-size: 8.5pt; }
  .notes { margin-top: 14pt; padding: 10pt 14pt; background: #f4eddb; border-left: 2pt solid #b48f3a; }
  .notes h3 { margin: 0 0 4pt; font-size: 10pt; letter-spacing: 0.14em; text-transform: uppercase; color: #b48f3a; font-weight: 500; }
  .notes ul { margin: 4pt 0 0; padding-left: 16pt; }
@@ -1608,7 +1608,7 @@ function buildBatchPdfHtml(
  .song-notes .song-note:first-of-type { border-top: none; margin-top: 4pt; padding-top: 0; }
  .song-notes .song-note b { font-size: 10pt; color: #7a6226; }
  .song-notes .song-note p { margin-top: 3pt; font-size: 10pt; }
- .footer { margin-top: 16pt; border-top: 1px solid #d8cba5; padding-top: 8pt; font-size: 8.5pt; color: #8d867b; display: flex; justify-content: space-between; }
+ .footer { margin-top: 16pt; border-top: 1px solid #d8cba5; padding-top: 8pt; font-size: 8.5pt; color: var(--color-text-muted); display: flex; justify-content: space-between; }
  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #ecdfbf; padding: 0 3pt; border-radius: 2pt; }
 </style></head><body>
  <div class="eyebrow">Album · Batch</div>
@@ -1735,27 +1735,27 @@ function buildDDPPreflightHtml(
  return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>DDP Preflight — ${esc(folderName || 'Album')}</title>
 <style>
- @page { size: A4 landscape; margin: 12mm 10mm; @bottom-right { content: counter(page) " / " counter(pages); color: #8d867b; font-size: 8pt; } }
+ @page { size: A4 landscape; margin: 12mm 10mm; @bottom-right { content: counter(page) " / " counter(pages); color: var(--color-text-muted); font-size: 8pt; } }
  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
  body { font-family: ui-sans-serif, -apple-system, "Helvetica Neue", Arial, sans-serif; background: #fbf9f4; color: #1a1814; line-height: 1.5; font-size: 10pt; }
  .eyebrow { font-size: 8.5pt; letter-spacing: 0.24em; text-transform: uppercase; color: #b48f3a; font-weight: 500; }
  h1 { font-family: "Playfair Display", Georgia, serif; font-weight: 400; font-size: 22pt; letter-spacing: 0.01em; margin: 3pt 0 4pt; }
- .sub { color: #7a7164; font-size: 9pt; }
+ .sub { color: var(--color-text-muted); font-size: 9pt; }
  .verdict { font-size: 16pt; padding: 10pt 14pt; border-left: 3pt solid ${allPass ? '#3d6b4a' : '#a23d2f'}; background: ${allPass ? '#eaf2ec' : '#f5e0df'}; margin: 8pt 0 12pt; color: ${allPass ? '#1f3d2a' : '#6b1f19'}; font-weight: 500; }
  .verdict .reason { display: block; margin-top: 3pt; font-size: 10pt; font-weight: 400; color: #5c5549; }
  .identity { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10pt; margin: 6pt 0 12pt; padding: 9pt 0; border-top: 1px solid #ecdfbf; border-bottom: 1px solid #ecdfbf; }
- .identity div .l { font-size: 7.5pt; letter-spacing: 0.18em; text-transform: uppercase; color: #8d867b; }
+ .identity div .l { font-size: 7.5pt; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-text-muted); }
  .identity div .v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11pt; color: #1a1814; margin-top: 2pt; word-break: break-all; }
  .identity div.warn .v { color: #a23d2f; }
  table.preflight { width: 100%; border-collapse: collapse; font-size: 9pt; table-layout: fixed; }
  table.preflight th, table.preflight td { padding: 5pt 6pt; text-align: center; border-bottom: 1px solid #ecdfbf; vertical-align: middle; }
  table.preflight th { font-size: 7.5pt; letter-spacing: 0.1em; text-transform: uppercase; color: #b48f3a; background: #f4eddb; font-weight: 500; }
- table.preflight td.num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #8d867b; width: 24pt; }
+ table.preflight td.num { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--color-text-muted); width: 24pt; }
  table.preflight td.name { text-align: left; font-size: 9.5pt; }
- table.preflight td.name .sub { font-size: 8pt; color: #8d867b; margin-top: 1pt; }
+ table.preflight td.name .sub { font-size: 8pt; color: var(--color-text-muted); margin-top: 1pt; }
  table.preflight td.check { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
  table.preflight td.check .mark { display: block; font-size: 12pt; font-weight: 500; }
- table.preflight td.check .det { display: block; font-size: 7.5pt; color: #8d867b; margin-top: 1pt; }
+ table.preflight td.check .det { display: block; font-size: 7.5pt; color: var(--color-text-muted); margin-top: 1pt; }
  table.preflight td.check.p .mark { color: #3d6b4a; }
  table.preflight td.check.f .mark { color: #a23d2f; }
  table.preflight td.check.f .det { color: #a23d2f; font-weight: 500; }
@@ -1763,8 +1763,8 @@ function buildDDPPreflightHtml(
  .signoff-label { font-size: 8.5pt; letter-spacing: 0.2em; text-transform: uppercase; color: #b48f3a; margin-bottom: 6pt; }
  .signoff-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20pt; margin-top: 8pt; }
  .signoff-grid .line { border-bottom: 1px solid #b48f3a; height: 14pt; }
- .signoff-grid .l { font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; color: #8d867b; margin-top: 4pt; }
- .footer { margin-top: 14pt; padding-top: 8pt; border-top: 1px solid #d8cba5; font-size: 8pt; color: #8d867b; display: flex; justify-content: space-between; }
+ .signoff-grid .l { font-size: 8pt; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-text-muted); margin-top: 4pt; }
+ .footer { margin-top: 14pt; padding-top: 8pt; border-top: 1px solid #d8cba5; font-size: 8pt; color: var(--color-text-muted); display: flex; justify-content: space-between; }
 </style></head><body>
  <div class="eyebrow">Distribution · DDP preflight</div>
  <h1>${esc(folderName || 'Album')} — preflight checklist</h1>
@@ -1866,7 +1866,7 @@ function ExportMenu({
  <details ref={detailsRef} className="relative">
  <summary
  className="list-none text-[11px] px-3 py-1.5 transition-colors hover:bg-white/[0.03] cursor-pointer select-none flex items-center gap-1.5"
- style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.35)' }}
+ style={{ borderRadius: '2px', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)' }}
  title="Export. CSV for humans, JSON for pipelines, PDF for handoff, DDP for distributor preflight."
  >
  Export
@@ -1878,7 +1878,7 @@ function ExportMenu({
  className="absolute right-0 mt-2 min-w-[240px] overflow-hidden z-40"
  style={{
  borderRadius: '2px',
- backgroundColor: '#1f1b17',
+ backgroundColor: 'var(--color-bg-panel)',
  border: '1px solid rgba(168,161,150,0.2)',
  }}
  role="menu"
@@ -1892,7 +1892,7 @@ function ExportMenu({
  }}
  className="block w-full text-left text-[11px] px-3 py-2 transition-colors hover:bg-white/[0.04]"
  style={{
- color: '#d0b066',
+ color: 'var(--color-accent)',
  borderTop: i === 0 ? 'none' : '1px solid rgba(168,161,150,0.08)',
  }}
  title={it.title}

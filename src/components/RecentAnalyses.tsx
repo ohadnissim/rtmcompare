@@ -63,7 +63,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  <>
  <div className="space-y-2">
  <div className="flex items-center justify-between">
- <span className="text-[10px] uppercase tracking-[0.15em] text-sand-500">Recent analyses</span>
+ <span className="text-[10px] uppercase tracking-[0.16em] text-sand-500">Recent analyses</span>
  <div className="flex items-center gap-3">
  <span className="text-[10px] text-sand-400">
  {history.length} total · click to load as Reference
@@ -74,7 +74,7 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  className="text-[10px] text-sand-400 hover:text-warm-red transition-colors"
  title="Clear the whole history log"
  >
- clear
+ Reset history
  </button>
  )}
  </div>
@@ -101,13 +101,16 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  {e.name.replace(/\.[^/.]+$/, '')}
  </span>
  {versions > 1 && (
- <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0"
- style={{ color: '#d0b066', backgroundColor: 'rgba(208,176,102,0.08)' }}>
- {versions} versions
+ <span className="text-[9px] uppercase tracking-[0.14em] flex-shrink-0"
+ style={{ color: 'var(--color-accent)', borderRadius: '2px' }}>
+ × {versions} versions
  </span>
  )}
  </div>
- <div className="flex items-center gap-2 mt-0.5 text-[9px] font-mono text-sand-400">
+ <div
+ className="flex flex-wrap items-center gap-2 mt-0.5 text-[9px] font-mono tabular-nums min-w-0"
+ style={{ color: 'var(--color-text-muted)' }}
+ >
  {e.lufs != null && <span>{e.lufs.toFixed(1)} LUFS</span>}
  {e.true_peak != null && (
  <span>
@@ -116,14 +119,14 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  )}
  {e.lra != null && <span>{e.lra.toFixed(1)} LU</span>}
  {e.duration_sec != null && <span>{fmtDur(e.duration_sec)}</span>}
- <span className="text-sand-400">· {fmtTime(e.ts)}</span>
+ <span style={{ color: 'var(--color-text-muted)' }}>· {fmtTime(e.ts)}</span>
  </div>
  </button>
  {/* Tiny B-slot badge — loads into the Compare slot instead */}
  <button
  onClick={() => onPick(e, 'B')}
- className="opacity-0 group-hover:opacity-100 text-[9px] uppercase tracking-[0.1em] px-2 py-1 transition-all flex-shrink-0"
- style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.25)' }}
+ className="opacity-0 group-hover:opacity-100 text-[9px] uppercase tracking-[0.14em] px-2 py-1 transition-all flex-shrink-0"
+ style={{ borderRadius: '2px', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.25)' }}
  title="Load this file into the Compare slot (B) instead of Reference (A)"
  >
  → B
@@ -149,12 +152,12 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
      onKeyDown={e => { if (e.key === 'Escape') setConfirmClear(false) }}
      ref={el => el?.focus()}
    >
-     <div style={{ background: 'rgba(28,26,22,0.98)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: 4, padding: '24px 28px', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14 }}>
-       <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>Clear the entire history log?</div>
+     <div style={{ background: 'rgba(28,26,22,0.98)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: 2, padding: '24px 28px', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14 }}>
+       <div className="text-[13px]" style={{ color: 'var(--color-text-primary)' }}>Clear the entire history log?</div>
        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-         <button onClick={() => setConfirmClear(false)} style={{ background: 'transparent', border: '1px solid rgba(168,161,150,0.3)', borderRadius: 2, color: 'var(--color-sand-400)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Cancel</button>
+         <button onClick={() => setConfirmClear(false)} className="text-[11px]" style={{ background: 'transparent', border: '1px solid rgba(168,161,150,0.3)', borderRadius: 2, color: 'var(--color-sand-400)', padding: '5px 14px', cursor: 'pointer' }}>Cancel</button>
          {/* LOW-18: don't swallow onClear errors silently — let them surface */}
-         <button autoFocus onClick={() => { setConfirmClear(false); onClear?.() }} style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', fontSize: 11, padding: '5px 14px', cursor: 'pointer' }}>Clear</button>
+         <button autoFocus onClick={() => { setConfirmClear(false); onClear?.() }} className="text-[11px]" style={{ background: 'rgba(220,80,60,0.12)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: 2, color: 'rgba(220,80,60,0.9)', padding: '5px 14px', cursor: 'pointer' }}>Clear</button>
        </div>
      </div>
    </div>

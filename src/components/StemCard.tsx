@@ -47,7 +47,7 @@ export default function StemCard({ stem, labelA, labelB }: Props) {
   >
    <path strokeLinecap="round" strokeLinejoin="round" d={stemIcons[stem.name] ?? stemIcons.Other} />
   </svg>
-  <h3 className="text-sm uppercase tracking-[0.12em]" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)' }}>{stem.name}</h3>
+  <h3 className="text-sm uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-sans)' }}>{stem.name}</h3>
   </div>
 
   {/* Insights */}

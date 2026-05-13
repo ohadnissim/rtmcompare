@@ -32,7 +32,7 @@ export default function InfoTooltip({ text }: Props) {
  style={{
  borderRadius: '2px',
  backgroundColor: show ? 'rgba(224,122,79,0.2)' : 'rgba(87,83,78,0.3)',
- color: show ? '#e07a4f' : '#78716c',
+ color: show ? 'var(--color-data-warn)' : 'var(--color-text-muted)',
  }}
  >
  ?
@@ -51,8 +51,8 @@ export default function InfoTooltip({ text }: Props) {
  className="px-3 py-2 text-[11px] leading-relaxed max-w-[260px] whitespace-normal text-center"
  style={{
  borderRadius: '2px',
- backgroundColor: '#272524',
- color: '#d6d3d1',
+ backgroundColor: 'var(--color-sand-700)',
+ color: 'var(--color-sand-200)',
  border: '1px solid rgba(87,83,78,0.4)',
  }}
  >
@@ -78,14 +78,14 @@ export function CopyableText({ text }: { text: string }) {
  return (
  <p
  className="text-sm leading-relaxed cursor-pointer transition-colors group"
- style={{ color: '#a8a29e' }}
+ style={{ color: 'var(--color-sand-300)' }}
  onClick={handleCopy}
  title="Click to copy"
  >
  {text}
  <span
  className="ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-[9px]"
- style={{ color: copied ? '#6ec577' : '#8d867b' }}
+ style={{ color: copied ? 'var(--color-data-pass)' : 'var(--color-text-muted)' }}
  >
  {copied ? 'Copied!' : '(click to copy)'}
  </span>

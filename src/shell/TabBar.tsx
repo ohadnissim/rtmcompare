@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ModuleManifest } from './moduleTypes'
 
 /**
@@ -24,6 +24,13 @@ interface Props {
 export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStore }: Props) {
  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
  const dragSourceIdx = useRef<number | null>(null)
+ const activeRef = useRef<HTMLButtonElement>(null)
+
+ // Keep the active tab visible when the active id changes (e.g. tab opened
+ // via keyboard / module store while the strip is scrolled off-screen).
+ useEffect(() => {
+ activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+ }, [activeId])
 
  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {
  dragSourceIdx.current = idx
@@ -61,6 +68,7 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
  }, [])
 
  return (
+ <div className="relative">
  <div
  className="flex items-center gap-0.5 px-8 border-b overflow-x-auto"
  style={{
@@ -73,11 +81,12 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
  >
  {tabs.map((tab, idx) => {
  const isActive = tab.id === activeId
- const accent = tab.accentColor || '#d0b066'
+ const accent = tab.accentColor || 'var(--color-accent)'
  const isDragOver = dragOverIdx === idx
  return (
  <button
  key={tab.id}
+ ref={tab.id === activeId ? activeRef : null}
  role="tab"
  aria-selected={isActive}
  draggable
@@ -86,10 +95,10 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
  onDrop={e => handleDrop(e, idx)}
  onDragEnd={handleDragEnd}
  onClick={() => onSelect(tab.id)}
- className="relative flex items-center gap-2 px-5 py-3 text-[10px] tracking-[0.12em] uppercase transition-all whitespace-nowrap flex-shrink-0"
+ className="relative flex items-center gap-2 px-5 py-3 text-[11px] tracking-[0.14em] uppercase transition-all whitespace-nowrap flex-shrink-0"
  style={{
- color: isActive ? '#ebe7e0' : '#7a7164',
- fontWeight: isActive ? 500 : 300,
+ color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+ fontWeight: isActive ? 500 : 400,
  borderBottom: `2px solid ${isActive ? accent : 'transparent'}`,
  opacity: dragSourceIdx.current === idx ? 0.4 : 1,
  cursor: 'pointer',
@@ -100,7 +109,7 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
  {isDragOver && dragSourceIdx.current !== idx && (
  <span
  className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full"
- style={{ backgroundColor: '#d0b066' }}
+ style={{ backgroundColor: 'var(--color-accent)' }}
  />
  )}
  <span className="flex-shrink-0" style={{ width: 14, height: 14, lineHeight: '14px', textAlign: 'center' }}>
@@ -115,12 +124,22 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
  <button
  onClick={onOpenStore}
  className="flex items-center justify-center px-4 py-3 text-[11px] transition-colors hover:text-sand-200 flex-shrink-0"
- style={{ color: '#8d867b' }}
+ style={{ color: 'var(--color-text-muted)' }}
  title="Add or remove modules"
  aria-label="Open module store"
  >
  +
  </button>
+ </div>
+ {/* Right-edge fade affordance — solid 1px hairline so it signals
+   "more content to the right" without using a gradient (gradients
+   are blocked decoratively; this functional cue stays inside brand
+   rules). */}
+ <div
+ className="pointer-events-none absolute right-0 top-0 bottom-0 w-px"
+ style={{ background: 'var(--color-sand-700)' }}
+ aria-hidden
+ />
  </div>
  )
 }

@@ -43,7 +43,7 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Stereo Vectorscope</h2>
+ <h2 className="text-lg">Stereo Vectorscope</h2>
  <p className="text-xs text-dark-400">Lissajous display — compare stereo image shape and width</p>
  </div>
 
@@ -66,11 +66,11 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  <text x={center} y={size - 3} textAnchor="middle" fontSize="7" fill="#696a71">M</text>
  <text x={8} y={center - 2} textAnchor="middle" fontSize="7" fill="#696a71">S</text>
  <text x={size - 8} y={center - 2} textAnchor="middle" fontSize="7" fill="#696a71">S</text>
- <text x={size * 0.18} y={size * 0.18} textAnchor="middle" fontSize="7" fill="#8d867b">L</text>
- <text x={size * 0.82} y={size * 0.18} textAnchor="middle" fontSize="7" fill="#8d867b">R</text>
+ <text x={size * 0.18} y={size * 0.18} textAnchor="middle" fontSize="7" fill="var(--color-text-muted)">L</text>
+ <text x={size * 0.82} y={size * 0.18} textAnchor="middle" fontSize="7" fill="var(--color-text-muted)">R</text>
  {/* Points */}
  {svgA.map((p, i) => (
- <circle key={i} cx={p.x} cy={p.y} r="0.8" fill="#6b7280" opacity="0.15" />
+ <circle key={i} cx={p.x} cy={p.y} r="0.8" style={{ fill: 'var(--color-sand-500)' }} opacity="0.15" />
  ))}
  </svg>
  </div>
@@ -92,7 +92,7 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  <text x={center} y={size - 3} textAnchor="middle" fontSize="7" fill="#696a71">S</text>
  {/* Points */}
  {svgB.map((p, i) => (
- <circle key={i} cx={p.x} cy={p.y} r="0.8" fill="#f59e0b" opacity="0.15" />
+ <circle key={i} cx={p.x} cy={p.y} r="0.8" style={{ fill: 'var(--color-warm-amber)' }} opacity="0.15" />
  ))}
  </svg>
  </div>

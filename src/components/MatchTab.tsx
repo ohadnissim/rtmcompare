@@ -69,7 +69,7 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  label="Engineer"
  hint={hasEngineer
  ? `Opinionated moves from ${results.engineer_tips?.engineer ?? 'the loaded engineer'}'s profile`
- : "Load an engineer profile at scan time to unlock"}
+ : "Load an engineer profile at scan time — required for engineer-specific matching"}
  disabled={!hasEngineer}
  />
  <ModePill
@@ -160,10 +160,10 @@ function ModePill({ active, onClick, label, hint, disabled }: {
  onClick={onClick}
  disabled={disabled}
  title={hint}
- className="text-[11px] px-4 py-1.5 rounded-full transition-all uppercase tracking-[0.1em] disabled:cursor-not-allowed"
+ className="text-[11px] px-4 py-1.5 rounded-full transition-all uppercase tracking-[0.14em] disabled:cursor-not-allowed"
  style={{
  backgroundColor: active ? 'rgba(208,176,102,0.15)' : 'transparent',
- color: disabled ? '#3e3a33' : active ? '#d0b066' : '#a8a29e',
+ color: disabled ? 'var(--color-sand-600)' : active ? 'var(--color-accent)' : 'var(--color-sand-300)',
  border: `1px solid ${active ? 'rgba(208,176,102,0.4)' : 'transparent'}`,
  fontWeight: active ? 500 : 400,
  }}

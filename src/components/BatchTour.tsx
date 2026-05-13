@@ -33,7 +33,7 @@ const STEPS: BatchTourStep[] = [
  {
  placement: 'center',
  // 5.7.2 copy:
- title: 'A whole album, in one view',
+ title: 'Album overview',
  // 5.7.2 copy:
  body: 'You dropped a folder — every track is now measured. Loudness, peaks, length, ISRCs, with outliers flagged. Click any row to open a song; arrow keys step between them.',
  },
@@ -49,7 +49,7 @@ const STEPS: BatchTourStep[] = [
  selector: '[data-tour-batch="load-reference"]',
  placement: 'bottom',
  // 5.7.2 copy:
- title: 'Make the album sound like one album',
+ title: 'Inter-track consistency',
  // 5.7.2 copy:
  body: 'Load a reference, or promote any track to be the reference. You\'ll get a heatmap showing which tracks drift from the family sound, and a distance column you can sort.',
  },
@@ -268,7 +268,7 @@ export default function BatchTour({ tour, autoStart = false, labelMode = false }
  >
  <div className="flex items-center justify-between">
  {/* 5.7.2 copy: */}
- <span className="text-[9px] tracking-[0.2em] uppercase" style={{ color: '#d0b066' }}>
+ <span className="text-[9px] tracking-[0.18em] uppercase" style={{ color: '#d0b066' }}>
  Album tour · {stepIndex + 1} of {totalSteps}
  </span>
  {/* 5.7.2 copy: */}
@@ -282,12 +282,12 @@ export default function BatchTour({ tour, autoStart = false, labelMode = false }
  <p className="text-[12px] leading-relaxed" style={{ color: '#a8a196' }}>{step.body}</p>
  {!rect && (
  // 5.7.2 copy:
- <p className="text-[10px] italic pt-1" style={{ color: '#8d867b' }}>
+ <p className="text-[10px] font-display italic pt-1" style={{ color: '#8d867b' }}>
  You&apos;ll see this one once it shows up on screen. Keep going, or close and explore.
  </p>
  )}
  {step.hint && (
- <p className="text-[10px]" style={{ color: '#7a7164', fontStyle: 'italic' }}>{step.hint}</p>
+ <p className="text-[10px]" style={{ color: '#7a7164', fontStyle: 'font-display italic' }}>{step.hint}</p>
  )}
  <div className="flex items-center justify-between pt-1">
  <div className="flex items-center gap-1">
@@ -308,7 +308,7 @@ export default function BatchTour({ tour, autoStart = false, labelMode = false }
  className="text-[10px] px-4 py-1.5"
  style={{ borderRadius: '2px', backgroundColor: '#d0b066', color: '#0e0d0b' }}
  >
- {isLast ? 'Got it' : 'Next'}
+ {isLast ? 'Done' : 'Next'}
  </button>
  </div>
  </div>

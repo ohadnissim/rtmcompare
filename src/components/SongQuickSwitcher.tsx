@@ -109,26 +109,26 @@ export default function SongQuickSwitcher({ songs, displayName, onClose, onJump 
  className="w-[640px] max-w-[92vw] overflow-hidden"
  style={{
  borderRadius: '2px',
- backgroundColor: '#151411',
+ backgroundColor: 'var(--color-sand-900)',
  border: '1px solid rgba(208,176,102,0.35)',
  }}
  onMouseDown={e => e.stopPropagation()}
  >
  <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'rgba(168,161,150,0.12)' }}>
- <span className="text-[10px] uppercase tracking-[0.2em]" style={{ color: '#d0b066' }}>⌘K</span>
+ <span className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent)' }}>⌘K</span>
  <input
  ref={inputRef}
  value={query}
  onChange={e => setQuery(e.target.value)}
  placeholder="Jump to song: title, artist, filename, track #"
  className="flex-1 bg-transparent outline-none text-[14px]"
- style={{ color: '#ebe7e0' }}
+ style={{ color: 'var(--color-text-primary)' }}
  />
- <span className="text-[9px] tracking-[0.15em] uppercase" style={{ color: '#8d867b' }}>esc to close</span>
+ <span className="text-[9px] tracking-[0.16em] uppercase" style={{ color: 'var(--color-text-muted)' }}>esc to close</span>
  </div>
  <div ref={listRef} className="max-h-[360px] overflow-y-auto py-2">
  {results.length === 0 && (
- <div className="px-5 py-6 text-[12px] italic" style={{ color: '#7a7164' }}>
+ <div className="px-5 py-6 text-[12px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
  No songs matching "{query.trim()}".
  </div>
  )}
@@ -140,25 +140,25 @@ export default function SongQuickSwitcher({ songs, displayName, onClose, onJump 
  className="w-full text-left px-5 py-2.5 flex items-center gap-3"
  style={{
  backgroundColor: i === cursor ? 'rgba(208,176,102,0.1)' : 'transparent',
- borderLeft: `2px solid ${i === cursor ? '#d0b066' : 'transparent'}`,
+ borderLeft: `2px solid ${i === cursor ? 'var(--color-accent)' : 'transparent'}`,
  }}
  >
- <span className="font-mono text-[10px] w-8 flex-shrink-0" style={{ color: '#7a7164' }}>
+ <span className="font-mono text-[10px] w-8 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
  {r.row.track_number || '—'}
  </span>
- <span className="flex-1 text-[13px] truncate" style={{ color: '#ebe7e0' }}>
+ <span className="flex-1 min-w-0 text-[13px] truncate" style={{ color: 'var(--color-text-primary)' }}>
  {r.label}
  </span>
- <span className="text-[10px] truncate max-w-[40%]" style={{ color: '#7a7164' }}>
+ <span className="text-[10px] truncate max-w-[40%]" style={{ color: 'var(--color-text-muted)' }}>
  {r.sub}
  </span>
  </button>
  ))}
  </div>
- <div className="px-5 py-2 text-[9px] flex items-center gap-4" style={{ color: '#8d867b', borderTop: '1px solid rgba(168,161,150,0.08)' }}>
- <span><kbd className="font-mono" style={{ color: '#a8a29e' }}>↑</kbd> / <kbd className="font-mono" style={{ color: '#a8a29e' }}>↓</kbd> navigate</span>
- <span><kbd className="font-mono" style={{ color: '#a8a29e' }}>↵</kbd> open</span>
- <span><kbd className="font-mono" style={{ color: '#a8a29e' }}>esc</kbd> close</span>
+ <div className="px-5 py-2 text-[9px] flex items-center gap-4" style={{ color: 'var(--color-text-muted)', borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+ <span><kbd className="font-mono" style={{ color: 'var(--color-sand-300)' }}>↑</kbd> / <kbd className="font-mono" style={{ color: 'var(--color-sand-300)' }}>↓</kbd> navigate</span>
+ <span><kbd className="font-mono" style={{ color: 'var(--color-sand-300)' }}>↵</kbd> open</span>
+ <span><kbd className="font-mono" style={{ color: 'var(--color-sand-300)' }}>esc</kbd> close</span>
  </div>
  </div>
  </div>

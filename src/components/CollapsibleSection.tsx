@@ -40,10 +40,10 @@ export default function CollapsibleSection({ title, tooltip, badge, why, glossar
  const hasGlossary = !!(glossary && glossary.length > 0)
 
  return (
- <div className="overflow-visible" style={{ backgroundColor: 'rgba(30,28,24,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
+ <div className="overflow-visible" data-overflow="visible" style={{ backgroundColor: 'rgba(30,28,24,0.4)', border: '1px solid rgba(168,161,150,0.08)' }}>
  <div className="flex items-center justify-between px-6 pt-5 pb-3">
  <div className="flex items-center gap-2">
- <h2 className="text-lg font-semibold">{title}</h2>
+ <h2 className="text-lg">{title}</h2>
  {hasGlossary ? (
  <button
  onClick={() => setSheetOpen(true)}
@@ -64,7 +64,7 @@ export default function CollapsibleSection({ title, tooltip, badge, why, glossar
  <div className="px-6 pb-3 -mt-2">
  <div className="text-[11px] leading-relaxed px-3 py-2"
  style={{ borderRadius: '2px', backgroundColor: 'rgba(111,163,126,0.06)', color: '#8bb598', borderLeft: '2px solid #6fa37e' }}>
- <span className="text-[9px] uppercase tracking-[0.15em] mr-2" style={{ color: '#6fa37e' }}>Why this matters</span>
+ <span className="text-[9px] uppercase tracking-[0.16em] mr-2" style={{ color: '#6fa37e' }}>Why this matters</span>
  {explainer}
  </div>
  </div>
@@ -120,7 +120,7 @@ function GlossarySheet({ title, overview, why, entries, onClose }: {
  >
  <div className="px-6 py-5 flex items-start justify-between" style={{ borderBottom: '1px solid rgba(168,161,150,0.1)' }}>
  <div>
- <div className="text-[10px] tracking-[0.2em] uppercase mb-1" style={{ color: '#d0b066' }}>Glossary</div>
+ <div className="text-[10px] tracking-[0.18em] uppercase mb-1" style={{ color: '#d0b066' }}>Glossary</div>
  <h3 className="text-lg" style={{ color: '#f5f2ed', fontWeight: 300 }}>{title}</h3>
  </div>
  <button
@@ -134,7 +134,7 @@ function GlossarySheet({ title, overview, why, entries, onClose }: {
  <div className="px-6 py-4 space-y-3" style={{ borderBottom: '1px solid rgba(168,161,150,0.08)' }}>
  <p className="text-[12px] leading-relaxed" style={{ color: '#a8a29e' }}>{overview}</p>
  {why && (
- <p className="text-[11px] leading-relaxed italic" style={{ color: '#8d867b' }}>{why}</p>
+ <p className="text-[11px] leading-relaxed font-display italic" style={{ color: '#8d867b' }}>{why}</p>
  )}
  </div>
 

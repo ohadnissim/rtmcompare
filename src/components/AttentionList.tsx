@@ -14,36 +14,50 @@ export default function AttentionList({ items, onJump }: {
 }) {
  if (items.length === 0) {
  return (
- <div className="text-[11px] italic" style={{ color: '#6ec577' }}>
- No issues detected. Track is clean.
+ <div className="text-[11px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
+ No artefacts flagged. Limiter, hum, clicks, mono compatibility — all within spec.
  </div>
  )
  }
- return (
- <ul className="space-y-1 text-[11px]">
- {items.map((it, i) => {
- const accent = it.severity === 'hold' ? '#e05a5a' : it.severity === 'warn' ? '#c5a55a' : '#a8a29e'
+
+ const [head, ...rest] = items
+
+ const renderRow = (it: AttentionItem, i: number, opts: { size: 'lg' | 'sm' }) => {
+ const accent = it.severity === 'hold' ? 'var(--color-danger)' : it.severity === 'warn' ? 'var(--color-warning)' : 'var(--color-sand-400)'
  const isClickable = !!(it.jumpSec != null && onJump)
+ const sizeCls = opts.size === 'lg' ? 'text-[14px]' : 'text-[11px]'
+ const borderWidth = opts.size === 'lg' ? '2px' : '2px'
  return (
- <li key={i}>
+ <li key={i} className="min-w-0">
  <button
  onClick={isClickable ? () => onJump!(it.jumpSec!) : undefined}
- className={`w-full text-left flex items-start gap-2 px-2 py-1 transition-colors ${isClickable ? 'hover:bg-white/[0.04]' : ''}`}
- style={{ borderRadius: '2px', color: '#b5afa4', cursor: isClickable ? 'pointer' : 'default' }}
+ className={`w-full text-left flex items-start gap-2 py-1 transition-colors ${sizeCls} ${isClickable ? 'hover:bg-white/[0.04]' : ''}`}
+ style={{
+ borderRadius: '2px',
+ color: 'var(--color-sand-300)',
+ cursor: isClickable ? 'pointer' : 'default',
+ borderLeft: `${borderWidth} solid ${accent}`,
+ paddingLeft: '8px',
+ paddingRight: '8px',
+ }}
  disabled={!isClickable}
  title={isClickable ? 'Click to jump transport to this moment' : undefined}
  >
- <span style={{ color: accent }}>⚠</span>
- <span className="flex-1">{it.message}</span>
+ <span className="flex-1 min-w-0 break-words">{it.message}</span>
  {it.jumpSec != null && (
  <span className="text-[9px] font-mono" style={{ color: accent }}>
- {fmtT(it.jumpSec)} ↗
+ {fmtT(it.jumpSec)}
  </span>
  )}
  </button>
  </li>
  )
- })}
+ }
+
+ return (
+ <ul className="space-y-1">
+ {renderRow(head, 0, { size: 'lg' })}
+ {rest.map((it, i) => renderRow(it, i + 1, { size: 'sm' }))}
  </ul>
  )
 }

@@ -22,7 +22,7 @@ export default function StereoTimeline({ timelineA, timelineB, labelA, labelB, d
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-5" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Stereo Image Over Time</h2>
+ <h2 className="text-lg">Stereo Image Over Time</h2>
  <p className="text-xs text-dark-400">
  Section-by-section width, L/R correlation, and left/right balance — surfaces drops, bridges, mono collapses, and accidental pan drift.
  </p>
@@ -31,17 +31,17 @@ export default function StereoTimeline({ timelineA, timelineB, labelA, labelB, d
  <div className="space-y-4">
  <StereoLane title="Width (side/total energy)" a={timelineA.width} b={twoCol ? timelineB.width : undefined}
  labelA={labelA} labelB={labelB} durationSec={durationSec}
- range={[0, 0.5]} colorA="#8a95ab" colorB="#d0b066"
+ range={[0, 0.5]} colorA="var(--color-slate-blue)" colorB="var(--color-accent)"
  mid={0.15}
  interpret={(v) => v < 0.05 ? 'Near-mono' : v < 0.15 ? 'Narrow' : v < 0.30 ? 'Stereo' : 'Wide'} />
  <StereoLane title="L/R correlation" a={timelineA.correlation} b={twoCol ? timelineB.correlation : undefined}
  labelA={labelA} labelB={labelB} durationSec={durationSec}
- range={[-1, 1]} colorA="#8a95ab" colorB="#d0b066"
+ range={[-1, 1]} colorA="var(--color-slate-blue)" colorB="var(--color-accent)"
  mid={0}
  interpret={(v) => v > 0.9 ? 'Mono-compat' : v > 0.5 ? 'Stereo' : v > 0 ? 'Wide' : 'Out of phase'} />
  <StereoLane title="L/R balance" a={timelineA.balance} b={twoCol ? timelineB.balance : undefined}
  labelA={labelA} labelB={labelB} durationSec={durationSec}
- range={[-0.5, 0.5]} colorA="#8a95ab" colorB="#d0b066"
+ range={[-0.5, 0.5]} colorA="var(--color-slate-blue)" colorB="var(--color-accent)"
  mid={0}
  interpret={(v) => Math.abs(v) < 0.05 ? 'Centred' : v > 0 ? `+${(v*100).toFixed(0)}% right` : `${(v*100).toFixed(0)}% left`} />
  </div>
@@ -83,7 +83,7 @@ function StereoLane({ title, a, b, labelA, labelB, durationSec, range, colorA, c
  return (
  <div className="space-y-1">
  <div className="flex items-baseline justify-between text-[10px]">
- <span className="text-dark-300 uppercase tracking-[0.1em]">{title}</span>
+ <span className="text-dark-300 uppercase tracking-[0.14em]">{title}</span>
  <span className="text-dark-500 font-mono">{interpret(medianA)}</span>
  </div>
  <div className="bg-dark-800 p-2" style={{ borderRadius: '2px' }}>

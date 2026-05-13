@@ -235,7 +235,7 @@ export default function ProgressBar({ message, onCancel }: Props) {
  style={{
  color: '#a8a29e',
  opacity: fade ? 1 : 0,
- fontStyle: 'italic',
+ fontFamily: 'var(--font-display)', fontStyle: 'italic',
  }}
  >
  "{jokes[jokeIndex]}"

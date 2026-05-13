@@ -322,9 +322,9 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div className="text-center space-y-2">
  <h2 className="text-2xl font-medium" style={{ color: '#f5f5f4' }}>Reference Analysis</h2>
  <div className="flex items-center justify-center gap-3">
- <p className="text-sm" style={{ color: '#78716c' }}>{label}</p>
+ <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
  {data.duration_sec != null && data.duration_sec > 0 && (
- <DurationPill seconds={data.duration_sec} label="Length" tint="#d0b066" compact />
+ <DurationPill seconds={data.duration_sec} label="Length" tint="var(--color-accent)" compact />
  )}
  <SpecDriftBadge analysisVersion={data.spec_versions?.version} stampedSpecs={data.spec_versions} />
  </div>
@@ -339,12 +339,12 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div
  key={i}
  className="px-3 py-2 text-[11px] flex items-start gap-2"
- style={{ backgroundColor: 'rgba(224,122,79,0.08)', border: '1px solid rgba(224,122,79,0.3)', color: '#e07a4f', borderRadius: '2px' }}
+ style={{ backgroundColor: 'rgba(224,122,79,0.08)', border: '1px solid rgba(224,122,79,0.3)', color: 'var(--color-data-warn)', borderRadius: '2px' }}
  title={`File warning: ${w.type}`}
  >
  <span className="text-[13px] leading-none" aria-hidden>!</span>
  <span className="flex-1">
- <span className="uppercase tracking-[0.15em] text-[9px] mr-2">{w.type}</span>
+ <span className="uppercase tracking-[0.16em] text-[9px] mr-2">{w.type}</span>
  <span style={{ color: '#d9d4c8' }}>{w.message}</span>
  </span>
  </div>
@@ -362,15 +362,12 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
      ? 'rgba(224,82,82,0.08)' : 'rgba(150,128,58,0.08)',
     border: `1px solid ${data.generation_loss.verdict === 'likely_prior_lossy'
      ? 'rgba(224,82,82,0.25)' : 'rgba(150,128,58,0.2)'}`,
-    color: data.generation_loss.verdict === 'likely_prior_lossy' ? '#e05252' : '#c5a55a',
+    color: data.generation_loss.verdict === 'likely_prior_lossy' ? '#e05252' : 'var(--color-accent)',
     borderRadius: '2px',
    }}
   >
-   <span className="text-[13px] leading-none" aria-hidden>
-    {data.generation_loss.verdict === 'likely_prior_lossy' ? '🔴' : '⚠'}
-   </span>
    <span className="flex-1">
-    <span className="uppercase tracking-[0.15em] text-[9px] mr-2">GENERATION LOSS</span>
+    <span className="uppercase tracking-[0.16em] text-[9px] mr-2">GENERATION LOSS</span>
     <span style={{ color: '#d9d4c8' }}>
      {data.generation_loss.verdict === 'likely_prior_lossy'
       ? 'Prior lossy encode detected' : 'Possible prior lossy encode'}
@@ -392,23 +389,23 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  >
  <div
  className="w-8 h-8 flex items-center justify-center flex-shrink-0"
- style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: '#d0b066', borderRadius: '2px' }}
+ style={{ backgroundColor: 'rgba(208,176,102,0.15)', color: 'var(--color-accent)', borderRadius: '2px' }}
  title="Sent from the RTM Send plugin"
  >
  <span className="text-[14px]">↙</span>
  </div>
  <div className="flex-1 min-w-0">
  <div className="flex items-baseline gap-2 flex-wrap">
- <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: '#d0b066' }}>
+ <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-accent)' }}>
  From RTM plugin
  </span>
  {pluginDrop.slotA.daw && (
- <span className="text-[10px]" style={{ color: '#a8a29e' }}>{pluginDrop.slotA.daw}</span>
+ <span className="text-[10px]" style={{ color: 'var(--color-sand-300)' }}>{pluginDrop.slotA.daw}</span>
  )}
  {pluginDrop.slotA.source && (
  <span
  className="text-[9px] px-1.5 py-px rounded-full"
- style={{ color: '#7ca4a3', backgroundColor: 'rgba(124,164,163,0.1)' }}
+ style={{ color: 'var(--color-teal)', backgroundColor: 'rgba(124,164,163,0.1)' }}
  title={{
  ring: 'Last N seconds of the master bus',
  loop: 'DAW loop / cycle region',
@@ -420,21 +417,21 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </span>
  )}
  </div>
- <div className="text-[12px] mt-0.5" style={{ color: '#ebe7e0' }}>
+ <div className="text-[12px] mt-0.5" style={{ color: 'var(--color-text-primary)' }}>
  {pluginDrop.slotA.regionName || pluginDrop.slotA.sessionName || fileName}
  {pluginDrop.slotA.regionStartSec != null && pluginDrop.slotA.regionEndSec != null && (
- <span className="ml-2 font-mono text-[10px]" style={{ color: '#7a7164' }}>
+ <span className="ml-2 font-mono text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  [{formatSec(pluginDrop.slotA.regionStartSec)} → {formatSec(pluginDrop.slotA.regionEndSec)}]
  </span>
  )}
  {pluginDrop.slotA.regionSourceName && (
- <span className="ml-2 text-[10px]" style={{ color: '#8d867b' }}>
+ <span className="ml-2 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  in {pluginDrop.slotA.regionSourceName}
  </span>
  )}
  </div>
  {pluginDrop.slotA.sampleRate && (
- <div className="text-[9px] mt-0.5" style={{ color: '#7a7164' }}>
+ <div className="text-[9px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
  {(pluginDrop.slotA.sampleRate / 1000).toFixed(pluginDrop.slotA.sampleRate % 1000 === 0 ? 0 : 1)} kHz ·
  {pluginDrop.slotA.channels ? ` ${pluginDrop.slotA.channels} ch ·` : ''}
  {pluginDrop.slotA.durationSec ? ` ${pluginDrop.slotA.durationSec.toFixed(1)} s ·` : ''}
@@ -487,7 +484,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {/* ── 3. Metadata strip ─────────────────────────────────────
  SR · BD · ch · ISRC (file-format context; the levels are
  now in the Song Info card above). */}
- <div data-tour-ref="meta-strip" className="text-center text-[10px] font-mono" style={{ color: '#7a7164' }}>
+ <div data-tour-ref="meta-strip" className="text-center text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  {metaStrip}
  </div>
 
@@ -500,32 +497,32 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.dialog_gate && (() => {
  const dg = data.dialog_gate!
  const pillColor =
- dg.confidence === 'high' ? { fg: '#6ec577', bg: 'rgba(110,197,119,0.12)' } :
- dg.confidence === 'medium' ? { fg: '#d0b066', bg: 'rgba(208,176,102,0.12)' } :
- dg.confidence === 'insufficient' ? { fg: '#e07a4f', bg: 'rgba(224,122,79,0.12)' } :
- dg.confidence === 'error' ? { fg: '#e05a5a', bg: 'rgba(224,90,90,0.12)' } :
- { fg: '#8d867b', bg: 'rgba(141,134,123,0.12)' } // low / none
+ dg.confidence === 'high' ? { fg: 'var(--color-data-pass)', bg: 'rgba(110,197,119,0.12)' } :
+ dg.confidence === 'medium' ? { fg: 'var(--color-accent)', bg: 'rgba(208,176,102,0.12)' } :
+ dg.confidence === 'insufficient' ? { fg: 'var(--color-data-warn)', bg: 'rgba(224,122,79,0.12)' } :
+ dg.confidence === 'error' ? { fg: 'var(--color-danger)', bg: 'rgba(224,90,90,0.12)' } :
+ { fg: 'var(--color-text-muted)', bg: 'rgba(141,134,123,0.12)' } // low / none
  const hideLufs = dg.confidence === 'error' || dg.confidence === 'insufficient' || dg.lufs_i == null
  return (
  <div className="flex flex-col items-center gap-1">
- <div className="flex items-center justify-center gap-2 text-[10px] font-mono" style={{ color: '#ebe7e0' }}>
- <span className="uppercase tracking-[0.15em]" style={{ color: '#8d867b' }}>Dialog</span>
- <span style={{ color: hideLufs ? '#8d867b' : '#d0b066' }}>
+ <div className="flex items-center justify-center gap-2 text-[10px] font-mono" style={{ color: 'var(--color-text-primary)' }}>
+ <span className="uppercase tracking-[0.16em]" style={{ color: 'var(--color-text-muted)' }}>Dialog</span>
+ <span style={{ color: hideLufs ? 'var(--color-text-muted)' : 'var(--color-accent)' }}>
  {hideLufs ? '-' : `${dg.lufs_i!.toFixed(1)} LKFS`}
  </span>
  <span
- className="text-[9px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full"
+ className="text-[9px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full"
  style={{ color: pillColor.fg, backgroundColor: pillColor.bg }}
  title={`Detector confidence: ${dg.confidence}`}
  >
  {dg.confidence}
  </span>
- <span style={{ color: '#8d867b' }}>
+ <span style={{ color: 'var(--color-text-muted)' }}>
  {`${dg.speech_pct.toFixed(0)}% speech`}
  </span>
  </div>
  {dg.note && (
- <div className="text-[9px] italic" style={{ color: '#8d867b' }}>
+ <div className="text-[9px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
  {dg.note}
  </div>
  )}
@@ -536,25 +533,25 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {/* ── 4. Triage controls ────────────────────────────────────
  Always available; pre-populated for broadcast surfaces. */}
  <div className="flex items-center justify-center gap-3 flex-wrap">
- <label className="flex items-center gap-1.5 text-[9px]" style={{ color: '#7a7164' }}>
- <span className="uppercase tracking-[0.15em]">DSP profile</span>
+ <label className="flex items-center gap-1.5 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+ <span className="uppercase tracking-[0.16em]">DSP profile</span>
  <select
  value={dspProfileId}
  onChange={e => setDspProfile(e.target.value)}
  className="text-[10px] px-2 py-0.5 rounded bg-transparent focus:outline-none"
- style={{ color: '#ebe7e0', border: '1px solid rgba(168,161,150,0.2)' }}
+ style={{ color: 'var(--color-text-primary)', border: '1px solid rgba(168,161,150,0.2)' }}
  >
- <option value="" style={{ backgroundColor: '#1f1b17' }}>— generic —</option>
+ <option value="" style={{ backgroundColor: 'var(--color-bg-panel)' }}>— generic —</option>
  {Object.values(DSP_PROFILES).map(p => (
- <option key={p.id} value={p.id} style={{ backgroundColor: '#1f1b17' }}>{p.name}</option>
+ <option key={p.id} value={p.id} style={{ backgroundColor: 'var(--color-bg-panel)' }}>{p.name}</option>
  ))}
  </select>
  </label>
  <button
  onClick={toggleCompliance}
- className="text-[9px] uppercase tracking-[0.12em] transition-colors"
+ className="text-[9px] uppercase tracking-[0.14em] transition-colors"
  style={{
- color: complianceView ? '#d0b066' : '#7a7164',
+ color: complianceView ? 'var(--color-accent)' : 'var(--color-text-muted)',
  border: `1px solid ${complianceView ? 'rgba(208,176,102,0.4)' : 'rgba(168,161,150,0.15)'}`,
  padding: '2px 8px',
  borderRadius: 999,
@@ -565,8 +562,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </button>
  <button
  onClick={toggleTriage}
- className="text-[10px] uppercase tracking-[0.12em] transition-colors hover:text-sand-200"
- style={{ color: triageMode ? '#d0b066' : '#7a7164' }}
+ className="text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-sand-200"
+ style={{ color: triageMode ? 'var(--color-accent)' : 'var(--color-text-muted)' }}
  title="Triage Mode — forces the verdict + Attention list even for clean tracks."
  >
  {triageMode ? '▾ Triage · on' : '▸ Triage'}
@@ -594,7 +591,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  clippedSamples: singleFileMetrics.clipped_samples,
  codingHistoryRaw: data.metadata?.a?.bext?.coding_history || null,
  })
- const colour = adm.status === 'ready' ? '#6fa37e' : adm.status === 'warn' ? '#c5a55a' : '#e05a5a'
+ const colour = adm.status === 'ready' ? 'var(--color-success)' : adm.status === 'warn' ? 'var(--color-accent)' : 'var(--color-danger)'
  const bg = adm.status === 'ready' ? 'rgba(111,163,126,0.10)' : adm.status === 'warn' ? 'rgba(197,165,90,0.10)' : 'rgba(224,90,90,0.10)'
  const icon = adm.status === 'ready' ? '✓' : adm.status === 'warn' ? '⚠' : '✕'
  return (
@@ -607,7 +604,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  title="Click to inspect every Apple Digital Masters check. Pass/fail on bit depth, sample rate, true peak, digital clipping, and lossless source chain."
  >
  <span className="text-[13px]" aria-hidden>{icon}</span>
- <span className="uppercase tracking-[0.15em] text-[9px]">Apple Digital Masters</span>
+ <span className="uppercase tracking-[0.16em] text-[9px]">Apple Digital Masters</span>
  <span className="flex-1" />
  <span className="text-[11px]" style={{ color: colour }}>{adm.action}</span>
  <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -616,14 +613,14 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </summary>
  <div className="mt-2 space-y-1">
  {adm.checks.map(c => (
- <div key={c.label} className="flex items-center gap-2 text-[10px]" style={{ color: c.pass ? '#b5afa4' : colour }}>
+ <div key={c.label} className="flex items-center gap-2 text-[10px]" style={{ color: c.pass ? 'var(--color-sand-300)' : colour }}>
  <span className="w-3" aria-hidden>{c.pass ? '✓' : '✕'}</span>
  <span className="flex-1">{c.label}</span>
- <span className="font-mono" style={{ color: c.pass ? '#8d867b' : colour }}>{c.value}</span>
+ <span className="font-mono" style={{ color: c.pass ? 'var(--color-text-muted)' : colour }}>{c.value}</span>
  </div>
  ))}
  {adm.checks.some(c => c.detail) && (
- <div className="mt-1.5 text-[10px] leading-relaxed" style={{ color: '#8d867b' }}>
+ <div className="mt-1.5 text-[10px] leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
  {adm.checks.filter(c => c.detail).map(c => (
  <div key={c.label} className="pt-1">• {c.detail}</div>
  ))}
@@ -667,7 +664,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  }))
  }}
  className="mt-2 text-[10px] px-2.5 py-1 transition-colors hover:bg-white/[0.04]"
- style={{ color: '#c5a55a', border: '1px solid rgba(197,165,90,0.45)', borderRadius: '2px' }}
+ style={{ color: 'var(--color-accent)', border: '1px solid rgba(197,165,90,0.45)', borderRadius: '2px' }}
  title="Open the BEXT / iXML editor below with ADM-compliant defaults pre-filled. Click Save in the editor to actually write; RTM never writes BEXT without your confirmation."
  >
  Write ADM-compliant BEXT →
@@ -680,7 +677,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
 
  {attention.length > 0 && (
  <div data-tour-ref="attention" className="space-y-1.5">
- <div className="text-[9px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>Attention</div>
+ <div className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>Attention</div>
  <AttentionList items={attention} onJump={handleAttentionJump} />
  </div>
  )}
@@ -698,9 +695,9 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {integrityWarnings.length > 0 && (
  <div
  className="px-3 py-2 text-[10px]"
- style={{ backgroundColor: 'rgba(197,165,90,0.08)', border: '1px solid rgba(197,165,90,0.3)', color: '#c5a55a', borderRadius: '2px' }}
+ style={{ backgroundColor: 'rgba(197,165,90,0.08)', border: '1px solid rgba(197,165,90,0.3)', color: 'var(--color-accent)', borderRadius: '2px' }}
  >
- <div className="text-[9px] uppercase tracking-[0.15em] mb-1">File integrity</div>
+ <div className="text-[9px] uppercase tracking-[0.16em] mb-1">File integrity</div>
  {integrityWarnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
  </div>
  )}
@@ -860,7 +857,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  if (left < 0 || left > 100) return null
  const isRoot = h.is_root
  const isOctave = h.is_octave
- const color = isRoot ? '#e07a4f' : isOctave ? '#6b8cbb' : '#6ec577'
+ const color = isRoot ? 'var(--color-data-warn)' : isOctave ? 'var(--color-data-a)' : 'var(--color-data-pass)'
  const height = isRoot ? '100%' : isOctave ? '70%' : '45%'
  const width = isRoot ? 3 : isOctave ? 2 : 1
  return (
@@ -878,7 +875,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  )
  })}
  </div>
- <div className="flex justify-between mt-2 text-[7px]" style={{ color: '#8d867b' }}>
+ <div className="flex justify-between mt-2 text-[7px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>20</span><span>50</span><span>100</span><span>200</span><span>500</span><span>1k</span><span>2k</span><span>5k</span><span>10k</span><span>20k</span>
  </div>
  </div>
@@ -887,7 +884,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {check.song_info.harmonics.map((h: any, i: number) => (
  <span key={i} className="text-[9px] px-2 py-0.5 rounded font-mono" style={{
  backgroundColor: h.is_root ? 'rgba(224,122,79,0.15)' : h.is_octave ? 'rgba(107,140,187,0.1)' : 'rgba(110,197,119,0.08)',
- color: h.is_root ? '#e07a4f' : h.is_octave ? '#6b8cbb' : '#78716c',
+ color: h.is_root ? 'var(--color-data-warn)' : h.is_octave ? 'var(--color-data-a)' : 'var(--color-text-muted)',
  fontWeight: h.is_root ? 600 : 400,
  }}>
  {h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)} Hz
@@ -930,7 +927,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  why="Four checks in one panel: digital clipping (consecutive samples at ceiling), true-peak violations (inter-sample overs your regular peak meter can't see), flat-waveform ratio (over-limiting), and harmonic-distortion increase vs. clean reference. Confidence label: 'high' = direct evidence (real clipping); 'medium' / 'low' = heuristics that mis-classify intentional saturation. Trust high-confidence HOLDs; audit low-confidence ones by ear."
  badge={
  <span className="text-xs px-2 py-0.5 rounded-full" style={{
- color: distortion.severity === 'clean' ? '#6ec577' : distortion.severity === 'warning' ? '#e07a4f' : '#e05a5a',
+ color: distortion.severity === 'clean' ? 'var(--color-data-pass)' : distortion.severity === 'warning' ? 'var(--color-data-warn)' : 'var(--color-danger)',
  backgroundColor: distortion.severity === 'clean' ? 'rgba(110,197,119,0.1)' : distortion.severity === 'warning' ? 'rgba(224,122,79,0.1)' : 'rgba(224,90,90,0.1)',
  }}>
  {distortion.severity === 'clean' ? 'Clean' : distortion.severity === 'warning' ? 'Warning' : 'Problem'}
@@ -948,7 +945,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  why="Detection uses multi-criteria: spectral flatness rules out drum transients, high-pass residual spikes catch true clicks (white-noise impulses). Deduped within 80 ms, capped at 20 events so the panel stays actionable. Every row jumps the transport: a click at 1:47 is worth hearing in context before calling it an artefact vs. a performance choice."
  badge={
  <span className="text-xs px-2 py-0.5 rounded-full" style={{
- color: clicks.length > 0 ? '#e07a4f' : '#6ec577',
+ color: clicks.length > 0 ? 'var(--color-data-warn)' : 'var(--color-data-pass)',
  backgroundColor: clicks.length > 0 ? 'rgba(224,122,79,0.1)' : 'rgba(110,197,119,0.1)',
  }}>
  {clicks.length > 0 ? `${clicks.length} found` : 'Clean'}
@@ -960,13 +957,13 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  ) : (
  <div className="flex items-center gap-3 py-2">
  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(110,197,119,0.1)' }}>
- <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#6ec577" strokeWidth={2}>
+ <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="var(--color-data-pass)" strokeWidth={2}>
  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
  </svg>
  </div>
  <div>
- <p className="text-sm" style={{ color: '#e7e5e4' }}>No clicks or glitches detected</p>
- <p className="text-[11px]" style={{ color: '#8d867b' }}>Clean signal — no sample-level artifacts found</p>
+ <p className="text-sm" style={{ color: 'var(--color-sand-100)' }}>No clicks or glitches detected</p>
+ <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>Clean signal — no sample-level artifacts found</p>
  </div>
  </div>
  )}
@@ -983,8 +980,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  className="px-3 py-1.5 text-xs font-medium transition-colors"
  style={{
  borderRadius: '2px',
- backgroundColor: declickOpen ? 'rgba(208,176,102,0.12)' : '#151411',
- color: declickOpen ? '#d0b066' : '#ebe7e0',
+ backgroundColor: declickOpen ? 'rgba(208,176,102,0.12)' : 'var(--color-sand-900)',
+ color: declickOpen ? 'var(--color-accent)' : 'var(--color-text-primary)',
  border: `1px solid ${declickOpen ? 'rgba(208,176,102,0.35)' : 'rgba(208,176,102,0.18)'}`,
  }}
  aria-expanded={declickOpen}
@@ -1024,7 +1021,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  backgroundColor: w.severity === 'warning' ? 'rgba(224,122,79,0.06)' : 'rgba(107,140,187,0.06)',
  borderLeft: `3px solid ${w.severity === 'warning' ? 'rgba(224,122,79,0.3)' : 'rgba(107,140,187,0.2)'}`,
  }}>
- <p className="text-xs" style={{ color: '#e7e5e4' }}>{w.message}</p>
+ <p className="text-xs" style={{ color: 'var(--color-sand-100)' }}>{w.message}</p>
  <p className="text-[11px]" style={{ color: '#6b645d' }}>{w.suggestion}</p>
  </div>
  ))}
@@ -1040,7 +1037,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  Only shown when the header toggle is on. */}
  {advancedQc && (
  <div className="space-y-6">
- <div className="text-[9px] uppercase tracking-[0.2em] text-center" style={{ color: '#8d867b' }}>
+ <div className="text-[9px] uppercase tracking-[0.18em] text-center" style={{ color: 'var(--color-text-muted)' }}>
  · Advanced QC ·
  </div>
 
@@ -1056,13 +1053,13 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <h3 className="text-lg font-semibold">Tonal Character</h3>
  <InfoTooltip text="How the frequency balance compares to the mastering target curve." />
  </div>
- <p className="text-xs" style={{ color: '#e07a4f' }}>{check.tonal.character}</p>
+ <p className="text-xs" style={{ color: 'var(--color-data-warn)' }}>{check.tonal.character}</p>
  </div>
  <div className="p-3 overflow-hidden" style={{ backgroundColor: 'rgba(48,44,39,0.4)', borderRadius: '2px' }}>
  <svg viewBox="0 0 800 160" className="w-full h-36" preserveAspectRatio="none">
  <line x1="0" y1="80" x2="800" y2="80" stroke="#44403c" strokeWidth="0.5" strokeDasharray="4 4" />
- <path d={makeCurvePath(check.tonal.neutral_curve, 800, 160, 20)} fill="none" stroke="#6ec577" strokeWidth="1.5" opacity="0.4" strokeDasharray="4 3" />
- <path d={makeCurvePath(check.tonal.measured, 800, 160, 20)} fill="none" stroke="#e07a4f" strokeWidth="2" opacity="0.8" />
+ <path d={makeCurvePath(check.tonal.neutral_curve, 800, 160, 20)} fill="none" stroke="var(--color-data-pass)" strokeWidth="1.5" opacity="0.4" strokeDasharray="4 3" />
+ <path d={makeCurvePath(check.tonal.measured, 800, 160, 20)} fill="none" stroke="var(--color-data-warn)" strokeWidth="2" opacity="0.8" />
  {check.tonal.deviations.map((dev: number, i: number) => {
  if (Math.abs(dev) < TOLERANCE_NOTABLE) return null
  const x = (i / 30) * 800
@@ -1077,12 +1074,12 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {check.tonal.notes.map((note: any, i: number) => (
  <div key={i} className="flex items-center gap-2 text-[11px]">
  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium" style={{
- color: note.deviation > 0 ? '#e07a4f' : '#6b8cbb',
+ color: note.deviation > 0 ? 'var(--color-data-warn)' : 'var(--color-data-a)',
  backgroundColor: note.deviation > 0 ? 'rgba(224,122,79,0.12)' : 'rgba(107,140,187,0.12)',
  }}>
  {note.deviation > 0 ? '+' : ''}{note.deviation} dB
  </span>
- <span style={{ color: '#a8a29e' }}>{note.description}</span>
+ <span style={{ color: 'var(--color-sand-300)' }}>{note.description}</span>
  </div>
  ))}
  </div>
@@ -1107,7 +1104,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </div>
  <div className="bg-dark-800/40 p-3 space-y-1.5" style={{ borderRadius: '2px' }}>
  {data.mono_compat.bands_a.map((band: any) => {
- const color = band.loss_pct < 5 ? '#34d399' : band.loss_pct < 15 ? '#f59e0b' : '#f43f5e'
+ const color = band.loss_pct < 5 ? 'var(--color-data-pass)' : band.loss_pct < 15 ? 'var(--color-warm-amber)' : 'var(--color-danger)'
  return (
  <div key={band.name} className="flex items-center text-[11px] px-2 py-1">
  <div className="flex-1 min-w-0">
@@ -1228,11 +1225,11 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  why="The named complaints you hear in every mixing book: boominess, muddiness, harshness, sibilance, boxiness, thinness. Each maps to a known frequency region. Objective flags save an hour of 'does this sound harsh to you?' back-and-forth and give you a frequency to start the EQ at."
  badge={
  tonalIssues.length > 0 ? (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#e07a4f', backgroundColor: 'rgba(224,122,79,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-data-warn)', backgroundColor: 'rgba(224,122,79,0.1)' }}>
  {tonalIssues.length} detected
  </span>
  ) : (
- <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: '#6ec577', backgroundColor: 'rgba(110,197,119,0.1)' }}>
+ <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-data-pass)', backgroundColor: 'rgba(110,197,119,0.1)' }}>
  Clean
  </span>
  )
@@ -1264,11 +1261,11 @@ function StatBox({ label, value, sub, warn }: { label: string; value: string; su
  const termKey = termByLabel[label]
  return (
  <div className="p-3 text-center space-y-1" style={{ backgroundColor: 'rgba(48,44,39,0.5)', borderRadius: '2px' }}>
- <p className="text-[9px] tracking-widest uppercase flex items-center justify-center gap-1" style={{ color: '#78716c' }}>
+ <p className="text-[9px] tracking-widest uppercase flex items-center justify-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
  {termKey ? <TeachTerm term={termKey}>{label}</TeachTerm> : label}
  </p>
- <p className="text-sm font-medium" style={{ color: warn ? '#e05a5a' : '#e7e5e4' }}>{value}</p>
- {sub && <p className="text-[9px]" style={{ color: '#8d867b' }}>{sub}</p>}
+ <p className="text-sm font-medium" style={{ color: warn ? 'var(--color-danger)' : 'var(--color-sand-100)' }}>{value}</p>
+ {sub && <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{sub}</p>}
  </div>
  )
 }
@@ -1304,7 +1301,7 @@ const VectorscopeCanvas = React.memo(function VectorscopeCanvas({ points }: {
  <line x1={100} y1={0} x2={100} y2={200} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
  <line x1={0} y1={100} x2={200} y2={100} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
  {svgPoints.map((p, i) => (
- <circle key={i} cx={p.x} cy={p.y} r="0.8" fill="#c5a55a" opacity="0.15" />
+ <circle key={i} cx={p.x} cy={p.y} r="0.8" fill="var(--color-accent)" opacity="0.15" />
  ))}
  </svg>
  )

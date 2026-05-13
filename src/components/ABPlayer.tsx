@@ -1013,13 +1013,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  ? ((activeFile === 'A' ? stemWaveformsA : stemWaveformsB)[activeStem] || (activeFile === 'A' ? waveformA : waveformB))
  : (activeFile === 'A' ? waveformA : waveformB)
  const currentBarColor = isStems
- ? (activeStem === 'drums' ? '#e05a5a' : activeStem === 'bass' ? '#6b8cbb' : activeStem === 'vocals' ? '#e07a4f' : '#a855f7')
- : (activeFile === 'A' ? '#6b8cbb' : '#e07a4f')
+ ? (activeStem === 'drums' ? 'var(--color-danger)' : activeStem === 'bass' ? 'var(--color-data-a)' : activeStem === 'vocals' ? 'var(--color-data-warn)' : 'var(--color-slate-blue)')
+ : (activeFile === 'A' ? 'var(--color-data-a)' : 'var(--color-data-warn)')
 
  return (
  <div ref={playerRef} className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="flex items-center justify-between">
- <h2 className="text-lg font-semibold">A/B Player</h2>
+ <h2 className="text-lg">A/B Player</h2>
  <div className="flex items-center gap-3">
  {/* Live EQ indicator — lit when bands are engaged in the main
  player's listen chain. Amount slider + bypass toggle
@@ -1043,7 +1043,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  aria-label={`EQ amount ${Math.round(eq.amount * 100)} percent`}
  title={`EQ Amount · ${Math.round(eq.amount * 100)}% · scales all band gains. 0 = silence, 100 = as proposed, 150 = 1.5× push.`}
  />
- <span className="text-[9px] font-mono" style={{ color: eq.enabled ? '#d0b066' : '#8d867b', minWidth: 26 }}>
+ <span className="text-[9px] font-mono" style={{ color: eq.enabled ? 'var(--color-accent)' : 'var(--color-text-muted)', minWidth: 26 }}>
  {Math.round(eq.amount * 100)}%
  </span>
  <button
@@ -1051,7 +1051,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  className="text-[10px] px-2 py-0.5 transition-colors"
  style={{
   borderRadius: '2px',
- color: eq.enabled ? '#d0b066' : '#8d867b',
+ color: eq.enabled ? 'var(--color-accent)' : 'var(--color-text-muted)',
  backgroundColor: eq.enabled ? 'rgba(208,176,102,0.15)' : 'transparent',
  border: `1px solid ${eq.enabled ? 'rgba(208,176,102,0.45)' : 'rgba(87,83,78,0.35)'}`,
  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -1094,7 +1094,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  style={{
   borderRadius: '2px',
  backgroundColor: playerMode === 'mix' ? 'rgba(224,122,79,0.15)' : 'transparent',
- color: playerMode === 'mix' ? '#e07a4f' : '#8d867b',
+ color: playerMode === 'mix' ? 'var(--color-data-warn)' : 'var(--color-text-muted)',
  fontWeight: playerMode === 'mix' ? 500 : 400,
  }}
  >
@@ -1114,7 +1114,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  style={{
   borderRadius: '2px',
  backgroundColor: playerMode === 'stems' ? 'rgba(224,122,79,0.15)' : 'transparent',
- color: playerMode === 'stems' ? '#e07a4f' : '#8d867b',
+ color: playerMode === 'stems' ? 'var(--color-data-warn)' : 'var(--color-text-muted)',
  fontWeight: playerMode === 'stems' ? 500 : 400,
  }}
  >
@@ -1155,7 +1155,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  style={{
  borderRadius: '2px',
  backgroundColor: activeStem === name ? stemColor(name, 0.2) : 'rgba(51,48,44,0.3)',
- color: activeStem === name ? stemColor(name, 1) : '#78716c',
+ color: activeStem === name ? stemColor(name, 1) : 'var(--color-text-muted)',
  border: activeStem === name ? `1px solid ${stemColor(name, 0.4)}` : '1px solid transparent',
  fontWeight: activeStem === name ? 500 : 400,
  }}
@@ -1168,7 +1168,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  <span
  className="font-mono text-[8px] tracking-tight"
  style={{
- color: tpOver ? '#e05a5a' : isTpOffender ? '#c5a55a' : '#8d867b',
+ color: tpOver ? 'var(--color-danger)' : isTpOffender ? 'var(--color-accent)' : 'var(--color-text-muted)',
  opacity: 0.9,
  }}
  >
@@ -1234,7 +1234,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  borderRadius: '2px',
  border: `1px dashed ${stemDragging === side ? 'rgba(208,176,102,0.5)' : 'rgba(168,161,150,0.2)'}`,
  backgroundColor: stemDragging === side ? 'rgba(208,176,102,0.08)' : 'rgba(30,28,24,0.3)',
- color: stemDragging === side ? '#d0b066' : '#7a7164',
+ color: stemDragging === side ? 'var(--color-accent)' : 'var(--color-text-muted)',
  }}
  >
  Drop stems into {side}: vocals / drums / bass / other
@@ -1242,7 +1242,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  ))}
  </div>
  {stemDropMsg && (
- <p className="text-[10px] text-center" style={{ color: '#6ec577' }}>✓ {stemDropMsg}</p>
+ <p className="text-[10px] text-center" style={{ color: 'var(--color-data-pass)' }}>✓ {stemDropMsg}</p>
  )}
  </div>
  )}
@@ -1251,16 +1251,16 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  {blindMode && (
  <div className="p-3 space-y-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.25)' }}>
  <div className="flex items-center justify-between gap-3">
- <div className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>
+ <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>
  Blind A/B · guess which is {realLabelB.slice(0, 24)}{realLabelB.length > 24 ? '…' : ''}
  </div>
- <div className="text-[11px] font-mono" style={{ color: '#d0b066' }}>
+ <div className="text-[11px] font-mono" style={{ color: 'var(--color-accent)' }}>
  Score {blindScore.correct}/{blindScore.total}
  </div>
  </div>
  {blindRoundResult ? (
  <div className="flex items-center justify-between gap-3">
- <span className="text-xs" style={{ color: blindRoundResult.wasCorrect ? '#6fa37e' : '#c96765' }}>
+ <span className="text-xs" style={{ color: blindRoundResult.wasCorrect ? 'var(--color-success)' : 'var(--color-danger)' }}>
  {blindRoundResult.wasCorrect ? '✓ Correct' : '✕ Wrong'} — "{blindRoundResult.correctLetter}" was playing {realLabelB.slice(0, 40)}
  </span>
  <button
@@ -1270,7 +1270,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setBlindRoundResult(null)
  }}
  className="text-[11px] px-3 py-1"
- style={{ borderRadius: '2px', backgroundColor: 'transparent', border: '1px solid #d0b066', color: '#d0b066' }}
+ style={{ borderRadius: '2px', backgroundColor: 'transparent', border: '1px solid var(--color-accent)', color: 'var(--color-accent)' }}
  >
  Next round
  </button>
@@ -1300,7 +1300,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setBlindRoundResult({ guess: letter, correctLetter, wasCorrect })
  }}
  className="flex-1 py-1.5 text-xs font-medium"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.4)', color: '#ebe7e0', border: '1px solid rgba(208,176,102,0.3)' }}
+ style={{ borderRadius: '2px', backgroundColor: 'rgba(14,13,11,0.4)', color: 'var(--color-text-primary)', border: '1px solid rgba(208,176,102,0.3)' }}
  >
  "{letter}" is {realLabelB.slice(0, 20)}{realLabelB.length > 20 ? '…' : ''}
  </button>
@@ -1333,7 +1333,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
   borderRadius: '2px',
  backgroundColor: activeFile === 'A' ? 'rgba(107,140,187,0.2)' : 'rgba(51,48,44,0.3)',
  border: activeFile === 'A' ? '1px solid rgba(107,140,187,0.4)' : '1px solid transparent',
- color: activeFile === 'A' ? '#6b8cbb' : '#8d867b',
+ color: activeFile === 'A' ? 'var(--color-data-a)' : 'var(--color-text-muted)',
  }}
  >
  A — {labelA}
@@ -1348,7 +1348,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  borderRadius: '2px',
  backgroundColor: 'rgba(224,122,79,0.12)',
  border: '1px solid rgba(224,122,79,0.25)',
- color: '#e07a4f',
+ color: 'var(--color-data-warn)',
  }}
  title="Flip A/B"
  >
@@ -1366,7 +1366,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
   borderRadius: '2px',
  backgroundColor: activeFile === 'B' ? 'rgba(224,122,79,0.15)' : 'rgba(51,48,44,0.3)',
  border: activeFile === 'B' ? '1px solid rgba(224,122,79,0.3)' : '1px solid transparent',
- color: activeFile === 'B' ? '#e07a4f' : '#8d867b',
+ color: activeFile === 'B' ? 'var(--color-data-warn)' : 'var(--color-text-muted)',
  }}
  >
  B — {labelB}
@@ -1481,7 +1481,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
  style={{
  backgroundColor: loopEnabled ? 'rgba(224,122,79,0.2)' : '#33302c',
- color: loopEnabled ? '#e07a4f' : '#8d867b',
+ color: loopEnabled ? 'var(--color-data-warn)' : 'var(--color-text-muted)',
  }}
  title={loopEnabled ? 'Clear loop (L)' : 'Drag on waveform to set loop'}
  aria-label={loopEnabled ? 'Clear loop' : 'Loop disabled. Drag on waveform to set loop region'}
@@ -1511,7 +1511,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  className="px-2 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors"
  style={{
  backgroundColor: active ? 'rgba(208,176,102,0.2)' : 'transparent',
- color: active ? '#d0b066' : '#8d867b',
+ color: active ? 'var(--color-accent)' : 'var(--color-text-muted)',
  }}
  title={longTitle}
  aria-label={longTitle}
@@ -1527,13 +1527,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
      users can pinpoint where a click / artefact is, not just round
      seconds. Loop range goes a step further to milliseconds because
      loop boundaries are drag-precise actions. */}
- <span className="text-xs font-mono" style={{ color: '#78716c' }} title={formatPreciseTime(currentTime, 'milli')}>
+ <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }} title={formatPreciseTime(currentTime, 'milli')}>
  {formatPreciseTime(currentTime, 'tenth')} / {formatPreciseTime(effectiveDuration, 'tenth')}
  </span>
 
  {/* Loop indicator */}
  {loopEnabled && loopStart !== null && loopEnd !== null && (
- <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ backgroundColor: 'rgba(224,122,79,0.15)', color: '#e07a4f' }}
+ <span className="text-[10px] px-2 py-0.5 rounded-full font-mono" style={{ backgroundColor: 'rgba(224,122,79,0.15)', color: 'var(--color-data-warn)' }}
        title={`${formatPreciseTime(loopStart, 'milli')} — ${formatPreciseTime(loopEnd, 'milli')}`}>
  Loop: {formatPreciseTime(loopStart, 'tenth')} — {formatPreciseTime(loopEnd, 'tenth')}
  </span>
@@ -1547,12 +1547,12 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  </div>
 
  {/* Keyboard shortcuts */}
- <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: '#8d867b' }}>
- <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>Space</kbd> play</span>
- <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>A</kbd> <kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>B</kbd> switch</span>
- <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>←</kbd> <kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>→</kbd> scrub</span>
- <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>M</kbd> mono</span>
- <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: '#272524', color: '#78716c' }}>L</kbd> loop</span>
+ <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+ <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-700)', color: 'var(--color-text-muted)' }}>Space</kbd> play</span>
+ <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-700)', color: 'var(--color-text-muted)' }}>A</kbd> <kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-700)', color: 'var(--color-text-muted)' }}>B</kbd> switch</span>
+ <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-700)', color: 'var(--color-text-muted)' }}>←</kbd> <kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-700)', color: 'var(--color-text-muted)' }}>→</kbd> scrub</span>
+ <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-700)', color: 'var(--color-text-muted)' }}>M</kbd> mono</span>
+ <span><kbd className="px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-700)', color: 'var(--color-text-muted)' }}>L</kbd> loop</span>
  <span style={{ color: '#44403c' }}>· drag waveform to set loop</span>
  </div>
  </div>
@@ -1560,7 +1560,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  )}
 
  {!isLoaded && !isLoading && (
- <p className="text-xs text-center py-2" style={{ color: '#8d867b' }}>
+ <p className="text-xs text-center py-2" style={{ color: 'var(--color-text-muted)' }}>
  Preparing audio...
  </p>
  )}
@@ -1637,17 +1637,17 @@ function InlineRefCurve({ referenceCurve, currentCurve, referenceLabel }: {
  </text>
  )
  })}
- {cur && <path d={smoothPath(cur)} fill="none" stroke="#6b8cbb" strokeWidth="1.1" opacity="0.75" />}
- <path d={smoothPath(ref)} fill="none" stroke="#d0b066" strokeWidth="1.3" />
+ {cur && <path d={smoothPath(cur)} fill="none" stroke="var(--color-data-a)" strokeWidth="1.1" opacity="0.75" />}
+ <path d={smoothPath(ref)} fill="none" stroke="var(--color-accent)" strokeWidth="1.3" />
  </svg>
- <div className="flex items-center gap-3 px-2 pb-1 text-[8px]" style={{ color: '#7a7164' }}>
+ <div className="flex items-center gap-3 px-2 pb-1 text-[8px]" style={{ color: 'var(--color-text-muted)' }}>
  <span className="flex items-center gap-1">
- <span className="w-3 h-px" style={{ backgroundColor: '#d0b066' }} />
+ <span className="w-3 h-px" style={{ backgroundColor: 'var(--color-accent)' }} />
  Ref{referenceLabel ? `: ${referenceLabel}` : ''}
  </span>
  {cur && (
  <span className="flex items-center gap-1">
- <span className="w-3 h-px" style={{ backgroundColor: '#6b8cbb' }} />
+ <span className="w-3 h-px" style={{ backgroundColor: 'var(--color-data-a)' }} />
  Current
  </span>
  )}
@@ -1820,18 +1820,18 @@ function LiveTpMeter({ liveRef, peakRef, isPlaying }: {
  aria-label="Live near-TP meter (2× linear)"
  >
  <div className="flex items-baseline gap-1.5">
- <span className="text-[8px] uppercase tracking-[0.15em]" style={{ color: '#a8a29e' }}>INST</span>
- <span className="text-[11px] tabular-nums" style={{ color: '#a8a29e' }}>
+ <span className="text-[8px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-sand-300)' }}>INST</span>
+ <span className="text-[11px] tabular-nums" style={{ color: 'var(--color-sand-300)' }}>
  {fmt(live)}
  </span>
  </div>
  <span className="w-px h-3" style={{ backgroundColor: 'rgba(168,161,150,0.4)' }} />
  <div className="flex items-baseline gap-1.5">
- <span className="text-[8px] uppercase tracking-[0.15em]" style={{ color: '#a8a29e' }}>PEAK</span>
- <span className="text-[11px] font-medium tabular-nums" style={{ color: '#d0b066' }}>
+ <span className="text-[8px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-sand-300)' }}>PEAK</span>
+ <span className="text-[11px] font-medium tabular-nums" style={{ color: 'var(--color-accent)' }}>
  {fmt(peak)}
  </span>
- <span className="text-[8px]" style={{ color: '#a8a29e' }}>dBTP</span>
+ <span className="text-[8px]" style={{ color: 'var(--color-sand-300)' }}>dBTP</span>
  </div>
  </div>
  )

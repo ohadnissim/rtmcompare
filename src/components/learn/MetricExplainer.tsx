@@ -102,7 +102,7 @@ export default function MetricExplainer({ metricKey, children, value, violation 
                 fontFamily: 'var(--font-sans)',
                 fontWeight: 600,
                 fontSize: 11,
-                letterSpacing: '0.1em',
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 color: 'var(--color-accent)',
               }}
@@ -200,7 +200,7 @@ export default function MetricExplainer({ metricKey, children, value, violation 
                   fontFamily: 'var(--font-sans)',
                   fontSize: 10,
                   fontWeight: 600,
-                  letterSpacing: '0.08em',
+                  letterSpacing: '0.14em',
                   textTransform: 'uppercase',
                   color: 'rgba(220,80,60,0.9)',
                   marginBottom: 4,
@@ -236,8 +236,7 @@ export default function MetricExplainer({ metricKey, children, value, violation 
           {content.proTip && (
             <div
               style={{
-                fontFamily: 'var(--font-sans)',
-                fontStyle: 'italic',
+                fontFamily: 'var(--font-display)', fontStyle: 'italic',
                 fontSize: 11,
                 color: 'var(--color-sand-400)',
                 lineHeight: 1.5,

@@ -1,3 +1,6 @@
+// TODO: src/shell/ orphaned — confirm with feature flag or delete.
+// As of audit, only a commented-out import exists in src/main.tsx; no live
+// reference to PlatformShell/TabBar/ModuleStore from App.tsx or elsewhere.
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import TabBar from './TabBar'
 import ModuleStore from './ModuleStore'
@@ -121,16 +124,38 @@ export default function PlatformShell() {
  />
  {/* ── Header ── */}
  <header
- className="app-no-drag px-8 py-4 sticky z-30 backdrop-blur-md flex items-center justify-between"
+ className="app-no-drag px-8 py-4 sticky z-30 flex items-center justify-between relative"
  style={{
  top: 28,
- backgroundColor: 'rgba(14,13,11,0.85)',
+ backgroundColor: 'var(--rtm-header-bg, rgba(14,13,11,0.95))',
  borderBottom: '1px solid rgba(168,161,150,0.08)',
+ borderRadius: '2px',
  }}
  >
  <div className="flex items-center gap-3 pl-16 app-no-drag">
- <span className="text-lg font-light tracking-[0.2em] uppercase" style={{ color: '#ebe7e0' }}>RTM</span>
- <span className="text-[9px] tracking-[0.3em] uppercase" style={{ color: '#5a544a' }}>suite</span>
+ <span
+ style={{
+ fontFamily: 'var(--font-display)',
+ fontSize: 'var(--text-wordmark-sm)',
+ letterSpacing: 'var(--tracking-wordmark)',
+ lineHeight: 'var(--leading-wordmark)',
+ fontStyle: 'italic',
+ color: 'var(--color-text-primary)',
+ }}
+ >
+ RTM
+ </span>
+ <span
+ className="uppercase"
+ style={{
+ fontFamily: 'var(--font-body, "Outfit", sans-serif)',
+ fontSize: '11px',
+ letterSpacing: '0.3em',
+ color: 'var(--color-text-muted)',
+ }}
+ >
+ suite
+ </span>
  </div>
  <div className="flex items-center gap-3 app-no-drag">
  <button
@@ -141,12 +166,18 @@ export default function PlatformShell() {
  window.location.reload()
  }}
  className="text-[10px] uppercase tracking-[0.14em] px-2 py-1 rounded transition-colors hover:text-sand-200"
- style={{ color: '#8d867b', border: '1px solid rgba(168,161,150,0.18)' }}
+ style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.18)' }}
  title="Restart all tours"
  >
  Tour
  </button>
  </div>
+ {/* Single gold gesture — 1px hairline at the bottom of the header. */}
+ <div
+ className="absolute bottom-0 left-0 right-0"
+ style={{ height: '1px', background: 'var(--color-accent)', opacity: 0.35 }}
+ aria-hidden
+ />
  </header>
 
  {/* ── Tab bar ── */}

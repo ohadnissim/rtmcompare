@@ -10,9 +10,9 @@ interface Props {
 }
 
 const GROUP_LABELS: Record<string, { label: string; color: string }> = {
- ear_level: { label: 'Ear Level', color: '#6b8cbb' },
- height: { label: 'Height', color: '#a855f7' },
- lfe: { label: 'LFE', color: '#f43f5e' },
+ ear_level: { label: 'Ear Level', color: 'var(--color-data-a)' },
+ height: { label: 'Height', color: 'var(--color-slate-blue)' },
+ lfe: { label: 'LFE', color: 'var(--color-danger)' },
 }
 
 export default function AtmosChannelEnergy({ channels, layout, objectCount, objectEnergyDb, hasAdm }: Props) {
@@ -37,7 +37,7 @@ export default function AtmosChannelEnergy({ channels, layout, objectCount, obje
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Channel Energy</h2>
+ <h2 className="text-lg">Channel Energy</h2>
  <p className="text-xs text-dark-400">
  RMS level per channel in the {layout} bed
  </p>
@@ -84,7 +84,7 @@ export default function AtmosChannelEnergy({ channels, layout, objectCount, obje
  {/* Object energy info (when objects exist but no ADM position data) */}
  {!hasAdm && objectCount != null && objectCount > 0 && (
  <div className="flex items-center gap-3 px-4 py-3" style={{ borderRadius: '2px', backgroundColor: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.15)' }}>
- <span className="text-xs" style={{ color: '#a855f7' }}>
+ <span className="text-xs" style={{ color: 'var(--color-slate-blue)' }}>
  {objectCount} audio objects
  </span>
  {objectEnergyDb != null && (

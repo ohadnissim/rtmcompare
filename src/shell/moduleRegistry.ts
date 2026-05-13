@@ -11,7 +11,7 @@ import React from 'react'
 function StubModule({ label }: { label: string }) {
  return React.createElement('div', {
  className: 'flex items-center justify-center h-full',
- style: { color: '#7a7164', fontSize: '14pt', letterSpacing: '0.2em', textTransform: 'uppercase' as const },
+ style: { color: 'var(--color-text-muted)', fontSize: '14pt', letterSpacing: '0.18em', textTransform: 'uppercase' as const },
  }, `${label} module — ready for migration`)
 }
 
@@ -30,7 +30,7 @@ export const MODULES: ModuleManifest[] = [
  tier: 'free',
  defaultOrder: 0,
  component: () => StubModule({ label: 'Compare' }),
- accentColor: '#6b8cbb',
+ accentColor: 'var(--color-data-a)',
  },
  {
  id: 'album-qc',
@@ -41,7 +41,7 @@ export const MODULES: ModuleManifest[] = [
  tier: 'free',
  defaultOrder: 1,
  component: () => StubModule({ label: 'Album QC' }),
- accentColor: '#d0b066',
+ accentColor: 'var(--color-accent)',
  },
  {
  id: 'flow',
@@ -52,7 +52,7 @@ export const MODULES: ModuleManifest[] = [
  tier: 'pro',
  defaultOrder: 2,
  component: () => StubModule({ label: 'FLOW' }),
- accentColor: '#e07a4f',
+ accentColor: 'var(--color-data-warn)',
  },
 ]
 

@@ -209,7 +209,7 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
  role="status"
  aria-live="polite"
  >
- <div className="text-[10px] uppercase tracking-[0.15em] mb-0.5" style={{ color: '#d0b066' }}>
+ <div className="text-[10px] uppercase tracking-[0.16em] mb-0.5" style={{ color: '#d0b066' }}>
  RTM plugin
  </div>
  <div className="text-[11px]" style={{ color: '#ebe7e0' }}>
@@ -279,7 +279,7 @@ function DropChip({ drop, onLoad, onDismiss }: {
  <span className="text-[14px]">↙</span>
  </div>
  <div className="flex-1 min-w-0">
- <div className="text-[10px] uppercase tracking-[0.15em]" style={{ color: '#d0b066' }}>
+ <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: '#d0b066' }}>
  From RTM plugin
  </div>
  <div className="text-[12px] truncate" style={{ color: '#ebe7e0' }} title={name}>

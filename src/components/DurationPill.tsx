@@ -61,7 +61,7 @@ export default function DurationPill({ seconds, label, tint, compact }: Props) {
  <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 2" />
  </svg>
  {label && (
- <span className={`uppercase tracking-[0.12em] ${compact ? 'text-[8px]' : 'text-[9px]'}`} style={{ color: '#7a7164' }}>
+ <span className={`uppercase tracking-[0.14em] ${compact ? 'text-[9px]' : 'text-[10px]'}`} style={{ color: 'var(--color-text-muted)' }}>
  {label}
  </span>
  )}

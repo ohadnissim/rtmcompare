@@ -259,6 +259,36 @@ export default function App() {
  // RTMcertify state — signed pre-delivery compliance certificate
  const [certifyResult, setCertifyResult] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
  const [certifying, setCertifying] = useState(false)
+ // Inline toast for certify Copy / Save actions — clears after 2s so
+ // the user gets confirmation instead of a silent no-op.
+ const [certifyToast, setCertifyToast] = useState<string | null>(null)
+ useEffect(() => {
+ if (!certifyToast) return
+ const id = window.setTimeout(() => setCertifyToast(null), 2000)
+ return () => window.clearTimeout(id)
+ }, [certifyToast])
+ // Transient "scan cancelled" toast. Distinct from `error` so timeouts
+ // (which set `error`) and cancellations (which set this) don't blur
+ // into the same UX state. Auto-clears after 3s.
+ const [cancelMessage, setCancelMessage] = useState<string | null>(null)
+ useEffect(() => {
+   if (!cancelMessage) return
+   const t = setTimeout(() => setCancelMessage(null), 3000)
+   return () => clearTimeout(t)
+ }, [cancelMessage])
+ // Pending plug-in incoming drop while a results / ref-only view is on
+ // screen. Holds the drop until the user explicitly chooses Replace or
+ // Keep current. Shape: { slot, info, drop } — same args RtmIncomingBanner
+ // already passes to onLoadInto.
+ type PendingIncoming = {
+   slot: 'A' | 'B'
+   info: FileInfo
+   drop: any // eslint-disable-line @typescript-eslint/no-explicit-any
+ }
+ // FIFO queue. The chip shows the first entry; subsequent drops wait
+ // their turn so a second plugin send never silently overwrites the
+ // first. Drains via Replace / Keep current.
+ const [pendingQueue, setPendingQueue] = useState<PendingIncoming[]>([])
  const [deepScan, setDeepScan] = useState(false)
  const [refOnlyResults, setRefOnlyResults] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
  // A-side lock. When set,
@@ -706,6 +736,7 @@ export default function App() {
  }
  if (err?.cancelled || /cancelled/i.test(err?.message || '')) {
  setError(null)
+ setCancelMessage('Scan cancelled')
  } else {
  setError(err.message || 'Analysis failed')
  }
@@ -752,6 +783,7 @@ export default function App() {
  }
  if (err?.cancelled || /cancelled/i.test(err?.message || '')) {
  setError(null)
+ setCancelMessage('Scan cancelled')
  } else {
  setError(err.message || 'Analysis failed')
  }
@@ -816,13 +848,20 @@ export default function App() {
  try {
  const folder = await window.electronAPI.selectFolder()
  if (!folder) return
- const files = await window.electronAPI.listAudioFiles(folder)
- if (!files || files.length === 0) {
- setError('No audio files found in that folder (looking for wav / flac / aiff / mp3 / m4a / ogg).')
- return
- }
+ // Flip into processing immediately — `listAudioFiles` walks the
+ // directory tree synchronously and on a large folder it can stall
+ // for several seconds. Without this the upload page hangs with no
+ // feedback after the picker closes.
  setState('processing')
  setError(null)
+ setProgress('Scanning folder…')
+ const folderBase = folder.split(/[\\/]/).pop() || folder
+ const files = await window.electronAPI.listAudioFiles(folder)
+ if (!files || files.length === 0) {
+ setError(`No audio files in "${folderBase}" — looked for wav/flac/aiff/mp3/m4a/ogg.`)
+ setState('upload')
+ return
+ }
  setProgress(`Batch · preparing ${files.length} track${files.length === 1 ? '' : 's'}…`)
  unsubBatchProgress = window.electronAPI.onBatchProgress?.((msg) => setProgress(msg.message))
  // Fast measurement-only batch — LUFS / TP / LRA / spectrum / ISRC for
@@ -1024,6 +1063,98 @@ export default function App() {
  </ErrorBoundary>
 
  <main className="max-w-5xl mx-auto px-8 py-6" style={{ paddingRight: 'calc(32px + var(--rtm-student-sidebar-width, 0px))', transition: 'padding-right 0.2s ease' }}>
+ {/* Pending plug-in drop confirmation — replaces the silent
+     unmount-the-results behaviour. The chip mounts at the top of
+     the main column so it's visible whether the user is on the
+     upload, results, or ref-only surface. */}
+ {pendingQueue.length > 0 && (
+ <div
+ role="alert"
+ style={{
+ marginBottom: 16,
+ padding: '10px 14px',
+ border: '1px solid var(--color-accent)',
+ borderRadius: 2,
+ display: 'flex',
+ alignItems: 'center',
+ gap: 12,
+ flexWrap: 'wrap',
+ fontFamily: 'var(--font-sans)',
+ fontSize: 'var(--text-sm, 0.875rem)',
+ color: 'var(--color-text-primary)',
+ }}
+ >
+ <span style={{ flex: 1 }}>
+ {pendingQueue.length > 1
+ ? `Plug-in sent ${pendingQueue.length} new bounces — replace current comparison?`
+ : 'Plug-in sent a new bounce — replace current comparison?'}
+ <span style={{ display: 'block', color: 'var(--color-text-secondary)', fontSize: 12, marginTop: 2 }}>
+ {pendingQueue[0].info.name}
+ </span>
+ </span>
+ <button
+ type="button"
+ onClick={() => {
+ const head = pendingQueue[0]
+ const { slot, info, drop } = head
+ // Compute what the file slots will look like AFTER this replace,
+ // so we can pick the right downstream analysis call.
+ const nextA = slot === 'A' ? info : fileA
+ const nextB = slot === 'B' ? info : fileB
+ if (slot === 'A') {
+ setFileA(info)
+ pluginDrop.setSlot('A', drop?.meta ? { audioPath: info.path, ...drop.meta } : null)
+ } else {
+ setFileB(info)
+ pluginDrop.setSlot('B', drop?.meta ? { audioPath: info.path, ...drop.meta } : null)
+ }
+ setPendingQueue(q => q.slice(1))
+ // Auto-analyze instead of dumping back to the upload surface —
+ // the user just asked us to replace, follow through.
+ if (nextA && nextB) {
+ // setState handled inside handleCompare
+ void handleCompare()
+ } else if (nextA) {
+ void handleRefOnly()
+ } else {
+ setState('upload')
+ }
+ }}
+ style={{
+ padding: '4px 12px',
+ fontSize: 11,
+ fontWeight: 600,
+ letterSpacing: '0.06em',
+ textTransform: 'uppercase',
+ border: '1px solid var(--color-accent)',
+ borderRadius: 2,
+ background: 'transparent',
+ color: 'var(--color-accent)',
+ cursor: 'pointer',
+ }}
+ >
+ Replace
+ </button>
+ <button
+ type="button"
+ onClick={() => setPendingQueue(q => q.slice(1))}
+ style={{
+ padding: '4px 12px',
+ fontSize: 11,
+ fontWeight: 600,
+ letterSpacing: '0.06em',
+ textTransform: 'uppercase',
+ border: '1px solid var(--color-border)',
+ borderRadius: 2,
+ background: 'transparent',
+ color: 'var(--color-text-secondary)',
+ cursor: 'pointer',
+ }}
+ >
+ Keep current
+ </button>
+ </div>
+ )}
  {/* ReleaseCockpit removed — Label mode is shelved while we
  focus on the engineer side. The component + its tour + the
  releases store all remain in the codebase. */}
@@ -1039,6 +1170,8 @@ export default function App() {
       canBegin={!!fileA}
       onBegin={fileA && fileB ? handleCompare : handleRefOnly}
       onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
+      recents={history}
+      onOpenRecents={() => { /* dropdown handled inline via the RecentAnalyses card below */ }}
       error={error}
     >
       {/* 5.7.0: engineer profile picker. Restored to the cover so the
@@ -1096,21 +1229,96 @@ export default function App() {
             by mistake" case is the most common — a single file in the
             wrong slot. Click swaps fileA ↔ fileB; if only one is set,
             the empty slot just stays empty after the swap, but the
-            loaded file ends up where the user actually wanted it. */}
+            loaded file ends up where the user actually wanted it.
+            Glyph: bidirectional when both slots are filled (swap), single
+            arrow pointing to the empty slot when only one is filled. */}
         {(fileA || fileB) && (
           <button
             onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full hidden md:flex items-center justify-center transition-all hover:scale-110"
-            style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)' }}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 hidden md:flex items-center justify-center transition-all hover:scale-110"
+            style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)', borderRadius: 2 }}
             aria-label={fileA && fileB ? "Swap reference and compare files" : "Move file to the other slot"}
             title={fileA && fileB ? "Swap files" : "Move to the other slot"}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
+            {fileA && fileB ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            ) : fileA ? (
+              // Only Reference filled — arrow points right (toward Compare)
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m0 0l-5-5m5 5l-5 5" />
+              </svg>
+            ) : (
+              // Only Compare filled — arrow points left (toward Reference)
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l5-5m-5 5l5 5" />
+              </svg>
+            )}
           </button>
         )}
       </div>
+      {/* Mode indicator — replaces what would otherwise be a constant
+          "Begin analysis" label inside EmptyStateV2. Tells the user which
+          action the Begin button will actually fire. */}
+      <div
+        style={{
+          marginTop: 16,
+          textAlign: 'center',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 'var(--text-metric-eyebrow)',
+          letterSpacing: 'var(--tracking-metric-eyebrow)',
+          textTransform: 'uppercase',
+          color: 'var(--color-text-dim)',
+        }}
+      >
+        {fileA && fileB ? (
+          <>
+            Begin comparison
+            <span style={{ display: 'block', marginTop: 4, color: 'var(--color-text-secondary)', textTransform: 'none', letterSpacing: 0 }}>
+              vs. {fileB.name}
+            </span>
+          </>
+        ) : fileA ? (
+          'Analyse reference only'
+        ) : null}
+      </div>
+      {/* Cancel toast — distinct from the red error callout above.
+          Auto-clears after 3s via the useEffect on cancelMessage. */}
+      {cancelMessage && (
+        <div
+          role="status"
+          style={{
+            marginTop: 12,
+            marginInline: 'auto',
+            width: 'min(840px, 92%)',
+            padding: '8px 14px',
+            border: '1px solid rgba(168,161,150,0.25)',
+            borderRadius: 2,
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-sm, 0.875rem)',
+            color: 'var(--color-text-secondary)',
+            textAlign: 'center',
+          }}
+        >
+          {cancelMessage}
+        </div>
+      )}
+      {/* Inline recent-analyses card — wired to the history log so the
+          empty-state surface actually surfaces prior work. Clicking a
+          row loads the entry into the chosen slot. */}
+      {history.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <RecentAnalyses
+            history={history}
+            onPick={(entry, slot) => {
+              const info: FileInfo = { path: entry.path, name: entry.name }
+              if (slot === 'A') setFileA(info)
+              else setFileB(info)
+            }}
+          />
+        </div>
+      )}
     </EmptyStateV2>
   )}
 
@@ -1146,8 +1354,8 @@ export default function App() {
  fontWeight: 600,
  letterSpacing: '0.06em',
  textTransform: 'uppercase',
- border: '1px solid var(--color-border, #3a3a3a)',
- borderRadius: 6,
+ border: '1px solid rgba(168,161,150,0.25)',
+ borderRadius: 2,
  background: 'transparent',
  color: 'var(--color-text-secondary, #aaa)',
  cursor: certifying ? 'wait' : 'pointer',
@@ -1155,29 +1363,139 @@ export default function App() {
  }}
  title="Generate a signed pre-delivery compliance certificate (RTMcertify)"
  >
- {certifying ? '⏳ Generating certificate…' : '🔏 Get RTMcertify Certificate'}
+ {certifying ? 'Generating certificate…' : 'Get RTMcertify Certificate'}
  </button>
- {certifyResult && (
+ {certifyResult && (certifyResult.error ? (
  <div
  style={{
- background: 'rgba(255,255,255,0.04)',
- border: '1px solid var(--color-border, #3a3a3a)',
- borderRadius: 8,
- padding: '10pt 14pt',
- fontSize: 11,
- fontFamily: 'monospace',
- maxHeight: 220,
- overflow: 'auto',
- whiteSpace: 'pre-wrap',
- wordBreak: 'break-all',
- color: certifyResult.error ? 'var(--color-warn, #e05a5a)' : 'var(--color-text, #ccc)',
+ fontFamily: 'var(--font-sans)',
+ fontSize: 12,
+ color: 'var(--color-danger)',
+ padding: '6px 0',
  }}
  >
- {certifyResult.error
- ? `Error: ${certifyResult.error}`
- : JSON.stringify(certifyResult, null, 2)}
+ Certificate failed: {certifyResult.error}
+ </div>
+ ) : (
+ <div
+ style={{
+ border: '1px solid var(--color-border)',
+ borderRadius: 2,
+ padding: '10pt 14pt',
+ fontSize: 11,
+ display: 'flex',
+ flexDirection: 'column',
+ gap: 6,
+ color: 'var(--color-text-primary)',
+ }}
+ >
+ <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+ Certificate issued
+ </div>
+ <div style={{ fontFamily: 'var(--font-mono)' }}>
+ ID&nbsp;
+ <span style={{ color: 'var(--color-text-primary)' }}>
+ {String(certifyResult.certificate_id || '').slice(0, 8)}…
+ </span>
+ </div>
+ <div style={{ fontFamily: 'var(--font-mono)' }}>
+ SHA256 A&nbsp;
+ <span style={{ color: 'var(--color-text-primary)' }}>
+ {String(certifyResult.sha256_a || '').slice(0, 8)}…
+ </span>
+ </div>
+ <div style={{ fontFamily: 'var(--font-mono)' }}>
+ SHA256 B&nbsp;
+ <span style={{ color: 'var(--color-text-primary)' }}>
+ {String(certifyResult.sha256_b || '').slice(0, 8)}…
+ </span>
+ </div>
+ <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+ <button
+ type="button"
+ onClick={async () => {
+ const json = JSON.stringify(certifyResult, null, 2)
+ try {
+ await navigator.clipboard.writeText(json)
+ setCertifyToast('Copied JSON to clipboard')
+ } catch {
+ setCertifyToast('Copy failed — try selecting the JSON manually')
+ }
+ }}
+ style={{
+ padding: '4px 12px',
+ fontSize: 11,
+ fontWeight: 600,
+ letterSpacing: '0.06em',
+ textTransform: 'uppercase',
+ border: '1px solid var(--color-border)',
+ borderRadius: 2,
+ background: 'transparent',
+ color: 'var(--color-text-secondary)',
+ cursor: 'pointer',
+ }}
+ >
+ Copy JSON
+ </button>
+ <button
+ type="button"
+ onClick={async () => {
+ const json = JSON.stringify(certifyResult, null, 2)
+ const defaultName = `rtmcertify-${String(certifyResult.certificate_id || 'cert').slice(0, 8)}.cert.json`
+ try {
+ if (window.electronAPI?.saveFileDialog) {
+ await window.electronAPI.saveFileDialog(defaultName, json, [{ name: 'RTM Certificate', extensions: ['cert.json', 'json'] }])
+ setCertifyToast('Saved .cert.json')
+ return
+ }
+ } catch {
+ setCertifyToast('Save cancelled')
+ return
+ }
+ // Browser fallback — Blob download.
+ try {
+ const blob = new Blob([json], { type: 'application/json' })
+ const url = URL.createObjectURL(blob)
+ const a = document.createElement('a')
+ a.href = url
+ a.download = defaultName
+ a.click()
+ setTimeout(() => URL.revokeObjectURL(url), 1000)
+ setCertifyToast('Saved .cert.json')
+ } catch {
+ setCertifyToast('Save cancelled')
+ }
+ }}
+ style={{
+ padding: '4px 12px',
+ fontSize: 11,
+ fontWeight: 600,
+ letterSpacing: '0.06em',
+ textTransform: 'uppercase',
+ border: '1px solid var(--color-border)',
+ borderRadius: 2,
+ background: 'transparent',
+ color: 'var(--color-text-secondary)',
+ cursor: 'pointer',
+ }}
+ >
+ Save .cert.json
+ </button>
+ </div>
+ {certifyToast && (
+ <div
+ role="status"
+ style={{
+ fontSize: 11,
+ color: 'var(--color-text-muted)',
+ marginTop: 4,
+ }}
+ >
+ {certifyToast}
  </div>
  )}
+ </div>
+ ))}
  </div>
  )}
 
@@ -1232,6 +1550,14 @@ export default function App() {
  <RtmIncomingBanner
  onLoadInto={(slot, info, drop) => {
  console.log('[rtm] plugin drop -> slot', slot, 'path=', info.path)
+ // If a comparison / single-file view is on screen we don't
+ // silently nuke it — defer the drop and let the user choose
+ // (see pendingIncoming chip rendered near the dropzones).
+ if (state === 'results' || state === 'ref-only') {
+ const targetSlot: 'A' | 'B' = slot === 'B' && !fileA ? 'A' : slot
+ setPendingQueue(q => [...q, { slot: targetSlot, info, drop }])
+ return
+ }
  // Bug #1 fix: if plugin asks for Compare (File B) but no File A
  // is loaded yet, promote the drop to File A so the user has
  // something to analyse. Otherwise Compare stays disabled and
@@ -1247,9 +1573,6 @@ export default function App() {
  setFileB(info)
  pluginDrop.setSlot('B', drop?.meta ? { audioPath: info.path, ...drop.meta } : null)
  }
- // Jump back to upload state if we're mid-results so the
- // new file lands cleanly.
- if (state === 'results' || state === 'ref-only') setState('upload')
  }}
  onSingleFileAnalysis={(info, drop) => {
  // Plugin asked for single-file analysis: load into slot A,

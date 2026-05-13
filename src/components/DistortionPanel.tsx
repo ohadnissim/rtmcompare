@@ -9,9 +9,9 @@ interface Props {
 }
 
 const severityStyles = {
- clean: { color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)', icon: '✓', label: 'Clean' },
- warning: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)', icon: '⚠', label: 'Warning' },
- problem: { color: '#f43f5e', bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.25)', icon: '✕', label: 'Problem' },
+ clean: { color: 'var(--color-data-pass)', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)', icon: '✓', label: 'Clean' },
+ warning: { color: 'var(--color-warm-amber)', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)', icon: '⚠', label: 'Warning' },
+ problem: { color: 'var(--color-danger)', bg: 'rgba(244,63,94,0.1)', border: 'rgba(244,63,94,0.25)', icon: '✕', label: 'Problem' },
 }
 
 export default function DistortionPanel({ distortion, labelA, labelB, singleFile }: Props) {
@@ -22,7 +22,7 @@ export default function DistortionPanel({ distortion, labelA, labelB, singleFile
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Distortion Check</h2>
+ <h2 className="text-lg">Distortion Check</h2>
  <p className="text-xs text-dark-400">
  Clipping, inter-sample peaks, over-limiting, and harmonic distortion
  </p>
@@ -133,7 +133,7 @@ function MeterCard({
  status: 'good' | 'warn' | 'bad'
  singleFile?: boolean
 }) {
- const statusColor = status === 'good' ? '#34d399' : status === 'warn' ? '#f59e0b' : '#f43f5e'
+ const statusColor = status === 'good' ? 'var(--color-data-pass)' : status === 'warn' ? 'var(--color-warm-amber)' : 'var(--color-danger)'
  const statusBg = status === 'good' ? 'rgba(52,211,153,0.08)' : status === 'warn' ? 'rgba(245,158,11,0.08)' : 'rgba(244,63,94,0.08)'
 
  return (

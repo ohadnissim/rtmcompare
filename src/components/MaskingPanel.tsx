@@ -15,17 +15,17 @@ interface Props {
 }
 
 const SEVERITY: Record<string, { color: string; bg: string; label: string }> = {
- high: { color: '#c96765', bg: 'rgba(201,103,101,0.10)', label: 'High' },
- medium: { color: '#d0b066', bg: 'rgba(208,176,102,0.10)', label: 'Medium' },
- low: { color: '#8a95ab', bg: 'rgba(138,149,171,0.10)', label: 'Low' },
- info: { color: '#8d867b', bg: 'rgba(141,134,123,0.08)', label: 'Info' },
+ high: { color: 'var(--color-danger)', bg: 'rgba(201,103,101,0.10)', label: 'High' },
+ medium: { color: 'var(--color-accent)', bg: 'rgba(208,176,102,0.10)', label: 'Medium' },
+ low: { color: 'var(--color-slate-blue)', bg: 'rgba(138,149,171,0.10)', label: 'Low' },
+ info: { color: 'var(--color-text-muted)', bg: 'rgba(141,134,123,0.08)', label: 'Info' },
 }
 
 export default function MaskingPanel({ masking }: Props) {
  if (!masking || !masking.overlaps || masking.overlaps.length === 0) {
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50">
- <h2 className="text-lg font-semibold mb-2">Masking Analysis</h2>
+ <h2 className="text-lg mb-2">Masking Analysis</h2>
  <p className="text-xs text-dark-400">No significant masking detected — elements have clear frequency space.</p>
  </div>
  )
@@ -35,7 +35,7 @@ export default function MaskingPanel({ masking }: Props) {
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4">
  <div className="flex items-center justify-between">
  <div className="space-y-1">
- <h2 className="text-lg font-semibold">Masking Analysis</h2>
+ <h2 className="text-lg">Masking Analysis</h2>
  <p className="text-xs text-dark-400">
  {masking.stem_based
  ? 'Per-stem frequency overlap — where elements fight for the same band.'
@@ -43,7 +43,7 @@ export default function MaskingPanel({ masking }: Props) {
  </p>
  </div>
  {!masking.stem_based && (
- <span className="text-[10px] px-2 py-1 rounded-full" style={{ color: '#8d867b', border: '1px solid rgba(141,134,123,0.3)' }}>
+ <span className="text-[10px] px-2 py-1 rounded-full" style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(141,134,123,0.3)' }}>
  Run Deep Scan for per-stem analysis
  </span>
  )}
@@ -74,7 +74,7 @@ export default function MaskingPanel({ masking }: Props) {
  </div>
  <p className="text-[11px] text-dark-300 mt-0.5">{o.description}</p>
  {o.tip && (
- <p className="text-[10px] text-dark-500 italic mt-1">→ {o.tip}</p>
+ <p className="text-[10px] text-dark-500 font-display italic mt-1">→ {o.tip}</p>
  )}
  </div>
  </div>
