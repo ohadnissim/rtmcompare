@@ -74,6 +74,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const [atmosView, setAtmosView] = useState<'immersive' | 'downmix'>('immersive')
  // ⌘K palette — opens on Cmd/Ctrl+K, closes on Esc.
  const [paletteOpen, setPaletteOpen] = useState(false)
+ // CRIT-2: Share in-flight guard — prevents double-click opening two save dialogs.
+ const [sharingStatus, setSharingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
  const { setBlind, toggleBlind, surface, advancedQc } = useModes()
 
  // Refs for scroll targets.
@@ -336,15 +338,28 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  ✦ Certify
  </button>
  )}
- {/* Share — saves a self-contained HTML report anyone can open in a browser */}
+ {/* Share — saves a self-contained HTML report anyone can open in a browser.
+       CRIT-2: in-flight guard (sharingStatus) prevents double-click double-dialog.
+       Status chip gives user visible feedback on save / cancel / error. */}
  {window.electronAPI?.shareAsHtml && (
+ <>
  <button
  type="button"
+ disabled={sharingStatus === 'saving'}
  onClick={async () => {
- await window.electronAPI?.shareAsHtml?.({
+ if (sharingStatus === 'saving') return
+ setSharingStatus('saving')
+ try {
+ const res = await window.electronAPI?.shareAsHtml?.({
  title: `${fileA.name ?? 'A'} vs ${fileB.name ?? 'B'}`,
  reportJson: JSON.stringify(results),
  })
+ setSharingStatus(res?.success ? 'saved' : 'idle')
+ if (res?.success) setTimeout(() => setSharingStatus('idle'), 3000)
+ } catch {
+ setSharingStatus('error')
+ setTimeout(() => setSharingStatus('idle'), 4000)
+ }
  }}
  title="Save a shareable HTML report — anyone can open it in a browser, no install needed"
  style={{
@@ -352,13 +367,21 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  padding: '2px 8px',
  border: '1px solid rgba(255,255,255,0.1)',
  borderRadius: 2,
- color: 'var(--color-text-muted)',
+ color: sharingStatus === 'saving' ? 'var(--color-text-disabled)' : 'var(--color-text-muted)',
  background: 'transparent',
- cursor: 'pointer',
+ cursor: sharingStatus === 'saving' ? 'not-allowed' : 'pointer',
+ opacity: sharingStatus === 'saving' ? 0.5 : 1,
  }}
  >
- Share ↗
+ {sharingStatus === 'saving' ? 'Saving…' : 'Share ↗'}
  </button>
+ {sharingStatus === 'saved' && (
+ <span style={{ fontSize: 10, color: 'rgba(208,176,102,0.8)' }}>Saved ✓</span>
+ )}
+ {sharingStatus === 'error' && (
+ <span style={{ fontSize: 10, color: 'var(--color-danger)' }}>Save failed</span>
+ )}
+ </>
  )}
  {results?.overall?.visqol_mos != null && (
  <div

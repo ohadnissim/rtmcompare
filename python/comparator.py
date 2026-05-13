@@ -167,9 +167,18 @@ def compute_stereo_width(left: np.ndarray, right: np.ndarray) -> float:
 
 
 def compute_stereo_width_per_band(left: np.ndarray, right: np.ndarray, sr: int) -> list:
-    """Compute stereo width as 1 - |pearson_r(L,R)| per octave band.
+    """Compute stereo width as (1 - pearson_r(L,R)) / 2 per octave band.
     Returns 8 floats (bands: 63, 125, 250, 500, 1k, 2k, 4k, 8k Hz).
-    0.0 = fully mono, 1.0 = fully decorrelated."""
+    0.0 = fully mono (r=1), 0.5 = uncorrelated (r=0), 1.0 = anti-phase (r=-1).
+
+    CRIT-4 fix: the previous formula max(0, 1 - |r|) incorrectly reported
+    anti-phase stereo (L = -R, r = -1) as 0.0 (mono) because |r| = 1.
+    Anti-phase stereo IS the maximum Blumlein width — it should map to 1.0.
+    The correct formula from the literature is (1 - r) / 2, which maps:
+      r =  1 (mono)       → 0.0
+      r =  0 (uncorrelated) → 0.5
+      r = -1 (anti-phase) → 1.0
+    This is consistent with how stereo correlation meters work."""
     center_freqs = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
     widths = []
     for fc in center_freqs:
@@ -186,7 +195,9 @@ def compute_stereo_width_per_band(left: np.ndarray, right: np.ndarray, sr: int) 
             l_band = sosfilt(sos, left)
             r_band = sosfilt(sos, right)
             r = float(np.corrcoef(l_band, r_band)[0, 1])
-            widths.append(round(float(max(0.0, 1.0 - abs(r))), 3))
+            # Clamp r to [-1, 1] defensively before formula application
+            r = max(-1.0, min(1.0, r))
+            widths.append(round((1.0 - r) / 2.0, 3))
         except Exception:
             widths.append(0.0)
     return widths

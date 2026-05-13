@@ -169,13 +169,14 @@ jobs:
             --no-warn-script-location `
             numpy scipy soundfile pyloudnorm `
             librosa numba demucs julius openunmix `
-            "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0"
+            "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0" `
+            "visqol>=0.1.0"
 
           # Smoke test.
           .\python-bundle-win\python\python.exe -c "
           import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius
-          import onnxruntime, soxr, audio_separator
-          print('OK', numpy.__version__, 'onnxruntime', onnxruntime.__version__)
+          import onnxruntime, soxr, audio_separator, visqol
+          print('OK', numpy.__version__, 'onnxruntime', onnxruntime.__version__, 'visqol OK')
           "
 
           Remove-Item python-embed.zip, get-pip.py
