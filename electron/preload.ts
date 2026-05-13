@@ -182,6 +182,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   rtmsendBestPluginsForBands: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) =>
     ipcRenderer.invoke('rtmsend-best-plugins-for-bands', bands),
 
+  // Share as HTML — save a self-contained static HTML report the recipient
+  // can open in any browser. No server or installation required.
+  shareAsHtml: (payload: { title: string; reportJson: string }) =>
+    ipcRenderer.invoke('share-as-html', payload),
+
   // RTMcertify — generate a signed pre-delivery compliance certificate.
   rtmCertify: (fileA: string, fileB: string): Promise<{
     ok: boolean

@@ -204,6 +204,8 @@ declare global {
  timestamp: string
  error?: string
  }>
+ /** Share as HTML — save a self-contained static HTML report. */
+ shareAsHtml?: (payload: { title: string; reportJson: string }) => Promise<{ success: boolean; filePath?: string }>
  }
  }
 }

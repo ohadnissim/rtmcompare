@@ -1,6 +1,7 @@
 import React from 'react'
 import { AnalysisResult, MasteringDelta as MasteringDeltaData } from '../types'
 import CollapsibleSection from './CollapsibleSection'
+import WidthPerBandChart from './WidthPerBandChart'
 
 interface Props {
  delta: MasteringDeltaData
@@ -92,6 +93,15 @@ export default function MasteringDelta({ delta, overall }: Props) {
  <ReportLine label="Peak-to-RMS ratio" value={fmtSigned(delta.peak_to_rms_ratio_change, ' dB')} />
  <ReportLine label="TP overs pulled back" value={fmtTpOvers(delta)} />
  </div>
+
+ {(delta.width_per_band_a?.length || delta.width_per_band_b?.length) ? (
+ <div className="border p-3" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
+ <WidthPerBandChart
+ widthA={delta.width_per_band_a}
+ widthB={delta.width_per_band_b}
+ />
+ </div>
+ ) : null}
  </div>
  </div>
  </div>

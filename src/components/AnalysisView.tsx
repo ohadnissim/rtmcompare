@@ -336,6 +336,45 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  ✦ Certify
  </button>
  )}
+ {/* Share — saves a self-contained HTML report anyone can open in a browser */}
+ {window.electronAPI?.shareAsHtml && (
+ <button
+ type="button"
+ onClick={async () => {
+ await window.electronAPI?.shareAsHtml?.({
+ title: `${fileA.name ?? 'A'} vs ${fileB.name ?? 'B'}`,
+ reportJson: JSON.stringify(results),
+ })
+ }}
+ title="Save a shareable HTML report — anyone can open it in a browser, no install needed"
+ style={{
+ fontSize: 10,
+ padding: '2px 8px',
+ border: '1px solid rgba(255,255,255,0.1)',
+ borderRadius: 2,
+ color: 'var(--color-text-muted)',
+ background: 'transparent',
+ cursor: 'pointer',
+ }}
+ >
+ Share ↗
+ </button>
+ )}
+ {results?.overall?.visqol_mos != null && (
+ <div
+ title={`ViSQOL perceptual match. 5.0=identical, 1.0=very different`}
+ style={{
+ fontSize: 10,
+ padding: '2px 8px',
+ border: `1px solid ${results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.4)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.4)' : 'rgba(220,80,60,0.4)'}`,
+ borderRadius: 2,
+ color: results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.8)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.8)' : 'var(--color-danger)',
+ cursor: 'help',
+ }}
+ >
+ ViSQOL {results.overall.visqol_mos.toFixed(2)}
+ </div>
+ )}
  <ClientReportButton results={results} fileA={fileA} fileB={fileB} />
  <ExportButton results={results} fileA={fileA} fileB={fileB} />
  </div>
@@ -778,6 +817,28 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.plr_a.toFixed(1)} dB</td>
  <td className="text-right font-mono tabular-nums text-terra">{results.overall.plr_b.toFixed(1)} dB</td>
  <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.plr_b - results.overall.plr_a) > 0 ? '+' : ''}{(results.overall.plr_b - results.overall.plr_a).toFixed(1)}</td>
+ </tr>
+ )}
+ {results.overall.psr_a != null && results.overall.psr_b != null && (
+ <tr className="border-b border-dark-700/20">
+ <td
+ className="px-4 py-2 text-dark-400"
+ title="PSR — Peak-to-Short-term Ratio. True-peak minus max short-term LUFS. Limiter stress on peaks. Target: >3 LU. <1 LU = over-limited."
+ >PSR</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.psr_a.toFixed(1)} LU</td>
+ <td
+ className="text-right font-mono tabular-nums"
+ style={{
+ color: results.overall.psr_b > 3
+ ? 'rgba(100,200,120,0.9)'
+ : results.overall.psr_b >= 1
+ ? 'rgba(242,201,76,0.8)'
+ : 'var(--color-danger)',
+ }}
+ >{results.overall.psr_b.toFixed(1)} LU</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 text-[10px]">
+ Δ {(results.overall.psr_b - results.overall.psr_a) > 0 ? '+' : ''}{(results.overall.psr_b - results.overall.psr_a).toFixed(1)} LU
+ </td>
  </tr>
  )}
  {!isAtmos && !isAtmosSolo && (

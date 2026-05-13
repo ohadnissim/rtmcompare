@@ -1067,6 +1067,33 @@ def compute_plr(y: np.ndarray, sr: int) -> tuple[float | None, float | None]:
         return None, None
 
 
+def compute_visqol_score(ref: np.ndarray, deg: np.ndarray, sr: int) -> float | None:
+    """ViSQOL MOS-LQO (1-5, 5=identical). Returns None if visqol not installed."""
+    try:
+        import visqol.visqol_lib_py as visqol_lib  # type: ignore
+        TARGET_SR = 16000
+
+        def to_mono(y: np.ndarray) -> np.ndarray:
+            if y.ndim == 1:
+                return y
+            return y.mean(axis=0) if y.shape[0] <= 8 else y.mean(axis=1)
+
+        ref_m = to_mono(ref).astype(np.float64)
+        deg_m = to_mono(deg).astype(np.float64)
+        if sr != TARGET_SR:
+            ref_m = librosa.resample(ref_m, orig_sr=sr, target_sr=TARGET_SR)
+            deg_m = librosa.resample(deg_m, orig_sr=sr, target_sr=TARGET_SR)
+        n = min(len(ref_m), len(deg_m))
+        score = visqol_lib.VisqolApi().Measure(ref_m[:n], deg_m[:n], TARGET_SR)
+        return round(float(score.moslqo), 2)
+    except ImportError:
+        return None
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).debug("ViSQOL failed: %s", e)
+        return None
+
+
 def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
     """
     Compute Loudness Range (LRA) per EBU R128 using pyloudnorm.
@@ -1885,6 +1912,9 @@ def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
     mom_a = compute_momentary_max(y_a, sr)
     mom_b = compute_momentary_max(y_b, sr)
 
+    # ViSQOL perceptual similarity score (MOS-LQO 1–5, 5=identical)
+    visqol_mos = compute_visqol_score(mono_a, mono_b, sr)
+
     result = {
         "level_matched": True,
         "gain_applied_db": gain_applied,
@@ -1902,6 +1932,7 @@ def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
             "plr_b": plr_b,
             "psr_a": psr_a,
             "psr_b": psr_b,
+            "visqol_mos": visqol_mos,
             "width_a": round(overall_width_a, 3),
             "width_b": round(overall_width_b, 3),
             "dynamics_a": round(overall_dr_a, 1),

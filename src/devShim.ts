@@ -103,6 +103,9 @@ if (typeof window !== 'undefined' && !(window as any).electronAPI) {
  referencesAdd: () => ok({ error: 'shim' } as any),
  referencesDelete: () => ok(true),
  referencesUpdate: () => ok(null),
+
+ // ── Share as HTML ────────────────────────────────────────────────────
+ shareAsHtml: () => ok({ success: false }),
  }
 
  // ── Dev test hook ──────────────────────────────────────────────────────

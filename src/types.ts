@@ -270,6 +270,8 @@ export interface MasteringDelta {
  tp_overs_a?: number
  tp_overs_b?: number
  estimated_gain_reduction_db?: number
+ width_per_band_a?: number[]   // 8 values, 0=mono, 1=decorrelated, bands: 63/125/250/500/1k/2k/4k/8k Hz
+ width_per_band_b?: number[]
 }
 
 export interface AnalysisResult {
@@ -420,6 +422,9 @@ export interface AnalysisResult {
  short_term_max_b?: number
  plr_a?: number
  plr_b?: number
+ psr_a?: number | null
+ psr_b?: number | null
+ visqol_mos?: number | null
  momentary_max_a?: number
  momentary_max_b?: number
  width_a: number
