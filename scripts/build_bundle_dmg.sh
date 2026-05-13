@@ -27,7 +27,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="7.6.0"
+VERSION="7.6.2"
 DEV_ID_APP="Developer ID Application: Ohad Nissim (3RL52RHGT3)"
 NOTARY_PROFILE="rtm-notary"
 OUT_DIR="${PROJECT}/release"
