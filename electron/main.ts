@@ -150,6 +150,29 @@ function canvasRequest(opts: {
   })
 }
 
+/** Wrap canvasRequest with up to maxRetries retries on HTTP 429 (rate limit).
+ *  Backs off exponentially: 2s → 4s → 8s. Respects Retry-After when
+ *  included in the error body as a { retry_after: <seconds> } key. */
+async function canvasRequestWithRetry(
+  opts: Parameters<typeof canvasRequest>[0],
+  maxRetries = 3,
+): ReturnType<typeof canvasRequest> {
+  let attempt = 0
+  let baseDelay = 2000
+  while (true) {
+    const res = await canvasRequest(opts)
+    if (res.status !== 429 || attempt >= maxRetries) return res
+    const retryAfterMs = (
+      typeof res.body === 'object' && res.body !== null && 'retry_after' in (res.body as Record<string, unknown>)
+        ? Number((res.body as Record<string, unknown>)['retry_after']) * 1000
+        : baseDelay
+    )
+    await new Promise(r => setTimeout(r, retryAfterMs))
+    baseDelay *= 2
+    attempt++
+  }
+}
+
 function lmsConfigPath(): string {
   return path.join(app.getPath('userData'), 'lms-config.json')
 }
@@ -2505,7 +2528,7 @@ ipcMain.handle('write-sidecar', async (_e, filePath: string, suffix: string, con
     if (baseDir !== outDir) {
       return { error: 'sidecar must live in the source file dir' }
     }
-    fs.writeFileSync(out, contents, 'utf8')
+    atomicWriteFileSync(out, contents)
     return out
   } catch (err: any) {
     return { error: err?.message || 'sidecar write failed' }
@@ -2784,7 +2807,7 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
       return { ok: false, error: errMsg }
     }
 
-    const res = await canvasRequest({
+    const res = await canvasRequestWithRetry({
       baseUrl: raw.baseUrl,
       path: `/api/v1/courses/${raw.courseId}/assignments/${payload.assignmentId}/submissions/update_grades`,
       method: 'POST',

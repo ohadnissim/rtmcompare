@@ -13,6 +13,7 @@
  */
 
 import React, { useState } from 'react'
+import ThemedConfirmDialog from './ThemedConfirmDialog'
 
 export interface AnnotationRecord {
   id: string
@@ -100,6 +101,7 @@ export function AnnotationEditor() {
   const [body, setBody] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const refresh = () => setAnnotations(getCustomAnnotations())
 
@@ -144,20 +146,21 @@ export function AnnotationEditor() {
       {/* Form */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={trackedCaps(9, SAND_400)}>Metric</label>
-          <select value={metric} onChange={e => setMetric(e.target.value)} style={inputStyle}>
+          <label htmlFor="ae-metric" style={trackedCaps(9, SAND_400)}>Metric</label>
+          <select id="ae-metric" value={metric} onChange={e => setMetric(e.target.value)} style={inputStyle}>
             {METRICS.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={trackedCaps(9, SAND_400)}>Context</label>
-          <select value={context} onChange={e => setContext(e.target.value)} style={inputStyle}>
+          <label htmlFor="ae-context" style={trackedCaps(9, SAND_400)}>Context</label>
+          <select id="ae-context" value={context} onChange={e => setContext(e.target.value)} style={inputStyle}>
             {CONTEXTS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={trackedCaps(9, SAND_400)}>Delta threshold (optional)</label>
+          <label htmlFor="ae-threshold" style={trackedCaps(9, SAND_400)}>Delta threshold (optional)</label>
           <input
+            id="ae-threshold"
             type="number"
             step="0.1"
             placeholder="e.g. 1.5"
@@ -169,8 +172,9 @@ export function AnnotationEditor() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={trackedCaps(9, SAND_400)}>Body (50–200 words)</label>
+        <label htmlFor="ae-body" style={trackedCaps(9, SAND_400)}>Body (50–200 words)</label>
         <textarea
+          id="ae-body"
           rows={5}
           value={body}
           onChange={e => setBody(e.target.value)}
@@ -275,7 +279,7 @@ export function AnnotationEditor() {
                   style={{ ...trackedCaps(9, SAND_400), background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}>
                   Edit
                 </button>
-                <button type="button" onClick={() => handleDelete(a.id)}
+                <button type="button" onClick={() => setConfirmDeleteId(a.id)}
                   style={{ ...trackedCaps(9, 'var(--color-danger)'), background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}>
                   Delete
                 </button>
@@ -283,6 +287,16 @@ export function AnnotationEditor() {
             </div>
           ))}
         </div>
+      )}
+      {confirmDeleteId && (
+        <ThemedConfirmDialog
+          tone="destructive"
+          title="Delete annotation"
+          body="This annotation will be permanently removed from your store and cannot be recovered."
+          confirmLabel="Delete"
+          onConfirm={() => { handleDelete(confirmDeleteId); setConfirmDeleteId(null) }}
+          onCancel={() => setConfirmDeleteId(null)}
+        />
       )}
     </div>
   )

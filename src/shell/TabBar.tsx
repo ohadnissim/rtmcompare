@@ -38,9 +38,13 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
  }, [activeId])
 
  // Measure how many tabs are clipped beyond the visible container edge.
+ // The callback is gated behind requestAnimationFrame so that a continuous
+ // resize (drag-to-resize window) causes at most one layout read per frame
+ // instead of one per pixel — avoids forced-layout thrashing on the main thread.
  useEffect(() => {
   const el = containerRef.current
   if (!el) return
+  let rafId = 0
   const measure = () => {
    let hidden = 0
    const containerRight = el.getBoundingClientRect().right
@@ -49,10 +53,14 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
    })
    setOverflowCount(hidden)
   }
-  const ro = new ResizeObserver(measure)
+  const scheduleMeasure = () => {
+   cancelAnimationFrame(rafId)
+   rafId = requestAnimationFrame(measure)
+  }
+  const ro = new ResizeObserver(scheduleMeasure)
   ro.observe(el)
   measure()
-  return () => ro.disconnect()
+  return () => { ro.disconnect(); cancelAnimationFrame(rafId) }
  }, [tabs])
 
  const handleDragStart = useCallback((e: React.DragEvent, idx: number) => {

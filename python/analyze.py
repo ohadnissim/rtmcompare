@@ -447,9 +447,9 @@ def main():
                 # mtime ordering to pick between stems_a and stems_b.
                 stems_b_for_masking = os.path.join(stems_dir, "stems_b")
                 _msk_dir = stems_b_for_masking if os.path.isdir(stems_b_for_masking) else stems_dir
-                result["masking"] = analyze_masking(stems_dir=_msk_dir, file_path=file_b)
+                result["masking"] = analyze_masking(stems_dir=_msk_dir, file_path=file_b, sr=_native_sr)
             else:
-                result["masking"] = analyze_masking(file_path=file_b)
+                result["masking"] = analyze_masking(file_path=file_b, sr=_native_sr)
         except Exception as e:
             _warn_optional("masking", e)
 
