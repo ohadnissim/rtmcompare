@@ -240,9 +240,14 @@ jobs:
           $signtool = (Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
                        Where-Object { $_.Directory.Name -eq 'x64' } |
                        Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          # MED-25: sign BOTH the NSIS installer AND the portable EXE.
+          # Pre-fix, the portable EXE shipped unsigned — Windows Defender
+          # and SmartScreen would block it for any user who ran it directly.
           $targets = @(
             "release-build\RTMcompare Setup $env:RTM_VERSION.exe"
+            "release-build\RTMcompare $env:RTM_VERSION.exe"
             "rtm-profile-app\release-build\RTMprofile Setup $env:PROF_VERSION.exe"
+            "rtm-profile-app\release-build\RTMprofile $env:PROF_VERSION.exe"
           )
           foreach ($t in $targets) {
             if (Test-Path $t) {

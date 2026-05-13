@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, memo } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 
 // Console Didone v5.3 — RTMprofile design upgrade.
 // All colours now reference CSS variables from src/index.css.
@@ -24,12 +24,16 @@ const V = {
   radius:   'var(--radius)',
 } as const
 
+/** Shared default — keep in sync with main.ts DEFAULT_ROLE */
+const DEFAULT_ROLE = 'Mastering Engineer'
+
 interface ProgressEvent { i: number; total: number; file: string }
 interface BuildResult {
   ok: boolean
   path?: string
   sample_count?: number
   skipped?: number
+  partialCount?: number
   error?: string
   python_resolution?: string
 }
@@ -63,7 +67,6 @@ const FileRow = memo(function FileRow({
       justifyContent: 'space-between',
       padding: '8px 10px',
       fontSize: 12,
-      fontFamily: V.sand100, // intentionally keep mono via className below
       borderBottom: `1px solid rgba(168,161,150,0.05)`,
     }}>
       <span
@@ -94,11 +97,14 @@ const FileRow = memo(function FileRow({
 export default function App() {
   const [files, setFiles] = useState<string[]>([])
   const [name, setName] = useState('')
-  const [role, setRole] = useState('Mastering Engineer')
+  const [role, setRole] = useState(DEFAULT_ROLE)
   const [deepScan, setDeepScan] = useState(false)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<BuildResult | null>(null)
   const [dragHover, setDragHover] = useState(false)
+  const [nameTouched, setNameTouched] = useState(false)
+  const [clearPending, setClearPending] = useState(false)
+  const resultRef = useRef<HTMLDivElement>(null)
 
   const onPick = useCallback(async () => {
     const picked = await window.rtmprofileAPI.selectFiles()
@@ -107,31 +113,58 @@ export default function App() {
     }
   }, [])
 
-  const onClear = useCallback(() => { setFiles([]); setResult(null) }, [])
+  const onClear = useCallback(() => {
+    setClearPending(true)
+  }, [])
+
+  const onClearConfirm = useCallback(() => {
+    setFiles([])
+    setResult(null)
+    setNameTouched(false)
+    setClearPending(false)
+  }, [])
+
+  const onClearCancel = useCallback(() => {
+    setClearPending(false)
+  }, [])
+
   const onRemoveOne = useCallback((path: string) => {
     setFiles(prev => prev.filter(f => f !== path))
   }, [])
 
   const onBuild = useCallback(async () => {
+    setNameTouched(true)
     if (files.length === 0 || !name.trim()) return
     setBusy(true)
     setResult(null)
     try {
       const r = await window.rtmprofileAPI.buildProfile({
         name: name.trim(),
-        role: role.trim() || 'Mastering Engineer',
+        role: role.trim() || DEFAULT_ROLE,
         deep: deepScan,
         files,
       })
       setResult(r)
+      // Move focus to result panel for screen readers / keyboard users
+      setTimeout(() => resultRef.current?.focus(), 50)
     } finally {
       setBusy(false)
     }
   }, [files, name, role, deepScan])
 
+  const onCancel = useCallback(async () => {
+    await window.rtmprofileAPI.cancelBuild()
+  }, [])
+
   const onReveal = useCallback(async () => {
     if (result?.path) await window.rtmprofileAPI.showSavedProfile(result.path)
   }, [result])
+
+  const onBuildAnother = useCallback(() => {
+    setFiles([])
+    setResult(null)
+    setNameTouched(false)
+  }, [])
 
   // Drag-and-drop with visible depth counter to avoid flicker on child drag events.
   useEffect(() => {
@@ -165,6 +198,7 @@ export default function App() {
     }
   }, [])
 
+  const nameError = nameTouched && !name.trim() ? 'Engineer name is required.' : null
   const canBuild = files.length > 0 && name.trim().length > 0 && !busy
 
   // Drop-zone style derived from drag state. Memoised for object identity stability.
@@ -240,8 +274,15 @@ export default function App() {
 
       {/* ── Identity fields ───────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        <Field label="Engineer name *" value={name} onChange={setName} placeholder="e.g. Ohad Nissim" />
-        <Field label="Role" value={role} onChange={setRole} placeholder="Mastering Engineer" />
+        <Field
+          label="Engineer name *"
+          value={name}
+          onChange={setName}
+          onBlur={() => setNameTouched(true)}
+          placeholder="e.g. Your Name"
+          error={nameError ?? undefined}
+        />
+        <Field label="Role" value={role} onChange={setRole} placeholder={DEFAULT_ROLE} />
       </div>
 
       {/* ── Drop zone ─────────────────────────────────────────────── */}
@@ -285,13 +326,25 @@ export default function App() {
               <div style={{ fontSize: 11, color: V.sand400, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
                 {files.length} file{files.length === 1 ? '' : 's'} staged
               </div>
-              <div style={{ display: 'flex', gap: 8 }} className="no-drag">
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} className="no-drag">
                 <button onClick={onPick} disabled={busy} style={btnSecondary} className="no-drag">
                   + add more
                 </button>
-                <button onClick={onClear} disabled={busy} style={btnSecondary} className="no-drag">
-                  clear
-                </button>
+                {clearPending ? (
+                  <>
+                    <span style={{ fontSize: 11, color: V.sand400 }}>Clear all?</span>
+                    <button onClick={onClearConfirm} disabled={busy} style={{ ...btnSecondary, color: 'var(--danger)', borderColor: 'rgba(201,103,101,0.45)' }} className="no-drag">
+                      Yes, clear
+                    </button>
+                    <button onClick={onClearCancel} disabled={busy} style={btnSecondary} className="no-drag">
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={onClear} disabled={busy} style={btnSecondary} className="no-drag">
+                    clear
+                  </button>
+                )}
               </div>
             </div>
             <div style={{ maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
@@ -339,18 +392,15 @@ export default function App() {
             </span>
           </div>
           <div style={{ fontSize: 12, color: V.sand400, marginTop: 4, lineHeight: 1.45 }}>
-            Runs Mel-Band RoFormer 4-stem separation (SDR ~10.5 on MUSDB18HQ) and
-            builds per-stem profiles — vocals · drums · bass · other — on top of
-            the whole-mix fingerprint. Adds 30 s – 2 min per track on Apple
-            Silicon. First run downloads the model checkpoint if not already on
-            disk from a sibling RTMcompare install.
+            Separates each track into vocals, drums, bass, and other elements,
+            then builds an individual fingerprint for each stem in addition to
+            the full-mix fingerprint. Takes 30 seconds to 2 minutes per track
+            (Apple Silicon). On first use, downloads a ~190 MB model — only once.
           </div>
         </div>
       </label>
 
-      {/* ── Build button ──────────────────────────────────────────── */}
-      {/* Transparent bg, gold border (outlined primary recipe).
-          Gold text on active, sand-400 on disabled. Never gold-filled. */}
+      {/* ── Build / Cancel buttons ────────────────────────────────── */}
       <button
         onClick={onBuild}
         disabled={!canBuild}
@@ -361,10 +411,23 @@ export default function App() {
         <BuildStatusLine busy={busy} deepScan={deepScan} />
       </button>
 
+      {busy && (
+        <button
+          onClick={onCancel}
+          style={{ ...btnSecondary, width: '100%', marginTop: 8, textAlign: 'center' }}
+          className="no-drag"
+          aria-label="Cancel the current build"
+        >
+          Cancel build
+        </button>
+      )}
+
       {/* ── Result panel ──────────────────────────────────────────── */}
       {result && (
         <div
+          ref={resultRef}
           role="status"
+          tabIndex={-1}
           style={{
             marginTop: 16,
             padding: 14,
@@ -373,6 +436,7 @@ export default function App() {
             border: `1px solid ${result.ok ? 'rgba(110,197,119,0.30)' : 'rgba(201,103,101,0.35)'}`,
             fontSize: 13,
             lineHeight: 1.5,
+            outline: 'none',
           }}
         >
           {result.ok ? (
@@ -388,13 +452,16 @@ export default function App() {
               </div>
               <div
                 className="mono"
-                style={{ color: V.sand400, fontSize: 11, marginTop: 4 }}
+                style={{ color: V.sand400, fontSize: 11, marginTop: 4, userSelect: 'text' }}
               >
                 {result.path}
               </div>
-              <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={onReveal} style={btnSecondary} className="no-drag">
                   Reveal in Finder
+                </button>
+                <button onClick={onBuildAnother} style={btnSecondary} className="no-drag">
+                  Build another
                 </button>
               </div>
               <div style={{ marginTop: 10, color: V.sand400, fontSize: 12 }}>
@@ -409,6 +476,11 @@ export default function App() {
               <div style={{ color: V.sand100, fontSize: 13, lineHeight: 1.45 }}>
                 {result.error}
               </div>
+              {result.partialCount != null && result.partialCount > 0 && (
+                <div style={{ color: V.sand400, fontSize: 12, marginTop: 6 }}>
+                  {result.partialCount} track{result.partialCount === 1 ? '' : 's'} were analyzed before the build stopped.
+                </div>
+              )}
               {result.python_resolution && (
                 <div style={{ color: V.sand400, fontSize: 11, marginTop: 8 }}>
                   Detail: {result.python_resolution}
@@ -445,17 +517,19 @@ export default function App() {
 
 // ── Field ──────────────────────────────────────────────────────────────
 // Memoised input row — keystroking one field doesn't re-render siblings.
-const Field = memo(function Field({ label, value, onChange, placeholder }: {
+const Field = memo(function Field({ label, value, onChange, onBlur, placeholder, error }: {
   label: string
   value: string
   onChange: (v: string) => void
+  onBlur?: () => void
   placeholder?: string
+  error?: string
 }) {
   return (
     <label style={{ display: 'block' }}>
       <div style={{
         fontSize: 10,
-        color: 'var(--color-sand-400)',
+        color: error ? 'var(--danger)' : 'var(--color-sand-400)',
         letterSpacing: '0.16em',
         textTransform: 'uppercase',
         marginBottom: 6,
@@ -466,19 +540,32 @@ const Field = memo(function Field({ label, value, onChange, placeholder }: {
         type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="no-drag"
+        aria-invalid={!!error}
+        aria-describedby={error ? `${label.replace(/\s+/g, '-').toLowerCase()}-error` : undefined}
         style={{
           width: '100%',
           padding: '10px 12px',
           fontSize: 13,
           color: 'var(--cream)',
           backgroundColor: 'var(--color-sand-900)',
-          border: '1px solid var(--border)',
+          border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
           borderRadius: 'var(--radius)',
           fontFamily: 'inherit',
+          boxSizing: 'border-box',
         }}
       />
+      {error && (
+        <div
+          id={`${label.replace(/\s+/g, '-').toLowerCase()}-error`}
+          role="alert"
+          style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4 }}
+        >
+          {error}
+        </div>
+      )}
     </label>
   )
 })

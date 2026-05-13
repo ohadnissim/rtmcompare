@@ -40,10 +40,7 @@ window.addEventListener('drop', (e) => {
     try {
       const p = webUtils.getPathForFile(f)
       if (p) paths.push(p)
-    } catch {
-      const legacy = (f as unknown as { path?: string }).path
-      if (legacy) paths.push(legacy)
-    }
+    } catch { /* webUtils.getPathForFile not available in this context */ }
   }
   if (paths.length > 0 && onDroppedCallback) {
     try { onDroppedCallback(paths) } catch {}
@@ -67,6 +64,7 @@ contextBridge.exposeInMainWorld('rtmprofileAPI', {
     deep?: boolean
   }) => ipcRenderer.invoke('build-profile', args),
   showSavedProfile: (jsonPath: string) => ipcRenderer.invoke('show-saved-profile', jsonPath),
+  cancelBuild: () => ipcRenderer.invoke('cancel-build') as Promise<boolean>,
   onProgress: (cb: (msg: { i: number; total: number; file: string }) => void) => {
     const listener = (_e: any, msg: any) => cb(msg)
     ipcRenderer.on('profile-progress', listener)

@@ -33,8 +33,13 @@
       font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       font-size: 14px;
       line-height: 1.55;
+    }
+    /* Only suppress text selection on the drag/chrome regions, not data
+       output. Users need to copy file paths and error messages. */
+    .drag-region {
       -webkit-user-select: none;
       user-select: none;
+      -webkit-app-region: drag;
     }
     *:focus-visible {
       outline: 2px solid #d0b066;
@@ -51,8 +56,11 @@
       font-style: normal;
       letter-spacing: -0.005em;
     }
-    .display-serif.italic {
+    .display-serif.italic,
+    .display-serif-italic {
+      font-family: 'Instrument Serif', Georgia, serif;
       font-style: italic;
+      letter-spacing: -0.005em;
     }
     .mono {
       font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;

@@ -100,12 +100,25 @@ def list_profiles():
 
 def load_profile(profile_id):
     """Load an engineer profile by ID (user dir first, then built-in)."""
+    import sys as _sys
     path = _find_profile_path(profile_id)
     if not path:
         return None
     try:
         with open(path) as f:
-            return json.load(f)
+            data = json.load(f)
+        # CRIT-6: warn when loading an old-schema profile.
+        # schema_version 1 (pre-5.7.1) stored crest factor as dynamic_range_avg
+        # and used population std instead of MAD for spread fields — comparing
+        # those against a v3-computed candidate produces phantom dynamics tips.
+        sv = data.get("schema_version", 1)
+        if sv < 3:
+            _sys.stderr.write(
+                f"[engineer_profile] WARNING: profile '{profile_id}' is "
+                f"schema_version={sv} (current=3). Rebuild with RTMprofile "
+                f"for accurate dynamic-range and spread comparisons.\n"
+            )
+        return data
     except Exception:
         return None
 
@@ -377,7 +390,9 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
 
     # ─── Dynamic range tips ──────────────────────────────────────────
     # Measured as EBU R128 LRA (Loudness Range) in LU.
-    target_dr = profile["dynamic_range_avg"]
+    # CRIT-5: .get() guards — a corrupt or v1 profile may be missing fields.
+    # float('nan') comparisons are always False, so tips simply won't fire.
+    target_dr = profile.get("dynamic_range_avg", float("nan"))
     dr_diff = dr_b - target_dr
 
     if dr_diff < -4:
@@ -410,7 +425,7 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
     # the reference, ease the limiter" or "you're 3 LU quieter, push it".
     # Bands are intentionally tighter than DR because LUFS moves in
     # smaller steps — ±0.5/±1/±1.5 LU instead of ±2/±4 LU.
-    target_lufs = profile["lufs_avg"]
+    target_lufs = profile.get("lufs_avg", float("nan"))  # CRIT-5
     lufs_diff = lufs_b - target_lufs
 
     if abs(lufs_diff) > 1.5:
@@ -444,7 +459,7 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
         })
 
     # ─── Stereo width tips ───────────────────────────────────────────
-    target_width = profile["width_avg"]
+    target_width = profile.get("width_avg", float("nan"))  # CRIT-5
     width_diff = width_b - target_width
 
     # Turn the raw side/total ratio into language the reader can actually use.
@@ -587,9 +602,9 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
             "width": round(float(width_b), 3),
         },
         "target_stats": {
-            "lufs": profile["lufs_avg"],
-            "dynamic_range": profile["dynamic_range_avg"],
-            "width": profile["width_avg"],
+            "lufs":          profile.get("lufs_avg"),           # CRIT-5
+            "dynamic_range": profile.get("dynamic_range_avg"),  # CRIT-5
+            "width":         profile.get("width_avg"),          # CRIT-5
         },
         "spectrum_file": [round(v, 1) for v in spec_b],
         "spectrum_target": [round(v, 1) for v in curve],
@@ -842,15 +857,17 @@ def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile, *, si
     tonal_score = max(0.0, 50.0 * (1.0 - cosine_dist / 0.1))
 
     # Loudness match (0-20 points)
-    lufs_diff = abs(lufs - profile["lufs_avg"])
+    # CRIT-5: .get() with NaN default — NaN arithmetic propagates, and
+    # max(0, NaN) = 0 in Python, so missing fields score 0 gracefully.
+    lufs_diff = abs(lufs - profile.get("lufs_avg", float("nan")))
     lufs_score = max(0, 20 - lufs_diff * 5)
 
     # Dynamic range match (0-15 points)
-    dr_diff = abs(dr - profile["dynamic_range_avg"])
+    dr_diff = abs(dr - profile.get("dynamic_range_avg", float("nan")))
     dr_score = max(0, 15 - dr_diff * 2)
 
     # Width match (0-15 points)
-    width_diff = abs(float(width) - profile["width_avg"])
+    width_diff = abs(float(width) - profile.get("width_avg", float("nan")))
     width_score = max(0, 15 - width_diff * 100)
 
     total = round(tonal_score + lufs_score + dr_score + width_score)

@@ -278,7 +278,7 @@ jobs:
           CSC_KEYCHAIN:            ${{ steps.signing.outputs.keychain }}
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.signing.outputs.identity != '' && 'true' || 'false' }}
         run: |
-          npm run build || true
+          npm run build
           npx electron-builder --mac --${{ matrix.electron_arch }} --publish=never
 
       # ── Locate the built .app bundles ──────────────────────────────

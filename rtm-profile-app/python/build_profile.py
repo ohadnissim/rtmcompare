@@ -6,7 +6,7 @@ of audio files.
 Drops `N` audio files in. Produces a single JSON profile that loads
 into RTMcompare's Match tab via `~/.rtm/profiles/<slug>.json`.
 
-The output schema matches `python/profiles/ohad.json` in the
+The output schema matches `python/profiles/<name>.json` in the
 RTMcompare repo:
 
     {
@@ -44,7 +44,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os as _os
 import sys
+import unicodedata as _ucd
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +55,14 @@ import numpy as np
 import soundfile as sf
 import pyloudnorm as pyln
 from scipy.signal import resample_poly
+
+
+# MED-8: cache pyloudnorm Meter instances — constructing one allocates
+# K-weighting filter coefficients; doing it for every file in a 200-track
+# corpus wastes ~0.5 s of CPU. Keyed on sample rate.
+@lru_cache(maxsize=8)
+def _get_meter(sr: int) -> pyln.Meter:
+    return pyln.Meter(sr)
 
 
 # ── Standard 31-band third-octave centre frequencies (ISO 266) ──
@@ -152,7 +163,7 @@ def _peak_dbtp(y: np.ndarray) -> float:
 
 def _lufs_integrated(y: np.ndarray, sr: int) -> float:
     """Integrated LUFS via pyloudnorm. Returns -inf for digital silence."""
-    meter = pyln.Meter(sr)
+    meter = _get_meter(sr)
     if y.ndim == 1:
         data = y.reshape(-1, 1)
     else:
@@ -180,16 +191,15 @@ def _loudness_range(y: np.ndarray, sr: int) -> float:
         # blocks with internal short-term gating. Forcing block_size=3.0
         # made pyloudnorm meter every 3 s, producing values ~30–40%
         # smaller than every other R128 meter. Audit CRITICAL #2.
-        meter = pyln.Meter(sr)
-        # 5.7.x: pyloudnorm < 0.1.1 raises on (N,1) shaped mono. Pass
-        # mono as 1-D; pyloudnorm accepts it directly. Audit HIGH #3.
-        data = y if y.ndim == 1 else y
+        meter = _get_meter(sr)
+        # 5.7.x: pyloudnorm < 0.1.1 raises on (N,1) shaped mono.
+        # Squeeze (N,1) → 1-D so older versions don't blow up.
+        data = y.squeeze() if y.ndim == 2 and y.shape[1] == 1 else y
         return float(meter.loudness_range(data))
     except Exception:
-        # Older pyloudnorm or pathological input — return 0 rather
-        # than a wrong number. The profile builder will still produce
-        # a valid file; LRA just shows up as 0.
-        return 0.0
+        # Older pyloudnorm or pathological input — NaN so _safe_median
+        # skips this track rather than dragging the cohort to 0 LU.
+        return float('nan')
 
 
 def _third_octave_curve(y: np.ndarray, sr: int) -> list[float]:
@@ -214,7 +224,12 @@ def _third_octave_curve(y: np.ndarray, sr: int) -> list[float]:
     # but the resulting PSD is too coarse to populate third-octave masks
     # above ~3 kHz. Better to use a smaller window and accept reduced
     # frequency resolution than to let scipy silently degrade.
-    n_fft = min(8192, len(mono))
+    # MED-7: normalize n_fft to sample rate so files at 96 kHz use a
+    # larger window (matching their higher Nyquist) and produce the same
+    # frequency resolution as 44.1 kHz files — otherwise a 44.1 k file
+    # gets 8192/44100 ≈ 186 ms resolution while a 96 k file gets only
+    # 8192/96000 ≈ 85 ms, making the two PSDs incomparable.
+    n_fft = min(round(8192 * sr / 44100), len(mono))
     if n_fft < 64:
         # Shorter than ~1.5 ms at 44.1k — refuse to analyse.
         return [float('nan')] * len(THIRD_OCTAVE_HZ)
@@ -279,7 +294,7 @@ def _stereo_width(y: np.ndarray) -> float:
     oranges. Aligning the formulas eliminates phantom "make it wider" tips.
 
     NOTE: existing profiles will need a rebuild to get width_avg on the new
-    scale. The built-in ohad.json profile should be regenerated via RTMprofile.
+    scale. Regenerate any custom profiles via RTMprofile after upgrading.
     """
     if y.ndim < 2 or y.shape[1] < 2:
         return 0.0
@@ -633,11 +648,18 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
             return default
         return float(np.median(finite))
 
-    def _safe_std(arr: np.ndarray) -> float:
+    def _safe_mad(arr: np.ndarray) -> float:
+        """Median absolute deviation around the median — the correct spread
+        metric when the center is also a median (as _safe_median is).
+        Using std (around the mean) when the target is the median creates a
+        systematic inconsistency: the spread includes the mean→median
+        offset, making the dead-zone in engineer_profile's EQ derivation
+        asymmetric. CRIT-7 fix.
+        """
         finite = arr[np.isfinite(arr)]
         if finite.size <= 1:
             return 0.0
-        return float(np.std(finite))
+        return float(np.median(np.abs(finite - np.median(finite))))
 
     def _safe_minmax(arr: np.ndarray, default: float = 0.0) -> tuple[float, float]:
         finite = arr[np.isfinite(arr)]
@@ -648,19 +670,22 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     lufs_min, lufs_max = _safe_minmax(lufs_arr)
 
     out: dict[str, Any] = {
-        "curve":             [round(float(v), 1) if np.isfinite(v) else 0.0 for v in curve_median],
+        # MED-6: use -90.0 (not 0.0) for out-of-Nyquist bands so the
+        # profile floor matches engineer_profile.py's -90.0 sentinel.
+        # Using 0.0 created phantom +90 dB tips for missing high-freq bands.
+        "curve":             [round(float(v), 1) if np.isfinite(v) else -90.0 for v in curve_median],
         "lufs_avg":          round(_safe_median(lufs_arr), 1),
-        "lufs_std":          round(_safe_std(lufs_arr), 1),
+        "lufs_std":          round(_safe_mad(lufs_arr), 1),    # CRIT-7: MAD matches median center
         "lufs_range":        [round(lufs_min, 1), round(lufs_max, 1)],
         # LRA in LU — the unit RTMcompare expects.
         "dynamic_range_avg": round(_safe_median(lra_arr), 1),
-        "dynamic_range_std": round(_safe_std(lra_arr), 1),
+        "dynamic_range_std": round(_safe_mad(lra_arr), 1),     # CRIT-7
         # Crest factor kept as a separate field for diagnostic purposes;
         # not consumed by RTMcompare's tip thresholds.
         "crest_factor_avg":  round(_safe_mean(crest_arr), 1),
-        "crest_factor_std":  round(_safe_std(crest_arr), 1),
+        "crest_factor_std":  round(_safe_mad(crest_arr), 1),   # CRIT-7
         "width_avg":         round(_safe_median(width_arr), 3),
-        "width_std":         round(_safe_std(width_arr), 3),
+        "width_std":         round(_safe_mad(width_arr), 3),   # CRIT-7
         "peak_avg":          round(_safe_median(peak_arr), 1),
     }
     if curve_mad_field is not None:
@@ -729,20 +754,18 @@ def aggregate(per_file: list[dict[str, Any]],
     if not valid:
         raise SystemExit("no valid measurements — every input file failed to read or was silent")
 
-    # 5.7.1: bump schema_version to 2. New optional fields:
-    #   - min_version / max_version: semver range the profile was tuned
-    #     against (RTMcompare bridge clamps incompatibility warnings)
-    #   - target_fingerprint: sha256 of "<format>|<uid>|<version>|<param_count>"
-    #     of the targeted plugin (lets RTMcompare detect plugin-version
-    #     drift between profile build and consumption)
-    #   - target_plugin: full descriptor of the plugin the profile was
-    #     tuned for (display name + format + uid + param_count)
-    # All four are OMITTED if the caller didn't supply them — RTMcompare
-    # treats absent metadata as "no constraint". v1 profile readers
-    # ignore unknown top-level keys, so this is forward-and-backward
-    # compatible. Audit Task 1.
+    # CRIT-6: bump schema_version to 3.
+    # Changes from v2:
+    #   - *_std fields now store MAD (median absolute deviation) around
+    #     the median rather than population std around the mean, matching
+    #     the median-based center values.
+    #   - curve out-of-Nyquist fallback changed from 0.0 → -90.0 to
+    #     match engineer_profile.py's floor sentinel.
+    # v2 readers will silently load v3 profiles (unknown keys ignored).
+    # RTMcompare bridge should reject v3 profiles on RTMcompare < 7.6.0
+    # via the schema_version field.
     profile: dict[str, Any] = {
-        "schema_version":    2,
+        "schema_version":    3,
         "name":              name,
         "role":              role,
         "description":       f"{role} — {len(valid)}-track profile",
@@ -841,7 +864,7 @@ def _slugify(s: str) -> str:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Build an RTMcompare engineer profile from a corpus.")
-    p.add_argument("--name", required=True, help='Engineer name (e.g. "Ohad Nissim")')
+    p.add_argument("--name", required=True, help='Engineer name (e.g. "Your Name")')
     p.add_argument("--role", default="Mastering Engineer", help="Role (default: Mastering Engineer)")
     # 5.2.3: --genres deprecated. Accepted for back-compat (older Electron
     # wrappers still pass it) but its value is ignored.
@@ -933,7 +956,6 @@ def main() -> int:
     # renderer / shell may pass NFC. soundfile/libsndfile resolve both
     # in practice, but downstream string comparisons (e.g. logging
     # against the input path) drift. Coerce to NFC for stable display.
-    import unicodedata as _ucd
     for i, f in enumerate(args.files, 1):
         f_norm = _ucd.normalize("NFC", f) if isinstance(f, str) else f
         if args.progress:
@@ -963,10 +985,18 @@ def main() -> int:
     # file that engineer_profile.load_profile silently fails to
     # parse (returning None — the dropdown shows no profile but no
     # error). Write to .tmp then os.replace for an atomic swap.
-    import os as _os
+    # LOW: try/except ensures the .tmp is cleaned up if write succeeds
+    # but replace fails (e.g. cross-device rename on a network volume).
     tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
-    tmp_path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
-    _os.replace(tmp_path, out_path)
+    try:
+        tmp_path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+        _os.replace(tmp_path, out_path)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
     sys.stdout.write(json.dumps({
         "ok": True,

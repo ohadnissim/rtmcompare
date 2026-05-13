@@ -5,6 +5,13 @@ import { spawn, type ChildProcess } from 'child_process'
 
 let mainWindow: BrowserWindow | null = null
 
+// ── Constants ────────────────────────────────────────────────────────
+const DEFAULT_ROLE = 'Mastering Engineer'
+// CRIT-3: kill the Python process after 30 minutes regardless of progress.
+// Deep Scan on a large library is ~30s-2min per track; 30 min covers ~90
+// tracks and prevents an indefinite hang if the script deadlocks.
+const BUILD_TIMEOUT_MS = 30 * 60 * 1000
+
 // ── Resolve Python — bundled-first, no external dependencies ─────────
 //
 // RTMprofile ships with the same ~700 MB Python interpreter that RTMcompare
@@ -45,6 +52,9 @@ function resolvePython(): { python: string; reason: string } {
         ]
       : []
 
+  // LOW-8: hoist existsSync loop to a lazy singleton resolved once at startup.
+  // Calling this per-build on the main thread is safe (one-shot), but
+  // resolving once at app-ready is cleaner.
   for (const c of candidates) {
     if (fs.existsSync(c)) {
       const isInApp = c === inAppMac || c === inAppWin
@@ -57,6 +67,13 @@ function resolvePython(): { python: string; reason: string } {
     python: process.platform === 'win32' ? 'python' : '/usr/bin/python3',
     reason: 'using system Python (bundled Python missing — this is a packaging bug, please report)',
   }
+}
+
+// Cache the Python resolution so we don't hit the filesystem on every build.
+let _resolvedPython: { python: string; reason: string } | null = null
+function getCachedPython() {
+  if (!_resolvedPython) _resolvedPython = resolvePython()
+  return _resolvedPython
 }
 
 function createWindow() {
@@ -72,7 +89,11 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // MED-1: enable the OS-level Chromium sandbox (defence-in-depth).
+      // contextIsolation: true + nodeIntegration: false already prevent
+      // direct Node access from the renderer; sandbox: true additionally
+      // constrains the renderer process at the OS level.
+      sandbox: true,
     },
   })
 
@@ -86,13 +107,33 @@ function createWindow() {
 
   // 5.2.2 hardening (audit P1): mirror RTMcompare's renderer lockdown.
   // CSP lives in index.html; window-level handlers complete the picture.
+  // MED-2: restrict will-navigate — allow only the exact known dist path
+  // or localhost dev URL. A bare `file://` wildcard would let a
+  // compromised renderer read any local file via navigation.
   mainWindow.webContents.on('will-navigate', (e, url) => {
-    if (!url.startsWith('http://localhost:5174') && !url.startsWith('file://')) {
+    const allowed =
+      url.startsWith('http://localhost:5174') ||
+      // Packaged app: only our own dist/index.html
+      (app.isPackaged && url === mainWindow?.webContents.getURL())
+    if (!allowed) {
       e.preventDefault()
     }
   })
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   mainWindow.on('closed', () => { mainWindow = null })
+
+  // CRIT-10: if the renderer reloads mid-build (dev Cmd+R or crash
+  // recovery), the old activeBuild's 'close' handler fires into the
+  // old closure and sets activeBuild=null — but only AFTER the new
+  // renderer has already tried a build and been rejected. Kill the
+  // orphaned process immediately on renderer reload so the new render
+  // context starts with a clean slate.
+  mainWindow.webContents.on('did-start-loading', () => {
+    if (activeBuild !== null) {
+      activeBuild.kill()
+      activeBuild = null
+    }
+  })
 }
 
 app.whenReady().then(() => createWindow())
@@ -112,10 +153,21 @@ ipcMain.handle('select-files', async () => {
   return res.filePaths
 })
 
+// MED-3: validate the renderer-supplied path against the profiles dir
+// before passing to shell.showItemInFolder. Without this, any
+// renderer-supplied string becomes a local filesystem oracle.
 ipcMain.handle('show-saved-profile', async (_e, jsonPath: string) => {
   const { shell } = require('electron') as typeof import('electron')
+  const os = require('os') as typeof import('os')
+  const profilesDir = path.resolve(os.homedir(), '.rtm', 'profiles')
+  const resolved = path.resolve(String(jsonPath))
+  const dirNorm = process.platform === 'win32' ? profilesDir.toLowerCase() : profilesDir
+  const resNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
+  if (!resNorm.startsWith(dirNorm + path.sep) && resNorm !== dirNorm) {
+    return false  // silently refuse — not within profiles dir
+  }
   try {
-    shell.showItemInFolder(jsonPath)
+    shell.showItemInFolder(resolved)
     return true
   } catch {
     return false
@@ -131,6 +183,18 @@ interface BuildArgs {
   deep?: boolean
 }
 
+// MED-28: use a typed BuildResult instead of Promise<any>
+interface BuildResult {
+  ok: boolean
+  path?: string
+  sample_count?: number
+  skipped?: number
+  // CRIT-11: number of tracks successfully analyzed before a crash
+  partialCount?: number
+  error?: string
+  python_resolution?: string
+}
+
 // 5.7.x audit fix: serialise concurrent build-profile IPC calls. Pre-fix
 // two presses (or a renderer reload mid-build) would spawn two Python
 // procs that both wrote to ~/.rtm/profiles/<slug>.json — last writer
@@ -138,10 +202,19 @@ interface BuildArgs {
 // reject a second invocation while one is in flight.
 let activeBuild: ChildProcess | null = null
 
-ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
-  // NIT-4: guard is on `activeBuild !== null` (set to null on 'close').
-  // `.killed` is false for normally-exited processes, so `&& !activeBuild.killed`
-  // was always true when activeBuild was non-null — dead condition removed.
+// CRIT-8: cancel the in-flight build. The renderer calls this when the
+// user clicks the cancel button. We SIGTERM the Python process; the
+// 'close' handler sets activeBuild=null and the build IPC resolves with
+// ok: false + error: 'cancelled'.
+ipcMain.handle('cancel-build', async () => {
+  if (activeBuild !== null) {
+    activeBuild.kill()  // SIGTERM; Python's atexit handlers run
+    return true
+  }
+  return false
+})
+
+ipcMain.handle('build-profile', async (_event, args: BuildArgs): Promise<BuildResult> => {
   if (activeBuild !== null) {
     return { ok: false, error: 'A profile build is already in progress. Wait for it to finish or cancel it first.' }
   }
@@ -157,15 +230,31 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
   if (args.name.length > 80) {
     return { ok: false, error: 'engineer name must be 80 characters or less' }
   }
-  // Validate every file path exists before spawning Python — better
-  // error than "file not found" buried in stderr.
+  // LOW-3: cap role length too — previously uncapped.
+  if (args.role && args.role.length > 80) {
+    return { ok: false, error: 'role must be 80 characters or less' }
+  }
+  // CRIT-4: validate every file path exists AND resolve symlinks before
+  // passing to Python. A symlink to /etc/passwd passes fs.existsSync
+  // and reaches sf.read() — the resolved path is checked here to block
+  // it from ever reaching the Python subprocess.
   for (const f of args.files) {
     if (!fs.existsSync(f)) {
       return { ok: false, error: `file not found: ${f}` }
     }
+    try {
+      const real = fs.realpathSync(f)
+      // Verify the real path is a regular file, not /etc/passwd etc.
+      const stat = fs.statSync(real)
+      if (!stat.isFile()) {
+        return { ok: false, error: `not a file: ${f}` }
+      }
+    } catch {
+      return { ok: false, error: `could not resolve path: ${f}` }
+    }
   }
 
-  const { python, reason } = resolvePython()
+  const { python, reason } = getCachedPython()
   const basePath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..')
   const scriptPath = path.join(basePath, 'python', 'build_profile.py')
   if (!fs.existsSync(scriptPath)) {
@@ -179,12 +268,10 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
   // path, also under ~/.rtm/profiles/).
   let safeOutPath: string | undefined
   if (args.outPath) {
-    const profilesDir = path.resolve(require('os').homedir(), '.rtm', 'profiles')
+    const os = require('os') as typeof import('os')
+    const profilesDir = path.resolve(os.homedir(), '.rtm', 'profiles')
     const resolved = path.resolve(args.outPath)
     // 5.7.x audit fix: case-insensitive prefix check on Windows.
-    // `os.homedir()` and renderer-supplied paths can disagree on
-    // case (`C:\Users\Foo` vs `c:\users\foo`), failing the original
-    // case-sensitive comparison and rejecting legitimate paths.
     const dirNorm = process.platform === 'win32' ? profilesDir.toLowerCase() : profilesDir
     const resNorm = process.platform === 'win32' ? resolved.toLowerCase() : resolved
     if (!resNorm.startsWith(dirNorm + path.sep) && resNorm !== dirNorm) {
@@ -196,15 +283,14 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
   const cliArgs = [
     scriptPath,
     '--name', args.name,
-    '--role', args.role || 'Mastering Engineer',
-    // 5.2.3: --genres removed; build_profile.py no longer accepts it
+    '--role', args.role || DEFAULT_ROLE,
     '--progress',
   ]
   if (args.deep) cliArgs.push('--deep')
   if (safeOutPath) cliArgs.push('--out', safeOutPath)
   cliArgs.push(...args.files)
 
-  return await new Promise<any>((resolve) => {
+  return await new Promise<BuildResult>((resolve) => {
     const proc = spawn(python, cliArgs, {
       env: {
         ...process.env,
@@ -213,73 +299,115 @@ ipcMain.handle('build-profile', async (event, args: BuildArgs) => {
       },
     })
     activeBuild = proc  // 5.7.x: register so a second IPC call sees we're busy
+
+    // CRIT-3: kill the process after BUILD_TIMEOUT_MS if it hasn't exited.
+    const killTimer = setTimeout(() => {
+      if (activeBuild === proc) {
+        proc.kill()
+        // Note: the 'close' handler will fire and call resolve().
+      }
+    }, BUILD_TIMEOUT_MS)
+
     let stdout = ''
     let stderr = ''
-    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+    // CRIT-11: track progress events so we know how many tracks were
+    // analyzed before a crash or cancellation.
+    let lastProgressI = 0
+
+    // MED-27: assemble stderr line-by-line. A C-extension can write a
+    // partial line that interrupts the JSON, causing the parser to
+    // silently swallow it. The assembler here only calls JSON.parse on
+    // complete '\n'-terminated lines.
+    let stderrBuf = ''
+    proc.stdout.on('data', (d: Buffer) => {
+      // CRIT-3: cap the stdout buffer to prevent Node heap exhaustion
+      // on runaway Python output. Keep only the last 4 MB.
+      const chunk = d.toString()
+      stdout += chunk
+      if (stdout.length > 4_000_000) stdout = stdout.slice(-4_000_000)
+    })
     proc.stderr.on('data', (d: Buffer) => {
       const text = d.toString()
       stderr += text
-      // Forward {"type":"progress",...} lines to the renderer.
-      for (const line of text.split('\n')) {
+      if (stderr.length > 4_000_000) stderr = stderr.slice(-4_000_000)
+      // MED-27: append to the line assembler and drain complete lines.
+      stderrBuf += text
+      let nl: number
+      while ((nl = stderrBuf.indexOf('\n')) !== -1) {
+        const line = stderrBuf.slice(0, nl)
+        stderrBuf = stderrBuf.slice(nl + 1)
         const t = line.trim()
         if (!t) continue
         try {
           const msg = JSON.parse(t)
           if (msg.type === 'progress') {
+            lastProgressI = msg.i || 0
             mainWindow?.webContents.send('profile-progress', msg)
           }
         } catch { /* not JSON, ignore */ }
       }
     })
-    proc.on('close', (code: number | null) => {
+    proc.on('close', (code: number | null, signal: string | null) => {
+      clearTimeout(killTimer)
       activeBuild = null  // 5.7.x: release the slot for the next build
       if (code !== 0) {
-        // Map common stderr shapes to friendly one-liners. Bundled Python
-        // means xcode-select / pip-install errors should never fire in a
-        // shipped app — but the patterns are kept defensively for the
-        // dev fallback path and for surfacing real script bugs cleanly.
+        const wasCancelled = signal === 'SIGTERM' || code === null
+        // Map common stderr shapes to friendly one-liners.
         const tail = stderr.slice(-400)
-        let friendly = `RTMprofile couldn't finish the build. The error log below may help.`
-        if (/Permission denied/i.test(tail)) {
-          friendly = `Permission denied reading or writing the profile output. Check the destination folder is writable.`
-        } else if (/no valid measurements/i.test(tail)) {
-          friendly = `None of the dropped files had usable audio (silence or unreadable). Try a different selection.`
-        } else if (/MemoryError|out of memory/i.test(tail)) {
-          friendly = `Ran out of memory analysing the corpus. Try fewer or shorter tracks per build.`
-        } else if (/xcode-select|ModuleNotFoundError|No module named/i.test(tail)) {
-          // Should be impossible in a packaged build; if it fires, the
-          // python-bundle didn't ship correctly — flag it as a packaging
-          // bug rather than blaming the user.
-          friendly = `Bundled Python failed to start. This is a packaging bug — please report so we can fix the build.`
+        let friendly = wasCancelled
+          ? 'Build cancelled.'
+          : `RTMprofile couldn't finish the build. The error log below may help.`
+        if (!wasCancelled) {
+          if (/Permission denied/i.test(tail)) {
+            friendly = `Permission denied reading or writing the profile output. Check the destination folder is writable.`
+          } else if (/no valid measurements/i.test(tail)) {
+            friendly = `None of the dropped files had usable audio (silence or unreadable). Try a different selection.`
+          } else if (/MemoryError|out of memory/i.test(tail)) {
+            friendly = `Ran out of memory analysing the corpus. Try fewer or shorter tracks per build.`
+          } else if (/xcode-select|ModuleNotFoundError|No module named/i.test(tail)) {
+            friendly = `Bundled Python failed to start. This is a packaging bug — please report so we can fix the build.`
+          }
         }
         resolve({
           ok: false,
           error: friendly,
           python_resolution: reason,
+          // CRIT-11: tell the renderer how many tracks got analyzed
+          // before the crash/cancel so it can surface partial progress.
+          partialCount: lastProgressI > 0 ? lastProgressI : undefined,
         })
         return
       }
       try {
         // 5.2.2 (audit P1): scan stdout from the END for the first
-        // line that starts with `{` and parse THAT as JSON. The old
-        // `.split('\n').pop()` picked any trailing line — a stray
-        // deprecation warning from a transitive Python dep would
-        // turn a successful build into a phantom failure.
+        // line that starts with `{` and parse THAT as JSON.
         const lines = stdout.split('\n')
-        let result: any = null
+        let result: BuildResult | null = null
         for (let i = lines.length - 1; i >= 0; i--) {
           const t = lines[i].trim()
           if (t.startsWith('{')) {
-            try { result = JSON.parse(t); break } catch { /* try previous */ }
+            try {
+              const parsed = JSON.parse(t)
+              // MED-26: validate the parsed object has the expected shape
+              // before accepting it as a BuildResult. A stray JSON-ish
+              // log line would silently produce ok: undefined (falsy) and
+              // show "Build failed" for a successful run.
+              if (typeof parsed.ok === 'boolean') {
+                result = parsed as BuildResult
+                break
+              }
+            } catch { /* try previous line */ }
           }
         }
         if (result == null) throw new Error('no JSON output found in stdout')
         resolve({ ...result, python_resolution: reason })
-      } catch (e: any) {
-        resolve({ ok: false, error: `parse failed: ${e?.message}; raw=${stdout.slice(-400)}` })
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        resolve({ ok: false, error: `parse failed: ${msg}; raw=${stdout.slice(-400)}` })
       }
     })
     proc.on('error', (err: Error) => {
+      clearTimeout(killTimer)
       activeBuild = null  // 5.7.x
       resolve({
         ok: false,

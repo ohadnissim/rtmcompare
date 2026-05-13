@@ -23,6 +23,7 @@ declare global {
         python_resolution?: string
       }>
       showSavedProfile: (jsonPath: string) => Promise<boolean>
+      cancelBuild: () => Promise<boolean>
       onProgress: (cb: (msg: { i: number; total: number; file: string }) => void) => () => void
       /** Drop callback — preload calls this with resolved on-disk
        *  paths every time files land on the window. Returns an
