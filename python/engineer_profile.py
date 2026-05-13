@@ -285,7 +285,7 @@ def _compute_ms_tips(y_stereo, sr):
     return tips
 
 
-def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
+def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=None):
     """
     Generate "What would [Engineer] do?" tips.
 
@@ -299,6 +299,15 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
             "tonal_diff": [{ "region": str, "freq_range": str, "diff_db": float, "direction": str }],
             "summary": str,
         }
+
+    7.6.1 fix: sr parameter changed from 44100 to None (load at native sample
+    rate). Previously, librosa.load(sr=44100) hard-resampled everything to 44.1
+    kHz before analysis. For files originally at 96 kHz this band-limited the
+    Welch PSD to 22050 Hz, causing the 16 kHz and 20 kHz bands to hit the -90 dB
+    floor — while profiles built from native-SR files by build_profile.py had real
+    data in those bands. The phantom diff ("your high end is too low") disappeared
+    when comparing against any profile containing 96 kHz source material. Loading
+    at native SR keeps the full spectrum intact.
     """
     profile = load_profile(profile_id)
     if not profile:
@@ -307,16 +316,20 @@ def generate_tips(file_b_path, file_a_path, profile_id="ohad", sr=44100):
     engineer_name = profile.get("name", profile_id)
     curve = profile["curve"]
 
-    # Load file B (the compare/master file)
-    y_b, _ = librosa.load(file_b_path, sr=sr, mono=False)
+    # Load file B (the compare/master file) at native SR.
+    y_b, sr = librosa.load(file_b_path, sr=None, mono=False)
     if y_b.ndim == 1:
         y_b = np.stack([y_b, y_b])
     mono_b = librosa.to_mono(y_b)
 
-    # Load file A (reference/mix) for context
-    y_a, _ = librosa.load(file_a_path, sr=sr, mono=False)
+    # Load file A (reference/mix) at native SR (resample to match B if needed).
+    y_a, sr_a = librosa.load(file_a_path, sr=None, mono=False)
     if y_a.ndim == 1:
         y_a = np.stack([y_a, y_a])
+    if sr_a != sr:
+        # Resample A to B's SR so downstream comparisons stay aligned.
+        import librosa.core
+        y_a = librosa.resample(y_a, orig_sr=sr_a, target_sr=sr)
     mono_a = librosa.to_mono(y_a)
 
     # Compute file B metrics. compute_spectrum returns None for silent /

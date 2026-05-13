@@ -180,7 +180,7 @@ export default function App() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100%',
       padding: '32px 28px 28px',
       boxSizing: 'border-box',
       overflowY: 'auto',
@@ -339,11 +339,11 @@ export default function App() {
             </span>
           </div>
           <div style={{ fontSize: 12, color: V.sand400, marginTop: 4, lineHeight: 1.45 }}>
-            Runs BS-RoFormer 4-stem separation (SDR 9.66 on MUSDB18HQ) and builds
-            per-stem profiles — vocals · drums · bass · other — on top of the
-            whole-mix fingerprint. Adds 30 s – 2 min per track on Apple Silicon.
-            First run downloads the 503 MB checkpoint if it is not already on disk
-            from a sibling RTMcompare install.
+            Runs Mel-Band RoFormer 4-stem separation (SDR ~10.5 on MUSDB18HQ) and
+            builds per-stem profiles — vocals · drums · bass · other — on top of
+            the whole-mix fingerprint. Adds 30 s – 2 min per track on Apple
+            Silicon. First run downloads the model checkpoint if not already on
+            disk from a sibling RTMcompare install.
           </div>
         </div>
       </label>

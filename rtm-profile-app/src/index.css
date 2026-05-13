@@ -52,9 +52,20 @@
   padding: 0;
 }
 
-html, body, #root {
+html, body {
   height: 100%;
   overflow: hidden;
+  background: var(--ink);
+}
+
+/* 7.6.1 fix: #root must NOT clip overflow — it constrains the App div to
+   viewport height so the App's own overflowY:auto scrollbar appears when
+   many files are loaded. Previously overflow:hidden here caused the Build
+   button to be invisible when the file list pushed the layout taller than
+   the window. */
+#root {
+  height: 100%;
+  overflow: visible;
   background: var(--ink);
   color: var(--color-sand-300);
   font-family: var(--font-sans);

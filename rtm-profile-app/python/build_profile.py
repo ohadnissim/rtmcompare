@@ -267,18 +267,32 @@ def _crest_db(y: np.ndarray) -> float:
 
 def _stereo_width(y: np.ndarray) -> float:
     """Mid/side-derived width estimate in 0..1.
-       0 = mono, ~0.7 = wide stereo, > 1 = anti-phase / hyperwide."""
+       0 = mono, 1 = fully anti-phase / hyperwide.
+
+    7.6.1 fix: switched from RMS ratio (sqrt(S)/(sqrt(M)+sqrt(S))) to
+    power ratio (S/(M+S)) to match comparator.compute_stereo_width exactly.
+    The two formulas give systematically different values for the same signal
+    (e.g. RMS → 0.27, power → 0.12 for a typical wide stereo track).
+    Because engineer_profile.generate_tips uses compute_stereo_width for the
+    candidate while the profile stores _stereo_width, every width comparison
+    and the width component of the match score were comparing apples to
+    oranges. Aligning the formulas eliminates phantom "make it wider" tips.
+
+    NOTE: existing profiles will need a rebuild to get width_avg on the new
+    scale. The built-in ohad.json profile should be regenerated via RTMprofile.
+    """
     if y.ndim < 2 or y.shape[1] < 2:
         return 0.0
     L = y[:, 0]
     R = y[:, 1]
-    mid = 0.5 * (L + R)
-    side = 0.5 * (L - R)
-    rms_mid = float(np.sqrt(np.mean(mid * mid) + 1e-20))
-    rms_side = float(np.sqrt(np.mean(side * side) + 1e-20))
-    if rms_mid <= 0:
+    mid = L + R
+    side = L - R
+    mid_energy = float(np.mean(mid * mid))
+    side_energy = float(np.mean(side * side))
+    total = mid_energy + side_energy
+    if total < 1e-10:
         return 0.0
-    return round(rms_side / (rms_mid + rms_side), 3)
+    return round(side_energy / total, 3)
 
 
 # ── Demucs separation (Deep Scan) ─────────────────────────────────────
@@ -662,14 +676,45 @@ def aggregate(per_file: list[dict[str, Any]],
         1 for m in per_file
         if m is not None and np.isfinite(m["lufs"]) and m.get("peak_db", -100) <= -60
     )
+    # 7.6.1 fix: reject files with True Peak > 0 dBTP. These have actual
+    # inter-sample overs (not just a near-0 dBTP limited master — a properly
+    # limited master sits at -0.1 to -0.3 dBTP). Clipped/overloaded files
+    # produce a distorted spectral curve that corrupts the cohort median,
+    # especially above 2 kHz where inter-sample distortion harmonics land.
+    # The old behaviour (tag-only, include in cohort) was a regression from
+    # 5.7.x audit. Files with peak_db exactly 0.0 are flagged as suspicious
+    # (exactly at ceiling — typical of export-to-0 presets without limiting)
+    # and also excluded.
+    clipped_skipped = sum(
+        1 for m in per_file
+        if m is not None and np.isfinite(m["lufs"]) and m.get("peak_db", -100) >= 0.0
+    )
     valid = [
         m for m in per_file
-        if m is not None and np.isfinite(m["lufs"]) and m.get("peak_db", -100) > -60
+        if m is not None
+        and np.isfinite(m["lufs"])
+        and m.get("peak_db", -100) > -60
+        and m.get("peak_db", 0) < 0.0   # exclude True Peak overs
     ]
     if silent_skipped:
         print(
             f"[build_profile] skipped {silent_skipped} silent file(s) "
-            f"(peak <= -60 dBFS — would inflate curve_mad)",
+            f"(peak ≤ -60 dBFS — would inflate curve_mad)",
+            file=sys.stderr,
+        )
+    if clipped_skipped:
+        print(
+            f"[build_profile] skipped {clipped_skipped} clipped/over file(s) "
+            f"(True Peak ≥ 0 dBTP — distorted spectral shape excluded from cohort)",
+            file=sys.stderr,
+        )
+    # 7.6.1: warn when fewer than 5 valid tracks — profile will be statistically
+    # fragile (curve_mad omitted below 3, single-track profile has std=0 everywhere).
+    if 0 < len(valid) < 5:
+        print(
+            f"[build_profile] WARNING: only {len(valid)} valid track(s). "
+            f"5+ tracks recommended for a reliable tonal median. "
+            f"curve_mad {'will be omitted' if len(valid) < 3 else 'may not reflect true cohort spread'}.",
             file=sys.stderr,
         )
     if not valid:
@@ -718,6 +763,37 @@ def aggregate(per_file: list[dict[str, Any]],
         profile["warnings"] = {"clipped_files": clipped}
 
     profile.update(_aggregate_scalar_block(valid))
+
+    # 7.6.1: outlier detection — flag tracks whose tonal curve deviates
+    # significantly from the cohort median. One genre-mismatched track
+    # (e.g. a bright classical recording in a dark hip-hop profile) can
+    # silently skew the median by several dB without any warning.
+    # Threshold: per-band RMS deviation > 6 dB from the cohort median
+    # curve. At 6 dB a track is tonally a full genre away from the rest;
+    # at 3–4 dB it's within normal cohort spread for a single style.
+    if len(valid) >= 3:
+        cohort_curve = np.array(profile["curve"], dtype=np.float64)
+        outlier_files: list[str] = []
+        for m in valid:
+            file_curve = np.array(m["curve"], dtype=np.float64)
+            # use nanmean so out-of-Nyquist NaN bands don't inflate the diff
+            finite_mask = np.isfinite(file_curve) & np.isfinite(cohort_curve)
+            if np.sum(finite_mask) > 0:
+                rms_dev = float(np.sqrt(np.mean((file_curve[finite_mask] - cohort_curve[finite_mask]) ** 2)))
+                if rms_dev > 6.0:
+                    name_hint = Path(m["_source_path"]).name if m.get("_source_path") else "unknown"
+                    outlier_files.append(f"{name_hint} (±{rms_dev:.1f} dB)")
+        if outlier_files:
+            print(
+                f"[build_profile] WARNING: {len(outlier_files)} potential outlier track(s) "
+                f"detected (>6 dB RMS deviation from cohort median):\n"
+                + "\n".join(f"  {f}" for f in outlier_files)
+                + "\nConsider removing these tracks and rebuilding for a tighter profile.",
+                file=sys.stderr,
+            )
+            existing_warnings = profile.get("warnings", {})
+            existing_warnings["outlier_files"] = [f.split(" (")[0] for f in outlier_files]
+            profile["warnings"] = existing_warnings
 
     if deep:
         # Aggregate per-stem. Each stem rolls up across only the files
