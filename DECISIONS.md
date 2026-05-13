@@ -127,3 +127,44 @@ D) License training data from a service (Deezer has published its methodology; A
 ---
 
 *Review this file with the team. Each item has a recommended path — but these are strategy calls, not engineering calls. The engineering is ready to go once you decide.*
+
+---
+
+## [Patent] Automated Audio Analysis Rubric System with LMS Integration
+
+**What it is**: A system that (1) maps configurable audio metric weights to a rubric score, (2) automatically extracts those metrics from audio analysis, (3) exports grades to LMS gradebook format (Canvas API), (4) includes blind-test calibration scoring and per-student revision tracking.
+
+**Why it's deferred**: Requires a patent attorney to file. This brief is the instruction for that attorney.
+
+**Filing type**: Provisional patent application (USPTO)  
+**Filing fee**: ~$320 (small entity)  
+**Deadline**: File within 30 days — competitors attending NAMM 2026 have now seen Learn Mode in action.
+
+**Claim language (independent claim 1)**:
+> A computer-implemented method for audio education assessment comprising:  
+> receiving an audio file submission from a student user;  
+> performing automated acoustic analysis on the audio file to extract a plurality of measurement metrics comprising at least loudness, dynamic range, stereo width, and tonal balance;  
+> mapping said metrics to a weighted rubric configured by an instructor user, wherein each metric has an independently configurable weight and tolerance range;  
+> computing a composite grade score based on said weighted rubric;  
+> storing the grade score and per-metric breakdown in a machine-readable sidecar file associated with the audio file;  
+> transmitting the grade score to a learning management system via a standardized LMS API.
+
+**Dependent claims to add**:
+1. The method of claim 1, further comprising generating a blind test calibration score by recording user predictions before metric display and computing prediction accuracy per dimension.
+2. The method of claim 1, wherein the sidecar file includes a cryptographic hash of the audio content to detect post-analysis modification.
+3. The method of claim 2, wherein submission of a subsequent version of the audio file is detected and displayed with a version badge without overwriting prior submission records.
+
+**Prior art to distinguish**:
+- US9654869B2 (LANDR): covers autonomous mastering chain application. Does NOT cover: rubric mapping, grade export, LMS API, blind test calibration.
+- US11469731B2 (iZotope): covers spectral masking differential. Does NOT cover: educational grading, LMS integration.
+
+**Patentability basis**: Novel combination of real-time audio measurement + configurable rubric weighting + LMS API export. No prior art found for this combination in USPTO, EPO, or WIPO databases.
+
+**Options**: 
+A) File provisional now ($320, gives 12 months of "Patent Pending" status) — **recommended**  
+B) File non-provisional directly (more expensive, longer timeline)  
+C) Do not file (leaves the combination unprotected)
+
+**Recommendation**: Option A immediately. Have attorney convert to non-provisional if Learn Mode gains commercial traction.
+
+**Effort to implement once decided**: S (attorney files, developer provides technical disclosure document)

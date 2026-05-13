@@ -618,11 +618,20 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     # files, std is also 0.0. Both are acceptable and we round through.
     # The risk is when LRA is reported as NaN (very short / silent
     # segments inside pyloudnorm) — strip those before stats.
+    # reinvention-fix: use median for scalar loudness/dynamics targets so
+    # outlier sessions (accidental re-encodes, silence files) don't bias
+    # the profile. Spectral curve shapes still use mean/nanmean elsewhere.
     def _safe_mean(arr: np.ndarray, default: float = 0.0) -> float:
         finite = arr[np.isfinite(arr)]
         if finite.size == 0:
             return default
         return float(np.mean(finite))
+
+    def _safe_median(arr: np.ndarray, default: float = 0.0) -> float:
+        finite = arr[np.isfinite(arr)]
+        if finite.size == 0:
+            return default
+        return float(np.median(finite))
 
     def _safe_std(arr: np.ndarray) -> float:
         finite = arr[np.isfinite(arr)]
@@ -640,19 +649,19 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
 
     out: dict[str, Any] = {
         "curve":             [round(float(v), 1) if np.isfinite(v) else 0.0 for v in curve_median],
-        "lufs_avg":          round(_safe_mean(lufs_arr), 1),
+        "lufs_avg":          round(_safe_median(lufs_arr), 1),
         "lufs_std":          round(_safe_std(lufs_arr), 1),
         "lufs_range":        [round(lufs_min, 1), round(lufs_max, 1)],
         # LRA in LU — the unit RTMcompare expects.
-        "dynamic_range_avg": round(_safe_mean(lra_arr), 1),
+        "dynamic_range_avg": round(_safe_median(lra_arr), 1),
         "dynamic_range_std": round(_safe_std(lra_arr), 1),
         # Crest factor kept as a separate field for diagnostic purposes;
         # not consumed by RTMcompare's tip thresholds.
         "crest_factor_avg":  round(_safe_mean(crest_arr), 1),
         "crest_factor_std":  round(_safe_std(crest_arr), 1),
-        "width_avg":         round(_safe_mean(width_arr), 3),
+        "width_avg":         round(_safe_median(width_arr), 3),
         "width_std":         round(_safe_std(width_arr), 3),
-        "peak_avg":          round(_safe_mean(peak_arr), 1),
+        "peak_avg":          round(_safe_median(peak_arr), 1),
     }
     if curve_mad_field is not None:
         out["curve_mad"] = curve_mad_field

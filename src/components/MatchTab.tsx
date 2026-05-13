@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { AnalysisResult, FileInfo } from '../types'
 import MatchReferenceEQPanel, { Band } from './MatchReferenceEQPanel'
 import EngineerTipsPanel from './EngineerTipsPanel'
@@ -35,6 +35,21 @@ interface Props {
 export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  const hasEngineer = !!results.engineer_tips
  const [mode, setMode] = useState<Mode>(hasEngineer ? 'reference' : 'reference')
+ // Listen for the '✦ Assistant' header button so it can deep-link directly
+ // to this mode without the user needing to click the mode picker.
+ useEffect(() => {
+ const handler = (e: Event) => {
+ const detail = (e as CustomEvent<{ mode: Mode }>).detail
+ if (detail?.mode) setMode(detail.mode)
+ }
+ window.addEventListener('rtm-match-mode', handler)
+ return () => window.removeEventListener('rtm-match-mode', handler)
+ }, [])
+
+ // hasResults: true when the analysis produced actionable EQ recommendations.
+ // The mode picker collapses to an "Advanced ▾" disclosure when false so the
+ // tab doesn't look busy before the user has anything to act on.
+ const hasResults = (results.recommendations && results.recommendations.length > 0) || !!results.spectrum_a
 
  // Engineer profile bands shaped like the Match panel's Band type, so they
  // can be mixed into Hybrid's derivation.
@@ -49,9 +64,7 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  }))
  }, [results.engineer_tips])
 
- return (
- <div className="space-y-5">
- {/* Segmented control — Bottega-style hairline pill. */}
+ const modePicker = (
  <div className="flex items-center justify-center">
  <div
  className="inline-flex items-center gap-1 p-1 rounded-full"
@@ -95,6 +108,34 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  />
  </div>
  </div>
+ )
+
+ return (
+ <div className="space-y-5">
+ {/* Segmented control — show inline when results exist; collapse to an
+   "Advanced ▾" disclosure before the user has anything to act on so
+   the tab doesn't look busy on first open. */}
+ {hasResults ? modePicker : (
+ <details style={{ textAlign: 'center' }}>
+ <summary
+ style={{
+ fontSize: 11,
+ color: 'var(--color-text-muted)',
+ cursor: 'pointer',
+ listStyle: 'none',
+ display: 'inline-flex',
+ alignItems: 'center',
+ gap: 4,
+ userSelect: 'none',
+ }}
+ >
+ ⚙ Analysis mode (Advanced)
+ </summary>
+ <div style={{ marginTop: 8 }}>
+ {modePicker}
+ </div>
+ </details>
+ )}
 
  {/* Body — one panel at a time, same aesthetic either way. */}
  {mode === 'reference' && (

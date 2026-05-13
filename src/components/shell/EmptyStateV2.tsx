@@ -181,6 +181,22 @@ export default function EmptyStateV2({
  {children}
  </div>
 
+ {/* Outcome statement — tells the user what they'll get before they
+   commit a file drop. Single sentence, muted, centred under the frame. */}
+ <p
+ style={{
+ fontSize: 11,
+ color: 'var(--color-text-muted)',
+ marginTop: 6,
+ textAlign: 'center',
+ maxWidth: 280,
+ marginInline: 'auto',
+ lineHeight: 1.5,
+ }}
+ >
+ Drop A and B — you'll see LUFS, stereo width, masking, dynamics, and a match score in under 10 seconds.
+ </p>
+
  {/* CTA row — Begin (italic display) + tiny "Or analyse a folder" */}
  <div
  style={{

@@ -787,6 +787,18 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
     return filters
 
 
+def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    """Cosine similarity on log-power spectra — dimensionless and loudness-invariant.
+    Returns value in [-1, 1]; 1.0 = identical tonal shape, 0.0 = orthogonal."""
+    a_log = np.log10(np.maximum(np.abs(a), 1e-10))
+    b_log = np.log10(np.maximum(np.abs(b), 1e-10))
+    norm_a = np.linalg.norm(a_log)
+    norm_b = np.linalg.norm(b_log)
+    if norm_a < 1e-10 or norm_b < 1e-10:
+        return 0.0
+    return float(np.dot(a_log, b_log) / (norm_a * norm_b))
+
+
 def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile, *, silent=False):
     """
     Compute 0-100 score of how close the file is to the engineer's profile.
@@ -806,9 +818,11 @@ def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile, *, si
             "width_score": 0,
             "detail": "Input has no usable signal (silent or below the measurement floor).",
         }
-    # Tonal match (0-50 points)
-    tonal_diffs = [abs(spec_file[i] - spec_target[i]) for i in range(min(len(spec_file), len(spec_target))) if spec_file[i] > -50]
-    if not tonal_diffs:
+    # Tonal match (0-50 points) via cosine similarity on log-power spectra.
+    # Cosine similarity is loudness-invariant — only the tonal *shape* matters.
+    # Guard: require at least one band above the -50 dB floor (same as before).
+    valid_indices = [i for i in range(min(len(spec_file), len(spec_target))) if spec_file[i] > -50]
+    if not valid_indices:
         # Every band sits at-or-below the -50 floor → no real signal.
         return {
             "score": 0,
@@ -818,8 +832,14 @@ def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile, *, si
             "width_score": 0,
             "detail": "Input is too quiet to compare — every band is below the −50 dB measurement floor.",
         }
-    avg_tonal_diff = np.mean(tonal_diffs) if tonal_diffs else 0
-    tonal_score = max(0, 50 - avg_tonal_diff * 5)
+    # Convert from dB (possibly negative) to linear power before cosine distance.
+    # Adding 100 dB offsets the range to all-positive for log() sanity, but
+    # the cosine is direction-only so the absolute offset cancels out.
+    arr_file = np.array([spec_file[i] + 100.0 for i in valid_indices], dtype=np.float64)
+    arr_target = np.array([spec_target[i] + 100.0 for i in valid_indices], dtype=np.float64)
+    cosine_dist = 1.0 - _cosine_similarity(arr_file, arr_target)  # 0 = identical, 2 = opposite
+    # Scale to 0-50: perfect match (dist=0) → 50 pts; dist ≥ 0.1 → 0 pts.
+    tonal_score = max(0.0, 50.0 * (1.0 - cosine_dist / 0.1))
 
     # Loudness match (0-20 points)
     lufs_diff = abs(lufs - profile["lufs_avg"])

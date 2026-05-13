@@ -292,6 +292,50 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <div className="flex items-center gap-3">
  <SpecDriftBadge analysisVersion={results.spec_versions?.version} stampedSpecs={results.spec_versions} />
  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>Press <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ backgroundColor: '#272524', color: '#78716c' }}>?</kbd> for shortcuts</span>
+ {/* ✦ Assistant — 1-click shortcut to the Match tab's Assistant panel.
+   Surfaces what was previously 3 clicks away (tab → mode picker → Assistant).
+   Dispatches 'rtm-match-mode' so MatchTab can switch its internal mode. */}
+ <button
+ type="button"
+ onClick={() => {
+ setActiveTab('match')
+ window.dispatchEvent(new CustomEvent('rtm-match-mode', { detail: { mode: 'assistant' } }))
+ }}
+ title="Open the Master Assistant — compose gain → EQ → TP limiter → dither in one click"
+ style={{
+ fontSize: 11,
+ padding: '2px 8px',
+ border: '1px solid rgba(208,176,102,0.3)',
+ borderRadius: 2,
+ color: 'rgba(208,176,102,0.7)',
+ cursor: 'pointer',
+ background: 'transparent',
+ }}
+ >
+ ✦ Assistant
+ </button>
+ {/* ✦ Certify — visible CTA for RTMcertify pre-delivery certificate.
+   Only shown when the Electron API is present (desktop only). Dispatches
+   'rtm-certify-trigger' which App.tsx handles to avoid threading certify
+   state through the component tree. */}
+ {window.electronAPI?.rtmCertify && (
+ <button
+ type="button"
+ onClick={() => window.dispatchEvent(new CustomEvent('rtm-certify-trigger'))}
+ title="Generate a shareable PDF certifying this analysis"
+ style={{
+ fontSize: 11,
+ padding: '2px 8px',
+ border: '1px solid rgba(208,176,102,0.3)',
+ borderRadius: 2,
+ color: 'rgba(208,176,102,0.7)',
+ cursor: 'pointer',
+ background: 'transparent',
+ }}
+ >
+ ✦ Certify
+ </button>
+ )}
  <ClientReportButton results={results} fileA={fileA} fileB={fileB} />
  <ExportButton results={results} fileA={fileA} fileB={fileB} />
  </div>

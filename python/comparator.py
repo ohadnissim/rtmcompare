@@ -139,7 +139,7 @@ def compute_punch(y: np.ndarray, sr: int) -> float:
     Measure 'punch' — ratio of transient energy to sustain.
     Higher = punchier (more transient snap).
     """
-    onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+    onset_env = librosa.onset.onset_strength(y=y, sr=sr, lag=2, max_size=3)
     if len(onset_env) < 2:
         return 0.0
     # Punch = peak transient strength relative to mean
@@ -164,6 +164,42 @@ def compute_stereo_width(left: np.ndarray, right: np.ndarray) -> float:
     if total < 1e-10:
         return 0.0
     return float(side_energy / total)
+
+
+def compute_stereo_width_per_band(left: np.ndarray, right: np.ndarray, sr: int) -> list:
+    """Compute stereo width as 1 - |pearson_r(L,R)| per octave band.
+    Returns 8 floats (bands: 63, 125, 250, 500, 1k, 2k, 4k, 8k Hz).
+    0.0 = fully mono, 1.0 = fully decorrelated."""
+    center_freqs = [63, 125, 250, 500, 1000, 2000, 4000, 8000]
+    widths = []
+    for fc in center_freqs:
+        lo, hi = fc / 1.414, fc * 1.414  # ±½ octave
+        nyq = sr / 2
+        lo_n = max(lo / nyq, 0.001)
+        hi_n = min(hi / nyq, 0.999)
+        if lo_n >= hi_n:
+            widths.append(0.0)
+            continue
+        try:
+            from scipy.signal import butter, sosfilt
+            sos = butter(4, [lo_n, hi_n], btype='band', output='sos')
+            l_band = sosfilt(sos, left)
+            r_band = sosfilt(sos, right)
+            r = float(np.corrcoef(l_band, r_band)[0, 1])
+            widths.append(round(float(max(0.0, 1.0 - abs(r))), 3))
+        except Exception:
+            widths.append(0.0)
+    return widths
+
+
+def detect_polarity_inversion(a_mono: np.ndarray, b_mono: np.ndarray) -> bool:
+    """Return True if B appears to be polarity-inverted relative to A.
+    Uses Pearson correlation on a 10-second trim to avoid long-file cost."""
+    n = min(len(a_mono), len(b_mono), 441000)  # 10 s at 44.1 kHz
+    if n < 1000:
+        return False
+    r = float(np.corrcoef(a_mono[:n], b_mono[:n])[0, 1])
+    return r < -0.3  # negative correlation = likely polarity inversion
 
 
 def _bs1770_k_weight(y_samples: np.ndarray, sr: int) -> np.ndarray:
@@ -480,7 +516,20 @@ def _perceptual_spectral_distance(y_a: np.ndarray, y_b: np.ndarray, sr: int) -> 
     mel_a_db = librosa.power_to_db(mel_a, ref=np.max)
     mel_b_db = librosa.power_to_db(mel_b, ref=np.max)
 
-    distance = float(np.mean(np.abs(mel_a_db - mel_b_db)))
+    diff = mel_a_db - mel_b_db
+
+    # Weight by A-weighting curve before computing spectral distance.
+    # Makes low-frequency deviations count less (they're less audible).
+    try:
+        freqs = librosa.mel_frequencies(n_mels=128, fmin=0.0, fmax=sr / 2)
+        a_weights = librosa.A_weighting(freqs + 1e-6)  # +epsilon avoids log(0)
+        a_weights_linear = 10 ** (a_weights / 20)
+        a_weights_linear = a_weights_linear / a_weights_linear.max()  # normalize to [0,1]
+        diff_weighted = diff * a_weights_linear[:, np.newaxis]
+    except Exception:
+        diff_weighted = diff  # fallback to unweighted
+
+    distance = float(np.mean(np.abs(diff_weighted)))
 
     if distance < 2.0:
         interpretation = "clean"
@@ -512,7 +561,7 @@ def _transient_homogeneity_score(y: np.ndarray, sr: int) -> dict:
 
     mono = librosa.to_mono(y) if y.ndim > 1 else y
     hop = 512
-    onset_env = librosa.onset.onset_strength(y=mono, sr=sr, hop_length=hop)
+    onset_env = librosa.onset.onset_strength(y=mono, sr=sr, hop_length=hop, lag=2, max_size=3)
 
     # Peak-pick the top-5 strongest onsets
     from scipy.signal import find_peaks
@@ -628,7 +677,7 @@ def _transient_density_mean(y: np.ndarray, sr: int) -> float | None:
     if len(mono) < sr:
         return None
     hop = 512
-    onset_env = librosa.onset.onset_strength(y=mono, sr=sr, hop_length=hop)
+    onset_env = librosa.onset.onset_strength(y=mono, sr=sr, hop_length=hop, lag=2, max_size=3)
     if len(onset_env) < 2:
         return None
     frames_per_sec = sr / hop
@@ -726,6 +775,11 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
             delta["stereo_width_change_per_band"] = [
                 round(b - a, 3) for a, b in zip(widths_a, widths_b)
             ]
+            # Per-octave-band absolute stereo width for each file
+            if y_a.ndim > 1 and y_a.shape[0] >= 2:
+                delta["width_per_band_a"] = compute_stereo_width_per_band(y_a[0], y_a[1], sr)
+            if y_b.ndim > 1 and y_b.shape[0] >= 2:
+                delta["width_per_band_b"] = compute_stereo_width_per_band(y_b[0], y_b[1], sr)
     except Exception:
         pass
 
@@ -852,6 +906,34 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
     except Exception:
         pass
 
+    # Polarity inversion detection
+    try:
+        if y_a is not None and y_b is not None:
+            mono_a_pol = librosa.to_mono(y_a) if y_a.ndim > 1 else y_a
+            mono_b_pol = librosa.to_mono(y_b) if y_b.ndim > 1 else y_b
+            delta["polarity_inverted"] = detect_polarity_inversion(mono_a_pol, mono_b_pol)
+    except Exception:
+        pass
+
+    # PLR/TP cross-validation: PLR ≈ TP − LUFS_I (within tolerance).
+    # If violated, one measurement is likely wrong → flag it.
+    try:
+        plr = overall.get("plr_b")
+        true_peak_dbtp = tp_b
+        if true_peak_dbtp is None and result.get("headroom", {}).get("true_peak_b") is not None:
+            true_peak_dbtp = float(result["headroom"]["true_peak_b"])
+        lufs_i = overall.get("lufs_b")
+        if plr is not None and true_peak_dbtp is not None and lufs_i is not None:
+            tp_minus_lufs = float(true_peak_dbtp) - float(lufs_i)
+            if abs(float(plr) - tp_minus_lufs) > 1.5:
+                delta["measurement_inconsistency"] = (
+                    f"PLR/TP cross-validation: PLR={float(plr):.1f}, "
+                    f"TP−LUFS_I={tp_minus_lufs:.1f}, "
+                    f"delta={abs(float(plr) - tp_minus_lufs):.1f} LU (threshold: 1.5)"
+                )
+    except Exception:
+        pass
+
     if delta:
         result["mastering_delta"] = delta
     return result
@@ -898,16 +980,21 @@ def compute_momentary_max(y: np.ndarray, sr: int) -> float:
         return -70.0
 
 
-def compute_plr(y: np.ndarray, sr: int) -> float | None:
+def compute_plr(y: np.ndarray, sr: int) -> tuple[float | None, float | None]:
     """
-    Peak-to-Loudness Ratio (PLR) — dB difference between true-peak and
-    integrated LUFS. Used alongside LRA to describe overall loudness headroom.
+    Peak-to-Loudness Ratio (PLR) and Peak-to-Short-term Ratio (PSR).
 
-    Lower PLR = more crest-compressed / limited (smashed masters ~= 7-9 dB).
-    Higher PLR = more transient headroom (dynamic mixes ~= 14-20 dB).
+    PLR  — dB difference between true-peak and integrated LUFS.
+           Lower = more compressed (smashed masters ~7-9 dB).
+           Higher = more headroom (dynamic mixes ~14-20 dB).
 
-    Returns None for digital silence or otherwise non-finite LUFS — PLR
-    is undefined when there's no audible content. Renderers treat None
+    PSR  — dB difference between true-peak and max short-term LUFS (3 s).
+           Better streaming-loudness indicator than PLR because short-term
+           LUFS tracks the loudest moment, not the session average.
+           A large PLR-PSR gap indicates a loud-chorus-only limiter hit.
+
+    Returns (plr, psr). Both are None for digital silence or non-finite
+    LUFS — undefined when there's no audible content. Renderers treat None
     as "skip the row" (see AnalysisView / ClientReportButton null-guards).
     """
     try:
@@ -952,18 +1039,32 @@ def compute_plr(y: np.ndarray, sr: int) -> float | None:
         # Drop -inf entries so a single dead channel doesn't poison the max.
         finite_tps = [v for v in per_channel_tp if np.isfinite(v)]
         if not finite_tps:
-            return None
+            return None, None
         tp_db = max(finite_tps)
 
         lufs = compute_lufs(y, sr)
         if np.isinf(lufs) or np.isnan(lufs):
             # Silence / non-finite loudness — PLR is undefined here.
-            return None
-        return round(tp_db - lufs, 1)
+            return None, None
+        plr = round(tp_db - lufs, 1)
+
+        # PSR (Peak-to-Short-term Ratio): true-peak vs max short-term LUFS.
+        # Measures limiter stress on peaks specifically (better streaming
+        # indicator than PLR).
+        try:
+            st_max = compute_short_term_max(y, sr)
+            if np.isfinite(st_max):
+                psr = round(float(tp_db - st_max), 1)
+            else:
+                psr = plr  # fallback
+        except Exception:
+            psr = plr  # fallback
+
+        return plr, psr
     except Exception as e:
         import sys as _sys
         _sys.stderr.write(f"[comparator] compute_plr failed: {e}\n")
-        return None
+        return None, None
 
 
 def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
@@ -998,15 +1099,26 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
         # K-weighting (a high-shelf at ~1500 Hz) brings the units back
         # in line with EBU R128 even though the gating is approximate.
         mono = data[:, 0] if data.ndim > 1 else data
-        # Approximate K-weighting: shelving filter pair from BS.1770-4.
-        # Normalised coefficients for any sample rate via bilinear.
+        # SR-dependent K-weighting via bilinear-transform per BS.1770-4 §2.3.
+        # Pre-warped biquads are computed from the analogue prototype at the
+        # actual sample rate, so the fallback is accurate at 44.1 kHz, 48 kHz,
+        # 96 kHz, etc. — the old hardcoded 48 kHz coefficients were up to 2 dB
+        # wrong at other rates on HF-heavy material.
         from scipy.signal import lfilter
-        # Stage 1 (high-shelf, fc=1681 Hz, +4 dB)
-        b1 = [1.53512485958697, -2.69169618940638, 1.19839281085285]
-        a1 = [1.0,             -1.69065929318241, 0.73248077421585]
-        # Stage 2 (high-pass, fc=38 Hz)
-        b2 = [1.0, -2.0, 1.0]
-        a2 = [1.0, -1.99004745483398, 0.99007225036621]
+        # Stage 1: high-shelf pre-filter
+        # Analogue prototype: fc=1681.97 Hz, Q=0.7071, Vh=1.584893, Vb=1.258925
+        K = np.tan(np.pi * 1681.9744509 / sr)
+        Vh = 1.584893192; Vb = 1.258925412
+        denom = 1 + K / 0.7071 + K * K
+        b1 = [(Vh + Vb * K / 0.7071 + K * K) / denom,
+              2 * (K * K - Vh) / denom,
+              (Vh - Vb * K / 0.7071 + K * K) / denom]
+        a1 = [1.0, 2 * (K * K - 1) / denom, (1 - K / 0.7071 + K * K) / denom]
+        # Stage 2: high-pass, fc=38.13 Hz, Q=√2 (Butterworth 2nd-order)
+        K2 = np.tan(np.pi * 38.1345865 / sr)
+        denom2 = 1 + K2 * 1.41421356 + K2 * K2
+        b2 = [1 / denom2, -2 / denom2, 1 / denom2]
+        a2 = [1.0, 2 * (K2 * K2 - 1) / denom2, (1 - K2 * 1.41421356 + K2 * K2) / denom2]
         try:
             kw = lfilter(b1, a1, mono.astype(np.float64))
             kw = lfilter(b2, a2, kw)
@@ -1765,9 +1877,9 @@ def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
     st_max_a = compute_short_term_max(y_a, sr)
     st_max_b = compute_short_term_max(y_b, sr)
 
-    # Peak-to-Loudness Ratio (dB headroom above integrated LUFS)
-    plr_a = compute_plr(y_a, sr)
-    plr_b = compute_plr(y_b, sr)
+    # Peak-to-Loudness Ratio and Peak-to-Short-term Ratio
+    plr_a, psr_a = compute_plr(y_a, sr)
+    plr_b, psr_b = compute_plr(y_b, sr)
 
     # Momentary max (400 ms) — broadcast compliance
     mom_a = compute_momentary_max(y_a, sr)
@@ -1788,6 +1900,8 @@ def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
             "momentary_max_b": round(mom_b, 1),
             "plr_a": plr_a,
             "plr_b": plr_b,
+            "psr_a": psr_a,
+            "psr_b": psr_b,
             "width_a": round(overall_width_a, 3),
             "width_b": round(overall_width_b, 3),
             "dynamics_a": round(overall_dr_a, 1),

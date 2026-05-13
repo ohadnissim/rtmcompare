@@ -830,6 +830,14 @@ export default function App() {
  }
  }, [fileA, fileB])
 
+ // Listen for 'rtm-certify-trigger' dispatched by the ✦ Certify button in
+ // AnalysisView so we don't need to thread handleCertify as a prop.
+ useEffect(() => {
+ const handler = () => { handleCertify() }
+ window.addEventListener('rtm-certify-trigger', handler)
+ return () => window.removeEventListener('rtm-certify-trigger', handler)
+ }, [handleCertify])
+
  // ── Album / batch mode — pick a folder, analyse every audio file inside,
  // route to the BatchView when done. Per-file progress streams through
  // `onBatchProgress` so the progress bar shows "Analysing 3/12 · foo.wav".

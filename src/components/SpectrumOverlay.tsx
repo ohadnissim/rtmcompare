@@ -280,6 +280,8 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  const h = 200
  const padX = 0
  const padY = 10
+ // 28px left margin reserved for the dB axis labels
+ const axisW = 28
 
  const { normA, normB, diffBands } = useMemo(() => {
  // 5.2.0 perf fix (audit P2-25): the previous Math.max(...dataA, ...dataB)
@@ -307,7 +309,7 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
 
  const makePath = (data: number[]): string => {
  const points = data.map((v, i) => ({
- x: padX + (i / (data.length - 1)) * (w - padX * 2),
+ x: axisW + padX + (i / (data.length - 1)) * (w - axisW - padX * 2),
  y: padY + (1 - v) * (h - padY * 2),
  }))
  if (points.length < 2) return ''
@@ -323,8 +325,8 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
 
  const makeFilledPath = (data: number[]): string => {
  const base = makePath(data)
- const lastX = padX + (w - padX * 2)
- return `${base} L ${lastX} ${h} L ${padX} ${h} Z`
+ const lastX = axisW + padX + (w - axisW - padX * 2)
+ return `${base} L ${lastX} ${h} L ${axisW + padX} ${h} Z`
  }
 
  const annotations = useMemo(() => {
@@ -376,21 +378,47 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  return filtered.slice(0, 10)
  }, [diffBands])
 
+ // dB axis: map -90..0 dBFS to chart height range (padY..h-padY)
+ // -10 at top, -90 at bottom — standard metering convention.
+ const dbLevels = [-90, -70, -50, -30, -10] as const
+ const dbToY = (db: number) => padY + (1 - (db + 90) / 90) * (h - padY * 2)
+
  return (
  <>
  <div className="relative bg-dark-800 p-3" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-48" preserveAspectRatio="none" role="img" aria-label="Frequency spectrum chart — see the table below this chart for the underlying band values">
+ {/* dB axis labels + horizontal grid lines */}
+ {dbLevels.map(db => {
+ const y = dbToY(db)
+ return (
+ <g key={db}>
+ <line
+ x1={axisW} y1={y} x2={w} y2={y}
+ stroke="rgba(255,255,255,0.035)" strokeWidth="0.8"
+ />
+ <text
+ x={axisW - 2} y={y + 3}
+ textAnchor="end" fontSize="8"
+ fontFamily="monospace"
+ fill="rgba(168,161,150,0.5)"
+ >
+ {db}
+ </text>
+ </g>
+ )
+ })}
+
  {[0.25, 0.5, 0.75].map(pct => (
  <line
  key={pct}
- x1={padX} y1={padY + (1 - pct) * (h - padY * 2)}
+ x1={axisW + padX} y1={padY + (1 - pct) * (h - padY * 2)}
  x2={w - padX} y2={padY + (1 - pct) * (h - padY * 2)}
- stroke="#4c4d52" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.3"
+ stroke="#4c4d52" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.15"
  />
  ))}
 
  {LABEL_INDICES.map(i => {
- const x = padX + (i / (bands - 1)) * (w - padX * 2)
+ const x = axisW + padX + (i / (bands - 1)) * (w - axisW - padX * 2)
  return (
  <line key={i} x1={x} y1={padY} x2={x} y2={h - padY} stroke="#4c4d52" strokeWidth="0.5" opacity="0.2" />
  )
@@ -401,14 +429,18 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  <path d={makePath(normA)} fill="none" stroke="var(--color-sand-500)" strokeWidth="2" opacity="0.6" />
  <path d={makePath(normB)} fill="none" stroke={colorB} strokeWidth="2" opacity="0.9" />
 
- {/* Click-to-solo per band — see SoloContext.tsx. */}
- <BandSoloOverlay w={w} h={h} bands={bands} />
+ {/* Click-to-solo per band — see SoloContext.tsx. Shifted right by axisW. */}
+ <g transform={`translate(${axisW}, 0)`}>
+ <BandSoloOverlay w={w - axisW} h={h} bands={bands} />
+ </g>
  </svg>
 
- {/* Annotation dots on chart */}
+ {/* Annotation dots on chart — leftPct accounts for the 28px axis margin */}
  <div className="absolute inset-0 pointer-events-none" style={{ padding: '12px' }}>
  {annotations.map((ann, i) => {
- const leftPct = (ann.index / (bands - 1)) * 100
+ // Axis takes axisW/w fraction of total SVG width; annotations sit in the remaining space
+ const axisWidthFrac = axisW / w
+ const leftPct = axisWidthFrac * 100 + (ann.index / (bands - 1)) * (1 - axisWidthFrac) * 100
  const topPct = (1 - normB[ann.index]) * 100 * 0.9 + 5
  const color = ann.diff > 0 ? 'var(--color-data-pass)' : 'var(--color-danger)'
  return (

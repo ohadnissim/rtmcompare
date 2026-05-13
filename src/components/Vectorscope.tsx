@@ -53,6 +53,17 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  <span className="text-xs text-dark-400">{labelA}</span>
  <div className="bg-dark-800 p-2 flex items-center justify-center" style={{ borderRadius: '2px' }}>
  <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[200px]" style={{ aspectRatio: '1' }}>
+ <defs>
+ {/* Phosphor glow filter — simulates warm phosphor persistence.
+     Blurred layer beneath crisp dots mimics the trailing decay
+     of hardware vectorscope phosphors. */}
+ <filter id="phosphor-a" x="-20%" y="-20%" width="140%" height="140%">
+ <feGaussianBlur stdDeviation="1.8" result="blur" />
+ </filter>
+ <filter id="phosphor-b" x="-20%" y="-20%" width="140%" height="140%">
+ <feGaussianBlur stdDeviation="1.8" result="blur" />
+ </filter>
+ </defs>
  {/* Grid */}
  <line x1={center} y1={0} x2={center} y2={size} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
  <line x1={0} y1={center} x2={size} y2={center} stroke="#4c4d52" strokeWidth="0.5" opacity="0.3" />
@@ -68,9 +79,16 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  <text x={size - 8} y={center - 2} textAnchor="middle" fontSize="7" fill="#696a71">S</text>
  <text x={size * 0.18} y={size * 0.18} textAnchor="middle" fontSize="7" fill="var(--color-text-muted)">L</text>
  <text x={size * 0.82} y={size * 0.18} textAnchor="middle" fontSize="7" fill="var(--color-text-muted)">R</text>
- {/* Points */}
+ {/* Phosphor glow layer — blurred dots simulate warm trailing
+     persistence of hardware phosphor screens. */}
+ <g filter="url(#phosphor-a)" opacity="0.4">
  {svgA.map((p, i) => (
- <circle key={i} cx={p.x} cy={p.y} r="0.8" style={{ fill: 'var(--color-sand-500)' }} opacity="0.15" />
+ <circle key={i} cx={p.x} cy={p.y} r="1.6" style={{ fill: 'var(--color-sand-500)' }} />
+ ))}
+ </g>
+ {/* Crisp detail layer on top */}
+ {svgA.map((p, i) => (
+ <circle key={i} cx={p.x} cy={p.y} r="0.7" style={{ fill: 'var(--color-sand-500)' }} opacity="0.22" />
  ))}
  </svg>
  </div>
@@ -90,9 +108,15 @@ export default function Vectorscope({ pointsA, pointsB, labelA, labelB }: Props)
  <text x={8} y={center - 2} textAnchor="middle" fontSize="7" fill="#696a71">L</text>
  <text x={size - 8} y={center - 2} textAnchor="middle" fontSize="7" fill="#696a71">R</text>
  <text x={center} y={size - 3} textAnchor="middle" fontSize="7" fill="#696a71">S</text>
- {/* Points */}
+ {/* Phosphor glow layer for File B (amber) */}
+ <g filter="url(#phosphor-b)" opacity="0.4">
  {svgB.map((p, i) => (
- <circle key={i} cx={p.x} cy={p.y} r="0.8" style={{ fill: 'var(--color-warm-amber)' }} opacity="0.15" />
+ <circle key={i} cx={p.x} cy={p.y} r="1.6" style={{ fill: 'var(--color-warm-amber)' }} />
+ ))}
+ </g>
+ {/* Crisp detail layer on top */}
+ {svgB.map((p, i) => (
+ <circle key={i} cx={p.x} cy={p.y} r="0.7" style={{ fill: 'var(--color-warm-amber)' }} opacity="0.22" />
  ))}
  </svg>
  </div>

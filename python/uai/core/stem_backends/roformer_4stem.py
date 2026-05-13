@@ -134,6 +134,12 @@ class BSRoformer4StemBackend(StemBackend):
 
         if self._separator is None:
             separator_cls = self._local_separator_class()
+            # Use larger batches on GPU (MPS/CUDA) to keep the accelerator
+            # saturated across chunks. CPU stays at 1 to avoid OOM.
+            batch_size = 1
+            if self.device in ("mps", "cuda"):
+                batch_size = 4
+
             self._separator = separator_cls(
                 model_file_dir=self.model_file_dir,
                 output_dir=output_dir,
@@ -144,7 +150,7 @@ class BSRoformer4StemBackend(StemBackend):
                 mdxc_params={
                     "segment_size": 256,
                     "override_model_segment_size": False,
-                    "batch_size": 1,
+                    "batch_size": batch_size,
                     "overlap": 8,
                     "pitch_shift": 0,
                     "process_all_stems": True,
