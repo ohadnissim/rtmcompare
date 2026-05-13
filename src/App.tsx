@@ -263,6 +263,8 @@ function dismissNativeTooltip(e: React.MouseEvent<HTMLElement>) {
 interface CoverWiredEmptyStateProps {
  canBegin: boolean
  onBegin: () => void
+ onBeginCompare?: () => void
+ onBeginRefOnly?: () => void
  onBatch?: () => void
  recents: HistoryEntry[]
  onOpenRecents: () => void
@@ -276,7 +278,7 @@ interface CoverWiredEmptyStateProps {
  children?: React.ReactNode
 }
 function CoverWiredEmptyState({
- canBegin, onBegin, onBatch, recents, onOpenRecents, error,
+ canBegin, onBegin, onBeginCompare, onBeginRefOnly, onBatch, recents, onOpenRecents, error,
  fileA, fileB, setFileA, setFileB, history, profileName, children,
 }: CoverWiredEmptyStateProps) {
  const learn = useLearnMode()
@@ -314,6 +316,8 @@ function CoverWiredEmptyState({
   <EmptyStateV2
    canBegin={canBegin}
    onBegin={onBegin}
+   onBeginCompare={onBeginCompare}
+   onBeginRefOnly={onBeginRefOnly}
    onBatch={onBatch}
    recents={recents}
    onOpenRecents={onOpenRecents}
@@ -1272,6 +1276,8 @@ export default function App() {
     <CoverWiredEmptyState
       canBegin={!!fileA}
       onBegin={fileA && fileB ? handleCompare : handleRefOnly}
+      onBeginCompare={handleCompare}
+      onBeginRefOnly={handleRefOnly}
       onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
       recents={history}
       onOpenRecents={() => { /* dropdown handled inline via the RecentAnalyses card below */ }}
