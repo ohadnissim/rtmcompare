@@ -14,6 +14,7 @@ declare global {
         files: string[]
         /** Deep Scan: per-stem profile via Demucs (adds ~30s-2min per track). */
         deep?: boolean
+        chainReference?: string
       }) => Promise<{
         ok: boolean
         path?: string
@@ -22,6 +23,8 @@ declare global {
         partialCount?: number
         error?: string
         python_resolution?: string
+        curve?: number[]
+        curveMad?: number[]
       }>
       showSavedProfile: (jsonPath: string) => Promise<boolean>
       cancelBuild: () => Promise<boolean>

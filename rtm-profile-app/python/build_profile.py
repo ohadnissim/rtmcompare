@@ -1143,6 +1143,11 @@ def main() -> int:
     p.add_argument("--no-cache", action="store_true",
                    help="Disable content-addressed track analysis cache (~/.rtm/tracks/). "
                         "Use when benchmarking or diagnosing cache-related issues.")
+    p.add_argument("--chain-reference", default="",
+                   help="Path to a dry mix (pre-master) audio file. When provided, "
+                        "computes an approximate mastering chain EQ curve by subtracting "
+                        "the mix spectrum from the profile spectrum. Stored as "
+                        "'chain_analysis' in the output JSON.")
     args = p.parse_args()
 
     # Parse + validate the optional plugin descriptor.
@@ -1174,6 +1179,9 @@ def main() -> int:
         except Exception as e:
             sys.stderr.write(f"[warn] couldn't read --target-plugin-json: {e}\n")
             target_plugin = None
+
+    # Optional approximate chain analysis (spectral diff of mix vs master cohort)
+    chain_reference: str | None = args.chain_reference.strip() or None
 
     # 5.2.3: --genres ignored if passed (back-compat shim only)
     if args.out:
@@ -1234,6 +1242,39 @@ def main() -> int:
         target_fingerprint=args.target_fingerprint or None,
         target_plugin=target_plugin,
     )
+    if chain_reference:
+        try:
+            ref_path = Path(chain_reference).expanduser()
+            ref_data, ref_sr = sf.read(str(ref_path), dtype="float32")
+            validated_ref = _validate_signal(ref_data, ref_sr, str(ref_path))
+            if validated_ref is not None:
+                ref_data, ref_sr, _ = validated_ref
+                ref_curve = _third_octave_curve(ref_data, ref_sr)
+                profile_curve = profile.get("curve", [])
+                # EQ approximation: master - mix per band (positive = boosted in mastering)
+                if len(ref_curve) == len(profile_curve) == 31:
+                    eq_approx = []
+                    for i, (pc, rc) in enumerate(zip(profile_curve, ref_curve)):
+                        if isinstance(pc, (int, float)) and isinstance(rc, (int, float)) \
+                           and not (math.isnan(pc) or math.isnan(rc)):
+                            eq_approx.append(round(float(pc) - float(rc), 1))
+                        else:
+                            eq_approx.append(None)
+                    profile["chain_analysis"] = {
+                        "type": "spectral_diff",
+                        "label": "Approximate Chain Analysis (beta)",
+                        "eq_curve": eq_approx,
+                        "reference_file": Path(chain_reference).name,
+                        "note": "Spectral difference between profile median and reference mix. "
+                                "Approximates the tonal shaping applied during mastering. "
+                                "Replace with ITO-Master inference when model weights are released."
+                    }
+                    sys.stderr.write(
+                        f"[chain] Approximate chain analysis computed from {Path(chain_reference).name}\n"
+                    )
+        except Exception as e:
+            sys.stderr.write(f"[chain] Warning: chain analysis failed: {e}\n")
+
     # 5.7.x audit fix: atomic write. write_text() is non-atomic — a
     # crash, disk-full, or kill mid-flush leaves a truncated JSON
     # file that engineer_profile.load_profile silently fails to

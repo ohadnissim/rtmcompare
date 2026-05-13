@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
+import ProfileRadar from './ProfileRadar'
 
 // Console Didone v5.3 — RTMprofile design upgrade.
 // All colours now reference CSS variables from src/index.css.
@@ -36,6 +37,8 @@ interface BuildResult {
   partialCount?: number
   error?: string
   python_resolution?: string
+  curve?: number[]
+  curveMad?: number[]
 }
 
 /** Memoised status line — owns the progress subscription + its own
@@ -119,6 +122,8 @@ export default function App() {
   const [currentFile, setCurrentFile] = useState<ProgressEvent | null>(null)
   // Change 3: Compare a Mix CTA state
   const [showCompareHint, setShowCompareHint] = useState(false)
+  // Item 4: chain reference file for approximate chain analysis
+  const [chainRefFile, setChainRefFile] = useState<string>('')
   const resultRef = useRef<HTMLDivElement>(null)
 
   // Stable callback for BuildStatusLine to push progress updates up
@@ -165,6 +170,7 @@ export default function App() {
         role: role.trim() || DEFAULT_ROLE,
         deep: deepScan,
         files,
+        ...(chainRefFile.trim() ? { chainReference: chainRefFile.trim() } : {}),
       })
       setResult(r)
       // Move focus to result panel for screen readers / keyboard users
@@ -424,6 +430,41 @@ export default function App() {
         )}
       </div>
 
+      {/* ── Chain reference (optional) — only shown when files are staged ── */}
+      {files.length > 0 && (
+        <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontSize: 10, color: V.sand500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            Reference Mix for Chain Analysis
+            <span style={{ marginLeft: 6, fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+          </div>
+          <button
+            disabled={busy}
+            style={{ ...btnSecondary, fontSize: 10, padding: '4px 10px', flexShrink: 0 }}
+            className="no-drag"
+            onClick={async () => {
+              const picked = await window.rtmprofileAPI.selectFiles()
+              if (picked.length > 0) setChainRefFile(picked[0])
+            }}
+          >
+            {chainRefFile ? 'Change' : 'Pick file…'}
+          </button>
+          {chainRefFile && (
+            <>
+              <span className="mono" style={{ fontSize: 10, color: V.sand400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                {chainRefFile.split(/[/\\]/).pop()}
+              </span>
+              <button
+                disabled={busy}
+                style={btnGhost}
+                className="no-drag"
+                aria-label="Remove chain reference file"
+                onClick={() => setChainRefFile('')}
+              >×</button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Deep Scan toggle ──────────────────────────────────────── */}
       <label style={{
         display: 'flex',
@@ -547,6 +588,18 @@ export default function App() {
               >
                 {result.path}
               </div>
+              {result.ok && result.curve && result.curve.length >= 31 && (
+                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+                  <ProfileRadar
+                    curve={result.curve}
+                    curveMad={result.curveMad}
+                    role={role}
+                    sampleCount={result.sample_count ?? 0}
+                    width={340}
+                    height={340}
+                  />
+                </div>
+              )}
               <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button onClick={onReveal} style={btnSecondary} className="no-drag">
                   Reveal in Finder

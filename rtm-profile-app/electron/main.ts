@@ -227,6 +227,7 @@ interface BuildArgs {
   files: string[]
   /** Deep Scan: per-stem profile via Demucs. Adds ~30s-2min per track. */
   deep?: boolean
+  chainReference?: string
 }
 
 // MED-28: use a typed BuildResult instead of Promise<any>
@@ -239,6 +240,8 @@ interface BuildResult {
   partialCount?: number
   error?: string
   python_resolution?: string
+  curve?: number[]
+  curveMad?: number[]
 }
 
 // 5.7.x audit fix: serialise concurrent build-profile IPC calls. Pre-fix
@@ -334,6 +337,7 @@ ipcMain.handle('build-profile', async (_event, args: BuildArgs): Promise<BuildRe
   ]
   if (args.deep) cliArgs.push('--deep')
   if (safeOutPath) cliArgs.push('--out', safeOutPath)
+  if (args.chainReference) cliArgs.push('--chain-reference', args.chainReference)
   cliArgs.push(...args.files)
 
   return await new Promise<BuildResult>((resolve) => {
@@ -446,6 +450,14 @@ ipcMain.handle('build-profile', async (_event, args: BuildArgs): Promise<BuildRe
           }
         }
         if (result == null) throw new Error('no JSON output found in stdout')
+        // Inject curve data for ProfileRadar component
+        if (result.ok && result.path) {
+          try {
+            const profileJson = JSON.parse(fs.readFileSync(result.path, 'utf8'))
+            if (Array.isArray(profileJson.curve)) result.curve = profileJson.curve
+            if (Array.isArray(profileJson.curve_mad)) result.curveMad = profileJson.curve_mad
+          } catch { /* non-fatal — radar just won't show */ }
+        }
         resolve({ ...result, python_resolution: reason })
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
