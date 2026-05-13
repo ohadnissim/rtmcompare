@@ -111,18 +111,35 @@ export function setAudienceOverride(audience: Audience | null): void {
 /**
  * Per-surface v5.2 promotion. Mirror of FLOW's `useV11Surface`.
  *
- *   - `rtm-shell` === 'v5.2' promotes every surface globally.
- *   - `rtm-v52-surfaces` is a comma-separated allow-list, e.g. "cover,verdict".
+ *   - `rtm-shell` === 'v5.2'     promotes every surface globally.
+ *   - `rtm-shell` === 'legacy'   forces every surface OFF (full opt-out).
+ *   - `rtm-v52-surfaces`         comma-separated allow-list, e.g. "cover,verdict".
+ *   - `rtm-v52-surfaces-off`     comma-separated DENY-list, takes precedence.
+ *
+ * Defaults (no flags set):
+ *   - `cover` → ON. The editorial cover is the canonical first-paint
+ *     surface as of v5.2; a fresh install lands here in pro mode.
+ *   - every other surface → OFF until explicitly promoted.
+ *
+ * Opt-out: set `rtm-shell=legacy`, or add the surface name to
+ * `rtm-v52-surfaces-off`.
  */
+const SURFACES_ON_BY_DEFAULT = new Set(['cover'])
+
 export function useV52Surface(name: string): boolean {
   if (SSR) return false
   try {
-    const global = window.localStorage.getItem('rtm-shell') === 'v5.2'
-    const surfaces = (window.localStorage.getItem('rtm-v52-surfaces') || '')
-      .split(',')
-      .map(s => s.trim())
-    return global || surfaces.includes(name)
+    const shell = window.localStorage.getItem('rtm-shell')
+    if (shell === 'legacy') return false
+    if (shell === 'v5.2') return true
+    const off = (window.localStorage.getItem('rtm-v52-surfaces-off') || '')
+      .split(',').map(s => s.trim()).filter(Boolean)
+    if (off.includes(name)) return false
+    const on = (window.localStorage.getItem('rtm-v52-surfaces') || '')
+      .split(',').map(s => s.trim()).filter(Boolean)
+    if (on.includes(name)) return true
+    return SURFACES_ON_BY_DEFAULT.has(name)
   } catch {
-    return false
+    return SURFACES_ON_BY_DEFAULT.has(name)
   }
 }
