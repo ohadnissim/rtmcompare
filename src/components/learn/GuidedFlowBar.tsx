@@ -895,7 +895,7 @@ export default function GuidedFlowBar({
               {[
                 { n: 1, text: 'Drag your reference track onto the left drop zone (File A) and your mix onto the right (File B).' },
                 { n: 2, text: 'Click the "Learn Mode" toggle in the top bar to enable guided mode.' },
-                { n: 3, text: 'If your instructor gave you an assignment file (.rtm-assignment.json), click "Load Assignment" to load the rubric.' },
+                { n: 3, text: 'If your instructor gave you an assignment file (.rtm-assignment.json), click "Import (.json)" in the Assignment panel to load the rubric.' },
                 { n: 4, text: 'Enter your Student ID in the assignment panel — use the same format as your Canvas Student ID.' },
                 { n: 5, text: 'Work through the 9 guided steps in the bar at the bottom. Each step has explanations and what to look for.' },
                 { n: 6, text: 'Click "Blind Test" to test your ears — make predictions before the meters are revealed.' },

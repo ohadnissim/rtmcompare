@@ -207,7 +207,7 @@ jobs:
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.18.0'
           cache: 'npm'
 
       # ── RTMcompare Electron build ─────────────────────────────────

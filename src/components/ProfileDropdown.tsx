@@ -69,14 +69,14 @@ export default function ProfileDropdown({
        className="flex items-center gap-2 px-3 py-1.5 transition-colors text-[11px]"
        style={{
          borderRadius: '2px',
-         color: '#d6cdc0',
+         color: 'var(--color-text-primary)',
          backgroundColor: 'rgba(168,161,150,0.06)',
          border: '1px solid rgba(168,161,150,0.20)',
        }}
        title={current?.description || 'Engineer profile used for tonal recommendations'}
      >
        <span className="opacity-60">Profile:</span>
-       <span style={{ color: '#e9e2d4' }}>{current?.name ?? 'Default'}</span>
+       <span style={{ color: 'var(--color-text-primary)' }}>{current?.name ?? 'Default'}</span>
        <svg className="w-3 h-3 opacity-60" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5}>
          <path d="M3 4.5L6 7.5L9 4.5" strokeLinecap="round" strokeLinejoin="round" />
        </svg>
@@ -102,7 +102,7 @@ export default function ProfileDropdown({
                  aria-checked={p.id === selected}
                  className="w-full flex items-center justify-between gap-3 px-3 py-1.5 transition-colors text-[11px]"
                  style={{
-                   color: p.id === selected ? 'var(--color-accent)' : '#d6cdc0',
+                   color: p.id === selected ? 'var(--color-accent)' : 'var(--color-text-primary)',
                    backgroundColor: p.id === selected ? 'rgba(208,176,102,0.10)' : 'transparent',
                  }}
                  onMouseEnter={e => { if (p.id !== selected) e.currentTarget.style.backgroundColor = 'rgba(168,161,150,0.08)' }}
@@ -131,7 +131,7 @@ export default function ProfileDropdown({
                    key={p.id}
                    className="group w-full flex items-center justify-between gap-2 pl-3 pr-2 py-1.5 text-[11px]"
                    style={{
-                     color: p.id === selected ? 'var(--color-accent)' : '#d6cdc0',
+                     color: p.id === selected ? 'var(--color-accent)' : 'var(--color-text-primary)',
                      backgroundColor: p.id === selected ? 'rgba(208,176,102,0.10)' : 'transparent',
                    }}
                  >
@@ -156,7 +156,7 @@ export default function ProfileDropdown({
                      <button
                        onClick={(e) => { e.stopPropagation(); onDelete(p.id) }}
                        className="opacity-30 group-hover:opacity-100 focus-visible:opacity-100 hover:opacity-100 text-[14px] min-w-[24px] min-h-[24px] flex items-center justify-center"
-                       style={{ color: '#a89572' }}
+                       style={{ color: 'var(--color-text-muted)' }}
                        title={`Remove "${p.name}" from your profiles`}
                        aria-label="Delete profile"
                      >
@@ -174,7 +174,7 @@ export default function ProfileDropdown({
              <button
                onClick={() => { onLoadCustom(); setOpen(false) }}
                className="w-full text-left px-3 py-1.5 transition-colors text-[11px]"
-               style={{ color: '#a89572' }}
+               style={{ color: 'var(--color-text-muted)' }}
                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(168,161,150,0.08)' }}
                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
              >
@@ -185,7 +185,7 @@ export default function ProfileDropdown({
          {errorMessage && (
            <div
              className="px-3 py-1.5 text-[10px]"
-             style={{ color: '#e07a4f', borderTop: '1px solid rgba(168,161,150,0.15)' }}
+             style={{ color: 'var(--color-danger)', borderTop: '1px solid rgba(168,161,150,0.15)' }}
            >
              {errorMessage}
            </div>

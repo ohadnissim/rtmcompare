@@ -139,7 +139,7 @@ export default function ClientReportButton({ results, fileA, fileB }: Props) {
  type="text"
  value={reviewer}
  onChange={(e) => setReviewer(e.target.value)}
- placeholder="e.g. Ohad Nissim"
+ placeholder="e.g. Alex Smith"
  className="w-full bg-transparent text-[11px] px-2 py-1 rounded outline-none"
  style={{ color: 'var(--color-text-primary)', border: '1px solid rgba(168,161,150,0.18)' }}
  />
@@ -159,12 +159,12 @@ function ReportOption({ onClick, title, hint, accent }: {
  return (
  <button
  onClick={onClick}
- className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-dark-800/80 transition-colors"
+ className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-white/5 transition-colors"
  >
  <span className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: accent }} />
  <div className="flex-1 min-w-0">
  <div className="text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{title}</div>
- <div className="text-[9px] text-dark-500 mt-0.5">{hint}</div>
+ <div className="text-[9px] mt-0.5" style={{ color: 'var(--color-text-muted, rgba(168,161,150,0.6))' }}>{hint}</div>
  </div>
  </button>
  )
