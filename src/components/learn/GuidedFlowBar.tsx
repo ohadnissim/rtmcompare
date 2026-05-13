@@ -177,17 +177,15 @@ export default function GuidedFlowBar({
       {!roleChosen && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
-          background: 'rgba(14,13,11,0.82)',
-          backdropFilter: 'blur(4px)',
+          background: 'rgba(14,13,11,0.88)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }} aria-modal="true" role="dialog" aria-label="Choose your role to continue">
           <div style={{
             background: 'rgba(28,26,22,0.98)',
             border: '1px solid rgba(208,176,102,0.4)',
-            borderRadius: 4,
+            borderRadius: 2,
             padding: '36px 40px',
             maxWidth: 420, width: '100%',
-            boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
             textAlign: 'center',
           }}>
             <div style={{
@@ -395,6 +393,7 @@ export default function GuidedFlowBar({
               gap: 5,
             }}
             title="Golden Ears-style frequency, EQ, compression, reverb, distortion identification drills"
+            aria-label="Open Ear Training drills"
           >
             🎼 Ear Training
           </button>
@@ -402,6 +401,7 @@ export default function GuidedFlowBar({
           {/* Blind Test button */}
           <button
             onClick={() => setBlindTestOpen(true)}
+            aria-label="Open Blind Test"
             style={{
               flexShrink: 0,
               background: 'transparent',

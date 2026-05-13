@@ -1038,7 +1038,7 @@ export default function App() {
  inDisabled: zoom >= 1.49,
  }}
  onNewSearch={handleReset}
- learnToggle={<LearnModeToggle />}
+ learnToggle={<LearnModeToggle disabled={!results} />}
  />
 
  {/* Learn Mode — GuidedFlowBar renders sticky below the header when

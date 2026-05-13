@@ -314,7 +314,9 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
         return {"engineer": profile_id, "tips": [], "tonal_diff": [], "summary": "Profile not found."}
 
     engineer_name = profile.get("name", profile_id)
-    curve = profile["curve"]
+    curve = profile.get("curve")
+    if not curve:
+        return {"engineer": engineer_name, "tips": [], "tonal_diff": [], "summary": "Profile has no tonal curve — rebuild the profile to populate it."}
 
     # Load file B (the compare/master file) at native SR.
     y_b, sr = librosa.load(file_b_path, sr=None, mono=False)

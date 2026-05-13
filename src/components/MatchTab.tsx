@@ -68,7 +68,7 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  onClick={() => hasEngineer && setMode('engineer')}
  label="Engineer"
  hint={hasEngineer
- ? `Opinionated moves from ${results.engineer_tips?.engineer ?? 'the loaded engineer'}'s profile`
+ ? `Opinionated moves from ${results.engineer_tips?.engineer || 'the loaded engineer'}'s profile`
  : "Load an engineer profile at scan time — required for engineer-specific matching"}
  disabled={!hasEngineer}
  />
@@ -126,7 +126,7 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  labelB={labelB}
  extraBands={engineerBands}
  title="Hybrid moves"
- subtitle={<>Reference-derived EQ plus <span className="text-dark-200">{results.engineer_tips.engineer}</span>'s signature where they don't overlap.</>}
+ subtitle={<>Reference-derived EQ plus <span className="text-dark-200">{results.engineer_tips.engineer || 'loaded engineer'}</span>'s signature where they don't overlap.</>}
  />
  )}
 

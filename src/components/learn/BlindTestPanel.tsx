@@ -587,6 +587,9 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                         }}
                       >
                         <div
+                          role="checkbox"
+                          aria-checked={checked}
+                          tabIndex={0}
                           onClick={() => {
                             setEarTraining(prev => ({
                               ...prev,
@@ -594,6 +597,17 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                                 ? prev.frequencyRegions.filter(v => v !== value)
                                 : [...prev.frequencyRegions, value],
                             }))
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault()
+                              setEarTraining(prev => ({
+                                ...prev,
+                                frequencyRegions: checked
+                                  ? prev.frequencyRegions.filter(v => v !== value)
+                                  : [...prev.frequencyRegions, value],
+                              }))
+                            }
                           }}
                           style={{
                             width: 14,

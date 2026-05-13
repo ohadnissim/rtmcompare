@@ -1767,8 +1767,13 @@ ipcMain.handle('rtm-incoming-list', async () => {
       meta: fs.existsSync(metaPath) ? readMetaSafe(metaPath) : null,
     })
   }
-  // Newest first.
-  out.sort((a, b) => fs.statSync(b.audioPath).mtimeMs - fs.statSync(a.audioPath).mtimeMs)
+  // Newest first — pre-fetch all mtimes to avoid repeated statSync calls
+  // inside the sort comparator (N·log(N) blocking I/O on the main thread).
+  const mtimes = new Map<string, number>()
+  for (const entry of out) {
+    try { mtimes.set(entry.audioPath, fs.statSync(entry.audioPath).mtimeMs) } catch { mtimes.set(entry.audioPath, 0) }
+  }
+  out.sort((a, b) => (mtimes.get(b.audioPath) ?? 0) - (mtimes.get(a.audioPath) ?? 0))
   return out
 })
 // `rtm-incoming-clear` used to `unlinkSync` every file in INBOX_DIR.  That
