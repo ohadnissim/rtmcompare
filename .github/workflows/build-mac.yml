@@ -168,7 +168,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ matrix.python_bundle_dir }}
-          key: pybundle-${{ matrix.arch }}-py3.11-stems-v3
+          key: pybundle-${{ matrix.arch }}-py3.11-stems-v4-copies
 
       - name: Build python bundle
         if: steps.cache-py.outputs.cache-hit != 'true'
@@ -176,7 +176,10 @@ jobs:
           set -e
           PY_BUNDLE="${{ matrix.python_bundle_dir }}"
           mkdir -p "$PY_BUNDLE/python"
-          python3.11 -m venv "$PY_BUNDLE/python"
+          # --copies: avoid symlinks to /Users/runner/hostedtoolcache, which
+          # become invalid once the bundle is embedded in the .app and
+          # codesign --strict --deep rejects them.
+          python3.11 -m venv --copies "$PY_BUNDLE/python"
           source "$PY_BUNDLE/python/bin/activate"
           python -m pip install --upgrade pip
           pip install \
@@ -184,6 +187,25 @@ jobs:
             librosa numba demucs julius openunmix \
             "audio-separator>=0.30" "onnxruntime==1.19.2" "soxr>=0.5.0"
           python -c "import numpy, scipy, soundfile, pyloudnorm, librosa, numba, demucs, julius, onnxruntime, soxr, audio_separator; print('OK', numpy.__version__)"
+
+          # Strip any remaining absolute-path symlinks (defence in depth).
+          # Replace each absolute symlink with a copy of its target so the
+          # bundle is fully self-contained.
+          find "$PY_BUNDLE/python" -type l | while read link; do
+            target=$(readlink "$link")
+            case "$target" in
+              /*)
+                if [ -e "$target" ]; then
+                  rm "$link"
+                  cp -R "$target" "$link"
+                  echo "Replaced absolute symlink: $link -> $target"
+                else
+                  rm "$link"
+                  echo "Removed broken absolute symlink: $link -> $target"
+                fi
+                ;;
+            esac
+          done
 
       # ── Stub the OTHER python bundle so `npm run pack` preflight passes ──
       # The pack script requires BOTH python-bundle/ and python-bundle-intel/
