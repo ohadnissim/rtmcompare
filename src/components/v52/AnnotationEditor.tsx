@@ -26,12 +26,20 @@ export interface AnnotationRecord {
 }
 
 const ANNOTATION_STORE_KEY = 'rtm-custom-annotations'
+/** MED-16: bump when AnnotationRecord shape changes incompatibly. */
+const ANNOTATION_SCHEMA_VERSION = 1
 
 export function getCustomAnnotations(): AnnotationRecord[] {
   try {
     const raw = window.localStorage.getItem(ANNOTATION_STORE_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as AnnotationRecord[]
+    const parsed = JSON.parse(raw)
+    if (parsed !== null && !Array.isArray(parsed)) {
+      if (typeof parsed === 'object' && (parsed as any).v !== ANNOTATION_SCHEMA_VERSION) return []
+      if (typeof parsed === 'object' && Array.isArray((parsed as any).data)) return (parsed as any).data
+      return []
+    }
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
@@ -108,7 +116,8 @@ export function AnnotationEditor() {
   const handleSave = () => {
     if (!body.trim()) return
     const record: AnnotationRecord = {
-      id: editingId ?? crypto.randomUUID(),
+      // MED-19: prefix with 'custom:' to prevent any UUID collision with seed annotations.
+      id: editingId ?? `custom:${crypto.randomUUID()}`,
       metric,
       context,
       delta_threshold: threshold ? parseFloat(threshold) : undefined,

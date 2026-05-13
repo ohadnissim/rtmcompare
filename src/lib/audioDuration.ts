@@ -41,6 +41,8 @@ async function wavDuration(buffer: ArrayBuffer): Promise<number | null> {
       )
       const chunkSize = view.getUint32(offset + 4, true)
       if (chunkId === 'data') {
+        // Guard against malformed headers with zero channels, bps, or sample rate.
+        if (numChannels === 0 || bytesPerSample === 0 || sampleRate === 0) return null
         const numFrames = chunkSize / (numChannels * bytesPerSample)
         return numFrames / sampleRate
       }

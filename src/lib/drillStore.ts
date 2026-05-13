@@ -17,12 +17,21 @@ export interface DrillAttempt {
 
 const STORE_KEY = 'rtm-drill-attempts'
 const MAX_ENTRIES = 2000
+/** MED-16: bump when DrillAttempt shape changes incompatibly. On mismatch, the store resets. */
+const SCHEMA_VERSION = 1
 
 function readStore(): DrillAttempt[] {
   try {
     const raw = window.localStorage.getItem(STORE_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as DrillAttempt[]
+    const parsed = JSON.parse(raw)
+    // Migration guard: if stored value is wrapped ({v, data}) with a different version, reset.
+    if (parsed !== null && !Array.isArray(parsed)) {
+      if (typeof parsed === 'object' && (parsed as any).v !== SCHEMA_VERSION) return []
+      if (typeof parsed === 'object' && Array.isArray((parsed as any).data)) return (parsed as any).data
+      return []
+    }
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }
@@ -66,8 +75,10 @@ export function computeGrade(scores: number[]): string {
   if (scores.length === 0) return '—'
   const recent = scores.slice(-5)
   const older = scores.slice(0, -5)
-  const weights = [...older.map(s => s), ...recent.map(s => s * 2)]
-  const avg = weights.reduce((a, b) => a + b, 0) / weights.length
+  // Weighted average: recent 5 count double. Divide by total weight, not count.
+  const weightedSum = older.reduce((a, b) => a + b, 0) + recent.reduce((a, b) => a + b * 2, 0)
+  const totalWeight = older.length + recent.length * 2
+  const avg = weightedSum / totalWeight
   if (avg >= 90) return 'A'
   if (avg >= 80) return 'B'
   if (avg >= 70) return 'C'

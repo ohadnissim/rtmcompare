@@ -521,7 +521,7 @@ def detect(y, sr: int, sensitivity: float = 1.5,
 
     # ─── Stage 3: duration gate (run-length filter) ───────────────────
     # Group contiguous candidate samples into runs.
-    D_MAX_SAMPLES = int(0.003 * sr)    # 3 ms
+    D_MAX_SAMPLES = int(0.001 * sr)    # 1 ms — tightened from 3 ms; true clicks are sub-ms, 3 ms admitted pops
     MERGE_GAP_SAMPLES = int(0.0005 * sr)  # 500 µs
 
     runs = []

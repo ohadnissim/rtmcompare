@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import { LmsExportPanel } from './LmsExportPanel'
+import ThemedConfirmDialog from '../v52/ThemedConfirmDialog'
 
 function detectRevisions(records: any[]): any[] {
   // BUG-11 fix: group by studentName + assignmentTitle so submissions for
@@ -124,6 +125,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   const [lastScanned, setLastScanned] = useState<string | null>(null)
   const [feedbackMap, setFeedbackMap] = useState<Record<string, string>>({})
   const [draftOverrides, setDraftOverrides] = useState<Record<string, boolean>>({})
+  const [draftConfirmPending, setDraftConfirmPending] = useState<{ rec: typeof records[number]; currentIsDraft: boolean } | null>(null)
   const [insightsOpen, setInsightsOpen] = useState(true)
   const [lmsOpen, setLmsOpen] = useState(false)
   const [hasLmsConfig, setHasLmsConfig] = useState(false)
@@ -877,7 +879,13 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                         )
                       })}
                       <td style={{ ...tdStyle, textAlign: 'center', fontWeight: 700, color: scoreColor(rec.totalEarned, rec.totalPossible) }}>
+                        {/* MED-10: show both % and pass/fail label so colorblind users aren't locked out */}
                         {rec.pct != null ? `${rec.pct}%` : '—'}
+                        {rec.pct != null && (
+                          <span style={{ display: 'block', fontSize: 9, fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.7 }}>
+                            {rec.pct >= 90 ? 'Pass' : rec.pct >= 50 ? 'Partial' : 'Fail'}
+                          </span>
+                        )}
                       </td>
                       <td style={{ ...tdStyle, minWidth: 160 }}>
                         {(rec._reportFilePath || rec.pdfPath) ? (
@@ -917,22 +925,8 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                         <button
                           onClick={() => {
                             const currentIsDraft = draftOverrides[rec.reportPath ?? ''] ?? rec.isDraft ?? false
-                              setDraftOverrides(prev => ({ ...prev, [rec.reportPath ?? '']: !currentIsDraft }))
-                              // LOW-20: match on studentId first (unique), fall back to
-                              // studentName only when id is absent. Matching on name alone
-                              // broke multi-assignment folders where two different students
-                              // share a first name or a teacher has duplicate name entries.
-                              const siblings = records.filter(r => {
-                                if (r.reportPath === rec.reportPath) return false
-                                if (rec.studentId && r.studentId) {
-                                  return r.studentId.trim() === rec.studentId.trim()
-                                }
-                                return (r.studentName || '').trim().toLowerCase() === (rec.studentName || '').trim().toLowerCase()
-                              })
-                              if (siblings.length === 1) {
-                                setDraftOverrides(prev => ({ ...prev, [siblings[0].reportPath ?? '']: currentIsDraft }))
-                              }
-                            }}
+                            setDraftConfirmPending({ rec, currentIsDraft })
+                          }}
                             style={{
                               marginTop: 4, padding: '3px 8px',
                               background: 'none',
@@ -954,6 +948,37 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
           </div>
         )}
       </div>
+
+      {/* MED-9: Draft/Final toggle confirmation dialog */}
+      {draftConfirmPending && (() => {
+        const { rec, currentIsDraft } = draftConfirmPending
+        const applyToggle = () => {
+          setDraftOverrides(prev => ({ ...prev, [rec.reportPath ?? '']: !currentIsDraft }))
+          // Match on studentId first; fall back to name for older reports.
+          const siblings = records.filter(r => {
+            if (r.reportPath === rec.reportPath) return false
+            if (rec.studentId && r.studentId) return r.studentId.trim() === rec.studentId.trim()
+            return (r.studentName || '').trim().toLowerCase() === (rec.studentName || '').trim().toLowerCase()
+          })
+          if (siblings.length === 1) {
+            setDraftOverrides(prev => ({ ...prev, [siblings[0].reportPath ?? '']: currentIsDraft }))
+          }
+          setDraftConfirmPending(null)
+        }
+        return (
+          <ThemedConfirmDialog
+            tone={currentIsDraft ? 'final' : 'default'}
+            title={currentIsDraft ? 'Mark as Final' : 'Mark as Draft'}
+            body={currentIsDraft
+              ? `This will promote ${rec.studentName || 'this submission'}'s submission to Final. It will be included in Canvas exports.`
+              : `This will demote ${rec.studentName || 'this submission'}'s submission to Draft. It will be excluded from Canvas exports until promoted again.`
+            }
+            confirmLabel={currentIsDraft ? 'Mark Final' : 'Mark Draft'}
+            onConfirm={applyToggle}
+            onCancel={() => setDraftConfirmPending(null)}
+          />
+        )
+      })()}
     </>
   )
 }

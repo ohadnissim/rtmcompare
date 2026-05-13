@@ -460,8 +460,9 @@ def _third_octave_levels(y: np.ndarray, sr: int) -> list[float]:
     # frequency bin belongs to exactly one band.
     from scipy.signal import welch as _welch
     n = len(y)
-    # nperseg: 4096 gives ~10 Hz resolution at 44.1 kHz; cap at signal len.
-    nperseg = min(4096, n)
+    # nperseg: 8192 gives ~5 Hz resolution at 44.1 kHz (matches engineer_profile.py);
+    # 4096 was coarser — mismatched resolution caused phantom band-level deltas.
+    nperseg = min(8192, n)
     freqs, psd = _welch(y.astype(np.float64), fs=sr, nperseg=nperseg,
                         noverlap=nperseg // 2, average='median')
     freq_res = freqs[1] - freqs[0] if len(freqs) > 1 else 1.0

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { printGradebookExport, type CertificateStudent } from '../../lib/certificate'
 import { AnnotationEditor } from './AnnotationEditor'
+import ErrorBoundary from '../ErrorBoundary'
 
 /**
  * TeacherDashboard — Move 6, the teacher's top-level Learn surface.
@@ -290,6 +291,9 @@ export function TeacherDashboard({
   actionSlot,
 }: TeacherDashboardProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>('roster')
+  // MED-8: cap visible roster rows to prevent 500+ row layouts blocking the main thread.
+  const ROSTER_PAGE = 150
+  const [showAllRows, setShowAllRows] = useState(false)
 
   return (
     <main
@@ -348,8 +352,11 @@ export function TeacherDashboard({
       </header>
 
       {/* Annotations tab */}
+      {/* MED-15: ErrorBoundary prevents a bad annotation payload from crashing the dashboard */}
       {activeTab === 'annotations' && (
-        <AnnotationEditor />
+        <ErrorBoundary>
+          <AnnotationEditor />
+        </ErrorBoundary>
       )}
 
       {/* Two-column body */}
@@ -376,7 +383,7 @@ export function TeacherDashboard({
             </div>
           ) : (
             <div role="list" aria-label="Submissions">
-              {submissions.map((sub, i) => (
+              {(showAllRows ? submissions : submissions.slice(0, ROSTER_PAGE)).map((sub, i) => (
                 <SubmissionRow
                   key={sub.id}
                   sub={sub}
@@ -386,6 +393,15 @@ export function TeacherDashboard({
                   onReturn={onReturn ? () => onReturn(sub.id) : undefined}
                 />
               ))}
+              {!showAllRows && submissions.length > ROSTER_PAGE && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllRows(true)}
+                  style={{ ...trackedCaps(10, SAND_400), background: 'none', border: `1px solid ${SAND_700}`, borderRadius: 2, padding: '8px 16px', cursor: 'pointer', marginTop: 8 }}
+                >
+                  Show all {submissions.length} submissions
+                </button>
+              )}
             </div>
           )}
         </section>

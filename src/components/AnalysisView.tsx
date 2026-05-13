@@ -84,6 +84,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const playerRef = useRef<HTMLDivElement>(null) // set on the A/B player wrapper
  const tabTopRef = useRef<HTMLDivElement>(null) // sentinel AFTER the player — scroll here on tab change
  const firstRenderRef = useRef(true)
+ // MED-11: stable ref for sharing-status reset timer so it clears on unmount
+ const sharingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+ useEffect(() => () => {
+   if (sharingTimerRef.current != null) clearTimeout(sharingTimerRef.current)
+ }, [])
 
  // Scroll behavior:
  // • First render after scan: scroll to top so the sticky tabs + player are both visible.
@@ -357,10 +362,14 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  reportJson: JSON.stringify(results),
  })
  setSharingStatus(res?.success ? 'saved' : 'idle')
- if (res?.success) setTimeout(() => setSharingStatus('idle'), 3000)
+ if (res?.success) {
+   if (sharingTimerRef.current != null) clearTimeout(sharingTimerRef.current)
+   sharingTimerRef.current = setTimeout(() => setSharingStatus('idle'), 3000)
+ }
  } catch {
  setSharingStatus('error')
- setTimeout(() => setSharingStatus('idle'), 4000)
+ if (sharingTimerRef.current != null) clearTimeout(sharingTimerRef.current)
+ sharingTimerRef.current = setTimeout(() => setSharingStatus('idle'), 4000)
  }
  }}
  title="Save a shareable HTML report — anyone can open it in a browser, no install needed"
@@ -2060,6 +2069,9 @@ function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fi
  const audience = useAudience()
  const surfaceOn = useV52Surface('release-readiness')
  const [masterState, setMasterState] = React.useState<'idle' | 'rendering' | 'done' | 'error'>('idle')
+ // MED-11: master-chain timer ref so cleanup clears it on unmount
+ const masterTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+ React.useEffect(() => () => { if (masterTimerRef.current != null) clearTimeout(masterTimerRef.current) }, [])
 
  if (audience !== 'producer' || !surfaceOn) return null
 
@@ -2112,12 +2124,17 @@ function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fi
          fileB.path,
          { target_lufs: -14, true_peak_dbtp: -1.0, dither: true },
        )
+     } else {
+       // MED-12: explicit error if IPC is missing — previously fell through to 'done'
+       throw new Error('masterChainRender IPC not available — check preload registration')
      }
      setMasterState('done')
-     setTimeout(() => setMasterState('idle'), 3000)
+     if (masterTimerRef.current != null) clearTimeout(masterTimerRef.current)
+     masterTimerRef.current = setTimeout(() => setMasterState('idle'), 3000)
    } catch {
      setMasterState('error')
-     setTimeout(() => setMasterState('idle'), 4000)
+     if (masterTimerRef.current != null) clearTimeout(masterTimerRef.current)
+     masterTimerRef.current = setTimeout(() => setMasterState('idle'), 4000)
    }
  }
 

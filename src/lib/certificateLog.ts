@@ -22,12 +22,20 @@ export interface CertificateLogEntry {
 
 const LOG_KEY = 'rtm-certificate-log'
 const MAX_LOG_ENTRIES = 200
+/** MED-16: bump when CertificateLogEntry shape changes incompatibly. */
+const SCHEMA_VERSION = 1
 
 function readLog(): CertificateLogEntry[] {
   try {
     const raw = window.localStorage.getItem(LOG_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as CertificateLogEntry[]
+    const parsed = JSON.parse(raw)
+    if (parsed !== null && !Array.isArray(parsed)) {
+      if (typeof parsed === 'object' && (parsed as any).v !== SCHEMA_VERSION) return []
+      if (typeof parsed === 'object' && Array.isArray((parsed as any).data)) return (parsed as any).data
+      return []
+    }
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }

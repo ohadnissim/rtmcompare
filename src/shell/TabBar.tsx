@@ -98,6 +98,16 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
   dragSourceIdx.current = null
  }, [])
 
+ // MED-13: roving tabIndex — Left/Right arrow keys move focus through the tablist.
+ const handleKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  e.preventDefault()
+  const delta = e.key === 'ArrowRight' ? 1 : -1
+  const next = (idx + delta + tabs.length) % tabs.length
+  const tabEls = containerRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+  tabEls?.[next]?.focus()
+ }, [tabs.length])
+
  return (
   <div className="relative">
    <div
@@ -126,7 +136,9 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
        onDragOver={e => handleDragOver(e, idx)}
        onDrop={e => handleDrop(e, idx)}
        onDragEnd={handleDragEnd}
+       onKeyDown={e => handleKeyDown(e, idx)}
        onClick={() => onSelect(tab.id)}
+       tabIndex={isActive ? 0 : -1}
        className="relative flex items-center gap-2 px-5 py-3 text-[11px] tracking-[0.14em] uppercase transition-all whitespace-nowrap flex-shrink-0"
        style={{
         color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-muted)',

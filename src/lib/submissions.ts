@@ -15,12 +15,20 @@ import type { StudentSubmission, Verdict } from '../components/v52/TeacherDashbo
 
 const STORE_KEY = 'rtm-submissions'
 const MAX_ENTRIES = 500
+/** MED-16: bump when StudentSubmission shape changes incompatibly. */
+const SCHEMA_VERSION = 1
 
 function readStore(): StudentSubmission[] {
   try {
     const raw = window.localStorage.getItem(STORE_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as StudentSubmission[]
+    const parsed = JSON.parse(raw)
+    if (parsed !== null && !Array.isArray(parsed)) {
+      if (typeof parsed === 'object' && (parsed as any).v !== SCHEMA_VERSION) return []
+      if (typeof parsed === 'object' && Array.isArray((parsed as any).data)) return (parsed as any).data
+      return []
+    }
+    return Array.isArray(parsed) ? parsed : []
   } catch {
     return []
   }

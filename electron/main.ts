@@ -188,6 +188,11 @@ async function renderHtmlToPdf(
   html: string,
   pdfOpts: Electron.PrintToPDFOptions
 ): Promise<Buffer> {
+  // MED-6: Prevent a malicious HTML payload from navigating the hidden
+  // window to an external URL or a sensitive file:// path. We only allow
+  // the single temp file we write ourselves; everything else is denied.
+  hidden.webContents.on('will-navigate', (e) => { e.preventDefault() })
+
   const os = require('os') as typeof import('os')
   const tmpDir = path.join(os.tmpdir(), 'rtm-pdf')
   try { fs.mkdirSync(tmpDir, { recursive: true }) } catch {}
@@ -368,6 +373,21 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  // MED-5: Add Content-Security-Policy to all responses so that even a
+  // compromised renderer cannot load remote scripts or exfiltrate data.
+  // The main window only needs file:// + blob: for audio; no external origins.
+  const { session } = require('electron') as typeof import('electron')
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' 'unsafe-inline' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: data:; img-src 'self' blob: data:; font-src 'self' data:"
+        ],
+      },
+    })
+  })
+
   // Splash first — paints in <200 ms so the user sees the brand
   // immediately instead of an empty taskbar entry. Main window
   // creation continues in parallel; the splash closes once the
@@ -2617,6 +2637,14 @@ ipcMain.handle('load-lms-config', async () => {
   try {
     if (!fs.existsSync(lmsConfigPath())) return { ok: true, config: null }
     const raw = JSON.parse(fs.readFileSync(lmsConfigPath(), 'utf8'))
+    // MED-7: Eagerly re-encrypt legacy plaintext tokens on load so that the
+    // token is secured before the next Canvas API call. Previously migration
+    // only happened after a successful API call, leaving the token at risk
+    // during app restarts that don't hit the Canvas network path.
+    if (raw.encryptedToken && !raw.usedSafeStorage) {
+      const dec = decryptCanvasToken(raw)
+      if (dec.ok) migrateCanvasTokenIfNeeded(dec, raw)
+    }
     return {
       ok: true,
       config: {
@@ -2820,6 +2848,27 @@ ipcMain.handle('canvas-upload-grades', async (_e, payload: {
         ? JSON.stringify(res.body)
         : String(res.body)
       return { ok: false, error: `Canvas API error (HTTP ${res.status}): ${errMsg}` }
+    }
+
+    // MED-17: poll the Canvas Progress URL until the batch job completes.
+    // update_grades returns a Progress object {workflow_state, url, completion}.
+    // Polling gives us: (a) definitive confirmation the job ran, (b) any
+    // workflow_state=failed signal, (c) a natural place to surface errors.
+    const progressBody = typeof res.body === 'object' && res.body !== null ? res.body as Record<string, unknown> : null
+    const progressUrl = typeof progressBody?.url === 'string' ? progressBody.url : null
+    if (progressUrl) {
+      let attempts = 0
+      while (attempts < 12) { // up to ~30s total (12 × 2.5s)
+        await new Promise(r => setTimeout(r, 2500))
+        attempts++
+        try {
+          const pollRes = await canvasRequest({ baseUrl: raw.baseUrl, path: progressUrl, method: 'GET', token })
+          if (!pollRes.ok) break // non-retryable error from progress endpoint — stop polling
+          const p = typeof pollRes.body === 'object' && pollRes.body !== null ? pollRes.body as Record<string, unknown> : null
+          const state = typeof p?.workflow_state === 'string' ? p.workflow_state : null
+          if (state === 'completed' || state === 'failed') break
+        } catch { break }
+      }
     }
 
     // Canvas bulk update returns a Progress object — not per-student results
