@@ -1,11 +1,22 @@
 """Audio analysis and comparison module with level matching and granular categories."""
 
 import os
+import functools
 from datetime import datetime, timezone
 import numpy as np
 import librosa
 import soundfile as sf
 from scipy.signal import butter, sosfilt
+
+
+# MED-14: LRU cache for librosa.load — within a single analysis run the
+# same file is often loaded 3-4× (LUFS, LRA, spectrum, width).  Cache keyed
+# on (path, sr, mono); returns a *copy* so callers can mutate freely.
+@functools.lru_cache(maxsize=16)
+def _load_audio_cached(path: str, sr, mono: bool):
+    y, actual_sr = librosa.load(path, sr=sr, mono=mono)
+    # Return copies so cached arrays aren't mutated by callers.
+    return np.array(y, copy=True), actual_sr
 from specs import SPECS, SPECS_VERSION, to_json as _specs_to_json
 
 
@@ -437,15 +448,35 @@ def _bandpass_center(y: np.ndarray, sr: int, center_freq: float) -> np.ndarray:
 
 
 def _third_octave_levels(y: np.ndarray, sr: int) -> list[float]:
+    # MED-12: use Welch PSD integration instead of sequential IIR bandpass
+    # filters.  IIR Butterworth filters have soft rolloff at the cutoff
+    # frequencies, so energy exactly at a band boundary is counted at -3 dB
+    # in BOTH adjacent bands — a systematic double-count.  Integrating PSD
+    # bins into 1/3-octave windows is additive and partition-exact: each
+    # frequency bin belongs to exactly one band.
+    from scipy.signal import welch as _welch
+    n = len(y)
+    # nperseg: 4096 gives ~10 Hz resolution at 44.1 kHz; cap at signal len.
+    nperseg = min(4096, n)
+    freqs, psd = _welch(y.astype(np.float64), fs=sr, nperseg=nperseg,
+                        noverlap=nperseg // 2, average='median')
+    freq_res = freqs[1] - freqs[0] if len(freqs) > 1 else 1.0
+
     result = []
-    for freq in MASTERING_BAND_FREQS:
-        try:
-            filtered = _bandpass_center(y, sr, freq)
-            rms = np.sqrt(np.mean(filtered ** 2))
-            db = 20 * np.log10(max(rms, 1e-10))
-            result.append(round(float(db), 1))
-        except Exception:
+    for center in MASTERING_BAND_FREQS:
+        nyq = sr / 2
+        low = max(center / (2 ** (1 / 6)), 10.0)
+        high = min(center * (2 ** (1 / 6)), nyq - 1)
+        if low >= high:
             result.append(-60.0)
+            continue
+        mask = (freqs >= low) & (freqs < high)
+        if not np.any(mask):
+            result.append(-60.0)
+            continue
+        power = float(np.sum(psd[mask]) * freq_res)
+        db = 10 * np.log10(max(power, 1e-20))
+        result.append(round(float(db), 1))
     return result
 
 

@@ -109,13 +109,27 @@ def detect_tonal_issues(path_a: str, path_b: str, sr: int = 44100) -> list:
     y_a = y_a[:min_len]
     y_b = y_b[:min_len]
 
-    # Level match — clamp the divisor so a near-silent File B doesn't
-    # blow up into a huge gain scalar (at 1e-10 you can still multiply
-    # a full-scale sample by 1e10 and NaN everything downstream).
-    rms_a = float(np.sqrt(np.mean(y_a ** 2)))
-    rms_b = float(np.sqrt(np.mean(y_b ** 2)))
-    if rms_b > 1e-6:
-        y_b = y_b * (rms_a / max(rms_b, 1e-6))
+    # MED-11: level-match using LUFS-I (BS.1770 integrated loudness) rather
+    # than RMS so that a compressed master vs. an unmastered mix are placed
+    # at the same perceptual level before band comparison.  Falls back to
+    # RMS if pyloudnorm is not installed.
+    def _compute_lufs(y: np.ndarray, sample_rate: int) -> float:
+        try:
+            import pyloudnorm as pyln
+            meter = pyln.Meter(sample_rate)
+            data = y[:, np.newaxis] if y.ndim == 1 else y.T
+            return float(meter.integrated_loudness(data))
+        except Exception:
+            rms = float(np.sqrt(np.mean(y ** 2)))
+            return float(20 * np.log10(max(rms, 1e-10)))
+
+    lufs_a = _compute_lufs(y_a, sr)
+    lufs_b = _compute_lufs(y_b, sr)
+    # Both values are negative dBLUFS/dBFS; difference is in dB.
+    # Apply as a linear gain to b so it matches a's loudness.
+    diff_db = lufs_a - lufs_b
+    if abs(diff_db) < 40.0:  # safety: skip wild gain if one file is near-silence
+        y_b = y_b * float(10 ** (diff_db / 20.0))
 
     issues = []
 

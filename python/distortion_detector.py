@@ -335,7 +335,7 @@ def count_flat_sections(y: np.ndarray, sr: int) -> int:
 
     high_thresh = peak * 0.98  # must be very near peak
     flat_count = 0
-    window = int(sr * 0.002)  # 2ms windows
+    window = max(1, int(sr * 0.001))  # MED-13: 1ms window (was 2ms — too coarse for modern limiters)
 
     for i in range(0, len(y) - window, window):
         chunk = y[i:i + window]
@@ -389,7 +389,7 @@ def detect_harmonic_distortion(mono_a: np.ndarray, mono_b: np.ndarray,
         # New canonical key. Honest name for what's measured: ratio of
         # upper-quarter HF energy in B vs A, in percent.
         "hf_energy_ratio_increase_pct": round(float(hf_ratio_increase), 1),
-        # Legacy alias kept for one release for any UI/JSON consumers
-        # that still reference `thd_increase_pct`. Will be dropped.
-        "thd_increase_pct": round(float(hf_ratio_increase), 1),
+        # MED-15: removed thd_increase_pct legacy alias — was misleading
+        # (this is HF energy ratio, not THD). Callers should use
+        # hf_energy_ratio_increase_pct.
     }

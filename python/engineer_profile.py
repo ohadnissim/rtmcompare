@@ -8,10 +8,19 @@ engineer would approach it.
 
 import os
 import json
+import functools
 import numpy as np
 import librosa
 import math
 from scipy.signal import butter, sosfilt, welch
+
+
+# MED-14: LRU cache for librosa.load to avoid redundant disk reads when the
+# same file is referenced multiple times in one build_profile call.
+@functools.lru_cache(maxsize=16)
+def _load_audio_cached(path: str, sr, mono: bool):
+    y, actual_sr = librosa.load(path, sr=sr, mono=mono)
+    return np.array(y, copy=True), actual_sr
 from comparator import compute_lufs, compute_stereo_width, compute_dynamic_range, compute_short_term_max, bandpass
 
 
