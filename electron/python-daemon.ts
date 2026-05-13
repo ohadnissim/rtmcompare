@@ -39,7 +39,7 @@
 import { spawn, ChildProcess } from 'child_process'
 import * as path from 'path'
 import * as readline from 'readline'
-import { v4 as uuidv4 } from 'uuid'
+import { randomUUID as uuidv4 } from 'crypto'
 import { getPythonPaths, pythonSpawnEnv, registerJob, unregisterJob } from './python-bridge'
 
 // ── types ─────────────────────────────────────────────────────────────────────

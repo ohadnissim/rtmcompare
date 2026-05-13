@@ -139,12 +139,20 @@ jobs:
             "rtm-send-plugin/build/RtmSend_artefacts/AU/RTM Send.component"
 
       # ── Python bundle (native to runner arch) ──────────────────────
+      # Pin Python 3.11 — onnxruntime==1.19.2 has no wheels for 3.13 (which
+      # is what macos-14's system python3 is now). 3.11 is also what the
+      # Windows bundle pins, so behaviour matches.
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Cache python bundle
         id: cache-py
         uses: actions/cache@v4
         with:
           path: ${{ matrix.python_bundle_dir }}
-          key: pybundle-${{ matrix.arch }}-py3.11-stems-v2
+          key: pybundle-${{ matrix.arch }}-py3.11-stems-v3
 
       - name: Build python bundle
         if: steps.cache-py.outputs.cache-hit != 'true'
@@ -152,8 +160,7 @@ jobs:
           set -e
           PY_BUNDLE="${{ matrix.python_bundle_dir }}"
           mkdir -p "$PY_BUNDLE/python"
-          # Use system python3 (already arch-correct on each runner)
-          python3 -m venv "$PY_BUNDLE/python"
+          python3.11 -m venv "$PY_BUNDLE/python"
           source "$PY_BUNDLE/python/bin/activate"
           python -m pip install --upgrade pip
           pip install \
