@@ -458,12 +458,17 @@ def main():
         # Load a mono chunk of file B once so the new detectors can re-use it
         try:
             import librosa as _lr_new
-            mono_b_full, _ = _lr_new.load(file_b, sr=44100, mono=True)
-            mono_a_full, _ = _lr_new.load(file_a, sr=44100, mono=True) if not is_ref_only else (mono_b_full, 44100)
+            mono_b_full, _sr_b = _lr_new.load(file_b, sr=None, mono=True)
+            if not is_ref_only:
+                mono_a_full, _sr_a = _lr_new.load(file_a, sr=None, mono=True)
+            else:
+                mono_a_full, _sr_a = mono_b_full, _sr_b
         except Exception as e:
             _warn_optional("mono-reload (blocks hum/dialog/limiter/transient)", e)
             mono_b_full = None
             mono_a_full = None
+            _sr_b = 44100
+            _sr_a = 44100
 
         # Per-file durations — important for sync briefs, Atmos delivery, and
         # any A/B where length differences (e.g. a radio edit vs full mix) need
@@ -472,9 +477,9 @@ def main():
             # 3-decimal precision (1 ms) — matters for Atmos / broadcast /
             # OTT delivery where slot fits and frame counts are exact.
             if mono_a_full is not None:
-                result["duration_sec_a"] = round(len(mono_a_full) / 44100.0, 3)
+                result["duration_sec_a"] = round(len(mono_a_full) / _sr_a, 3)
             if mono_b_full is not None:
-                result["duration_sec_b"] = round(len(mono_b_full) / 44100.0, 3)
+                result["duration_sec_b"] = round(len(mono_b_full) / _sr_b, 3)
             # Keep top-level duration_sec aligned with file A when comparing
             # (so legacy time-axis components stay consistent), or set it from
             # whichever side we have.
@@ -491,7 +496,7 @@ def main():
         # Hum / buzz detection (on file B — that's the file under scrutiny)
         try:
             if mono_b_full is not None:
-                result["hum"] = detect_hum(mono_b_full, 44100)
+                result["hum"] = detect_hum(mono_b_full, _sr_b)
         except Exception as e:
             _warn_optional("hum_detection", e)
 
@@ -501,7 +506,7 @@ def main():
         # integrated number.
         try:
             if mono_b_full is not None:
-                dialog = detect_dialog_lufs(mono_b_full, 44100)
+                dialog = detect_dialog_lufs(mono_b_full, _sr_b)
                 if dialog is not None:
                     result["dialog_gate"] = dialog
         except Exception as e:
@@ -512,15 +517,15 @@ def main():
         # detector misses.  Panel ask (Marek, mastering).
         try:
             if mono_b_full is not None:
-                result["limiter_artefacts"] = analyse_limiter_artefacts(mono_b_full, 44100)
+                result["limiter_artefacts"] = analyse_limiter_artefacts(mono_b_full, _sr_b)
         except Exception as e:
             _warn_optional("limiter_artefacts", e)
 
         # Transient density + section timeline
         try:
             if mono_b_full is not None:
-                duration = result.get("duration_sec") or (len(mono_b_full) / 44100)
-                result["transient_density"] = analyse_transient_density(mono_b_full, 44100, duration_sec=duration)
+                duration = result.get("duration_sec") or (len(mono_b_full) / _sr_b)
+                result["transient_density"] = analyse_transient_density(mono_b_full, _sr_b, duration_sec=duration)
         except Exception as e:
             _warn_optional("transient_density", e)
 

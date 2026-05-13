@@ -9,14 +9,21 @@ Generate visualization data for the frontend:
 
 import numpy as np
 import librosa
-from scipy.signal import butter, sosfilt
+from scipy.signal import butter, sosfilt, welch as _welch
 
 
-def generate_all_viz_data(path_a: str, path_b: str, sr: int = 44100, deep_scan: bool = False) -> dict:
-    """Generate all visualization data from the original files."""
+def generate_all_viz_data(path_a: str, path_b: str, sr: int | None = None, deep_scan: bool = False) -> dict:
+    """Generate all visualization data from the original files.
 
-    # Load stereo
-    y_a, _ = librosa.load(path_a, sr=sr, mono=False)
+    sr=None (default): load file A at its native sample rate; resample file B
+    to match A's rate so both files share the same Nyquist and the band
+    comparisons are apples-to-apples. Previously hardcoded to 44100, which
+    stripped 48/96 kHz files of HF content above 22 kHz and caused phantom
+    high-end EQ differences vs profiles built from the native-rate files.
+    """
+
+    # Load stereo — A at native rate, B resampled to A's rate for fair comparison
+    y_a, sr = librosa.load(path_a, sr=sr, mono=False)
     y_b, _ = librosa.load(path_b, sr=sr, mono=False)
 
     if y_a.ndim == 1:
@@ -290,11 +297,13 @@ def compute_spectrum_data(y_a: np.ndarray, y_b: np.ndarray, sr: int) -> dict:
     mono_a = librosa.to_mono(y_a)
     mono_b = librosa.to_mono(y_b)
 
-    # Mid/Side
-    mid_a = (y_a[0] + y_a[1]) / 2
-    side_a = (y_a[0] - y_a[1]) / 2
-    mid_b = (y_b[0] + y_b[1]) / 2
-    side_b = (y_b[0] - y_b[1]) / 2
+    # Mid/Side — unscaled (L+R / L-R), consistent with compute_stereo_width,
+    # compute_stereo_timeline, and build_profile._stereo_width throughout the
+    # codebase. Absolute level cancels in band_spectrum's mean-centring step.
+    mid_a = y_a[0] + y_a[1]
+    side_a = y_a[0] - y_a[1]
+    mid_b = y_b[0] + y_b[1]
+    side_b = y_b[0] - y_b[1]
 
     return {
         "spectrum_a": band_spectrum(mono_a, sr, freqs),
@@ -307,53 +316,47 @@ def compute_spectrum_data(y_a: np.ndarray, y_b: np.ndarray, sr: int) -> dict:
 
 
 def band_spectrum(y: np.ndarray, sr: int, center_freqs: list) -> list:
-    """Compute RMS level in dB for each frequency band, mean-centred.
+    """Compute mean-centred level in dB for each 1/3-octave band via Welch PSD.
 
-    7.6.1 fix: previously returned raw dBFS values. The JS deriveMatchBands()
-    function (Reference / Library / Hybrid EQ mode) computes per-region diffs
-    of spectrum_a vs spectrum_b. When A and B differ in overall loudness —
-    even slightly, because the RMS-normalisation in generate_all_viz_data uses
-    whole-file energy — a constant loudness offset appears as an EQ difference
-    across ALL bands, producing phantom bass-boost / treble-cut suggestions.
+    7.6.2 fix: replaced Butterworth IIR-RMS with Welch PSD (nperseg=min(8192,N),
+    noverlap=N//2, average='median') to match engineer_profile.compute_spectrum()
+    and build_profile._third_octave_curve() exactly. The previous IIR approach
+    produced systematically different spectral shapes vs the Welch-computed
+    profile target curves, so the EQ tab and engineer tips showed contradictory
+    tonal curves for the same file. Both now use the same PSD computation.
 
-    Mean-centring converts each spectrum from "absolute dBFS" to "tonal shape
-    relative to the file's own spectral centre of mass", which is exactly the
-    same reference frame that RTMprofile-built target curves use. Now the diff
-    is a pure tonal-shape delta, not a loudness + shape conflation.
-
-    Floor bands (-60 dB, typically out-of-Nyquist) are excluded from the mean
-    so they don't pull the centring point down.
+    Out-of-Nyquist bands return -90 dB (same floor as engineer_profile).
+    Mean-centring uses nanmean so NaN/out-of-Nyquist bands don't bias the
+    centre of mass, matching build_profile.py:248 behaviour.
     """
     nyq = sr / 2
-    raw = []
 
-    for i, freq in enumerate(center_freqs):
-        # Band edges (1/3 octave)
+    # Welch PSD — identical parameters to engineer_profile.compute_spectrum
+    n_fft = min(8192, len(y))
+    if n_fft < 64:
+        return [-90.0] * len(center_freqs)
+    f, psd = _welch(y, fs=sr, nperseg=n_fft, noverlap=n_fft // 2, average="median")
+    psd = np.maximum(psd, 1e-20)
+
+    raw = []
+    for freq in center_freqs:
         low = freq / (2 ** (1 / 6))
         high = freq * (2 ** (1 / 6))
-        low = max(low, 10)
-        high = min(high, nyq - 1)
-
-        low_n = low / nyq
-        high_n = high / nyq
-
-        if low_n >= high_n or high_n >= 1.0:
-            raw.append(None)  # out-of-Nyquist / degenerate band
+        if high > nyq:
+            raw.append(float('nan'))  # out-of-Nyquist — excluded from mean
             continue
+        mask = (f >= low) & (f <= high)
+        if not np.any(mask):
+            raw.append(float('nan'))
+            continue
+        band_power = float(np.mean(psd[mask]))
+        raw.append(round(10.0 * np.log10(max(band_power, 1e-20)), 1))
 
-        try:
-            sos = butter(2, [low_n, high_n], btype='band', output='sos')
-            filtered = sosfilt(sos, y)
-            rms = np.sqrt(np.mean(filtered ** 2))
-            db = 20 * np.log10(max(rms, 1e-10))
-            raw.append(round(float(db), 1))
-        except Exception:
-            raw.append(None)
-
-    # Mean-centre over valid bands only.
-    valid = [v for v in raw if v is not None]
-    mean_db = float(np.mean(valid)) if valid else 0.0
-    return [round((v - mean_db), 1) if v is not None else -60.0 for v in raw]
+    # Mean-centre over finite (in-Nyquist) bands only — matches engineer_profile.
+    arr = np.array(raw, dtype=np.float64)
+    finite_mean = float(np.nanmean(arr)) if np.any(np.isfinite(arr)) else 0.0
+    centred = arr - finite_mean
+    return [round(float(v), 1) if np.isfinite(v) else -90.0 for v in centred]
 
 
 # Bands ordered by perceptual impact when mono-collapsed.

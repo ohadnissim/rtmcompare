@@ -731,11 +731,23 @@ ipcMain.handle('get-file-identity', async (_event, filePath: string) => {
   }
 })
 
+// 200 MB ceiling — covers ~20 minutes of 24-bit/96 kHz stereo WAV.
+// Files larger than this would OOM the V8 heap (2 GB limit) in the renderer.
+const MAX_AUDIO_READ_BYTES = 200 * 1024 * 1024
+
 ipcMain.handle('read-audio-file', async (_event, filePath: string) => {
   const safePath = assertSafeAudioPath(filePath, 'read-audio-file')
   const ext = path.extname(safePath).toLowerCase()
   if (!AUDIO_EXT.has(ext)) {
     throw new Error(`read-audio-file: refused for non-audio extension (${ext})`)
+  }
+  const stat = await fs.promises.stat(safePath)
+  if (stat.size > MAX_AUDIO_READ_BYTES) {
+    throw new Error(
+      `read-audio-file: file too large (${(stat.size / 1024 / 1024).toFixed(0)} MB). ` +
+      `Maximum supported size is ${MAX_AUDIO_READ_BYTES / 1024 / 1024} MB. ` +
+      `Please convert to a smaller file and retry.`
+    )
   }
   const buffer = await fs.promises.readFile(safePath)
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
@@ -2089,6 +2101,21 @@ function buildGradeRecord(payload: any, pdfPath: string): Record<string, unknown
       // Try analysisResult.noise_floor_b or analysisResult.noise_floor
       const nfB = ar?.noise_floor_b ?? ar?.noise_floor ?? null
       return typeof nfB === 'number' ? nfB : null
+    }
+    if (metric === 'transient_integrity') {
+      // LRA (loudness range) is the established proxy for transient/dynamic preservation.
+      // Higher LRA = more transient headroom retained through the mastering chain.
+      // Same field as the 'lra' metric but exposed under a pedagogically clear name.
+      return overall.dynamics_b ?? overall.dynamics_a ?? null
+    }
+    if (metric === 'dither_applied') {
+      // Boolean self-report from student reflection step (payload.ditherApplied).
+      // Converts to 1.0 (applied) or 0.0 (not applied) so rubric scoreRow() can
+      // compare against a teacher-set target of 1 with tolerance 0.1.
+      const d = payload?.ditherApplied
+      if (d === true)  return 1.0
+      if (d === false) return 0.0
+      return null
     }
     return null
   }

@@ -315,7 +315,10 @@ function RadarChart({ tips }: { tips: EngineerTips }) {
  const axes = [
  { label: 'Loudness', file: normalize(tips.file_stats.lufs, -16, -4), target: normalize(tips.target_stats.lufs, -16, -4) },
  { label: 'Dynamics', file: normalize(tips.file_stats.dynamic_range, 1, 12), target: normalize(tips.target_stats.dynamic_range, 1, 12) },
- { label: 'Width', file: normalize(tips.file_stats.width * 100, 0, 30), target: normalize(tips.target_stats.width * 100, 0, 30) },
+ // Width axis: energy-ratio formula (commit 17e9a35) yields 0.30–0.55 for
+ // commercial music. Old ceiling of 30 saturated every commercial track at max.
+ // Updated to 60 (= 0.60 × 100) to keep the full range usable.
+ { label: 'Width', file: normalize(tips.file_stats.width * 100, 0, 60), target: normalize(tips.target_stats.width * 100, 0, 60) },
  // 5.7.x: Low/High End axes pull from the smoothed spectrum when
  // available, matching the Tonal Curve chart + tonal_diff bars. Pre-fix
  // the radar would show "Low End is huge!" because of a single tuned

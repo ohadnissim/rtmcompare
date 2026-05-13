@@ -1674,14 +1674,18 @@ def generate_recommendations(categories, gain_applied,
 
 # ─── Fast analysis (no Demucs) ────────────────────────────────────────────────
 
-def run_fast_analysis(file_a: str, file_b: str, sr: int = 44100) -> dict:
+def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
     """
     Run analysis using frequency-band isolation instead of Demucs.
     Much faster (~10 seconds), same 10 categories.
     Uses bandpass filters to approximate what Demucs does with AI.
+
+    sr=None (default): load at native sample rate to preserve full HF content.
+    Previously defaulted to 44100, resampling 48/96 kHz files and distorting
+    analysis for high-resolution masters.
     """
-    # Load stereo
-    y_a, _ = librosa.load(file_a, sr=sr, mono=False)
+    # Load stereo at native rate; resample B to A's rate for fair comparison
+    y_a, sr = librosa.load(file_a, sr=sr, mono=False)
     y_b, _ = librosa.load(file_b, sr=sr, mono=False)
 
     if y_a.ndim == 1:
