@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { buildAbletonAdg, buildProQ3Ffp } from '../eqExporters'
+import { useV52Surface } from '../AudienceContext'
 
 interface Band {
  freq: number
@@ -39,6 +40,7 @@ interface Props {
 export default function EQExportButton({ bands, engineer, fileName, amountPct }: Props) {
  const [open, setOpen] = useState(false)
  const [toast, setToast] = useState<string | null>(null)
+ const goldBudget = useV52Surface('gold-budget')
 
  const rawBase = (fileName || 'eq-moves').replace(/\.[^/.]+$/, '')
  // If the user dialed the Amount fader below 100 %, bake that into the
@@ -238,12 +240,23 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
  <button
  onClick={() => setOpen(v => !v)}
  className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium transition-colors"
- style={{
- borderRadius: '2px',
- backgroundColor: 'rgba(168,161,150,0.10)',
- color: '#a8a29e',
- border: '1px solid rgba(168,161,150,0.25)',
- }}
+ style={
+   goldBudget
+     ? {
+         borderRadius: '2px',
+         backgroundColor: 'var(--color-accent)',
+         color: 'var(--color-bg-app)',
+         border: '1px solid var(--color-accent)',
+         letterSpacing: '0.12em',
+         textTransform: 'uppercase',
+       }
+     : {
+         borderRadius: '2px',
+         backgroundColor: 'rgba(168,161,150,0.10)',
+         color: '#a8a29e',
+         border: '1px solid rgba(168,161,150,0.25)',
+       }
+ }
  title="Export the suggested EQ moves as a DAW preset (FabFilter / Ableton / CSV / JSON)."
  >
  Export to DAW

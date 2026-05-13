@@ -3,6 +3,8 @@ import Wordmark from './Wordmark'
 import Colophon from './Colophon'
 import RTMBadge from './RTMBadge'
 import type { HistoryEntry } from '../../types'
+import { useV52Surface } from '../../AudienceContext'
+import { CoverSurface } from '../v52/CoverSurface'
 
 /**
  * EmptyStateV2 — the cover-page empty state.
@@ -52,6 +54,29 @@ interface Props {
   * red callout above the drop frame so the user knows what went
   * wrong before they try again. */
  error?: string | null
+
+ // v5.2 cover-surface pass-through (optional). When `useV52Surface('cover')`
+ // is on AND these are supplied, EmptyStateV2 short-circuits to CoverSurface.
+ // Legacy callers that don't pass them keep the centred-stack rendering.
+ fileAName?: string | null
+ fileAFormat?: string
+ fileADuration?: string
+ onDropA?: (file: File) => void
+ fileBName?: string | null
+ fileBFormat?: string
+ fileBDuration?: string
+ onDropB?: (file: File) => void
+ onSwap?: () => void
+ onBeginCompare?: () => void
+ onBeginRefOnly?: () => void
+ canCompare?: boolean
+ canRefOnly?: boolean
+ profileName?: string
+ v52Recents?: Array<{ id: string; title: string; ts?: string }>
+ onOpenRecent?: (id: string) => void
+ courseName?: string
+ assignmentName?: string
+ sessionCount?: number
 }
 
 export default function EmptyStateV2({
@@ -62,12 +87,66 @@ export default function EmptyStateV2({
  recents,
  onOpenRecents,
  error,
+ fileAName,
+ fileAFormat,
+ fileADuration,
+ onDropA,
+ fileBName,
+ fileBFormat,
+ fileBDuration,
+ onDropB,
+ onSwap,
+ onBeginCompare,
+ onBeginRefOnly,
+ canCompare,
+ canRefOnly,
+ profileName,
+ v52Recents,
+ onOpenRecent,
+ courseName,
+ assignmentName,
+ sessionCount,
 }: Props) {
  // recents prop kept for API stability; the count is no longer surfaced
  // in the footer (the dead "Recent (N)" button was removed — inline
  // RecentAnalyses below the dropzones is the source of truth).
  void recents
  void onOpenRecents
+
+ // v5.2 cover surface — opt-in via `rtm-shell=v5.2` or `rtm-v52-surfaces`
+ // allow-list. Falls back to the legacy layout below when off OR when
+ // the parent hasn't yet wired the new drop/handler props.
+ const useV52Cover = useV52Surface('cover')
+ if (useV52Cover) {
+  return (
+   <CoverSurface
+    fileAName={fileAName ?? null}
+    fileAFormat={fileAFormat}
+    fileADuration={fileADuration}
+    onDropA={onDropA ?? (() => {})}
+    fileBName={fileBName ?? null}
+    fileBFormat={fileBFormat}
+    fileBDuration={fileBDuration}
+    onDropB={onDropB ?? (() => {})}
+    onSwap={onSwap}
+    onBeginCompare={onBeginCompare ?? onBegin}
+    onBeginRefOnly={onBeginRefOnly ?? onBegin}
+    canCompare={canCompare ?? (canBegin && !!fileAName && !!fileBName)}
+    canRefOnly={canRefOnly ?? canBegin}
+    profileName={profileName}
+    recents={(v52Recents ?? (recents ?? []).slice(0, 3).map(r => ({
+     id: (r as HistoryEntry).path ?? (r as HistoryEntry).name ?? '',
+     title: (r as HistoryEntry).name ?? '',
+     ts: undefined,
+    })))}
+    recentsTotal={v52Recents ? v52Recents.length : (recents?.length ?? 0)}
+    onOpenRecent={onOpenRecent}
+    courseName={courseName}
+    assignmentName={assignmentName}
+    sessionCount={sessionCount ?? recents?.length}
+   />
+  )
+ }
 
  return (
  <section

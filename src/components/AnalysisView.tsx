@@ -48,6 +48,8 @@ import ClientReportButton from './ClientReportButton'
 import AtmosObjectView from './AtmosObjectView'
 import SpecDriftBadge from './SpecDriftBadge'
 import MasteringDelta from './MasteringDelta'
+import { useAudience, useV52Surface } from '../AudienceContext'
+import { ReleaseReadiness, PlatformResult } from './v52/ReleaseReadiness'
 
 interface Props {
  results: AnalysisResult
@@ -522,6 +524,13 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  />
  )}
  </div>
+
+ {/* v5.2 Move 4 — Producer release-readiness panel. Mounts only when
+   the active audience is 'producer' AND the v5.2 surface flag is on.
+   Pro / student / teacher continue to see the existing cockpit
+   untouched. Rendered outside the sticky container so it scrolls
+   with content rather than pinning to the top. */}
+ <ReleaseReadinessMount results={results} fileB={fileB} />
 
  {/* A/B Player — inline, NOT sticky. Visible on initial scan load; scrolls
  out of view when the user starts reading panel content. */}
@@ -2036,4 +2045,69 @@ function widthDelta(a: number, b: number): string {
  if ((b - a) > 0.02) return 'Wider'
  if ((b - a) < -0.02) return 'Tighter'
  return 'Same'
+}
+
+/**
+ * v5.2 Move 4 — wraps ReleaseReadiness with audience + surface-flag gating
+ * and the platform-spec computation. Lives inside AnalysisView so it reads
+ * the same `results` shape the cockpit already consumes.
+ *
+ * Status thresholds: pass if within 0.5 LU of target AND peak ≤ max;
+ * drift if within 1.5 LU; fail otherwise. Mirrors the cockpit's tolerance
+ * conventions so the two surfaces never contradict each other.
+ */
+function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fileB: FileInfo }) {
+ const audience = useAudience()
+ const surfaceOn = useV52Surface('release-readiness')
+ if (audience !== 'producer' || !surfaceOn) return null
+
+ const lufs = results.overall?.lufs_b
+ const tp = results.headroom?.true_peak_b
+ const lra = results.overall?.dynamics_b
+ if (lufs == null || tp == null) return null
+
+ const specs: Array<{ name: PlatformResult['platform']['name']; targetLufs: number; maxPeakDbtp: number }> = [
+   { name: 'Spotify', targetLufs: -14, maxPeakDbtp: -1 },
+   { name: 'Apple Music', targetLufs: -16, maxPeakDbtp: -1 },
+   { name: 'YouTube Music', targetLufs: -14, maxPeakDbtp: -1 },
+   { name: 'Tidal', targetLufs: -14, maxPeakDbtp: -1 },
+ ]
+
+ const platforms: PlatformResult[] = specs.map(spec => {
+   const delta = Math.abs(lufs - spec.targetLufs)
+   const peakOk = tp <= spec.maxPeakDbtp
+   let status: PlatformResult['status']
+   if (delta <= 0.5 && peakOk) status = 'pass'
+   else if (delta <= 1.5 && peakOk) status = 'drift'
+   else status = 'fail'
+   return {
+     platform: spec,
+     currentLufs: lufs,
+     currentPeakDbtp: tp,
+     currentLraLu: lra ?? undefined,
+     status,
+   }
+ })
+
+ const issues: string[] = []
+ const worstDelta = Math.max(...platforms.map(p => Math.abs(p.currentLufs - p.platform.targetLufs)))
+ if (worstDelta > 0.5) {
+   issues.push(`Integrated loudness drifts ${worstDelta.toFixed(1)} LU from the worst-case streaming target — re-render the limiter pass.`)
+ }
+ if (tp > -1) {
+   issues.push(`True peak at ${tp.toFixed(1)} dBTP exceeds the -1 dBTP ceiling — pull the limiter ceiling and re-bounce.`)
+ }
+ if (lra != null && lra < 4) {
+   issues.push(`LRA at ${lra.toFixed(1)} LU reads over-limited — consider easing the master-bus compression.`)
+ }
+
+ return (
+   <ReleaseReadiness
+     trackTitle={stripExt(fileB.name)}
+     platforms={platforms}
+     issues={issues}
+     canMaster={platforms.every(p => p.status === 'pass')}
+     onMasterForRelease={() => console.log('master for release')}
+   />
+ )
 }

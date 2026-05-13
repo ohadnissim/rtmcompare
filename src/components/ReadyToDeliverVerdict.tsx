@@ -1,13 +1,141 @@
 import React from 'react'
 import { Verdict } from '../singleFileHelpers'
+import { useAudience, useV52Surface } from '../AudienceContext'
+import { VerdictHero, VerdictState, VerdictHeroMetric } from './v52/VerdictHero'
+import { v52Copy } from '../copy/v52'
+import {
+  printProCertificate,
+  printReleaseCard,
+  printPracticeReport,
+  type CertificateMetric,
+} from '../lib/certificate'
 
 /**
  * Top-of-view pass/fail block — the "is this track going to cause a problem
  * at delivery?" answer the GM / Delivery Ops asked for, mapped to each DSP's
  * spec. Colour-coded left rail matches the Client Report PDF verdict so the
  * on-screen and export surfaces read as one voice.
+ *
+ * v5.2 (Move 3): when `useV52Surface('verdict')` is on, render the four-voice
+ * `<VerdictHero />` instead of the legacy chrome. Legacy block remains as the
+ * fallback so a surface flag flip is the only path to the new treatment.
  */
-export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid }: { verdict: Verdict; compact?: boolean; showDspGrid?: boolean }) {
+function mapVerdictLevelToState(level: Verdict['level']): VerdictState {
+  if (level === 'ready') return 'ok'
+  if (level === 'warn') return 'caution'
+  return 'fail'
+}
+
+interface ReadyToDeliverVerdictProps {
+  verdict: Verdict
+  compact?: boolean
+  showDspGrid?: boolean
+  /** v5.2 Move 3 — caller can pass a CTA into the VerdictHero action slot.
+   *  Default = empty; the certificate trigger gets wired in Wave 3. */
+  actionSlot?: React.ReactNode
+  /** v5.2 Move 3 — optional metric trio for the hero. Caller supplies
+   *  LUFS-I / dBTP / LRA. Falls back to nothing when omitted. */
+  heroMetrics?: VerdictHeroMetric[]
+  /** v5.2 Move 3 — eyebrow override, e.g. "MASTERING QC · 2026-05-13 · file.wav". */
+  heroEyebrow?: string
+}
+
+export default function ReadyToDeliverVerdict({ verdict, compact, showDspGrid, actionSlot, heroMetrics, heroEyebrow }: ReadyToDeliverVerdictProps) {
+  const useHero = useV52Surface('verdict')
+  const audience = useAudience()
+  const [isGenerating, setIsGenerating] = React.useState(false)
+
+  if (useHero) {
+    const state = mapVerdictLevelToState(verdict.level)
+    const caption = verdict.reasons.length > 0
+      ? verdict.reasons.slice(0, 3).join(' · ')
+      : verdict.action
+
+    // v5.2 Wave 3 — when the verdict is OK and the caller hasn't supplied
+    // an action, inject a gold "Generate certificate" trigger. The print
+    // helper is audience-routed; teacher is intentionally absent (the
+    // gradebook export lives on TeacherDashboard, not on a single verdict).
+    let resolvedActionSlot = actionSlot
+    if (!resolvedActionSlot && state === 'ok' && audience !== 'teacher') {
+      const trackTitle = verdict.title || heroEyebrow || 'Untitled track'
+      const metaLine = heroEyebrow ?? new Date().toISOString().slice(0, 10)
+      const certMetrics: CertificateMetric[] = (heroMetrics ?? []).map(m => ({
+        label: m.label,
+        value: m.value,
+        unit: m.unit,
+      }))
+
+      const handleGenerateCert = async () => {
+        if (isGenerating) return
+        setIsGenerating(true)
+        try {
+          if (audience === 'pro') {
+            await printProCertificate({
+              trackTitle,
+              metaLine,
+              verdict: 'ok',
+              metrics: certMetrics,
+            })
+          } else if (audience === 'producer') {
+            await printReleaseCard({
+              trackTitle,
+              metaLine,
+              verdict: 'ok',
+              metrics: certMetrics,
+            })
+          } else {
+            await printPracticeReport({
+              trackTitle,
+              metaLine,
+              verdict: 'ok',
+              metrics: certMetrics,
+            })
+          }
+        } finally {
+          setIsGenerating(false)
+        }
+      }
+
+      resolvedActionSlot = (
+        <button
+          type="button"
+          onClick={handleGenerateCert}
+          disabled={isGenerating}
+          style={{
+            backgroundColor: 'var(--color-accent)',
+            color: 'var(--color-bg-app)',
+            border: '1px solid var(--color-accent)',
+            borderRadius: '2px',
+            padding: '10px 24px',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 12,
+            fontWeight: 500,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            cursor: isGenerating ? 'wait' : 'pointer',
+            opacity: isGenerating ? 0.6 : 1,
+          }}
+        >
+          {isGenerating ? 'Generating…' : v52Copy.cta.secondary[audience]}
+        </button>
+      )
+    }
+
+    return (
+      <VerdictHero
+        verdict={state}
+        eyebrow={heroEyebrow}
+        caption={caption}
+        metrics={heroMetrics}
+        actionSlot={resolvedActionSlot}
+      />
+    )
+  }
+
+  return <LegacyVerdict verdict={verdict} compact={compact} showDspGrid={showDspGrid} />
+}
+
+function LegacyVerdict({ verdict, compact, showDspGrid }: { verdict: Verdict; compact?: boolean; showDspGrid?: boolean }) {
  const palette = {
  ready: { accent: '#6ec577', bg: 'rgba(110,197,119,0.08)', tag: 'READY' },
  warn: { accent: 'var(--color-warning)', bg: 'rgba(197,165,90,0.08)', tag: 'WARN' },

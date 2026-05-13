@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react'
 import { AnalysisResult, FileInfo } from '../types'
+import { useV52Surface } from '../AudienceContext'
 
 interface Props {
  results: AnalysisResult
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function ExportButton({ results, fileA, fileB }: Props) {
+ const goldBudget = useV52Surface('gold-budget')
  const handleExport = useCallback(() => {
  const labelA = fileA.name.replace(/\.[^/.]+$/, '')
  const labelB = fileB.name.replace(/\.[^/.]+$/, '')
@@ -25,7 +27,25 @@ export default function ExportButton({ results, fileA, fileB }: Props) {
  return (
  <button
  onClick={handleExport}
- className="flex items-center gap-2 px-4 py-2 bg-dark-700 hover:bg-dark-600 transition-colors text-sm" style={{ borderRadius: '2px', color: 'var(--color-text-muted)' }}
+ className="flex items-center gap-2 px-4 py-2 transition-colors text-sm"
+ style={
+   goldBudget
+     ? {
+         borderRadius: '2px',
+         backgroundColor: 'var(--color-accent)',
+         color: 'var(--color-bg-app)',
+         border: '1px solid var(--color-accent)',
+         fontFamily: 'var(--font-sans)',
+         letterSpacing: '0.12em',
+         textTransform: 'uppercase',
+         fontWeight: 500,
+       }
+     : {
+         borderRadius: '2px',
+         backgroundColor: 'rgba(168,161,150,0.10)',
+         color: 'var(--color-text-muted)',
+       }
+ }
  >
  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

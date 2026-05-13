@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { AnalysisResult, MasteringDelta as MasteringDeltaData } from '../types'
 import CollapsibleSection from './CollapsibleSection'
 import WidthPerBandChart from './WidthPerBandChart'
+import { useAudience, useV52Surface } from '../AudienceContext'
+import { DeltaAnnotations } from './v52/DeltaAnnotations'
 
 interface Props {
  delta: MasteringDeltaData
@@ -26,7 +28,18 @@ export default function MasteringDelta({ delta, overall }: Props) {
  const width = Array.isArray(delta.stereo_width_change_per_band) ? delta.stereo_width_change_per_band : []
  const platforms = delta.perceived_gain_per_platform || {}
 
+ const audience = useAudience()
+ const annotationsEnabled =
+   useV52Surface('delta-annotations') && (audience === 'student' || audience === 'teacher')
+ const [openAnnotation, setOpenAnnotation] = useState<{ metric: string; delta: number; unit: string } | null>(null)
+
+ const annotate = (metric: string, value: number | undefined | null, unit: string) => {
+   if (typeof value !== 'number' || !isFinite(value)) return
+   setOpenAnnotation({ metric, delta: value, unit })
+ }
+
  return (
+ <>
  <CollapsibleSection
  title={`Mastering Delta - signature: ${delta.signature_hash || 'partial'}`}
  tooltip="Report card of what changed between rough mix A and mastered file B: loudness, per-band gain, dynamics, width, limiter behaviour, and platform playback."
@@ -40,15 +53,31 @@ export default function MasteringDelta({ delta, overall }: Props) {
  >
  <div className="space-y-5">
  <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
- <Metric label="Broadband" value={fmtSigned(delta.broadband_gain_db, ' dB')} tone={delta.broadband_gain_db >= 0 ? GOLD : BLUE} />
+ <Metric
+ label="Broadband"
+ value={fmtSigned(delta.broadband_gain_db, ' dB')}
+ tone={delta.broadband_gain_db >= 0 ? GOLD : BLUE}
+ onAnnotate={annotationsEnabled ? () => annotate('lufs_i', delta.broadband_gain_db, 'LU') : undefined}
+ />
  <Metric
  label="LRA"
  value={`${fmtNum(overall.dynamics_a, 1)} -> ${fmtNum(overall.dynamics_b, 1)} LU`}
  sub={fmtSigned(delta.lra_delta, ' LU')}
  tone={delta.lra_delta < 0 ? GOLD : CREAM}
+ onAnnotate={annotationsEnabled ? () => annotate('lra_lu', delta.lra_delta, 'LU') : undefined}
  />
- <Metric label="PSR delta" value={fmtSigned(delta.psr_delta, ' dB')} tone={delta.psr_delta < 0 ? GOLD : CREAM} />
- <Metric label="RMS/peak" value={fmtSigned(delta.rms_to_peak_delta, ' dB')} tone={(delta.rms_to_peak_delta ?? 0) < 0 ? GOLD : CREAM} />
+ <Metric
+ label="PSR delta"
+ value={fmtSigned(delta.psr_delta, ' dB')}
+ tone={delta.psr_delta < 0 ? GOLD : CREAM}
+ onAnnotate={annotationsEnabled ? () => annotate('plr', delta.psr_delta, 'dB') : undefined}
+ />
+ <Metric
+ label="RMS/peak"
+ value={fmtSigned(delta.rms_to_peak_delta, ' dB')}
+ tone={(delta.rms_to_peak_delta ?? 0) < 0 ? GOLD : CREAM}
+ onAnnotate={annotationsEnabled ? () => annotate('true_peak_dbtp', delta.rms_to_peak_delta, 'dB') : undefined}
+ />
  <Metric
  label="Limiter"
  value={fmtLimiter(delta.limiter_aggressiveness)}
@@ -106,14 +135,35 @@ export default function MasteringDelta({ delta, overall }: Props) {
  </div>
  </div>
  </CollapsibleSection>
+ {openAnnotation && (
+ <DeltaAnnotations
+ metric={openAnnotation.metric}
+ delta={openAnnotation.delta}
+ unit={openAnnotation.unit}
+ onClose={() => setOpenAnnotation(null)}
+ />
+ )}
+ </>
  )
 }
 
-function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
+function Metric({ label, value, sub, tone, onAnnotate }: { label: string; value: string; sub?: string; tone?: string; onAnnotate?: () => void }) {
+ const valueEl = onAnnotate ? (
+ <button
+ type="button"
+ onClick={onAnnotate}
+ className="cursor-pointer hover:underline decoration-2 underline-offset-4 text-left"
+ style={{ color: tone || CREAM, fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '1.125rem', background: 'transparent', border: 'none', padding: 0 }}
+ >
+ {value}
+ </button>
+ ) : (
+ <div className="font-mono text-lg tabular-nums" style={{ color: tone || CREAM }}>{value}</div>
+ )
  return (
  <div className="p-3 min-h-[78px]" style={{ backgroundColor: 'rgba(48,44,39,0.5)' }}>
  <div className="text-[9px] uppercase tracking-[0.16em] mb-1" style={{ color: MUTED }}>{label}</div>
- <div className="font-mono text-lg tabular-nums" style={{ color: tone || CREAM }}>{value}</div>
+ {valueEl}
  {sub && <div className="text-[10px] mt-1" style={{ color: MUTED }}>{sub}</div>}
  </div>
  )

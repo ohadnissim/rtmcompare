@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspe
 import { AppState, FileInfo, AnalysisResult } from './types'
 import { useTheme } from './ThemeContext'
 import { useModes } from './ModesContext'
+import { useV52Surface } from './AudienceContext'
 import HeaderV2 from './components/shell/HeaderV2'
 import { LearnModeProvider } from './context/LearnModeContext'
 import LearnModeToggle from './components/shell/LearnModeToggle'
@@ -249,6 +250,7 @@ function dismissNativeTooltip(e: React.MouseEvent<HTMLElement>) {
 }
 
 export default function App() {
+ const goldBudget = useV52Surface('gold-budget')
  const [state, setState] = useState<AppState>('upload')
  const [fileA, setFileA] = useState<FileInfo | null>(null)
  const [fileB, setFileB] = useState<FileInfo | null>(null)
@@ -1357,20 +1359,38 @@ export default function App() {
  <button
  onClick={handleCertify}
  disabled={certifying}
- style={{
- alignSelf: 'flex-start',
- padding: '6px 16px',
- fontSize: 12,
- fontWeight: 600,
- letterSpacing: '0.06em',
- textTransform: 'uppercase',
- border: '1px solid rgba(168,161,150,0.25)',
- borderRadius: 2,
- background: 'transparent',
- color: 'var(--color-text-secondary, #aaa)',
- cursor: certifying ? 'wait' : 'pointer',
- opacity: certifying ? 0.5 : 1,
- }}
+ style={
+   goldBudget
+     ? {
+         alignSelf: 'flex-start',
+         padding: '10px 24px',
+         fontFamily: 'var(--font-sans)',
+         fontSize: 12,
+         fontWeight: 500,
+         letterSpacing: '0.12em',
+         textTransform: 'uppercase',
+         border: '1px solid var(--color-accent)',
+         borderRadius: 2,
+         background: 'var(--color-accent)',
+         color: 'var(--color-bg-app)',
+         cursor: certifying ? 'wait' : 'pointer',
+         opacity: certifying ? 0.5 : 1,
+       }
+     : {
+         alignSelf: 'flex-start',
+         padding: '6px 16px',
+         fontSize: 12,
+         fontWeight: 600,
+         letterSpacing: '0.06em',
+         textTransform: 'uppercase',
+         border: '1px solid rgba(168,161,150,0.25)',
+         borderRadius: 2,
+         background: 'transparent',
+         color: 'var(--color-text-secondary, #aaa)',
+         cursor: certifying ? 'wait' : 'pointer',
+         opacity: certifying ? 0.5 : 1,
+       }
+ }
  title="Generate a signed pre-delivery compliance certificate (RTMcertify)"
  >
  {certifying ? 'Generating certificate…' : 'Get RTMcertify Certificate'}

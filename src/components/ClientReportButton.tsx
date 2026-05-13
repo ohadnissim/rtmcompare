@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { AnalysisResult, FileInfo, MonoBand } from '../types'
 import { streamingTpFloorDbtp } from '../dspProfiles'
 import { useEQ, EQBand } from '../EQContext'
+import { useV52Surface } from '../AudienceContext'
 
 interface Props {
  results: AnalysisResult
@@ -30,6 +31,7 @@ export default function ClientReportButton({ results, fileA, fileB }: Props) {
  const [busy, setBusy] = useState<null | ReportMode>(null)
  const [open, setOpen] = useState(false)
  const eq = useEQ()
+ const goldBudget = useV52Surface('gold-budget')
  const [reviewer, setReviewer] = useState<string>(() => {
  try { return localStorage.getItem('rtm-reviewer') || '' } catch { return '' }
  })
@@ -94,12 +96,23 @@ export default function ClientReportButton({ results, fileA, fileB }: Props) {
  onClick={() => !busy && setOpen(v => !v)}
  disabled={!!busy}
  className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium transition-colors"
- style={{
- borderRadius: '2px',
- backgroundColor: 'rgba(124,164,163,0.12)',
- color: 'var(--color-teal)',
- border: '1px solid rgba(124,164,163,0.35)',
- }}
+ style={
+   goldBudget
+     ? {
+         borderRadius: '2px',
+         backgroundColor: 'var(--color-accent)',
+         color: 'var(--color-bg-app)',
+         border: '1px solid var(--color-accent)',
+         letterSpacing: '0.12em',
+         textTransform: 'uppercase',
+       }
+     : {
+         borderRadius: '2px',
+         backgroundColor: 'rgba(124,164,163,0.12)',
+         color: 'var(--color-teal)',
+         border: '1px solid rgba(124,164,163,0.35)',
+       }
+ }
  title="Export a PDF track report (two tones, one dataset)"
  >
  {busy ? (busy === 'client' ? 'Rendering client PDF…' : 'Rendering engineer PDF…') : 'Export Report'}

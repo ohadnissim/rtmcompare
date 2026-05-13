@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "annotations": [
+    {
+      "metric": "lufs_i",
+      "context": "a_louder",
+      "delta_threshold_lu": 1.0,
+      "body": "Reference A is louder by at least 1 LU. Either the master needs more loudness (push the limiter, or raise input gain by the delta amount), or the reference is over-compressed for the genre. Check the reference's PLR (peak-to-loudness ratio) before chasing loudness blindly — over-limited references waste the dynamics you're hearing as 'punch'."
+    },
+    {
+      "metric": "lufs_i",
+      "context": "b_louder",
+      "delta_threshold_lu": 1.0,
+      "body": "Master B is louder by at least 1 LU. If you're chasing streaming-friendly levels (-14 LUFS for Spotify), this may be over the target — verify against the platform spec. If you're matching a louder reference, the limiter is doing its job; check True Peak headroom hasn't crossed -1 dBTP."
+    },
+    {
+      "metric": "true_peak_dbtp",
+      "context": "b_higher",
+      "delta_threshold_db": 0.5,
+      "body": "Master B is hitting higher inter-sample peaks. Reduce limiter ceiling by the delta amount, or back off input gain by 1 dB and re-check. Inter-sample peaks above -1 dBTP cause distortion on lossy-codec playback (Spotify Ogg, Apple AAC) even when the file reads 'clean' on PCM meters."
+    },
+    {
+      "metric": "true_peak_dbtp",
+      "context": "a_higher",
+      "delta_threshold_db": 0.5,
+      "body": "Reference A is hitting higher peaks than your master. If A is the target sound, your limiter is being more aggressive — try a higher ceiling or a less aggressive limiter style. If A is over-limited (PLR < 8 dB), this is a feature of your master, not a bug."
+    },
+    {
+      "metric": "lra_lu",
+      "context": "a_wider",
+      "delta_threshold_lu": 2.0,
+      "body": "Reference A has wider loudness range (more dynamic). Your master may be over-compressed; try reducing bus compression ratio, or raise the threshold so quieter sections breathe. LRA in the 6-12 LU range is healthy for most modern productions."
+    },
+    {
+      "metric": "lra_lu",
+      "context": "b_wider",
+      "delta_threshold_lu": 2.0,
+      "body": "Master B is more dynamic than the reference. This may be intentional (audiophile / classical / cinematic) or under-compressed for the genre. Pop/rock/hip-hop typically lands at LRA 5-8 LU; if you're aiming for radio/playlist parity, narrow the range."
+    },
+    {
+      "metric": "plr",
+      "context": "a_higher",
+      "delta_threshold_db": 2.0,
+      "body": "Reference A has more headroom (higher PLR). If A is your target, your master is compressed more aggressively. PLR drift below 8 dB usually signals over-limiting; below 6 dB the dynamics are essentially gone."
+    },
+    {
+      "metric": "plr",
+      "context": "b_higher",
+      "delta_threshold_db": 2.0,
+      "body": "Master B has more dynamic headroom than the reference. The reference may be over-limited (typical for many commercial masters); your work is preserving more transient detail."
+    },
+    {
+      "metric": "stereo_correlation",
+      "context": "lower",
+      "delta_threshold": 0.15,
+      "body": "Stereo correlation has dropped — the master is wider. Verify mono-compatibility by summing to mono and listening. Wider isn't always better; bass elements below ~200 Hz should stay correlated to >=0.7 to avoid phase cancellation on club PA / mono playback."
+    }
+  ]
+}
