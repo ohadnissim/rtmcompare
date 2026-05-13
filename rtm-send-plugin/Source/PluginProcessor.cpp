@@ -701,8 +701,14 @@ bool RtmSendAudioProcessor::writeSidecar(const juce::File& out,
     ::close (fd);
     return ok;
 #else
-    if (! writeTargetIsSafe (out)) return false;
-    return out.replaceWithText (json);
+    // MED-5: write-to-tmp then atomic rename to close TOCTOU window.
+    {
+        auto tmp = out.getSiblingFile (out.getFileName() + ".tmp");
+        tmp.deleteFile();
+        if (!tmp.replaceWithText (json)) return false;
+        if (!tmp.moveFileTo (out)) { tmp.deleteFile(); return false; }
+        return true;
+    }
 #endif
 }
 
@@ -888,6 +894,7 @@ juce::String RtmSendAudioProcessor::finishSendFromSamples(
                       route, capturedAtVal))
     {
         wav.deleteFile();
+        sidecar.deleteFile(); // MED-6: clean up any partial sidecar created before failure
         errorMsgOut = "Could not write sidecar JSON to " + sidecar.getFullPathName();
         setLastStatusLocked (errorMsgOut);
         return {};
@@ -923,7 +930,16 @@ juce::String RtmSendAudioProcessor::finishSendFromSamples(
         }
     }
 #else
-    readyOk = writeTargetIsSafe (ready) && ready.replaceWithText (readyJson);
+    // MED-5: avoid TOCTOU between writeTargetIsSafe check and write.
+    // Write to a sibling .tmp file then atomically rename — NTFS rename
+    // is single-syscall and immune to the check-then-act race.
+    {
+        auto tmpReady = ready.getSiblingFile (ready.getFileName() + ".tmp");
+        tmpReady.deleteFile();
+        if (tmpReady.replaceWithText (readyJson))
+            readyOk = tmpReady.moveFileTo (ready);
+        if (!readyOk) tmpReady.deleteFile();
+    }
 #endif
     if (! readyOk)
     {

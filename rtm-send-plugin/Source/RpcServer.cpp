@@ -64,13 +64,17 @@ namespace
     void runOnMessageThreadSync (Fn&& fn)
     {
         if (juce::MessageManager::existsAndIsCurrentThread()) { fn(); return; }
-        juce::WaitableEvent done;
-        juce::MessageManager::callAsync ([fn = std::forward<Fn>(fn), &done]() mutable
+        // MED-4 fix: heap-allocate the event so the shared_ptr keeps it
+        // alive until both sides (caller + message-thread lambda) are done.
+        // A stack-allocated WaitableEvent captured by reference is a UAF
+        // if the calling thread exits before callAsync fires.
+        auto done = std::make_shared<juce::WaitableEvent>();
+        juce::MessageManager::callAsync ([fn = std::forward<Fn>(fn), done]() mutable
         {
             fn();
-            done.signal();
+            done->signal();
         });
-        done.wait();
+        done->wait();
     }
 
     // Read a line (terminated by \n) from a StreamingSocket. Returns
