@@ -2077,6 +2077,8 @@ ipcMain.handle('render-pdf-direct', async (_event, folderPath: string, fileName:
   catch (err: any) { return { error: err?.message || 'invalid folder' } }
   const sanitised = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`
   if (sanitised.length > 256) return { error: 'invalid fileName' }
+  // LOW-9: reject filenames that start with a dot — prevents hidden-file creation.
+  if (sanitised.startsWith('.')) return { error: 'invalid fileName' }
   const finalPath = path.join(safeDir, sanitised.replace(/[\\/:*?"<>|]/g, '_'))
 
   const hidden = new BrowserWindow({

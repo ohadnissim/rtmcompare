@@ -463,7 +463,7 @@ export function CoverSurface({
           <button
             type="button"
             onClick={() => setAudienceOverride(null)}
-            title="Clear audience override — reverts to Learn Mode role or default"
+            aria-label="Clear audience override — reverts to Learn Mode role or default"
             style={{
               color: SAND_400,
               textTransform: 'uppercase',

@@ -72,7 +72,10 @@ export function ThemedConfirmDialog({
         onCancel()
       }
       if (e.key === 'Tab') {
-        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button')
+        // LOW-8: broaden focus trap to all interactive elements (input, select, textarea, a[href])
+        const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
         if (!focusable || focusable.length < 2) return
         const first = focusable[0]
         const last = focusable[focusable.length - 1]

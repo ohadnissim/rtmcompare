@@ -436,6 +436,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
             <button
               onClick={exportCsv}
               disabled={!records.length}
+              aria-label="Export gradebook as CSV"
               style={{
                 background: 'transparent',
                 border: '1px solid rgba(208,176,102,0.4)',
@@ -453,6 +454,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
             </button>
             <button
               onClick={() => setLmsOpen(o => !o)}
+              aria-label="Toggle Canvas LMS upload panel"
               style={{
                 background: 'transparent',
                 border: '1px solid rgba(208,176,102,0.4)',

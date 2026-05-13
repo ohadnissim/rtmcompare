@@ -12,7 +12,10 @@ from scipy.signal import butter, sosfilt
 # MED-14: LRU cache for librosa.load — within a single analysis run the
 # same file is often loaded 3-4× (LUFS, LRA, spectrum, width).  Cache keyed
 # on (path, sr, mono); returns a *copy* so callers can mutate freely.
-@functools.lru_cache(maxsize=16)
+# LOW-1: cap at 4 (not 16) — each cached entry holds a full PCM array that can be
+# 100–400 MB for a 5-min/96kHz file. 4 entries ≈ 800 MB peak; 16 entries ≈ 3.2 GB.
+# Call _load_audio_cached.cache_clear() between unrelated batch jobs.
+@functools.lru_cache(maxsize=4)
 def _load_audio_cached(path: str, sr, mono: bool):
     y, actual_sr = librosa.load(path, sr=sr, mono=mono)
     # Return copies so cached arrays aren't mutated by callers.
@@ -1208,9 +1211,9 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
         rms = librosa.feature.rms(y=kw, frame_length=frame_length, hop_length=hop_length)[0]
         rms_db = 20 * np.log10(np.maximum(rms, 1e-10))
         rms_db = rms_db[rms_db > -70]  # absolute gate, BS.1770
-        # CRIT-8 fix: EBU R128 / BS.1770-4 LRA requires BOTH the absolute gate
-        # (-70 LUFS) AND a relative gate (-20 LU below the ungated mean of the
-        # gated distribution).  Without the relative gate, LRA is over-reported
+        # NIT-6 / CRIT-8 fix: EBU R128 / BS.1770-4 LRA requires BOTH the absolute gate
+        # (-70 LUFS) AND a relative gate (-20 LU below the mean of the absolutely-gated
+        # distribution).  Without the relative gate, LRA is over-reported
         # by 6–12 LU on orchestral/acoustic material where quiet passages sit
         # well below -50 LUFS.
         if len(rms_db) >= 10:

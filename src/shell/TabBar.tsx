@@ -167,7 +167,7 @@ export default function TabBar({ tabs, activeId, onSelect, onReorder, onOpenStor
     {/* "+N" overflow badge — non-interactive, hints that more tabs are scrollable */}
     {overflowCount > 0 && (
      <span
-      aria-hidden
+      aria-label={`${overflowCount} more tab${overflowCount !== 1 ? 's' : ''} — scroll right`}
       className="flex-shrink-0 px-2 py-3 select-none pointer-events-none"
       style={{
        fontSize: 9,

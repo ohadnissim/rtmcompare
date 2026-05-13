@@ -1,6 +1,7 @@
-// TODO: src/shell/ orphaned — confirm with feature flag or delete.
-// As of audit, only a commented-out import exists in src/main.tsx; no live
-// reference to PlatformShell/TabBar/ModuleStore from App.tsx or elsewhere.
+// NIT-4: PlatformShell is the future modular ecosystem shell.
+// Currently commented-out in src/main.tsx (not yet the primary App entry).
+// Keep: intended for the multi-module platform expansion. Wire into main.tsx
+// when ready to replace the single-view AnalysisView entrypoint.
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import TabBar from './TabBar'
 import ModuleStore from './ModuleStore'
