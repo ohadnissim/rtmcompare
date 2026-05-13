@@ -168,3 +168,12 @@ C) Do not file (leaves the combination unprotected)
 **Recommendation**: Option A immediately. Have attorney convert to non-provisional if Learn Mode gains commercial traction.
 
 **Effort to implement once decided**: S (attorney files, developer provides technical disclosure document)
+
+---
+
+## LOW-1: Vectorscope SVG → Canvas/WebGL migration
+**What it is**: Each Vectorscope renders 2000 `<circle>` elements × 2 layers = 4000 SVG DOM nodes + a Gaussian blur filter composited per frame. With two instances this doubles to 8000 nodes.
+**Why it's deferred**: Correct rendering today on macOS; will degrade on Windows integrated graphics at scale. Requires replacing SVG dot-field with a `<canvas>` or WebGL renderer (regl/pixi.js). Not a correctness bug.
+**Options**: A) Replace SVG dot field with canvas 2D (offscreen painting, low complexity) B) WebGL via regl for real phosphor persistence simulation C) Accept current behaviour, limit to one Vectorscope instance per view
+**Recommendation**: Option A in a dedicated sprint. The axis labels and crosshair can stay SVG; only the dot cloud moves to canvas.
+**Effort**: M (3–5 days)

@@ -383,9 +383,10 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  )}
  </>
  )}
- {results?.overall?.visqol_mos != null && (
+ {results?.overall?.visqol_mos != null ? (
+ // ViSQOL score available — show coloured chip
  <div
- title={`ViSQOL perceptual match. 5.0=identical, 1.0=very different`}
+ title="ViSQOL perceptual match. 5.0=identical, 1.0=very different"
  style={{
  fontSize: 10,
  padding: '2px 8px',
@@ -396,6 +397,23 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  }}
  >
  ViSQOL {results.overall.visqol_mos.toFixed(2)}
+ </div>
+ ) : results?.overall && (
+ // LOW-3: ViSQOL unavailable — grayed chip so users know the feature
+ // exists and how to enable it (install visqol Python package).
+ <div
+ title="ViSQOL perceptual scoring unavailable. Install the visqol Python package to enable: pip install visqol"
+ style={{
+ fontSize: 10,
+ padding: '2px 8px',
+ border: '1px solid rgba(255,255,255,0.07)',
+ borderRadius: 2,
+ color: 'rgba(168,161,150,0.3)',
+ cursor: 'help',
+ userSelect: 'none',
+ }}
+ >
+ ViSQOL —
  </div>
  )}
  <ClientReportButton results={results} fileA={fileA} fileB={fileB} />
