@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { useAudience } from '../../AudienceContext'
+import { useAudience, setAudienceOverride } from '../../AudienceContext'
+import type { Audience } from '../../copy/v52'
 import { v52Copy } from '../../copy/v52'
 
 /**
@@ -39,6 +40,10 @@ export interface CoverSurfaceProps {
   onBeginRefOnly: () => void
   canCompare: boolean
   canRefOnly: boolean
+
+  // Batch / album analysis — optional. Only renders the link when supplied.
+  onBeginBatch?: () => void
+  canBatch?: boolean
 
   // Profile / context
   profileName?: string
@@ -161,6 +166,8 @@ export function CoverSurface({
   onBeginRefOnly,
   canCompare,
   canRefOnly,
+  onBeginBatch,
+  canBatch,
   profileName,
   recents,
   onOpenRecent,
@@ -172,6 +179,10 @@ export function CoverSurface({
   const audience = useAudience()
   const eyebrow = v52Copy.cover.eyebrow[audience]
   const valueProp = v52Copy.cover.valueProp[audience]
+  const fileALabel = `FILE A · ${v52Copy.slots.fileA}`
+  const fileBLabel = `FILE B · ${v52Copy.slots.fileB[audience]}`
+  const dropAPlaceholder = v52Copy.slots.dropA
+  const dropBPlaceholder = v52Copy.slots.dropB[audience]
   const greeting = v52Copy.cover.greeting[audience]({
     name: profileName,
     n: sessionCount,
@@ -247,9 +258,9 @@ export function CoverSurface({
         }}
       >
         <FileSlot
-          eyebrow="File A · Reference"
+          eyebrow={fileALabel}
           name={fileAName}
-          emptyLabel="Drop reference"
+          emptyLabel={dropAPlaceholder}
           format={fileAFormat}
           duration={fileADuration}
           onDrop={onDropA}
@@ -258,9 +269,9 @@ export function CoverSurface({
         />
         <div style={{ backgroundColor: SAND_700 }} />
         <FileSlot
-          eyebrow="File B · Master"
+          eyebrow={fileBLabel}
           name={fileBName}
-          emptyLabel="Drop master"
+          emptyLabel={dropBPlaceholder}
           format={fileBFormat}
           duration={fileBDuration}
           onDrop={onDropB}
@@ -339,6 +350,22 @@ export function CoverSurface({
         >
           Analyse reference only
         </button>
+
+        {onBeginBatch && canBatch && (
+          <button
+            type="button"
+            onClick={onBeginBatch}
+            className="text-[11px] tracking-[0.12em] uppercase border-b border-dotted hover:opacity-80"
+            style={{
+              color: 'var(--color-text-muted)',
+              borderColor: 'var(--color-text-muted)',
+              background: 'transparent',
+              padding: '4px 0',
+            }}
+          >
+            Analyse an album →
+          </button>
+        )}
       </div>
 
       {/* Bottom-right: recents + greeting */}
@@ -396,6 +423,35 @@ export function CoverSurface({
           }}
         >
           {greeting}
+        </div>
+
+        {/* Audience switcher — discoverable per-tab override.
+            Replaces the DevTools-only localStorage workaround. */}
+        <div
+          className="mt-4 flex gap-3 items-center"
+          style={{ fontSize: '9px', letterSpacing: '0.16em' }}
+        >
+          <span style={{ color: SAND_400, textTransform: 'uppercase' }}>VIEW AS</span>
+          {(['pro', 'producer', 'student', 'teacher'] as Audience[]).map((a) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => setAudienceOverride(a)}
+              style={{
+                color: a === audience ? CREAM : SAND_400,
+                textTransform: 'uppercase',
+                background: 'transparent',
+                border: 'none',
+                padding: '2px 0',
+                borderBottom: a === audience ? `1px solid ${GOLD}` : '1px solid transparent',
+                cursor: 'pointer',
+                letterSpacing: '0.16em',
+                fontSize: '9px',
+              }}
+            >
+              {a}
+            </button>
+          ))}
         </div>
       </aside>
     </section>

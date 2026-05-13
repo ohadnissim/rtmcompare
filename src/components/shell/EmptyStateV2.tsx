@@ -133,6 +133,8 @@ export default function EmptyStateV2({
     onBeginRefOnly={onBeginRefOnly ?? onBegin}
     canCompare={canCompare ?? (canBegin && !!fileAName && !!fileBName)}
     canRefOnly={canRefOnly ?? canBegin}
+    onBeginBatch={onBatch}
+    canBatch={!!onBatch}
     profileName={profileName}
     recents={(v52Recents ?? (recents ?? []).slice(0, 3).map(r => ({
      id: (r as HistoryEntry).path ?? (r as HistoryEntry).name ?? '',

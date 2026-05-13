@@ -86,6 +86,29 @@ export function useAudience(): Audience {
 }
 
 /**
+ * Imperative setter for the audience override.
+ *
+ * Writes (or clears) `localStorage['rtm-audience']` and fires a synthetic
+ * `storage` event so same-tab `useAudience()` subscribers re-render. The
+ * native `storage` event only fires in OTHER tabs, so we dispatch one
+ * ourselves for the current tab.
+ *
+ * Pass `null` to clear the override and fall back to the signal chain.
+ */
+export function setAudienceOverride(audience: Audience | null): void {
+  if (SSR) return
+  try {
+    if (audience === null) {
+      window.localStorage.removeItem(AUDIENCE_KEY)
+    } else {
+      window.localStorage.setItem(AUDIENCE_KEY, audience)
+    }
+    // Same-tab notification — useSyncExternalStore in useAudience listens on storage events.
+    window.dispatchEvent(new StorageEvent('storage', { key: AUDIENCE_KEY, newValue: audience }))
+  } catch {}
+}
+
+/**
  * Per-surface v5.2 promotion. Mirror of FLOW's `useV11Surface`.
  *
  *   - `rtm-shell` === 'v5.2' promotes every surface globally.

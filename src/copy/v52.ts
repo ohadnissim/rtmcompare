@@ -61,11 +61,23 @@ interface CertificateCopy {
   signature: ByAudience<(c: CertificateCtx) => string>
 }
 
+interface SlotsCopy {
+  /** Left slot — universal (the thing you compare AGAINST). */
+  fileA: string
+  /** Right slot — what you're putting up against the reference. */
+  fileB: ByAudience<string>
+  /** Drop placeholder for the empty left slot — universal. */
+  dropA: string
+  /** Drop placeholder for the empty right slot — per audience. */
+  dropB: ByAudience<string>
+}
+
 export interface V52Copy {
   cover: CoverCopy
   verdict: VerdictCopy
   cta: CtaCopy
   certificate: CertificateCopy
+  slots: SlotsCopy
 }
 
 export const v52Copy: V52Copy = {
@@ -123,6 +135,25 @@ export const v52Copy: V52Copy = {
       producer: (c) => `Track: ${c.title ?? '—'} · Released by ${c.label ?? '—'}`,
       student: (c) => `${c.studentName ?? '—'} · ${c.assignment ?? '—'} · Grade ${c.grade ?? '—'}`,
       teacher: (c) => `${c.teacherName ?? '—'} · ${c.course ?? '—'} · ${c.date ?? ''}`.trim(),
+    },
+  },
+  slots: {
+    // Left slot — universal (the thing you compare AGAINST).
+    fileA: 'REFERENCE',
+    // Right slot — what you're putting up against the reference.
+    fileB: {
+      pro: 'YOUR FILE',        // mix or master, the engineer decides
+      producer: 'YOUR TRACK',
+      student: 'YOUR MIX',     // students are mostly mixing
+      teacher: 'SUBMISSION',
+    },
+    // Drop placeholders for the empty state — also per audience.
+    dropA: 'DROP REFERENCE',
+    dropB: {
+      pro: 'DROP YOUR FILE',
+      producer: 'DROP YOUR TRACK',
+      student: 'DROP YOUR MIX',
+      teacher: 'DROP SUBMISSION',
     },
   },
 }
