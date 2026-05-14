@@ -218,7 +218,7 @@ def compute_stereo_width_per_band(left: np.ndarray, right: np.ndarray, sr: int) 
 
 
 def detect_polarity_inversion(a_mono: np.ndarray, b_mono: np.ndarray,
-                              sr: int = 44100) -> bool:
+                              sr: int = None) -> bool:
     """Return True if B appears to be polarity-inverted relative to A.
     Uses Pearson correlation on a 10-second trim to avoid long-file cost.
     LOW-10: trim length is now sr-aware (10 s × actual sr) instead of
@@ -751,7 +751,7 @@ def _platform_key(name: str) -> str:
 
 
 def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
-                            y_b: np.ndarray | None = None, sr: int = 44100,
+                            y_b: np.ndarray | None = None, sr: int = None,
                             file_a: str | None = None, file_b: str | None = None) -> dict:
     """Attach a mastering self-review delta to two-file compare results.
     Every field is best-effort so optional analyser failures do not break JSON."""
@@ -1206,8 +1206,12 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
             kw = lfilter(b2, a2, kw)
         except Exception:
             kw = mono
-        frame_length = int(sr * 0.4)
-        hop_length = int(sr * 0.1)
+        # EBU R128 LRA is derived from the short-term loudness distribution,
+        # which uses 3 s windows with 2 s overlap (1 s hop).  The old 400 ms
+        # frame matched BS.1770 momentary blocks — 7× too short — causing LRA
+        # to be over-reported by 4–8 LU on material with slow dynamics.
+        frame_length = int(sr * 3.0)
+        hop_length = int(sr * 1.0)
         rms = librosa.feature.rms(y=kw, frame_length=frame_length, hop_length=hop_length)[0]
         rms_db = 20 * np.log10(np.maximum(rms, 1e-10))
         rms_db = rms_db[rms_db > -70]  # absolute gate, BS.1770
@@ -1285,7 +1289,7 @@ def analyze_category(name: str, mono_a: np.ndarray, mono_b: np.ndarray,
     }
 
 
-def run_full_analysis(stems_a: dict, stems_b: dict, sr: int = 44100) -> dict:
+def run_full_analysis(stems_a: dict, stems_b: dict, sr: int = None) -> dict:
     """
     Run the full granular analysis pipeline.
     1. Load all stems
@@ -2073,10 +2077,25 @@ def run_hybrid_analysis(file_a: str, file_b: str, tmp_dir: str,
     chunk_a = y_a_full[:, start:end]
     chunk_b = y_b_full[:, start:end]
 
+    # BS-RoFormer and htdemucs models are trained at 44.1 kHz.  At higher
+    # native rates (48 / 88.2 / 96 kHz) the model sees the signal as if it
+    # were pitch-shifted up, which shifts all frequency-band decisions by the
+    # same ratio — kick gets misclassified as bass, high-mids bleed into
+    # bass stem, SDR drops 2–4 dB.  Resample to 44100 Hz for separation,
+    # then resample stems back to native sr for downstream analysis so that
+    # no frequency information is lost in the non-separation analysis paths.
+    _SEP_SR = 44100
+    if sr != _SEP_SR:
+        chunk_a_sep = librosa.resample(chunk_a, orig_sr=sr, target_sr=_SEP_SR)
+        chunk_b_sep = librosa.resample(chunk_b, orig_sr=sr, target_sr=_SEP_SR)
+    else:
+        chunk_a_sep = chunk_a
+        chunk_b_sep = chunk_b
+
     chunk_a_path = os.path.join(tmp_dir, "chunk_a.wav")
     chunk_b_path = os.path.join(tmp_dir, "chunk_b.wav")
-    sf.write(chunk_a_path, chunk_a.T, sr)
-    sf.write(chunk_b_path, chunk_b.T, sr)
+    sf.write(chunk_a_path, chunk_a_sep.T, _SEP_SR)
+    sf.write(chunk_b_path, chunk_b_sep.T, _SEP_SR)
 
     # Run separator on the short chunks. CRITICAL: route into per-file
     # output subdirectories. The default BS-RoFormer backend writes

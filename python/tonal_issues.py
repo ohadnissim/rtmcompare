@@ -97,7 +97,7 @@ def bandpass_rms_db(y: np.ndarray, sr: int, low: float, high: float) -> float:
         return -70.0
 
 
-def detect_tonal_issues(path_a: str, path_b: str, sr: int = 44100) -> list:
+def detect_tonal_issues(path_a: str, path_b: str, sr: int = None) -> list:
     """
     Compare tonal characteristics between File A and File B.
     Returns a list of detected issues with severity, description, and fix.

@@ -110,7 +110,7 @@ def sanitize(obj):
 from comparator import run_fast_analysis
 
 
-def _true_peak_db(file_path: str, sr: int = 44100) -> tuple:
+def _true_peak_db(file_path: str, sr: int = None) -> tuple:
     """
     ITU-R BS.1770-compliant true-peak + headroom using 4× polyphase oversampling.
 
@@ -494,8 +494,8 @@ def main():
             _warn_optional("mono-reload (blocks hum/dialog/limiter/transient)", e)
             mono_b_full = None
             mono_a_full = None
-            _sr_b = 44100
-            _sr_a = 44100
+            _sr_b = info_b.samplerate if info_b else 44100
+            _sr_a = info_a.samplerate if info_a else 44100
 
         # Per-file durations — important for sync briefs, Atmos delivery, and
         # any A/B where length differences (e.g. a radio edit vs full mix) need

@@ -47,7 +47,7 @@ def _band_rms_db(y: np.ndarray, sr: int, low: float, high: float) -> float:
     return float(20 * np.log10(max(rms, 1e-10)))
 
 
-def analyze_masking(stems_dir: str = None, file_path: str = None, sr: int = 44100) -> dict:
+def analyze_masking(stems_dir: str = None, file_path: str = None, sr: int = None) -> dict:
     """
     Analyse masking overlaps.
 

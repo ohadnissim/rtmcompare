@@ -245,7 +245,7 @@ def _estimate_bpm_robust(y: np.ndarray, sr: int) -> float:
             return 0.0
 
 
-def check_reference(path: str, sr: int = 44100) -> dict:
+def check_reference(path: str, sr: int = None) -> dict:
     """
     Full reference quality check including Harman-inspired tonal analysis.
     """

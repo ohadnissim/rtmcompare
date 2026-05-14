@@ -20,12 +20,12 @@ import librosa
 from scipy.signal import butter, sosfilt
 
 
-def detect_clicks(path_a: str, path_b: str, sr: int = 44100) -> list:
+def detect_clicks(path_a: str, path_b: str, sr: int = None) -> list:
     """Detect digital clicks/glitches in File B (the compared file)."""
     return detect_clicks_single(path_b, sr)
 
 
-def detect_clicks_single(path: str, sr: int = 44100) -> list:
+def detect_clicks_single(path: str, sr: int = None) -> list:
     """Detect digital clicks AND glitches in a single file."""
     y, _ = librosa.load(path, sr=sr, mono=True)
     artifacts = find_artifacts(y, sr)

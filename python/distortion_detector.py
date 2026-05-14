@@ -13,7 +13,7 @@ import librosa
 from scipy.signal import resample_poly
 
 
-def detect_distortion(path_a: str, path_b: str, sr: int = 44100) -> dict:
+def detect_distortion(path_a: str, path_b: str, sr: int = None) -> dict:
     """Analyze both files for distortion, strict thresholds."""
     y_a, _ = librosa.load(path_a, sr=sr, mono=False)
     y_b, _ = librosa.load(path_b, sr=sr, mono=False)
@@ -123,7 +123,7 @@ def detect_distortion(path_a: str, path_b: str, sr: int = 44100) -> dict:
     }
 
 
-def detect_distortion_single(path: str, sr: int = 44100) -> dict:
+def detect_distortion_single(path: str, sr: int = None) -> dict:
     """Analyze a single file for distortion (for reference-only scan)."""
     y, _ = librosa.load(path, sr=sr, mono=True)
 

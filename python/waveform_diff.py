@@ -23,7 +23,7 @@ FREQS = [
 ]
 
 
-def compute(path_a: str, path_b: str, sr: int = 44100, window_sec: float = 2.0) -> dict:
+def compute(path_a: str, path_b: str, sr: int = None, window_sec: float = 2.0) -> dict:
     try:
         ya, _ = librosa.load(path_a, sr=sr, mono=True)
         yb, _ = librosa.load(path_b, sr=sr, mono=True)
