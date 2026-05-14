@@ -40,6 +40,18 @@ let mainWindow: BrowserWindow | null = null
 
 /** Returns a canonicalised absolute path if `p` points to a regular
  *  file. Throws a clear Error on any violation. */
+/** Atomic write: write to a sibling .tmp file then rename into place.
+ * Prevents partial writes from leaving a corrupt destination file. */
+function atomicWriteFileSync(dest: string, data: string | Buffer | Uint8Array, encoding?: BufferEncoding): void {
+  const tmp = dest + '.tmp'
+  if (encoding && typeof data === 'string') {
+    fs.writeFileSync(tmp, data, encoding)
+  } else {
+    fs.writeFileSync(tmp, data as any)
+  }
+  fs.renameSync(tmp, dest)
+}
+
 function assertSafeAudioPath(p: unknown, purpose: string): string {
   if (typeof p !== 'string' || p.length === 0 || p.length > 4096) {
     throw new Error(`${purpose}: invalid path argument`)
@@ -999,7 +1011,7 @@ ipcMain.handle('render-pdf', async (_event, html: string, suggestedName: string)
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
       preferCSSPageSize: true,
     })
-    fs.writeFileSync(result.filePath, pdfBuf)
+    atomicWriteFileSync(result.filePath, pdfBuf)
     return result.filePath
   } finally {
     hidden.close()
@@ -1086,7 +1098,7 @@ ipcMain.handle('save-file-dialog', async (_e, defaultName: string, contents: str
     filters: filters || [{ name: 'All Files', extensions: ['*'] }],
   })
   if (result.canceled || !result.filePath) return null
-  fs.writeFileSync(result.filePath, contents, 'utf8')
+  atomicWriteFileSync(result.filePath, contents, 'utf8')
   return result.filePath
 })
 
@@ -1100,7 +1112,7 @@ ipcMain.handle('save-binary-file-dialog', async (_e, defaultName: string, bytes:
   })
   if (result.canceled || !result.filePath) return null
   const buf = bytes instanceof ArrayBuffer ? Buffer.from(bytes) : Buffer.from(bytes as any)
-  fs.writeFileSync(result.filePath, buf)
+  atomicWriteFileSync(result.filePath, buf)
   return result.filePath
 })
 
@@ -2111,7 +2123,7 @@ ipcMain.handle('write-file-direct', async (_event, folderPath: string, fileName:
       return { error: 'invalid fileName' }
     }
     const finalPath = path.join(safeDir, sanitised)
-    fs.writeFileSync(finalPath, contents as any)
+    atomicWriteFileSync(finalPath, contents as any)
     return finalPath
   } catch (err: any) {
     return { error: err?.message || 'direct write failed' }
@@ -2144,7 +2156,7 @@ ipcMain.handle('render-pdf-direct', async (_event, folderPath: string, fileName:
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
       preferCSSPageSize: true,
     })
-    fs.writeFileSync(finalPath, pdfBuf)
+    atomicWriteFileSync(finalPath, pdfBuf)
     return finalPath
   } catch (err: any) {
     return { error: err?.message || 'PDF render failed' }
@@ -2333,7 +2345,7 @@ ipcMain.handle('generate-student-report', async (_event, payload: any) => {
         printBackground: true, pageSize: 'A4',
         margins: { top: 0, bottom: 0, left: 0, right: 0 }, preferCSSPageSize: true,
       })
-      fs.writeFileSync(finalPath, pdfBuf)
+      atomicWriteFileSync(finalPath, pdfBuf)
       // ── Write .rtm-report.json sidecar for grade book ──
       try {
         const sidecarPath = finalPath.replace(/\.pdf$/i, '.rtm-report.json')
@@ -2489,7 +2501,7 @@ ipcMain.handle('export-gradebook-csv', async (_e, records: any[]) => {
   })
   if (savePath.canceled || !savePath.filePath) return { ok: false, error: 'Cancelled' }
   try {
-    fs.writeFileSync(savePath.filePath, csvContent, 'utf8')
+    atomicWriteFileSync(savePath.filePath, csvContent, 'utf8')
     return { ok: true, path: savePath.filePath }
   } catch (e: any) {
     return { ok: false, error: e?.message }
@@ -3053,7 +3065,7 @@ ipcMain.handle('share-as-html', async (_event, payload: { title: string; reportJ
 
   try {
     const html = buildShareHtml(payload.title, payload.reportJson)
-    fs.writeFileSync(result.filePath, html, 'utf8')
+    atomicWriteFileSync(result.filePath, html, 'utf8')
     return { success: true, filePath: result.filePath }
   } catch (err: any) {
     return { success: false, error: err?.message ?? 'Write failed' }

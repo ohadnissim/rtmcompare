@@ -102,6 +102,7 @@ def list_profiles():
                         "name": data.get("name", profile_id),
                         "description": data.get("description", ""),
                         "sample_count": data.get("sample_count", 0),
+                        "profile_type": data.get("profile_type", "fingerprint"),
                         "user_created": d == USER_PROFILES_DIR,
                     })
             except Exception:
@@ -394,9 +395,16 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
         return {"engineer": profile_id, "tips": [], "tonal_diff": [], "summary": "Profile not found."}
 
     engineer_name = profile.get("name", profile_id)
+    _sv = profile.get("schema_version", 1)
+    _schema_warning = (
+        f"This profile was built with an older version of RTMcompare (schema_version={_sv}, "
+        f"current=4). Dynamic range and spread comparisons may be inaccurate. "
+        f"Rebuild the profile with RTMprofile for best results."
+    ) if _sv < 3 else None
+
     curve = profile.get("curve")
     if not curve:
-        return {"engineer": engineer_name, "tips": [], "tonal_diff": [], "summary": "Profile has no tonal curve — rebuild the profile to populate it."}
+        return {"engineer": engineer_name, "tips": [], "tonal_diff": [], "summary": "Profile has no tonal curve — rebuild the profile to populate it.", "schema_warning": _schema_warning}
 
     # Load file B (the compare/master file) at native SR.
     y_b, sr = librosa.load(file_b_path, sr=None, mono=False)
@@ -692,6 +700,58 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
         # Match score on smoothed spectra so the score doesn't penalise
         # tracks for narrow tonal features the reference can't match.
         "match_score": _safe_match_score(spec_b_sm, curve_sm, lufs_b, dr_b, width_b, profile, silent=spec_b_silent),
+        # Chain analysis delta — what the mastering chain adds per band.
+        # eq_curve is master − mix median delta; eq_mad is band-by-band spread.
+        "chain_analysis": profile.get("chain_analysis"),
+        "schema_warning": _schema_warning,
+    }
+
+
+def generate_chain_tips(file_b_path, profile_id="", sr=None):
+    """
+    Apply a chain profile's eq_curve delta to file_b's spectrum and return the
+    predicted post-mastering position.
+
+    Chain profiles have profile_type="chain" and contain only chain_analysis —
+    no standalone tonal curve. This function loads the file, computes its
+    spectrum, then adds the chain delta band-by-band to produce
+    spectrum_after_chain.
+
+    Returns a ChainTips-shaped dict, or None if the profile is invalid.
+    """
+    profile = load_profile(profile_id)
+    if not profile:
+        return None
+    if profile.get("profile_type") != "chain":
+        return None
+    chain = profile.get("chain_analysis")
+    if not chain or not chain.get("eq_curve"):
+        return None
+
+    engineer_name = profile.get("name", profile_id)
+    eq_curve = chain["eq_curve"]
+    eq_mad = chain.get("eq_mad", [None] * len(eq_curve))
+
+    y_b, sr_b = librosa.load(file_b_path, sr=None, mono=True)
+    spec_b = compute_spectrum(y_b, sr_b)
+    spec_b_sm = _smooth_log_spectrum(spec_b)
+
+    # Apply delta: clamp None bands to 0 shift.
+    after_chain = [
+        round(float(v) + float(d if d is not None else 0), 1)
+        for v, d in zip(spec_b_sm, eq_curve)
+    ]
+
+    return {
+        "engineer": engineer_name,
+        "profile_id": profile_id,
+        "profile_type": "chain",
+        "pair_count": chain.get("pair_count", 0),
+        "spectrum_file": [round(float(v), 1) for v in spec_b_sm],
+        "spectrum_after_chain": after_chain,
+        "eq_curve": eq_curve,
+        "eq_mad": eq_mad,
+        "freqs": FREQ_LABELS,
     }
 
 

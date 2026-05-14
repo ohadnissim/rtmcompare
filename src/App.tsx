@@ -615,7 +615,13 @@ export default function App() {
  { name: 'RTM Album Session', extensions: ['json', 'rtmalbum'] },
  ])
  if (!picked) return
- const parsed = JSON.parse(picked.contents) as AlbumSession
+ let parsed: AlbumSession
+ try {
+ parsed = JSON.parse(picked.contents) as AlbumSession
+ } catch {
+ setError('That file does not look like an RTM album session (JSON parse error).')
+ return
+ }
  if (!parsed || !Array.isArray(parsed.results)) {
  setError('That file does not look like an RTM album session.')
  return
