@@ -110,7 +110,7 @@ def sanitize(obj):
 from comparator import run_fast_analysis
 
 
-def _true_peak_db(file_path: str, sr: int = None) -> tuple:
+def _true_peak_db(file_path: str) -> tuple:
     """
     ITU-R BS.1770-compliant true-peak + headroom using 4× polyphase oversampling.
 

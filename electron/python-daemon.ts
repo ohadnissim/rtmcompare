@@ -323,6 +323,11 @@ export async function daemonRequest(
   onProgress?: (msg: string) => void
 ): Promise<unknown> {
   // Wait for daemon to be ready (or reject immediately if dead/stopped).
+  // Emit a progress update if we're still starting so the user sees activity
+  // rather than a silent wait of up to 60 s on cold first launch.
+  if (_state === 'starting' && onProgress) {
+    onProgress('Loading audio analysis engine… (first launch takes ~15 s)')
+  }
   await _whenReady()
 
   const id = uuidv4()
@@ -355,9 +360,10 @@ export async function daemonAnalyze(
   fileB: string,
   onProgress: (msg: string) => void,
   fast = true,
-  profile = ''
+  profile = '',
+  chainProfile = ''
 ): Promise<unknown> {
-  return daemonRequest('analyze', { file_a: fileA, file_b: fileB, fast, profile }, onProgress)
+  return daemonRequest('analyze', { file_a: fileA, file_b: fileB, fast, profile, chain_profile: chainProfile || undefined }, onProgress)
 }
 
 /**

@@ -89,6 +89,8 @@ function BandSoloOverlay({ w, h, bands }: { w: number; h: number; bands: number 
 }
 
 const LABEL_INDICES = [0, 3, 6, 9, 12, 15, 17, 20, 23, 26, 28, 30]
+const VIEW_MODES_WITH_DELTA: ViewMode[] = ['stereo', 'mid', 'side', 'delta']
+const VIEW_MODES_NO_DELTA: ViewMode[] = ['stereo', 'mid', 'side']
 
 type ViewMode = 'stereo' | 'mid' | 'side' | 'delta'
 
@@ -142,7 +144,7 @@ export default function SpectrumOverlay({
  {(hasMidSide || !singleFile) && (
  <div className="flex gap-1 bg-dark-800 p-1" style={{ borderRadius: '2px' }}>
  {(hasMidSide
- ? (singleFile ? (['stereo','mid','side'] as ViewMode[]) : (['stereo','mid','side','delta'] as ViewMode[]))
+ ? (singleFile ? VIEW_MODES_NO_DELTA : VIEW_MODES_WITH_DELTA)
  : (singleFile ? (['stereo'] as ViewMode[]) : (['stereo','delta'] as ViewMode[]))
  ).map(v => {
  const vc = viewConfig[v]

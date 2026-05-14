@@ -1,11 +1,11 @@
-version: 7.5.5
+version: 7.6.5
 files:
-  - url: RTMcompare-bundle-7.5.5-arm64.dmg
-    sha512: wo3wTNpOd86OT8kv+msB3uVQdCNoQhWy8j7TYXPuUA/f/2+HZweDduMMJvxJvlW4bbS94Ii1Cl3NqfxfAA7Xig==
-    size: 1373471330
-  - url: RTMcompare-bundle-7.5.5-intel.dmg
-    sha512: O/+nh8uR9D7q4j2lj1WVCV3vRNLK9oelrKc/9HDsxzl+7J9fbacKp4HjRD5AQ+UID4Ngb1WDYQZnLuRhDYLi3A==
-    size: 1386890386
-path: RTMcompare-bundle-7.5.5-arm64.dmg
-sha512: wo3wTNpOd86OT8kv+msB3uVQdCNoQhWy8j7TYXPuUA/f/2+HZweDduMMJvxJvlW4bbS94Ii1Cl3NqfxfAA7Xig==
-releaseDate: '2026-05-12T07:07:39.854Z'
+  - url: RTMcompare-7.6.5-arm64.dmg
+    sha512: zGG4Iadl6X1VcLzqI7DX7rthBExt/BJNKpqH4jatCppxYMNAKo4elPig7sxIaxkZzFybDlIwsZj26sBrEuTbrA==
+    size: 989152207
+  - url: RTMcompare-7.6.5.dmg
+    sha512: QrQ+/Jl8UFwxnRPkIJN+GG6DzbX2NgKNPIkmfkpyN0UeGNt15O/sbnibaoY0tH+mTj1N4M7ZTT7LQqswSQwA8A==
+    size: 985129301
+path: RTMcompare-7.6.5-arm64.dmg
+sha512: zGG4Iadl6X1VcLzqI7DX7rthBExt/BJNKpqH4jatCppxYMNAKo4elPig7sxIaxkZzFybDlIwsZj26sBrEuTbrA==
+releaseDate: '2026-05-14T09:41:03.531Z'

@@ -153,7 +153,9 @@ export function knowledgePathFor (pluginName: string): string {
 
 export function saveReference (entry: ReferenceProfile): void {
   const p = knowledgePathFor(entry.name)
-  fs.writeFileSync(p, JSON.stringify(entry, null, 2), 'utf8')
+  const tmp = p + '.tmp'
+  fs.writeFileSync(tmp, JSON.stringify(entry, null, 2), 'utf8')
+  fs.renameSync(tmp, p)
 }
 
 export function loadReference (pluginName: string): ReferenceProfile | null {

@@ -312,6 +312,7 @@ export default function EmptyStateV2({
  type="button"
  onClick={canBegin ? onBegin : undefined}
  disabled={!canBegin}
+ aria-describedby={!canBegin ? 'begin-disabled-hint' : undefined}
  style={{
  fontFamily: 'var(--font-display)',
  fontStyle: 'italic',
@@ -328,6 +329,11 @@ export default function EmptyStateV2({
  >
  Begin analysis
  </button>
+ {!canBegin && (
+   <p id="begin-disabled-hint" className="sr-only">
+     Drop at least one audio file to enable analysis.
+   </p>
+ )}
  {/* CRIT-10: tell the user what "Begin" will do when only one file is loaded */}
  {canBegin && !fileBName && (
    <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px', textAlign: 'center' }}>

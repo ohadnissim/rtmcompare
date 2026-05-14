@@ -1,6 +1,9 @@
 import { AnalysisResult, BatchResult } from './types'
 import { DSP_PROFILES, streamingTpFloorDbtp } from './dspProfiles'
 
+/** Minimum sample rate (Hz) accepted for delivery — 44.1 kHz per AES/streaming specs. */
+const MIN_SUPPORTED_SR = 44100
+
 /**
  * Ready-to-Deliver verdict — the top-of-view traffic light every single-file
  * surface (RefOnlyView, SongDetailPanel) shares. Pass/Warn/Hold derived from
@@ -158,7 +161,7 @@ export function buildVerdict(m: SingleFileMetrics, full?: Partial<AnalysisResult
  level = 'hold'
  reasons.push(`${m.clipped_samples} clipped sample${m.clipped_samples === 1 ? '' : 's'} at 0 dBFS`)
  }
- if (m.sample_rate != null && m.sample_rate < 44100) {
+ if (m.sample_rate != null && m.sample_rate < MIN_SUPPORTED_SR) {
  level = 'hold'
  reasons.push(`Sample rate ${m.sample_rate} Hz — below 44.1 kHz minimum`)
  }
@@ -261,7 +264,7 @@ export function buildVerdict(m: SingleFileMetrics, full?: Partial<AnalysisResult
  // panel; no Hold action driven by TP alone.
  } else if ((m.clipped_samples || 0) > 0) {
  action = `Fix the ${m.clipped_samples} clipped sample${m.clipped_samples === 1 ? '' : 's'} — drop the master-bus output 0.3–0.5 dB and re-render.`
- } else if (m.sample_rate != null && m.sample_rate < 44100) {
+ } else if (m.sample_rate != null && m.sample_rate < MIN_SUPPORTED_SR) {
  action = `Re-render at 44.1 kHz or higher.`
  } else if (m.bit_depth != null && m.bit_depth < 16) {
  action = `Re-render at 16-bit or higher.`
@@ -494,9 +497,9 @@ export function computeAdmReadiness(args: {
  checks.push({
  key: 'sample_rate',
  label: '44.1 kHz or higher',
- pass: sampleRate != null && sampleRate >= 44100,
+ pass: sampleRate != null && sampleRate >= MIN_SUPPORTED_SR,
  value: sampleRate != null ? `${(sampleRate / 1000).toFixed(sampleRate % 1000 === 0 ? 0 : 1)} kHz` : 'unknown',
- detail: sampleRate != null && sampleRate < 44100
+ detail: sampleRate != null && sampleRate < MIN_SUPPORTED_SR
  ? `Apple Digital Masters requires 44.1 kHz minimum. This file is ${(sampleRate / 1000).toFixed(1)} kHz.`
  : undefined,
  })

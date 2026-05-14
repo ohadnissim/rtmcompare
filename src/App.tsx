@@ -757,7 +757,8 @@ export default function App() {
    if (profiles.length === 0) return
 
    const fingerprintProfiles = profiles.filter(p => !p.profile_type || p.profile_type === 'fingerprint')
-   const savedProfile = (() => { try { return localStorage.getItem('rtm-profile') ?? '' } catch { return '' } })()
+   // Use the `profile` state value (already read from localStorage on mount) — avoids a second localStorage read.
+   const savedProfile = profile
    // MED-4: check ALL profiles for the saved ID so a mis-typed profile_type doesn't lose the selection
    const savedExists = savedProfile && profiles.some(p => p.id === savedProfile)
    if (savedExists) {
@@ -1122,6 +1123,7 @@ export default function App() {
  // unrelated components.
  ;(window as any).__rtmCurrentFolderPath = folder
  setState('batch')
+ focusResults()
  } catch (err: any) {
  unsubBatchProgress?.()
  setError(err?.message || 'Batch analysis failed')
@@ -1207,7 +1209,7 @@ export default function App() {
  }
  window.addEventListener('keydown', onKey)
  return () => window.removeEventListener('keydown', onKey)
- }, [state])
+ }, [state, handleReset, zoomIn, zoomOut, zoomReset])
 
  // ── Modes (educator + blind) come from ModesContext so toggling them
  // actually re-renders every panel that reads them.
@@ -1762,6 +1764,16 @@ export default function App() {
  )}
 
  {state === 'batch' && batchResults && (
+ <>
+ {/* LOW-16: keyboard focus target for batch results */}
+ <h2
+   ref={resultsHeadingRef}
+   tabIndex={-1}
+   className="sr-only"
+   style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+ >
+   Batch analysis results
+ </h2>
  <Suspense fallback={<ProgressBar message="Loading batch view…" />}>
  <BatchView
  results={batchResults}
@@ -1770,6 +1782,7 @@ export default function App() {
  initialSession={batchInitialSession}
  />
  </Suspense>
+ </>
  )}
 
  {state === 'ref-only' && refOnlyResults && (

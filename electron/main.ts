@@ -52,7 +52,7 @@ function atomicWriteFileSync(dest: string, data: string | Buffer | Uint8Array, e
   fs.renameSync(tmp, dest)
 }
 
-function assertSafeAudioPath(p: unknown, purpose: string): string {
+function assertSafeAudioPath(p: unknown, purpose: string, allowedExtensions?: Set<string>): string {
   if (typeof p !== 'string' || p.length === 0 || p.length > 4096) {
     throw new Error(`${purpose}: invalid path argument`)
   }
@@ -60,11 +60,18 @@ function assertSafeAudioPath(p: unknown, purpose: string): string {
   if (!fs.existsSync(abs)) {
     throw new Error(`${purpose}: file not found (${abs})`)
   }
-  // Resolve symlinks so the existence/type check is on the real target.
+  // Resolve symlinks BEFORE extension check — a symlink evil.wav→/etc/passwd
+  // would pass an extension check on the link name but fail on the real target.
   try { abs = fs.realpathSync(abs) } catch {}
   const st = fs.statSync(abs)
   if (!st.isFile()) {
     throw new Error(`${purpose}: not a regular file (${abs})`)
+  }
+  if (allowedExtensions) {
+    const ext = path.extname(abs).toLowerCase()
+    if (!allowedExtensions.has(ext)) {
+      throw new Error(`${purpose}: file extension '${ext}' not allowed`)
+    }
   }
   return abs
 }
@@ -322,24 +329,29 @@ function createWindow() {
     if (splashWindow && !splashWindow.isDestroyed()) {
       try { splashWindow.close() } catch {}
     }
-    // Push profiles immediately after window is ready — avoids race where
-    // renderer calls list-profiles before IPC handlers are registered.
-    try {
-      ensureUserProfilesDir()
-      const pushed: any[] = []
-      const seen = new Set<string>()
-      for (const f of fs.readdirSync(USER_PROFILES_DIR).sort()) {
-        if (!f.endsWith('.json')) continue
-        const id = f.replace(/\.json$/, '')
-        if (seen.has(id)) continue
-        try {
-          const data = JSON.parse(fs.readFileSync(path.join(USER_PROFILES_DIR, f), 'utf8'))
-          pushed.push({ id, name: data.name || id, description: data.description || '', sample_count: data.sample_count || 0, user_created: true, profile_type: data.profile_type || 'fingerprint' })
-          seen.add(id)
-        } catch {}
-      }
-      if (pushed.length > 0) mainWindow?.webContents.send('profiles-ready', pushed)
-    } catch {}
+    // Push profiles after a short delay so the renderer's useEffect that
+    // registers onProfilesReady has time to run before the push arrives.
+    // Without the delay, ready-to-show can fire before React mounts and the
+    // push is silently lost.  refreshProfiles() on mount is still the primary
+    // path; this push only accelerates the first render for user profiles.
+    setTimeout(() => {
+      try {
+        ensureUserProfilesDir()
+        const pushed: any[] = []
+        const seen = new Set<string>()
+        for (const f of fs.readdirSync(USER_PROFILES_DIR).sort()) {
+          if (!f.endsWith('.json')) continue
+          const id = f.replace(/\.json$/, '')
+          if (seen.has(id)) continue
+          try {
+            const data = JSON.parse(fs.readFileSync(path.join(USER_PROFILES_DIR, f), 'utf8'))
+            pushed.push({ id, name: data.name || id, description: data.description || '', sample_count: data.sample_count || 0, user_created: true, profile_type: data.profile_type || 'fingerprint' })
+            seen.add(id)
+          } catch {}
+        }
+        if (pushed.length > 0) mainWindow?.webContents.send('profiles-ready', pushed)
+      } catch {}
+    }, 300)
   })
 
   // Handle file drops — intercept in main process where we have full paths.
@@ -454,7 +466,8 @@ app.on('activate', () => {
 
 // IPC Handlers
 ipcMain.handle('select-file', async () => {
-  const result = await dialog.showOpenDialog(mainWindow!, {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [
       {
@@ -904,7 +917,8 @@ ipcMain.handle('open-profiles-folder', () => {
 
 ipcMain.handle('load-custom-profile', async () => {
   ensureUserProfilesDir()
-  const result = await dialog.showOpenDialog(mainWindow!, {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     title: 'Load Engineer Profile',
     filters: [{ name: 'Profile JSON', extensions: ['json'] }],
@@ -1579,10 +1593,13 @@ interface RefRecord {
   notes?: string
   error?: string
 }
+let _refsCache: RefRecord[] | null = null
 function readRefs(): RefRecord[] {
+  if (_refsCache) return _refsCache
   try {
     if (!fs.existsSync(REFERENCES_PATH)) return []
-    return JSON.parse(fs.readFileSync(REFERENCES_PATH, 'utf8')) as RefRecord[]
+    _refsCache = JSON.parse(fs.readFileSync(REFERENCES_PATH, 'utf8')) as RefRecord[]
+    return _refsCache
   } catch { return [] }
 }
 function writeRefs(list: RefRecord[]) {
@@ -1591,6 +1608,7 @@ function writeRefs(list: RefRecord[]) {
   const tmp = `${REFERENCES_PATH}.tmp`
   fs.writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8')
   fs.renameSync(tmp, REFERENCES_PATH)
+  _refsCache = list
 }
 ipcMain.handle('references-list', async () => readRefs())
 ipcMain.handle('references-delete', async (_e, id: string) => {
@@ -2578,8 +2596,9 @@ ipcMain.handle('save-student-feedback', async (_e, reportPath: string, feedback:
 ipcMain.handle('compute-sha256', async (_e, filePath: string) => {
   try { assertSafeAudioPath(filePath, 'compute-sha256') }
   catch (err: any) { return { error: err?.message || 'invalid path' } }
-  // 5.2.0: also gate by extension so this can't be used to fingerprint
-  // arbitrary files on disk via a renderer compromise.
+  // Extension gate: restrict to audio files only so this handler cannot be
+  // used to fingerprint arbitrary disk files via a renderer compromise.
+  // Not documented for PDFs — update callers if PDF hashing is ever needed.
   const ext = path.extname(filePath).toLowerCase()
   if (!AUDIO_EXT.has(ext)) {
     return { error: 'compute-sha256 only accepts audio files' }
