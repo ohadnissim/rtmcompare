@@ -176,18 +176,21 @@ export default function ProgressBar({ message, onCancel }: Props) {
  setTimeout(() => {
  setQueuePos(prev => {
  const next = prev + 1
- // Reshuffle when we've gone through all jokes
  if (next >= queue.length) {
  setQueue(shuffleArray(jokes.map((_, i) => i)))
  return 0
  }
  return next
  })
- setFade(true)
  }, 400)
  }, 10000)
  return () => clearInterval(interval)
  }, [queue.length])
+
+ // Restore fade-in after queuePos advances (correct order: fade out → pos change → fade in)
+ useEffect(() => {
+ setFade(true)
+ }, [queuePos])
 
  // 5.3.0 a11y (SC 4.1.3): announce progress to assistive tech via
  // role="status" + aria-live="polite". The progressbar primitive

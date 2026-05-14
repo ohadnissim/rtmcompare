@@ -313,54 +313,69 @@ def _compute_ms_tips(y_stereo, sr):
         mid  = (y_stereo[0] + y_stereo[1]) / 2.0
         side = (y_stereo[0] - y_stereo[1]) / 2.0
 
-        mid_spec  = compute_spectrum(mid, sr)   # mean-centred 31-band
-        side_spec = compute_spectrum(side, sr)  # mean-centred 31-band
-        if mid_spec is None or side_spec is None:
-            # Silent / NaN inputs — nothing meaningful to derive.
-            return tips
+        # Compute raw per-band power (dB) — NOT mean-centred — so that
+        # side vs mid comparisons are in the same absolute units.
+        # compute_spectrum mean-centres which makes cross-signal comparisons
+        # meaningless (each signal is centred independently).
+        from scipy.signal import welch as _welch
+        def _band_rms_db(sig, sr_val):
+            """31 ISO bands, dB RMS per band, un-centred."""
+            freqs, psd = _welch(sig.astype(np.float64), fs=sr_val,
+                                nperseg=min(4096, len(sig)),
+                                noverlap=None, average='mean')
+            from comparator import FREQ_LABELS
+            BANDS = [20,25,31.5,40,50,63,80,100,125,160,200,250,315,400,500,
+                     630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,
+                     8000,10000,12500,16000,20000]
+            result = []
+            for i, fc in enumerate(BANDS):
+                lo = BANDS[i-1] if i > 0 else 10
+                hi = BANDS[i+1] if i < len(BANDS)-1 else sr_val/2
+                mask = (freqs >= lo) & (freqs < hi)
+                power = float(np.mean(psd[mask])) if mask.any() else 1e-20
+                result.append(10 * np.log10(max(power, 1e-20)))
+            return result
 
-        # Side-over-mid differential, averaged by region
-        # (this is not a perfect M/S analysis — we're asking: is the side
-        #  channel carrying too much / too little compared to a typical
-        #  well-balanced master, in each region?)
+        mid_raw  = _band_rms_db(mid, sr)
+        side_raw = _band_rms_db(side, sr)
+
+        # Thresholds are calibrated on the raw side−mid differential (dB).
+        # Typical well-balanced master: side/mid ratio is −12 dB below 80 Hz,
+        # −8 dB in the 80–200 Hz range, and within −6 dB in the air band.
         regions = [
-            (0, 6,   "Sub/Bass",    "20-80 Hz",     -10, None,  "side_bass_high",
+            (0, 6,   "Sub/Bass",    "20-80 Hz",
+             # Flag if side is within 10 dB of mid below 80 Hz (M/S bass energy too wide)
+             lambda d: d > -10,
+             "side_bass_high",
              "Too much sub/bass energy in the SIDE channel — bass will cancel on phones/clubs",
-             "Use a stereo imager or Elliptical EQ to mono-ise below 120 Hz"),
-            (6, 10,  "Bass",        "80-200 Hz",    -8,  None,  "side_bass_mid_high",
+             "Use a stereo imager or Elliptical EQ to mono-ise below 120 Hz",
+             "medium"),
+            (6, 10,  "Bass",        "80-200 Hz",
+             lambda d: d > -8,
+             "side_bass_mid_high",
              "Side channel is hot in bass range — possible mono-collapse issues",
-             "Narrow the stereo image below 200 Hz (Ozone Imager, Brainworx, or any M/S tool)"),
-            (10, 14, "Low Mids",    "200-500 Hz",   None, None, None, "", ""),
-            (14, 18, "Mids",        "500-1.6k Hz",  None, None, None, "", ""),
-            (18, 23, "Presence",    "1.6-4k Hz",   None, None, None, "", ""),
-            (23, 27, "Brilliance",  "4-10k Hz",    None, None, None, "", ""),
-            (27, 31, "Air",         "10-20k Hz",   None, -14,   "side_air_low",
+             "Narrow the stereo image below 200 Hz (Ozone Imager, Brainworx, or any M/S tool)",
+             "medium"),
+            (27, 31, "Air",         "10-20k Hz",
+             # Flag if side is more than 14 dB below mid in the air band (over-narrow)
+             lambda d: d < -14,
+             "side_air_low",
              "Side channel is dull in the air band — cymbals/reverbs lack stereo spark",
-             "Subtle high-shelf boost on the SIDE channel above 8 kHz, or add a stereo exciter"),
+             "Subtle high-shelf boost on the SIDE channel above 8 kHz, or add a stereo exciter",
+             "low"),
         ]
-        for start, end, name, fr, side_hi, side_lo, kind, tip_msg, detail in regions:
-            if not kind:
-                continue
-            avg_side = float(np.mean(side_spec[start:min(end, len(side_spec))]))
-            avg_mid  = float(np.mean(mid_spec[start:min(end, len(mid_spec))]))
-            if kind.startswith("side_bass"):
-                # Flag when the side band sits above this threshold AND is
-                # close to / louder than the mid band
-                if avg_side > side_hi and (avg_side - avg_mid) > -3:
-                    tips.append({
-                        "category": f"M/S — {name}",
-                        "priority": "medium",
-                        "tip": tip_msg,
-                        "detail": detail,
-                    })
-            elif kind == "side_air_low":
-                if avg_side < side_lo and (avg_mid - avg_side) > 6:
-                    tips.append({
-                        "category": f"M/S — {name}",
-                        "priority": "low",
-                        "tip": tip_msg,
-                        "detail": detail,
-                    })
+        for start, end, name, fr, pred, kind, tip_msg, detail, priority in regions:
+            delta = float(np.mean(
+                np.array(side_raw[start:min(end, len(side_raw))]) -
+                np.array(mid_raw[start:min(end, len(mid_raw))])
+            ))
+            if pred(delta):
+                tips.append({
+                    "category": f"M/S — {name}",
+                    "priority": priority,
+                    "tip": tip_msg,
+                    "detail": detail,
+                })
     except Exception:
         pass
     return tips

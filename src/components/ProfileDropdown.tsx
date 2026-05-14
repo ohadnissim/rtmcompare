@@ -22,6 +22,7 @@ export interface ProfileInfo {
  description?: string
  sample_count?: number
  user_created?: boolean
+ profile_type?: 'fingerprint' | 'chain'
 }
 
 interface Props {
@@ -31,6 +32,8 @@ interface Props {
  onLoadCustom?: () => void
  onDelete?: (id: string) => void
  errorMessage?: string | null
+ label?: string
+ alignRight?: boolean
 }
 
 export default function ProfileDropdown({
@@ -40,8 +43,11 @@ export default function ProfileDropdown({
  onLoadCustom,
  onDelete,
  errorMessage,
+ label = 'Profile',
+ alignRight = false,
 }: Props) {
  const [open, setOpen] = useState(false)
+ const [pendingDelete, setPendingDelete] = useState<string | null>(null)
  const wrapRef = useRef<HTMLDivElement>(null)
 
  useEffect(() => {
@@ -75,7 +81,7 @@ export default function ProfileDropdown({
        }}
        title={current?.description || 'Engineer profile used for tonal recommendations'}
      >
-       <span className="opacity-60">Profile:</span>
+       <span className="opacity-60">{label}:</span>
        <span style={{ color: 'var(--color-text-primary)' }}>{current?.name ?? 'Default'}</span>
        <svg className="w-3 h-3 opacity-60" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5}>
          <path d="M3 4.5L6 7.5L9 4.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -90,6 +96,7 @@ export default function ProfileDropdown({
            backgroundColor: 'rgba(28,28,28,0.98)',
            border: '1px solid rgba(168,161,150,0.25)',
            top: '100%',
+           ...(alignRight ? { right: 0 } : { left: 0 }),
          }}
        >
          {builtIn.length > 0 && (
@@ -153,15 +160,32 @@ export default function ProfileDropdown({
                      </span>
                    </button>
                    {onDelete && (
-                     <button
-                       onClick={(e) => { e.stopPropagation(); onDelete(p.id) }}
-                       className="opacity-30 group-hover:opacity-100 focus-visible:opacity-100 hover:opacity-100 text-[14px] min-w-[24px] min-h-[24px] flex items-center justify-center"
-                       style={{ color: 'var(--color-text-muted)' }}
-                       title={`Remove "${p.name}" from your profiles`}
-                       aria-label="Delete profile"
-                     >
-                       ×
-                     </button>
+                     pendingDelete === p.id ? (
+                       <span className="flex items-center gap-1">
+                         <button
+                           onClick={(e) => { e.stopPropagation(); onDelete(p.id); setPendingDelete(null) }}
+                           className="text-[10px] px-1.5 py-0.5 font-semibold"
+                           style={{ color: '#c04040', background: 'rgba(192,64,64,0.12)', border: '1px solid rgba(192,64,64,0.4)' }}
+                           aria-label="Confirm delete profile"
+                         >Delete</button>
+                         <button
+                           onClick={(e) => { e.stopPropagation(); setPendingDelete(null) }}
+                           className="text-[10px] px-1.5 py-0.5"
+                           style={{ color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
+                           aria-label="Cancel delete"
+                         >Cancel</button>
+                       </span>
+                     ) : (
+                       <button
+                         onClick={(e) => { e.stopPropagation(); setPendingDelete(p.id) }}
+                         className="opacity-30 group-hover:opacity-100 focus-visible:opacity-100 hover:opacity-100 text-[14px] min-w-[24px] min-h-[24px] flex items-center justify-center"
+                         style={{ color: 'var(--color-text-muted)' }}
+                         title={`Remove "${p.name}" from your profiles`}
+                         aria-label="Delete profile"
+                       >
+                         ×
+                       </button>
+                     )
                    )}
                  </div>
                ))}

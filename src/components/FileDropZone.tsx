@@ -99,20 +99,18 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
 
  return (
  <div
- role="button"
- tabIndex={locked ? -1 : 0}
+ role="region"
  aria-label={ariaLabel}
  className={`drop-zone ${dragging ? 'active' : ''} ${file ? 'loaded' : ''} relative`}
  onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
  onDragLeave={() => setDragging(false)}
  onDrop={handleDrop}
- onClick={handleClick}
- onKeyDown={onKeyDown}
+ onClick={!file ? handleClick : undefined}
  >
  <input
  ref={inputRef}
  type="file"
- accept="audio/*,.wav,.mp3,.flac,.aiff,.aif,.ogg,.m4a"
+ accept="audio/*,.wav,.mp3,.flac,.aiff,.aif,.ogg,.m4a,.adm"
  className="hidden"
  onChange={handleFileSelect}
  />
@@ -179,9 +177,20 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  <p className="text-xs tracking-widest uppercase text-sand-400">{label}</p>
  <p className="text-[11px] text-sand-400 mt-1">{hint}</p>
  </div>
- <p className="text-[11px] text-sand-400">
- Drop audio or click to browse
- </p>
+ <p className="text-[11px] text-sand-400">Drop audio here, or</p>
+ <button
+ type="button"
+ onClick={(e) => { e.stopPropagation(); handleClick() }}
+ className="text-[11px] px-4 py-1.5 transition-colors"
+ style={{
+   borderRadius: '2px',
+   color: 'var(--color-text-primary)',
+   border: '1px solid rgba(168,161,150,0.3)',
+   backgroundColor: 'rgba(87,83,78,0.18)',
+ }}
+ >
+ Browse…
+ </button>
  {dropError && (
  <p
  className="text-[11px] mt-2 px-3 py-2"
