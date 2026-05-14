@@ -471,10 +471,14 @@ ipcMain.handle('select-file', async () => {
 // CRIT-7/8 fix: bare writeFileSync is non-atomic — a crash mid-write leaves
 // a truncated file. This helper writes to a temp file then renames it, which
 // is atomic on all major filesystems (ext4, APFS, NTFS).
-function atomicWriteFileSync(target: string, contents: string, encoding: BufferEncoding = 'utf8') {
+function atomicWriteFileSync(target: string, contents: string | Buffer | Uint8Array, encoding: BufferEncoding = 'utf8') {
   const tmp = `${target}.tmp${process.pid}`
   try {
-    fs.writeFileSync(tmp, contents, encoding)
+    if (typeof contents === 'string') {
+      fs.writeFileSync(tmp, contents, encoding)
+    } else {
+      fs.writeFileSync(tmp, contents)
+    }
     fs.renameSync(tmp, target)
   } catch (e) {
     try { fs.unlinkSync(tmp) } catch { /* best-effort cleanup */ }
