@@ -38,19 +38,6 @@ let mainWindow: BrowserWindow | null = null
 // handler caller-side prevents the renderer from coaxing main into
 // reading non-audio files like ~/.ssh/id_rsa.
 
-/** Returns a canonicalised absolute path if `p` points to a regular
- *  file. Throws a clear Error on any violation. */
-/** Atomic write: write to a sibling .tmp file then rename into place.
- * Prevents partial writes from leaving a corrupt destination file. */
-function atomicWriteFileSync(dest: string, data: string | Buffer | Uint8Array, encoding?: BufferEncoding): void {
-  const tmp = dest + '.tmp'
-  if (encoding && typeof data === 'string') {
-    fs.writeFileSync(tmp, data, encoding)
-  } else {
-    fs.writeFileSync(tmp, data as any)
-  }
-  fs.renameSync(tmp, dest)
-}
 
 function assertSafeAudioPath(p: unknown, purpose: string, allowedExtensions?: Set<string>): string {
   if (typeof p !== 'string' || p.length === 0 || p.length > 4096) {
