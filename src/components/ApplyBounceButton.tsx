@@ -106,6 +106,8 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  ceilingDbtp,
  willMatchLoudness ? (refLufs as number) : undefined,
  )
+ // MED-11: guard against empty string path (Python silent success with no stdout)
+ if (!finalPath) throw new Error('Render produced no output path — check Python logs')
  flash(`Rendered: ${finalPath}`)
  if (window.electronAPI?.revealInFinder) {
  await window.electronAPI.revealInFinder(finalPath)

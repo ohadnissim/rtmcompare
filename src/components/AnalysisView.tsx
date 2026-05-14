@@ -78,7 +78,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const [paletteOpen, setPaletteOpen] = useState(false)
  // CRIT-2: Share in-flight guard — prevents double-click opening two save dialogs.
  const [sharingStatus, setSharingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
- const { setBlind, toggleBlind, surface, advancedQc } = useModes()
+ const { setBlind, toggleBlind, surface } = useModes()
 
  // Refs for scroll targets.
  const playerRef = useRef<HTMLDivElement>(null) // set on the A/B player wrapper
@@ -319,9 +319,13 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  color: 'rgba(208,176,102,0.7)',
  cursor: 'pointer',
  background: 'transparent',
+ display: 'inline-flex',
+ alignItems: 'center',
+ gap: 4,
  }}
  >
  ✦ Assistant
+ <span title="The Master Assistant builds a custom mastering chain for your file: gain trim, EQ moves, true-peak limiter, and dither — in one click. Based on the comparison analysis and your chosen engineer profile." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(208,176,102,0.5)', border: '1px solid rgba(208,176,102,0.3)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </button>
  {/* ✦ Certify — visible CTA for RTMcertify pre-delivery certificate.
    Only shown when the Electron API is present (desktop only). Dispatches
@@ -340,9 +344,13 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  color: 'rgba(208,176,102,0.7)',
  cursor: 'pointer',
  background: 'transparent',
+ display: 'inline-flex',
+ alignItems: 'center',
+ gap: 4,
  }}
  >
  ✦ Certify
+ <span title="RTMcertify generates a tamper-proof compliance certificate for your master — a signed JSON document with SHA-256 fingerprints, loudness measurements, and a unique certificate ID. Use it to prove to a label, distributor, or client exactly what was delivered and when." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(208,176,102,0.5)', border: '1px solid rgba(208,176,102,0.3)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </button>
  )}
  {/* Share — saves a self-contained HTML report anyone can open in a browser.
@@ -382,9 +390,13 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  background: 'transparent',
  cursor: sharingStatus === 'saving' ? 'not-allowed' : 'pointer',
  opacity: sharingStatus === 'saving' ? 0.5 : 1,
+ display: 'inline-flex',
+ alignItems: 'center',
+ gap: 4,
  }}
  >
  {sharingStatus === 'saving' ? 'Saving…' : 'Share ↗'}
+ <span title="Exports the full analysis as a self-contained HTML file — charts, scores, and waveforms all included. The recipient just opens it in any browser. No RTMcompare install needed." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(168,161,150,0.4)', border: '1px solid rgba(168,161,150,0.25)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </button>
  {sharingStatus === 'saved' && (
  <span style={{ fontSize: 10, color: 'rgba(208,176,102,0.8)' }}>Saved ✓</span>
@@ -397,34 +409,38 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results?.overall?.visqol_mos != null ? (
  // ViSQOL score available — show coloured chip
  <div
- title="ViSQOL perceptual match. 5.0=identical, 1.0=very different"
  style={{
  fontSize: 10,
  padding: '2px 8px',
  border: `1px solid ${results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.4)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.4)' : 'rgba(220,80,60,0.4)'}`,
  borderRadius: 2,
  color: results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.8)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.8)' : 'var(--color-danger)',
- cursor: 'help',
+ display: 'inline-flex',
+ alignItems: 'center',
+ gap: 4,
  }}
  >
  ViSQOL {results.overall.visqol_mos.toFixed(2)}
+ <span title="ViSQOL (Virtual Speech Quality Objective Listener) is a perceptual audio quality score from Google. Scale: 5.0 = files sound identical, 4.0+ = very similar (transparent mastering), 3.0–4.0 = noticeable differences, below 3.0 = significant sonic gap. High scores confirm your master is a faithful representation of the reference." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.5)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.5)' : 'rgba(220,80,60,0.5)', border: `1px solid ${results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.3)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.3)' : 'rgba(220,80,60,0.3)'}`, lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </div>
  ) : results?.overall && (
  // LOW-3: ViSQOL unavailable — grayed chip so users know the feature
  // exists and how to enable it (install visqol Python package).
  <div
- title="ViSQOL perceptual scoring unavailable. Install the visqol Python package to enable: pip install visqol"
  style={{
  fontSize: 10,
  padding: '2px 8px',
  border: '1px solid rgba(255,255,255,0.07)',
  borderRadius: 2,
  color: 'rgba(168,161,150,0.3)',
- cursor: 'help',
  userSelect: 'none',
+ display: 'inline-flex',
+ alignItems: 'center',
+ gap: 4,
  }}
  >
  ViSQOL —
+ <span title="ViSQOL is a perceptual audio quality score (1–5). It's not available in this analysis because the visqol Python package isn't installed. When active, it gives you a number that reflects how similar the two files sound to a human listener — not just how different they measure." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(168,161,150,0.25)', border: '1px solid rgba(168,161,150,0.15)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </div>
  )}
  <ClientReportButton results={results} fileA={fileA} fileB={fileB} />
@@ -555,56 +571,6 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* Sentinel — tab-switch scrolls here so the new tab always starts at the top */}
  <div ref={tabTopRef} aria-hidden="true" />
 
- {/* Advanced QC strip — always shown when the toggle is on, lists
- which panels are live now vs which need a Deep Scan. Replaces the
- v5.0.x banner that fired only when EVERYTHING was empty (rarely
- the case in compare mode), so the toggle was a confusing no-op
- for testers. Per codex frontend-gap audit (5.0.3). */}
- {advancedQc && (() => {
- const live: string[] = []
- const deepOnly: string[] = []
- if (results.waveform_diff?.grid?.length) live.push('Waveform Diff')
- else if (!isSolo) deepOnly.push('Waveform Diff')
- if (results.transient_density?.timeline?.length) live.push('Transient Density')
- else deepOnly.push('Transient Density')
- if (results.masking?.overlaps?.length) live.push('Masking')
- else deepOnly.push('Per-stem Masking')
- if (results.mono_compat) live.push('Mono Compatibility')
- else deepOnly.push('Mono Compatibility')
- if (results.phase_bands_a?.length) live.push('Phase Bands')
- else deepOnly.push('Phase Bands')
- if ((results.reference_check?.song_info as any)?.tempo_drift) live.push('Tempo Drift')
- else deepOnly.push('Tempo Drift')
- if (results.tonal_issues?.length) live.push('Tonal Issues')
- const hasAnyLive = live.length > 0
- const hasAnyDeepOnly = deepOnly.length > 0
- return (
- <div className="border p-3 text-[11px] space-y-1.5" style={{ borderRadius: '2px', borderColor: 'rgba(124,164,163,0.35)', backgroundColor: 'rgba(124,164,163,0.06)' }}>
- <div className="flex items-center justify-between gap-3">
- <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-teal)' }}>
- Advanced QC enabled
- </div>
- {hasAnyDeepOnly && (
- <span className="text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
- Re-analyze with Deep Scan for stem-separated metrics
- </span>
- )}
- </div>
- {hasAnyLive && (
- <div style={{ color: '#a8a196' }}>
- <span style={{ color: 'var(--color-teal)' }}>Active now:</span>{' '}
- <span style={{ color: 'var(--color-text-primary)' }}>{live.join(', ')}</span>
- </div>
- )}
- {hasAnyDeepOnly && (
- <div style={{ color: '#a8a196' }}>
- <span style={{ color: 'var(--color-text-muted)' }}>Deep Scan adds:</span>{' '}
- <span style={{ color: '#a8a196' }}>{deepOnly.join(', ')}</span>
- </div>
- )}
- </div>
- )
- })()}
 
  {/* ─── OVERVIEW TAB ─── */}
  {activeTab === 'overview' && (
@@ -714,7 +680,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </span>
  </th>
  <th className="text-right px-3 py-2.5 font-medium text-terra">{labelB}</th>
- <th className="text-right px-3 py-2.5 text-dark-500 font-normal w-20">Diff</th>
+ <th className="text-right pl-3 pr-4 py-2.5 text-dark-500 font-normal w-24">Diff</th>
  </tr>
  </thead>
  <tbody>
@@ -723,7 +689,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <td className="px-4 py-2 text-dark-400">Length</td>
  <td className="text-right font-mono tabular-nums text-dark-300">{formatDuration(results.duration_sec_a ?? results.duration_sec)}</td>
  <td className="text-right font-mono tabular-nums text-terra">{formatDuration(results.duration_sec_b ?? results.duration_sec)}</td>
- <td className="text-right font-mono tabular-nums text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">
  {(() => {
  const a = results.duration_sec_a ?? results.duration_sec ?? 0
  const b = results.duration_sec_b ?? results.duration_sec ?? 0
@@ -750,7 +716,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  ).toFixed(1)} LUFS
  {isAtmos && <span className="text-[9px] text-dark-500 ml-1">(Atmos)</span>}
  </td>
- <td className="text-right font-mono tabular-nums text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">
  {(() => {
  const b = isAtmos && results.atmos_qc?.specs?.loudness_lufs != null
  ? results.atmos_qc.specs.loudness_lufs
@@ -799,7 +765,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </span>
  </span>
  </td>
- <td className="text-right font-mono tabular-nums text-dark-500">-</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">-</td>
  </tr>
  {dg.note && (
  <tr className="border-b border-dark-700/20">
@@ -817,7 +783,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <td className="px-4 py-2 text-dark-400">Short-Term Max <span className="text-[9px] text-dark-600">(3s)</span></td>
  <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.short_term_max_a.toFixed(1)} LUFS</td>
  <td className="text-right font-mono tabular-nums text-terra">{results.overall.short_term_max_b.toFixed(1)} LUFS</td>
- <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.short_term_max_b - results.overall.short_term_max_a) > 0 ? '+' : ''}{(results.overall.short_term_max_b - results.overall.short_term_max_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.short_term_max_b - results.overall.short_term_max_a) > 0 ? '+' : ''}{(results.overall.short_term_max_b - results.overall.short_term_max_a).toFixed(1)}</td>
  </tr>
  )}
  {!isAtmos && results.overall.momentary_max_a != null && results.overall.momentary_max_b != null && (
@@ -825,7 +791,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <td className="px-4 py-2 text-dark-400">Momentary Max <span className="text-[9px] text-dark-600">(400ms)</span></td>
  <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.momentary_max_a.toFixed(1)} LUFS</td>
  <td className="text-right font-mono tabular-nums text-terra">{results.overall.momentary_max_b.toFixed(1)} LUFS</td>
- <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.momentary_max_b - results.overall.momentary_max_a) > 0 ? '+' : ''}{(results.overall.momentary_max_b - results.overall.momentary_max_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.momentary_max_b - results.overall.momentary_max_a) > 0 ? '+' : ''}{(results.overall.momentary_max_b - results.overall.momentary_max_a).toFixed(1)}</td>
  </tr>
  )}
  {results.headroom && (
@@ -839,7 +805,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  ).toFixed(1)} dBTP
  {isAtmos && <span className="text-[9px] text-dark-500 ml-1">(Atmos)</span>}
  </td>
- <td className="text-right font-mono tabular-nums text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">
  {(() => {
  const b = isAtmos && results.atmos_qc?.specs?.true_peak_dbtp != null
  ? results.atmos_qc.specs.true_peak_dbtp
@@ -853,9 +819,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {isAtmos && results.atmos?.binaural_tp?.true_peak_db != null && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Binaural TP <span className="text-[9px] text-dark-600">(approx)</span></td>
- <td className="text-right font-mono tabular-nums text-dark-500">—</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">—</td>
  <td className="text-right font-mono tabular-nums text-terra">{results.atmos.binaural_tp.true_peak_db.toFixed(1)} dBTP</td>
- <td className="text-right font-mono tabular-nums text-dark-500">—</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">—</td>
  </tr>
  )}
  <tr className="border-b border-dark-700/20">
@@ -865,7 +831,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  >LRA</td>
  <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.dynamics_a.toFixed(1)} LU</td>
  <td className="text-right font-mono tabular-nums text-terra">{results.overall.dynamics_b.toFixed(1)} LU</td>
- <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.dynamics_b - results.overall.dynamics_a) > 0 ? '+' : ''}{(results.overall.dynamics_b - results.overall.dynamics_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.dynamics_b - results.overall.dynamics_a) > 0 ? '+' : ''}{(results.overall.dynamics_b - results.overall.dynamics_a).toFixed(1)}</td>
  </tr>
  {results.overall.plr_a != null && results.overall.plr_b != null && (
  <tr className="border-b border-dark-700/20">
@@ -875,7 +841,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  >PLR</td>
  <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.plr_a.toFixed(1)} dB</td>
  <td className="text-right font-mono tabular-nums text-terra">{results.overall.plr_b.toFixed(1)} dB</td>
- <td className="text-right font-mono tabular-nums text-dark-500">{(results.overall.plr_b - results.overall.plr_a) > 0 ? '+' : ''}{(results.overall.plr_b - results.overall.plr_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.plr_b - results.overall.plr_a) > 0 ? '+' : ''}{(results.overall.plr_b - results.overall.plr_a).toFixed(1)}</td>
  </tr>
  )}
  {results.overall.psr_a != null && results.overall.psr_b != null && (
@@ -895,7 +861,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  : 'var(--color-danger)',
  }}
  >{results.overall.psr_b.toFixed(1)} LU</td>
- <td className="text-right font-mono tabular-nums text-dark-500 text-[10px]">
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4 text-[10px]">
  Δ {(results.overall.psr_b - results.overall.psr_a) > 0 ? '+' : ''}{(results.overall.psr_b - results.overall.psr_a).toFixed(1)} LU
  </td>
  </tr>
@@ -908,7 +874,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </td>
  <td className="text-right font-mono tabular-nums text-dark-300">{describeWidth(results.overall.width_a)}</td>
  <td className="text-right font-mono tabular-nums text-terra">{describeWidth(results.overall.width_b)}</td>
- <td className="text-right font-mono tabular-nums text-dark-500">
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">
  {widthDelta(results.overall.width_a, results.overall.width_b)}
  </td>
  </tr>
@@ -1029,6 +995,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  fileB={fileB}
  lufsA={results.overall?.lufs_a ?? null}
  lufsB={results.overall?.lufs_b ?? null}
+ surface={surface}
  />
  </CollapsibleSection>
  )}
@@ -1423,9 +1390,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </CollapsibleSection>
  )}
 
- {advancedQc && results.mono_compat && (
+ {results.mono_compat && (
  <CollapsibleSection
- title="Downmix Mono Compatibility · Advanced"
+ title="Downmix Mono Compatibility"
  tooltip="How much audio is lost when the stereo downmix is collapsed to mono. Matters for phone speakers and Bluetooth. Single-number version lives in the Verdict badge."
  why="The fold-down is phase-coherent in theory, but the bed ↔ object sum can still cancel in mono. Clubs, phone speakers, smart-speaker mono playback, and most Bluetooth pair modes sum to mono. If the downmix collapses there, half your listeners lose the bass or the vocal. Verify the fold-down survives the collapse."
  defaultOpen={false}
@@ -1493,9 +1460,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </CollapsibleSection>
  )}
 
- {advancedQc && results.mono_compat && (
+ {results.mono_compat && (
  <CollapsibleSection
- title="Mono Compatibility · Advanced"
+ title="Mono Compatibility"
  tooltip="Tests how much audio is lost when left and right channels are combined (mono). Single-number version lives in the Verdict badge; this is the full per-band breakdown."
  why="Most of your audience hears the track on phone speakers, Bluetooth earbuds, clubs (often summed to mono below 100 Hz), and radio. If your sub cancels in mono, bass disappears for half your listeners. Check before bouncing."
  defaultOpen={false}
@@ -1521,9 +1488,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </CollapsibleSection>
  )}
 
- {advancedQc && results.phase_bands_a && results.phase_bands_a.length > 0 && (
+ {results.phase_bands_a && results.phase_bands_a.length > 0 && (
  <CollapsibleSection
- title="Phase Correlation — Per Band · Advanced"
+ title="Phase Correlation — Per Band"
  tooltip="Broadband correlation can hide sub-band problems. Watch Sub/Bass for cancellation that vanishes on phone speakers."
  why="A mix can look mono-compatible broadband (+0.9 correlation overall) but still cancel catastrophically at 60 Hz. The low end is where mono collapse does the most damage; broadband correlation misses it."
  defaultOpen={false}
@@ -1577,6 +1544,26 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {activeTab === 'quality' && (
  <div className="space-y-6">
  <TabVerdict tab="quality" results={results} isAtmos={isAtmos} />
+ {/* Polarity inversion alert */}
+ {results.mastering_delta?.polarity_inverted && (
+  <div style={{
+   padding: '10px 14px',
+   marginBottom: 12,
+   backgroundColor: 'rgba(201,103,101,0.12)',
+   border: '1px solid rgba(201,103,101,0.4)',
+   fontSize: 13,
+   color: '#e7e5e4',
+   display: 'flex',
+   alignItems: 'center',
+   gap: 10,
+  }}>
+   <span style={{ color: 'var(--color-danger)', fontSize: 16 }}>⊘</span>
+   <div>
+    <strong>Polarity inverted</strong> — File B has flipped polarity relative to A. Mono summing will partially cancel. Fix: invert the polarity on the master bus before delivery.
+   </div>
+  </div>
+ )}
+
  {/* Hum / 50-60 Hz detector */}
  {results.hum && results.hum.mains > 0 && (
  <CollapsibleSection
@@ -1594,10 +1581,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* File Metadata moved to the Delivery tab. */}
 
- {/* Tempo drift timeline — archival / DJ-pool use case. Hidden
- behind Advanced QC since rock / pop / hip-hop engineers
- don't use it (flagged as clutter by 3 voices). */}
- {advancedQc && results.reference_check?.song_info && (results.reference_check.song_info as any).tempo_drift && (
+ {results.reference_check?.song_info && (results.reference_check.song_info as any).tempo_drift && (
  <CollapsibleSection
  title="Tempo Over Time · Archival"
  tooltip="Windowed BPM across the track. A non-flat line suggests un-quantised / live / modulating tempo: useful for DJs, remixers, and classical reissues."
@@ -2120,12 +2104,13 @@ function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fi
    try {
      const api = (window as unknown as { electronAPI?: Record<string, unknown> }).electronAPI
      if (typeof (api?.masterChainRender) === 'function') {
-       await (api.masterChainRender as (src: string, cfg: object) => Promise<unknown>)(
+       const res = await (api.masterChainRender as (src: string, cfg: object) => Promise<{ ok: boolean; error?: string }>)(
          fileB.path,
          { target_lufs: -14, true_peak_dbtp: -1.0, dither: true },
        )
+       // MED-10: { ok: false } is not a thrown error — must check explicitly
+       if (res && !res.ok) throw new Error(res.error || 'masterChainRender failed')
      } else {
-       // MED-12: explicit error if IPC is missing — previously fell through to 'done'
        throw new Error('masterChainRender IPC not available — check preload registration')
      }
      setMasterState('done')
