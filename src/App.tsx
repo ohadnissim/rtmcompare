@@ -744,7 +744,9 @@ export default function App() {
 
    const fingerprintProfiles = profiles.filter(p => !p.profile_type || p.profile_type === 'fingerprint')
    const savedProfile = (() => { try { return localStorage.getItem('rtm-profile') ?? '' } catch { return '' } })()
-   if (savedProfile && fingerprintProfiles.some(p => p.id === savedProfile)) {
+   // MED-4: check ALL profiles for the saved ID so a mis-typed profile_type doesn't lose the selection
+   const savedExists = savedProfile && profiles.some(p => p.id === savedProfile)
+   if (savedExists) {
      setProfile(savedProfile)
    } else if (!savedProfile && fingerprintProfiles.length > 0) {
      const first = fingerprintProfiles[0].id
@@ -771,6 +773,8 @@ export default function App() {
  if (added) {
  await refreshProfiles()
  setProfile(added.id)
+ // MED-5: persist so the selection survives reboot
+ try { localStorage.setItem('rtm-profile', added.id) } catch {}
  }
  } catch (err: any) {
  setProfileError(err?.message || 'Could not load profile')
@@ -1321,13 +1325,13 @@ export default function App() {
  pluginDrop.setSlot('B', drop?.meta ? { audioPath: info.path, ...drop.meta } : null)
  }
  setPendingQueue(q => q.slice(1))
- // Auto-analyze instead of dumping back to the upload surface —
- // the user just asked us to replace, follow through.
+ // MED-3: handleCompare/handleRefOnly close over stale fileA/fileB
+ // because React batches the setFileA/setFileB above. Defer to the
+ // next tick so state has committed before we read it.
  if (nextA && nextB) {
- // setState handled inside handleCompare
- void handleCompare()
+ setTimeout(() => void handleCompare(), 0)
  } else if (nextA) {
- void handleRefOnly()
+ setTimeout(() => void handleRefOnly(), 0)
  } else {
  setState('upload')
  }

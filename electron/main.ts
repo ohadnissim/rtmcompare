@@ -310,6 +310,24 @@ function createWindow() {
     if (splashWindow && !splashWindow.isDestroyed()) {
       try { splashWindow.close() } catch {}
     }
+    // Push profiles immediately after window is ready — avoids race where
+    // renderer calls list-profiles before IPC handlers are registered.
+    try {
+      ensureUserProfilesDir()
+      const pushed: any[] = []
+      const seen = new Set<string>()
+      for (const f of fs.readdirSync(USER_PROFILES_DIR).sort()) {
+        if (!f.endsWith('.json')) continue
+        const id = f.replace(/\.json$/, '')
+        if (seen.has(id)) continue
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(USER_PROFILES_DIR, f), 'utf8'))
+          pushed.push({ id, name: data.name || id, description: data.description || '', sample_count: data.sample_count || 0, user_created: true, profile_type: data.profile_type || 'fingerprint' })
+          seen.add(id)
+        } catch {}
+      }
+      if (pushed.length > 0) mainWindow?.webContents.send('profiles-ready', pushed)
+    } catch {}
   })
 
   // Handle file drops — intercept in main process where we have full paths.
@@ -421,7 +439,7 @@ app.on('activate', () => {
 
 // IPC Handlers
 ipcMain.handle('select-file', async () => {
-  const result = await dialog.showOpenDialog({
+  const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openFile'],
     filters: [
       {
@@ -548,7 +566,7 @@ ipcMain.handle('history-clear', async () => {
 //   select-folder        → native folder picker
 //   list-audio-files     → recursive-ish (depth 1) scan of a directory
 //   analyze-batch        → spawns python/batch_analyze.py with file paths
-const AUDIO_EXT = new Set(['.wav', '.flac', '.aiff', '.aif', '.mp3', '.m4a', '.ogg'])
+const AUDIO_EXT = new Set(['.wav', '.flac', '.aiff', '.aif', '.mp3', '.m4a', '.ogg', '.adm'])
 
 // ── Secondary-spawn watchdog ────────────────────────────────────────────
 // All secondary Python spawns (everything except the main analyzePython()
@@ -822,6 +840,7 @@ ipcMain.handle('list-profiles', async () => {
           description: data.description || '',
           sample_count: data.sample_count || 0,
           user_created: true,
+          profile_type: data.profile_type || 'fingerprint',
         })
         seen.add(id)
       } catch {}
@@ -845,6 +864,7 @@ ipcMain.handle('list-profiles', async () => {
           description: data.description || '',
           sample_count: data.sample_count || 0,
           user_created: false,
+          profile_type: data.profile_type || 'fingerprint',
         })
         seen.add(id)
       } catch {}
@@ -854,11 +874,19 @@ ipcMain.handle('list-profiles', async () => {
   return profiles
 })
 
+ipcMain.handle('open-profiles-folder', () => {
+  ensureUserProfilesDir()
+  const { shell } = require('electron') as typeof import('electron')
+  shell.openPath(USER_PROFILES_DIR)
+})
+
 ipcMain.handle('load-custom-profile', async () => {
-  const result = await dialog.showOpenDialog({
+  ensureUserProfilesDir()
+  const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openFile'],
     title: 'Load Engineer Profile',
     filters: [{ name: 'Profile JSON', extensions: ['json'] }],
+    defaultPath: USER_PROFILES_DIR,
   })
   if (result.canceled || result.filePaths.length === 0) return null
 
@@ -880,8 +908,16 @@ ipcMain.handle('load-custom-profile', async () => {
     if (!data.description) data.description = 'Custom target — curve-only (loudness/width defaults applied)'
     data.curve_only = data.curve_only || (data.sample_count == null)
 
-    // Derive an ID from the filename (sanitized)
+    // If the file is already inside the profiles dir, use it in-place — no copy needed.
     ensureUserProfilesDir()
+    const normalSource = path.resolve(sourcePath)
+    const normalProfilesDir = path.resolve(USER_PROFILES_DIR)
+    if (normalSource.startsWith(normalProfilesDir + path.sep)) {
+      const id = path.basename(sourcePath, '.json')
+      return { id, name: data.name || id, description: data.description || '', sample_count: data.sample_count || 0, user_created: true, profile_type: data.profile_type || 'fingerprint' }
+    }
+
+    // Otherwise copy into the profiles dir, deriving a unique ID from the filename.
     const baseName = path.basename(sourcePath, '.json').toLowerCase().replace(/[^a-z0-9_-]/g, '_')
     let id = baseName
     let n = 1
@@ -1093,7 +1129,7 @@ ipcMain.handle('copy-to-clipboard', async (_e, text: string) => {
   return true
 })
 
-ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast: boolean = true, profile: string = '') => {
+ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast: boolean = true, profile: string = '', chainProfile: string = '') => {
   assertSafeAudioPath(fileA, 'analyze-files (A)')
   assertSafeAudioPath(fileB, 'analyze-files (B)')
   const sendProgress = (msg: string) => {
@@ -1104,7 +1140,7 @@ ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast
   // latency from ~30 s to ~17 s because Python + ONNX stay warm.
   // Falls back to the legacy subprocess path on any daemon error.
   try {
-    const result = await daemonAnalyze(fileA, fileB, sendProgress, fast, profile)
+    const result = await daemonAnalyze(fileA, fileB, sendProgress, fast, profile, chainProfile)
     return result
   } catch (err: any) {
     if (!(err instanceof DaemonUnavailableError)) {
@@ -1117,7 +1153,7 @@ ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast
   }
 
   try {
-    const result = await analyzePython(fileA, fileB, sendProgress, fast, profile)
+    const result = await analyzePython(fileA, fileB, sendProgress, fast, profile, chainProfile)
     return result
   } catch (err: any) {
     throw new Error(err.message || 'Analysis failed')
