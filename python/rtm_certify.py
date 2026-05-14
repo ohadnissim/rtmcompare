@@ -85,7 +85,7 @@ def _compute_lra(path: str) -> float | None:
     try:
         import librosa
         from comparator import compute_dynamic_range
-        y, sr = librosa.load(path, sr=44100, mono=True)
+        y, sr = librosa.load(path, sr=None, mono=True)
         return round(float(compute_dynamic_range(y, sr)), 1)
     except Exception:
         return None
@@ -99,7 +99,7 @@ def _compute_mono_compat(path: str) -> float | None:
     """
     try:
         import librosa
-        y, sr = librosa.load(path, sr=44100, mono=False)
+        y, sr = librosa.load(path, sr=None, mono=False)
         if y.ndim == 1:
             # mono file — perfect mono compatibility
             return 100.0
@@ -126,7 +126,7 @@ def _compute_tonal_deviation(path: str) -> float | None:
     """
     try:
         import librosa
-        y, sr = librosa.load(path, sr=44100, mono=True)
+        y, sr = librosa.load(path, sr=None, mono=True)
         # 31 third-octave centre frequencies
         freqs = [
             20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160,
@@ -310,7 +310,9 @@ def main() -> None:
         sys.exit(0)
 
     result = certify(file_a, file_b)
-    print(json.dumps(result, indent=2))
+    # Compact single-line output — main.ts parser scans for a line starting
+    # with '{'. Multi-line (indent=2) output breaks that scan.
+    print(json.dumps(result, separators=(",", ":")))
 
 
 if __name__ == "__main__":

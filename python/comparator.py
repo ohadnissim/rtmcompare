@@ -2010,7 +2010,7 @@ def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
 # ─── Hybrid analysis (AI chunk + fast) ───────────────────────────────────────
 
 def run_hybrid_analysis(file_a: str, file_b: str, tmp_dir: str,
-                        sr: int = 44100, chunk_sec: float = 30.0,
+                        sr: int = None, chunk_sec: float = 30.0,
                         progress_cb=None) -> dict:
     """
     Hybrid mode:
@@ -2024,9 +2024,13 @@ def run_hybrid_analysis(file_a: str, file_b: str, tmp_dir: str,
     if progress_cb:
         progress_cb("Loading audio...")
 
-    # Load full files
-    y_a_full, _ = librosa.load(file_a, sr=sr, mono=False)
-    y_b_full, _ = librosa.load(file_b, sr=sr, mono=False)
+    # Load full files at native rate; resample B to match A if they differ
+    y_a_full, sr_a = librosa.load(file_a, sr=sr, mono=False)
+    y_b_full, sr_b = librosa.load(file_b, sr=sr, mono=False)
+    # Resolve working sr (use file A's native rate as reference)
+    sr = sr_a
+    if sr_b != sr_a:
+        y_b_full = librosa.resample(y_b_full, orig_sr=sr_b, target_sr=sr_a)
 
     if y_a_full.ndim == 1:
         y_a_full = np.stack([y_a_full, y_a_full])

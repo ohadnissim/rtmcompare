@@ -307,27 +307,35 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  return { normA: nA, normB: nB, diffBands: diff }
  }, [dataA, dataB])
 
+ // CRIT-6: memoize path builders — they allocate arrays and build strings on every render
+ const { pathA, pathB, filledA, filledB } = useMemo(() => {
  const makePath = (data: number[]): string => {
- const points = data.map((v, i) => ({
- x: axisW + padX + (i / (data.length - 1)) * (w - axisW - padX * 2),
- y: padY + (1 - v) * (h - padY * 2),
- }))
- if (points.length < 2) return ''
- let d = `M ${points[0].x} ${points[0].y}`
- for (let i = 1; i < points.length; i++) {
- const prev = points[i - 1]
- const curr = points[i]
- const cpx = (prev.x + curr.x) / 2
- d += ` C ${cpx} ${prev.y}, ${cpx} ${curr.y}, ${curr.x} ${curr.y}`
+   const points = data.map((v, i) => ({
+     x: axisW + padX + (i / (data.length - 1)) * (w - axisW - padX * 2),
+     y: padY + (1 - v) * (h - padY * 2),
+   }))
+   if (points.length < 2) return ''
+   let d = `M ${points[0].x} ${points[0].y}`
+   for (let i = 1; i < points.length; i++) {
+     const prev = points[i - 1]
+     const curr = points[i]
+     const cpx = (prev.x + curr.x) / 2
+     d += ` C ${cpx} ${prev.y}, ${cpx} ${curr.y}, ${curr.x} ${curr.y}`
+   }
+   return d
  }
- return d
- }
-
  const makeFilledPath = (data: number[]): string => {
- const base = makePath(data)
- const lastX = axisW + padX + (w - axisW - padX * 2)
- return `${base} L ${lastX} ${h} L ${axisW + padX} ${h} Z`
+   const base = makePath(data)
+   const lastX = axisW + padX + (w - axisW - padX * 2)
+   return `${base} L ${lastX} ${h} L ${axisW + padX} ${h} Z`
  }
+ return {
+   pathA: makePath(normA),
+   pathB: makePath(normB),
+   filledA: makeFilledPath(normA),
+   filledB: makeFilledPath(normB),
+ }
+ }, [normA, normB, w, h, axisW, padX, padY])
 
  const annotations = useMemo(() => {
  const anns: { index: number; diff: number; freq: string }[] = []
@@ -424,10 +432,10 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  )
  })}
 
- <path d={makeFilledPath(normA)} style={{ fill: 'var(--color-sand-500)' }} opacity="0.08" />
- <path d={makeFilledPath(normB)} fill={colorB} opacity="0.08" />
- <path d={makePath(normA)} fill="none" stroke="var(--color-sand-500)" strokeWidth="2" opacity="0.6" />
- <path d={makePath(normB)} fill="none" stroke={colorB} strokeWidth="2" opacity="0.9" />
+ <path d={filledA} style={{ fill: 'var(--color-sand-500)' }} opacity="0.08" />
+ <path d={filledB} fill={colorB} opacity="0.08" />
+ <path d={pathA} fill="none" stroke="var(--color-sand-500)" strokeWidth="2" opacity="0.6" />
+ <path d={pathB} fill="none" stroke={colorB} strokeWidth="2" opacity="0.9" />
 
  {/* Click-to-solo per band — see SoloContext.tsx. Shifted right by axisW. */}
  <g transform={`translate(${axisW}, 0)`}>

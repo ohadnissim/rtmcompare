@@ -341,14 +341,22 @@ def render_corrected(
     Returns: the output file path (absolute).
     """
     if out_path is None:
+        import uuid
         base = os.path.splitext(os.path.basename(src_path))[0]
-        out_path = os.path.join(tempfile.gettempdir(), f"{base}__RTM-corrected.wav")
+        out_path = os.path.join(tempfile.gettempdir(), f"{base}__RTM-corrected-{uuid.uuid4().hex[:8]}.wav")
 
     # 5.2.0 reliability guard (audit P1-16): refuse to load any file whose
     # decoded float64 buffer would exceed an env-tunable budget. Without
     # this, a 60-min 96 kHz/24-bit 5.1 master decodes to ~7.5 GB in
     # float64 and the renderer process OOMs silently.
-    info = sf.info(src_path)
+    try:
+        info = sf.info(src_path)
+    except Exception as exc:
+        raise RuntimeError(f"Cannot read source file metadata: {exc}") from exc
+    if info.frames <= 0:
+        raise RuntimeError(
+            f"Source file reports 0 frames — the file may be empty or corrupted: {src_path}"
+        )
     estimated_bytes = info.frames * max(info.channels, 1) * 8  # float64
     budget_bytes = int(os.environ.get('RTM_PY_MAX_DECODE_BYTES', 4 * 1024 * 1024 * 1024))
     if estimated_bytes > budget_bytes:

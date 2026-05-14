@@ -151,7 +151,7 @@ from tonal_issues import detect_tonal_issues
 from reference_check import check_reference
 from adm_parser import detect_format, validate_adm
 from atmos_comparator import run_atmos_comparison, run_atmos_solo
-from engineer_profile import generate_tips, list_profiles
+from engineer_profile import generate_tips, generate_chain_tips, list_profiles
 from metadata_reader import read_metadata
 from hum_detector import detect_hum
 from transient_density import analyse as analyse_transient_density
@@ -196,9 +196,12 @@ def main():
 
     # Parse profile
     profile_id = ""
+    chain_profile_id = ""
     for arg in sys.argv:
         if arg.startswith("--profile="):
             profile_id = arg.split("=", 1)[1]
+        elif arg.startswith("--chain-profile="):
+            chain_profile_id = arg.split("=", 1)[1]
 
     if not os.path.exists(file_a):
         print(json.dumps({"error": f"File not found: {file_a}"}))
@@ -210,8 +213,15 @@ def main():
     # File compatibility checks
     import soundfile as sf
     import librosa as _lr
-    info_a = sf.info(file_a)
-    info_b = sf.info(file_b)
+    try:
+        info_a = sf.info(file_a)
+        info_b = sf.info(file_b)
+    except Exception as exc:
+        raise RuntimeError(f"Cannot read audio file metadata: {exc}") from exc
+    if info_a.frames <= 0:
+        raise RuntimeError(f"File A appears to be empty or corrupted (0 frames): {file_a}")
+    if info_b.frames <= 0:
+        raise RuntimeError(f"File B appears to be empty or corrupted (0 frames): {file_b}")
     file_warnings = []
 
     if info_a.samplerate != info_b.samplerate:
@@ -297,6 +307,14 @@ def main():
                 result["engineer_tips"] = generate_tips(downmix_path, downmix_path, profile_id=profile_id)
             except Exception:
                 pass
+            _chain_id_dm = chain_profile_id or profile_id
+            if _chain_id_dm:
+                try:
+                    chain_result = generate_chain_tips(downmix_path, profile_id=_chain_id_dm)
+                    if chain_result:
+                        result["chain_tips"] = chain_result
+                except Exception:
+                    pass
 
             _stamp_spec_versions(result)
             progress("Done!")
@@ -577,6 +595,16 @@ def main():
         # Engineer tips — "What would [Engineer] do?"
         progress("Generating engineer tips...")
         result["engineer_tips"] = generate_tips(file_b, file_a, profile_id=profile_id)
+
+        # Chain tips — uses the dedicated chain profile if provided, otherwise falls back to profile_id.
+        _chain_id = chain_profile_id or profile_id
+        if _chain_id:
+            try:
+                chain_result = generate_chain_tips(file_b, profile_id=_chain_id)
+                if chain_result:
+                    result["chain_tips"] = chain_result
+            except Exception:
+                pass
 
         # Surface every optional-analyser failure into the result so
         # the UI can tell "masking disabled on purpose" from "masking

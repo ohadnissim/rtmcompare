@@ -42,6 +42,7 @@ interface ProfileInfo {
  description?: string
  sample_count?: number
  user_created?: boolean
+ profile_type?: 'fingerprint' | 'chain'
 }
 
 // Computed once at module scope — platform never changes mid-session and
@@ -60,7 +61,7 @@ const MINUS = isMac ? '−' : '-'
 declare global {
  interface Window {
  electronAPI?: {
- analyzeFiles: (fileA: string, fileB: string, fast?: boolean, profile?: string) => Promise<AnalysisResult>
+ analyzeFiles: (fileA: string, fileB: string, fast?: boolean, profile?: string, chainProfile?: string) => Promise<AnalysisResult>
  readAudioFile: (filePath: string) => Promise<ArrayBuffer>
  getFileIdentity?: (filePath: string) => Promise<{ path: string; size: number; mtime: number; mtime_iso: string; sha256: string; error?: string }>
  historyRead?: () => Promise<import('./types').HistoryEntry[]>
@@ -84,6 +85,8 @@ declare global {
  }>
  onBatchProgress?: (callback: (msg: { message: string; index: number; total: number }) => void) => (() => void)
  listProfiles?: () => Promise<ProfileInfo[]>
+ openProfilesFolder?: () => void
+ onProfilesReady?: (cb: (profiles: ProfileInfo[]) => void) => () => void
  loadCustomProfile?: () => Promise<ProfileInfo | null>
  deleteCustomProfile?: (id: string) => Promise<boolean>
  renderCorrectedEq?: (srcPath: string, bands: { freq: number; gain_db: number; q: number }[], outPath?: string, truePeakLimit?: boolean, ceilingDbtp?: number, targetLufs?: number) => Promise<string>
@@ -278,14 +281,20 @@ interface CoverWiredEmptyStateProps {
  setFileB: (f: FileInfo | null) => void
  history: HistoryEntry[]
  profileName?: string
+ onProfileNameChange?: (name: string) => void
+ controls?: React.ReactNode
  children?: React.ReactNode
 }
 function CoverWiredEmptyState({
  canBegin, onBegin, onBeginCompare, onBeginRefOnly, onBatch, recents, onOpenRecents, onClearRecents, onTour, error,
- fileA, fileB, setFileA, setFileB, history, profileName, children,
+ fileA, fileB, setFileA, setFileB, history, profileName, onProfileNameChange, controls, children,
 }: CoverWiredEmptyStateProps) {
  const learn = useLearnMode()
  const assignment = learn.assignment
+ // When the v52 CoverSurface is active it renders its own FileSlot drop areas.
+ // Passing FileDropZone children would duplicate the drop UI ("double window").
+ // Gate legacy-only children behind this flag.
+ const useV52Cover = useV52Surface('cover')
  const [fileADuration, setFileADuration] = useState<string | undefined>(undefined)
  const [fileBDuration, setFileBDuration] = useState<string | undefined>(undefined)
  const extOf = (name?: string | null) => {
@@ -357,9 +366,11 @@ function CoverWiredEmptyState({
    onClearRecents={onClearRecents}
    onTour={onTour}
    profileName={profileName}
+   onProfileNameChange={onProfileNameChange}
    courseName={assignment?.course}
    assignmentName={assignment?.title}
    sessionCount={history.length}
+   controls={controls}
   >
    {children}
   </EmptyStateV2>
@@ -368,6 +379,7 @@ function CoverWiredEmptyState({
 
 export default function App() {
  const goldBudget = useV52Surface('gold-budget')
+ const useV52Cover = useV52Surface('cover')
  const audience = useAudience()
  const showLearnCenter = useV52Surface('learn') && (audience === 'student' || audience === 'teacher')
  const [state, setState] = useState<AppState>('upload')
@@ -412,7 +424,6 @@ export default function App() {
  // their turn so a second plugin send never silently overwrites the
  // first. Drains via Replace / Keep current.
  const [pendingQueue, setPendingQueue] = useState<PendingIncoming[]>([])
- const [deepScan, setDeepScan] = useState(false)
  const [refOnlyResults, setRefOnlyResults] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
  // A-side lock. When set,
  // the Reference drop zone ignores drops + clicks so successive revisions
@@ -640,7 +651,21 @@ export default function App() {
  })()
  return () => { cancelled = true }
  }, [historyBump])
- const [profile, setProfile] = useState('')
+ const [profile, setProfile] = useState<string>(() => {
+   try { return localStorage.getItem('rtm-profile') ?? '' } catch { return '' }
+ })
+ const [chainProfile, setChainProfile] = useState<string>(() => {
+   try { return localStorage.getItem('rtm-chain-profile') ?? '' } catch { return '' }
+ })
+ // Engineer display name — shown in the "Hi, {name}" greeting on the cover.
+ // Persisted to localStorage so it survives restarts.
+ const [engineerName, setEngineerName] = useState<string>(() => {
+   try { return localStorage.getItem('rtm-engineer-name') ?? '' } catch { return '' }
+ })
+ const handleEngineerNameChange = useCallback((name: string) => {
+   setEngineerName(name)
+   try { localStorage.setItem('rtm-engineer-name', name) } catch {}
+ }, [])
 
  // ── Reference library (recent + saved favourites) ─────────────────────
  // Two lists:
@@ -692,15 +717,51 @@ export default function App() {
  const [profileError, setProfileError] = useState<string | null>(null)
 
  const refreshProfiles = useCallback(async () => {
- try {
- if (window.electronAPI?.listProfiles) {
- const list = await window.electronAPI.listProfiles()
- if (list && list.length > 0) setProfiles(list)
- }
- } catch {}
+   try {
+     const list = await window.electronAPI?.listProfiles?.()
+     if (Array.isArray(list)) setProfiles(list)
+   } catch (e) {
+     console.error('[profiles] load failed', e)
+   }
  }, [])
 
- useEffect(() => { refreshProfiles() }, [refreshProfiles])
+ useEffect(() => {
+   // Pull once on mount
+   refreshProfiles()
+   // Also subscribe to the push event from main process (fired on ready-to-show)
+   const unsub = window.electronAPI?.onProfilesReady?.((list) => {
+     if (Array.isArray(list) && list.length > 0) setProfiles(list)
+   })
+   return () => unsub?.()
+ }, [refreshProfiles])
+
+ // Auto-select profiles once the list loads.
+ // - If localStorage has a saved id that exists in the list, restore it.
+ // - If nothing was ever saved, pick the first available profile so the
+ //   dropdown visual matches what actually gets passed to the analysis.
+ useEffect(() => {
+   if (profiles.length === 0) return
+
+   const fingerprintProfiles = profiles.filter(p => !p.profile_type || p.profile_type === 'fingerprint')
+   const savedProfile = (() => { try { return localStorage.getItem('rtm-profile') ?? '' } catch { return '' } })()
+   if (savedProfile && fingerprintProfiles.some(p => p.id === savedProfile)) {
+     setProfile(savedProfile)
+   } else if (!savedProfile && fingerprintProfiles.length > 0) {
+     const first = fingerprintProfiles[0].id
+     setProfile(first)
+     try { localStorage.setItem('rtm-profile', first) } catch {}
+   }
+
+   const chainProfiles = profiles.filter(p => p.profile_type === 'chain')
+   const savedChain = (() => { try { return localStorage.getItem('rtm-chain-profile') ?? '' } catch { return '' } })()
+   if (savedChain && chainProfiles.some(p => p.id === savedChain)) {
+     setChainProfile(savedChain)
+   } else if (!savedChain && chainProfiles.length > 0) {
+     const first = chainProfiles[0].id
+     setChainProfile(first)
+     try { localStorage.setItem('rtm-chain-profile', first) } catch {}
+   }
+ }, [profiles])
 
  const handleLoadProfile = useCallback(async () => {
  if (!window.electronAPI?.loadCustomProfile) return
@@ -716,12 +777,25 @@ export default function App() {
  }
  }, [refreshProfiles])
 
+ const handleLoadChainProfile = useCallback(async () => {
+ if (!window.electronAPI?.loadCustomProfile) return
+ try {
+ const added = await window.electronAPI.loadCustomProfile()
+ if (added) {
+ await refreshProfiles()
+ setChainProfile(added.id)
+ try { localStorage.setItem('rtm-chain-profile', added.id) } catch {}
+ }
+ } catch { /* silent */ }
+ }, [refreshProfiles])
+
  const handleDeleteProfile = useCallback(async (id: string) => {
  if (!window.electronAPI?.deleteCustomProfile) return
  await window.electronAPI.deleteCustomProfile(id)
  await refreshProfiles()
  if (profile === id) setProfile('')
- }, [profile, refreshProfiles])
+ if (chainProfile === id) { setChainProfile(''); try { localStorage.setItem('rtm-chain-profile', '') } catch {} }
+ }, [profile, chainProfile, refreshProfiles])
 
  // ── Version-history capture. Writes one entry per completed analysis
  // to ~/.rtm/history.json via IPC. Non-blocking — a failure here
@@ -762,6 +836,11 @@ export default function App() {
  // in python-bridge, so cancellation only killed the last one; the earlier
  // runs raced stdout into the same result handler.
  const analysisInFlight = useRef(false)
+ // CRIT-9: focus management — focus the results heading after analysis
+ const resultsHeadingRef = useRef<HTMLHeadingElement>(null)
+ const focusResults = useCallback(() => {
+   setTimeout(() => resultsHeadingRef.current?.focus(), 80)
+ }, [])
 
  const handleRefOnly = useCallback(async () => {
  if (!fileA) return
@@ -781,7 +860,7 @@ export default function App() {
  if (window.electronAPI) {
  unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 16)) || undefined
  const result = await withTimeout(
-  window.electronAPI.analyzeFiles(fileA.path, fileA.path, true, profile),
+  window.electronAPI.analyzeFiles(fileA.path, fileA.path, true, profile, chainProfile),
   5 * 60 * 1000,
   'Analysis timed out after 5 minutes. The audio file may be too large or the backend may have hung — please try again.'
  )
@@ -796,6 +875,7 @@ export default function App() {
  setFileB(fileA)
  setResults(result as any)
  setState('results')
+ focusResults()
  return
  }
 
@@ -851,6 +931,7 @@ export default function App() {
  full_result: result, // for Master Assistant's proposeMasterChain
  })
  setState('ref-only')
+ focusResults()
  appendHistory(fileA, result, 'ref-only')
  }
  } catch (err: any) {
@@ -871,7 +952,7 @@ export default function App() {
  // `profile` is a dep: stale closures were running the analysis
  // against the initial 'ohad' profile even after the user picked a
  // different one from the dropdown.
- }, [fileA, profile])
+ }, [fileA, profile, chainProfile])
 
  const handleCompare = useCallback(async () => {
  if (!fileA || !fileB) return
@@ -879,7 +960,7 @@ export default function App() {
  analysisInFlight.current = true
  setState('processing')
  setError(null)
- setProgress(deepScan ? 'Starting AI stem separation...' : 'Starting analysis...')
+ setProgress('Starting analysis...')
  pushRecentRef(fileA)
  // Reset Blind A/B so a new comparison starts with labels visible.
  setBlind(false)
@@ -889,14 +970,15 @@ export default function App() {
  if (window.electronAPI) {
  unsubProgress = window.electronAPI.onProgress(debounce((msg: string) => setProgress(msg), 16)) || undefined
  const result = await withTimeout(
-  window.electronAPI.analyzeFiles(fileA.path, fileB.path, !deepScan, profile),
+  window.electronAPI.analyzeFiles(fileA.path, fileB.path, true, profile, chainProfile),
   5 * 60 * 1000,
   'Analysis timed out after 5 minutes. The audio file may be too large or the backend may have hung — please try again.'
  )
  setResults(result)
  setState('results')
- // Log the target (B) to local history — fires in the background.
- appendHistory(fileB, result, 'compare', fileA.name)
+ focusResults()
+ // Log the reference (A) to local history — fires in the background.
+ appendHistory(fileA, result, 'compare', fileB.name)
  } else {
  throw new Error('Run this app via Electron (npm run dev) to analyze real audio files.')
  }
@@ -918,7 +1000,7 @@ export default function App() {
  // Same fix as handleRefOnly: profile was captured stale from the
  // initial render, so compare analyses also ran against 'ohad' after
  // a dropdown change.
- }, [fileA, fileB, deepScan, profile])
+ }, [fileA, fileB, profile, chainProfile])
 
  const handleCancelScan = useCallback(() => {
  try { window.electronAPI?.cancelAnalysis?.() } catch {}
@@ -1071,10 +1153,6 @@ export default function App() {
  (name.endsWith('.wav') && name.includes('7.1.4'))
  }
  const atmosLikely = isProbablyAtmos(fileA) || isProbablyAtmos(fileB)
- // Force fast mode when we detect an Atmos file — stems don't apply to multichannel.
- useEffect(() => {
- if (atmosLikely && deepScan) setDeepScan(false)
- }, [atmosLikely, deepScan])
 
  // ── UI zoom (persistent) ──────────────────────────────────────────────
  // Stored as a factor (0.85 – 1.5). Applied via CSS `zoom` on <html>, which
@@ -1115,7 +1193,7 @@ export default function App() {
 
  // ── Modes (educator + blind) come from ModesContext so toggling them
  // actually re-renders every panel that reads them.
- const { educator: educatorMode, blind: blindMode, toggleEducator, toggleBlind, surface, setSurface, advancedQc, toggleAdvancedQc } = useModes()
+ const { educator: educatorMode, blind: blindMode, toggleEducator, toggleBlind, surface, setSurface } = useModes()
  const pluginDrop = usePluginDrop()
 
 
@@ -1171,6 +1249,8 @@ export default function App() {
  }}
  onNewSearch={handleReset}
  learnToggle={<LearnModeToggle />}
+ engineerName={engineerName}
+ onEngineerNameChange={handleEngineerNameChange}
  />
 
  {/* Learn Mode — GuidedFlowBar renders sticky below the header when
@@ -1309,157 +1389,148 @@ export default function App() {
       setFileA={setFileA}
       setFileB={setFileB}
       history={history}
-      profileName={profile || undefined}
-    >
-      {/* 5.7.0: engineer profile picker. Restored to the cover so the
-          user can switch profiles before kicking off an analysis. The
-          selected profile drives tonal recommendations and the cohort-
-          aware tolerance MAD curve. */}
-      <div className="flex items-center justify-center mb-3">
+      profileName={engineerName || undefined}
+      onProfileNameChange={handleEngineerNameChange}
+      controls={<>
         <ProfileDropdown
-          profiles={profiles}
+          profiles={profiles.filter(p => !p.profile_type || p.profile_type === 'fingerprint')}
           selected={profile}
-          onSelect={setProfile}
+          onSelect={(id) => { setProfile(id); try { localStorage.setItem('rtm-profile', id) } catch {} }}
           onLoadCustom={handleLoadProfile}
           onDelete={handleDeleteProfile}
           errorMessage={profileError}
+          alignRight
         />
-      </div>
-      {/* 5.4.1: compact reference-history dropdown above the dropzones.
-        Saved + recent collapse into a single trigger so the cover
-        stays clean. Hides itself when the user has zero history. */}
-      {(savedRefs.length > 0 || recentRefs.length > 0) && (
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <ReferenceDropdown
-            saved={savedRefs}
-            recent={recentRefs}
-            onPick={setFileA}
-            onRemoveRecent={removeRecentRef}
-            slotLabel="Reference"
-          />
-          <ReferenceDropdown
-            saved={savedRefs}
-            recent={recentRefs}
-            onPick={setFileB}
-            onRemoveRecent={removeRecentRef}
-            slotLabel="Compare"
-          />
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" data-tour="dropzone">
-        <FileDropZone
-          label="Reference"
-          hint="Demo, rough or your mix"
-          file={fileA}
-          onFile={setFileA}
-          locked={lockFileA && !!fileA}
-          onToggleLock={fileA ? () => setLockFileA(v => !v) : undefined}
+        <ProfileDropdown
+          profiles={[{ id: '', name: 'None', profile_type: 'chain' }, ...profiles.filter(p => p.profile_type === 'chain')]}
+          selected={chainProfile}
+          onSelect={(id) => { setChainProfile(id); try { localStorage.setItem('rtm-chain-profile', id) } catch {} }}
+          onLoadCustom={handleLoadChainProfile}
+          onDelete={(id) => handleDeleteProfile(id)}
+          label="Delta"
+          alignRight
         />
-        <FileDropZone
-          label="Compare"
-          hint="Mix, new version, master or atmos file"
-          file={fileB}
-          onFile={setFileB}
-        />
-        {/* 5.7.x: render the swap button when EITHER slot has a file
-            (was: only when BOTH did). The "I dropped my mix into Reference
-            by mistake" case is the most common — a single file in the
-            wrong slot. Click swaps fileA ↔ fileB; if only one is set,
-            the empty slot just stays empty after the swap, but the
-            loaded file ends up where the user actually wanted it.
-            Glyph: bidirectional when both slots are filled (swap), single
-            arrow pointing to the empty slot when only one is filled. */}
-        {(fileA || fileB) && (
-          <button
-            onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 hidden md:flex items-center justify-center transition-all hover:scale-110"
-            style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)', borderRadius: 2 }}
-            aria-label={fileA && fileB ? "Swap reference and compare files" : "Move file to the other slot"}
-            title={fileA && fileB ? "Swap files" : "Move to the other slot"}
-          >
-            {fileA && fileB ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-              </svg>
-            ) : fileA ? (
-              // Only Reference filled — arrow points right (toward Compare)
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m0 0l-5-5m5 5l-5 5" />
-              </svg>
-            ) : (
-              // Only Compare filled — arrow points left (toward Reference)
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l5-5m-5 5l5 5" />
-              </svg>
-            )}
-          </button>
+      </>}
+    >
+      {/* Legacy-only UI: FileDropZones, swap, mode indicator, recents.
+          v52 CoverSurface already has FileSlots and recents built in —
+          rendering these again creates a "double window". */}
+      {!useV52Cover && <>
+        {(savedRefs.length > 0 || recentRefs.length > 0) && (
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <ReferenceDropdown
+              saved={savedRefs}
+              recent={recentRefs}
+              onPick={setFileA}
+              onRemoveRecent={removeRecentRef}
+              slotLabel="Reference"
+            />
+            <ReferenceDropdown
+              saved={savedRefs}
+              recent={recentRefs}
+              onPick={setFileB}
+              onRemoveRecent={removeRecentRef}
+              slotLabel="Compare"
+            />
+          </div>
         )}
-      </div>
-      {/* Mode indicator — replaces what would otherwise be a constant
-          "Begin analysis" label inside EmptyStateV2. Tells the user which
-          action the Begin button will actually fire. */}
-      <div
-        style={{
-          marginTop: 16,
-          textAlign: 'center',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 'var(--text-metric-eyebrow)',
-          letterSpacing: 'var(--tracking-metric-eyebrow)',
-          textTransform: 'uppercase',
-          color: 'var(--color-text-dim)',
-        }}
-      >
-        {fileA && fileB ? (
-          <>
-            Begin comparison
-            <span style={{ display: 'block', marginTop: 4, color: 'var(--color-text-secondary)', textTransform: 'none', letterSpacing: 0 }}>
-              vs. {fileB.name}
-            </span>
-          </>
-        ) : fileA ? (
-          'Analyse reference only'
-        ) : null}
-      </div>
-      {/* Cancel toast — distinct from the red error callout above.
-          Auto-clears after 3s via the useEffect on cancelMessage. */}
-      {cancelMessage && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" data-tour="dropzone">
+          <FileDropZone
+            label="Reference"
+            hint="Demo, rough or your mix"
+            file={fileA}
+            onFile={setFileA}
+            locked={lockFileA && !!fileA}
+            onToggleLock={fileA ? () => setLockFileA(v => !v) : undefined}
+          />
+          <FileDropZone
+            label="Compare"
+            hint="Mix, new version, master or atmos file"
+            file={fileB}
+            onFile={setFileB}
+          />
+          {(fileA || fileB) && (
+            <button
+              onClick={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 hidden md:flex items-center justify-center transition-all hover:scale-110"
+              style={{ backgroundColor: 'var(--color-bg-app)', border: '1px solid rgba(168,161,150,0.25)', color: 'var(--color-text-secondary)', borderRadius: 2 }}
+              aria-label={fileA && fileB ? "Swap reference and compare files" : "Move file to the other slot"}
+              title={fileA && fileB ? "Swap files" : "Move to the other slot"}
+            >
+              {fileA && fileB ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              ) : fileA ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m0 0l-5-5m5 5l-5 5" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l5-5m-5 5l5 5" />
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
         <div
-          role="status"
           style={{
-            marginTop: 12,
-            marginInline: 'auto',
-            width: 'min(840px, 92%)',
-            padding: '8px 14px',
-            border: '1px solid rgba(168,161,150,0.25)',
-            borderRadius: 2,
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-sm, 0.875rem)',
-            color: 'var(--color-text-secondary)',
+            marginTop: 16,
             textAlign: 'center',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-metric-eyebrow)',
+            letterSpacing: 'var(--tracking-metric-eyebrow)',
+            textTransform: 'uppercase',
+            color: 'var(--color-text-dim)',
           }}
         >
-          {cancelMessage}
+          {fileA && fileB ? (
+            <>
+              Begin comparison
+              <span style={{ display: 'block', marginTop: 4, color: 'var(--color-text-secondary)', textTransform: 'none', letterSpacing: 0 }}>
+                vs. {fileB.name}
+              </span>
+            </>
+          ) : fileA ? (
+            'Analyse reference only'
+          ) : null}
         </div>
-      )}
-      {/* Inline recent-analyses card — wired to the history log so the
-          empty-state surface actually surfaces prior work. Clicking a
-          row loads the entry into the chosen slot. */}
-      {history.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <RecentAnalyses
-            history={history}
-            onPick={(entry, slot) => {
-              const info: FileInfo = { path: entry.path, name: entry.name }
-              if (slot === 'A') setFileA(info)
-              else setFileB(info)
+        {cancelMessage && (
+          <div
+            role="status"
+            style={{
+              marginTop: 12,
+              marginInline: 'auto',
+              width: 'min(840px, 92%)',
+              padding: '8px 14px',
+              border: '1px solid rgba(168,161,150,0.25)',
+              borderRadius: 2,
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-sm, 0.875rem)',
+              color: 'var(--color-text-secondary)',
+              textAlign: 'center',
             }}
-            onClear={async () => {
-              await (window.electronAPI as any)?.historyClear?.()
-              setHistory([])
-            }}
-          />
-        </div>
-      )}
+          >
+            {cancelMessage}
+          </div>
+        )}
+        {history.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <RecentAnalyses
+              history={history}
+              onPick={(entry, slot) => {
+                const info: FileInfo = { path: entry.path, name: entry.name }
+                if (slot === 'A') setFileA(info)
+                else setFileB(info)
+              }}
+              onClear={async () => {
+                await (window.electronAPI as any)?.historyClear?.()
+                setHistory([])
+              }}
+            />
+          </div>
+        )}
+      </>}
     </CoverWiredEmptyState>
   )}
 
@@ -1472,6 +1543,16 @@ export default function App() {
  the chunk downloads (typically <300 ms on first switch, instant
  on subsequent visits via Vite's chunk cache). */}
  {state === 'results' && results && (
+ <>
+ {/* CRIT-9: keyboard focus target after analysis completes */}
+ <h2
+   ref={resultsHeadingRef}
+   tabIndex={-1}
+   className="sr-only"
+   style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+ >
+   Analysis results
+ </h2>
  <Suspense fallback={<ProgressBar message="Loading compare view…" />}>
  <AnalysisView
  results={results}
@@ -1479,6 +1560,7 @@ export default function App() {
  fileB={fileB!}
  />
  </Suspense>
+ </>
  )}
 
  {/* RTMcertify — signed pre-delivery compliance certificate.
@@ -1488,41 +1570,44 @@ export default function App() {
  <button
  onClick={handleCertify}
  disabled={certifying}
- style={
-   goldBudget
-     ? {
-         alignSelf: 'flex-start',
-         padding: '10px 24px',
-         fontFamily: 'var(--font-sans)',
-         fontSize: 12,
-         fontWeight: 500,
-         letterSpacing: '0.12em',
-         textTransform: 'uppercase',
-         border: '1px solid var(--color-accent)',
-         borderRadius: 2,
-         background: 'var(--color-accent)',
-         color: 'var(--color-bg-app)',
-         cursor: certifying ? 'wait' : 'pointer',
-         opacity: certifying ? 0.5 : 1,
-       }
-     : {
-         alignSelf: 'flex-start',
-         padding: '6px 16px',
-         fontSize: 12,
-         fontWeight: 600,
-         letterSpacing: '0.06em',
-         textTransform: 'uppercase',
-         border: '1px solid rgba(168,161,150,0.25)',
-         borderRadius: 2,
-         background: 'transparent',
-         color: 'var(--color-text-secondary, #aaa)',
-         cursor: certifying ? 'wait' : 'pointer',
-         opacity: certifying ? 0.5 : 1,
-       }
- }
  title="Generate a signed pre-delivery compliance certificate (RTMcertify)"
+ style={goldBudget ? {
+   alignSelf: 'flex-start',
+   padding: '10px 24px',
+   fontFamily: 'var(--font-sans)',
+   fontSize: 12,
+   fontWeight: 500,
+   letterSpacing: '0.12em',
+   textTransform: 'uppercase' as const,
+   border: '1px solid var(--color-accent)',
+   borderRadius: 2,
+   background: 'var(--color-accent)',
+   color: 'var(--color-bg-app)',
+   cursor: certifying ? 'wait' : 'pointer',
+   opacity: certifying ? 0.5 : 1,
+   display: 'inline-flex',
+   alignItems: 'center',
+   gap: 8,
+ } : {
+   alignSelf: 'flex-start',
+   padding: '6px 16px',
+   fontSize: 12,
+   fontWeight: 600,
+   letterSpacing: '0.06em',
+   textTransform: 'uppercase' as const,
+   border: '1px solid rgba(168,161,150,0.25)',
+   borderRadius: 2,
+   background: 'transparent',
+   color: 'var(--color-text-secondary, #aaa)',
+   cursor: certifying ? 'wait' : 'pointer',
+   opacity: certifying ? 0.5 : 1,
+   display: 'inline-flex',
+   alignItems: 'center',
+   gap: 8,
+ }}
  >
  {certifying ? 'Generating certificate…' : 'Get RTMcertify Certificate'}
+ <span title="RTMcertify creates a tamper-proof compliance certificate for your delivery: a signed JSON document containing SHA-256 file fingerprints, LUFS and true-peak measurements, sample rate, bit depth, and a unique certificate ID with a UTC timestamp. Use it to prove to a label, distributor, or streaming platform exactly what was delivered and when — and that nothing was changed after the fact." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 13, height: 13, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: goldBudget ? 'rgba(0,0,0,0.5)' : 'rgba(168,161,150,0.5)', border: `1px solid ${goldBudget ? 'rgba(0,0,0,0.3)' : 'rgba(168,161,150,0.3)'}`, lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </button>
  {certifyResult && (certifyResult.error ? (
  <div
@@ -1670,9 +1755,20 @@ export default function App() {
  )}
 
  {state === 'ref-only' && refOnlyResults && (
+ <>
+ {/* CRIT-9: keyboard focus target */}
+ <h2
+   ref={resultsHeadingRef}
+   tabIndex={-1}
+   className="sr-only"
+   style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}
+ >
+   Analysis results
+ </h2>
  <Suspense fallback={<ProgressBar message="Loading single-file view…" />}>
  <RefOnlyView check={refOnlyResults} fileName={fileA!.name} filePath={fileA!.path} />
  </Suspense>
+ </>
  )}
  </main>
 

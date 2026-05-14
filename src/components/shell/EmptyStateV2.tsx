@@ -72,6 +72,7 @@ interface Props {
  canCompare?: boolean
  canRefOnly?: boolean
  profileName?: string
+ onProfileNameChange?: (name: string) => void
  v52Recents?: Array<{ id: string; title: string; ts?: string }>
  onOpenRecent?: (id: string) => void
  onClearRecents?: () => void
@@ -81,6 +82,7 @@ interface Props {
  courseName?: string
  assignmentName?: string
  sessionCount?: number
+ controls?: React.ReactNode
 }
 
 export default function EmptyStateV2({
@@ -105,6 +107,7 @@ export default function EmptyStateV2({
  canCompare,
  canRefOnly,
  profileName,
+ onProfileNameChange,
  v52Recents,
  onOpenRecent,
  onClearRecents,
@@ -114,6 +117,7 @@ export default function EmptyStateV2({
  courseName,
  assignmentName,
  sessionCount,
+ controls,
 }: Props) {
  // recents prop kept for API stability; the count is no longer surfaced
  // in the footer (the dead "Recent (N)" button was removed — inline
@@ -144,6 +148,7 @@ export default function EmptyStateV2({
     onBeginBatch={onBatch}
     canBatch={!!onBatch}
     profileName={profileName}
+    onProfileNameChange={onProfileNameChange}
     recents={(v52Recents ?? (recents ?? []).slice(0, 3).map(r => ({
      id: (r as HistoryEntry).path ?? (r as HistoryEntry).name ?? '',
      title: (r as HistoryEntry).name ?? '',
@@ -158,6 +163,7 @@ export default function EmptyStateV2({
     courseName={courseName}
     assignmentName={assignmentName}
     sessionCount={sessionCount ?? recents?.length}
+    controls={controls}
    >
     {children}
    </CoverSurface>
@@ -322,6 +328,12 @@ export default function EmptyStateV2({
  >
  Begin analysis
  </button>
+ {/* CRIT-10: tell the user what "Begin" will do when only one file is loaded */}
+ {canBegin && !fileBName && (
+   <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 4px', textAlign: 'center' }}>
+     Only A loaded — will run single-file analysis. Drop a B file to compare.
+   </p>
+ )}
 
  {onBatch && (
  <button
