@@ -828,12 +828,30 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  loopEndRef.current = null
  }, [])
 
- // Auto-load on mount
+ // Auto-load on mount and whenever the file pair changes.
  useEffect(() => {
  if (!isLoaded && !isLoading) {
  loadFiles()
  }
- }, []) // eslint-disable-line react-hooks/exhaustive-deps
+ }, [loadFiles]) // eslint-disable-line react-hooks/exhaustive-deps
+
+ // Reset stems mode when the loaded files change — prevents solo/stem state
+ // from bleeding into a different track after batch navigation.
+ useEffect(() => {
+ setPlayerMode('mix')
+ playerModeRef.current = 'mix'
+ setStemsLoaded(false)
+ setStemsLoading(false)
+ // Clear stale stem buffers and waveforms so the previous track's audio
+ // can't bleed into the new one if the user re-engages stems mode quickly.
+ stemBuffersARef.current = {}
+ stemBuffersBRef.current = {}
+ setStemWaveformsA({})
+ setStemWaveformsB({})
+ setStemMetrics({})
+ // Keep activeStem so the user's last stem choice is remembered for the
+ // new track once they re-engage stems mode, but exit stems mode itself.
+ }, [fileA.path, fileB.path]) // eslint-disable-line react-hooks/exhaustive-deps
 
  // Keyboard shortcuts
  useEffect(() => {

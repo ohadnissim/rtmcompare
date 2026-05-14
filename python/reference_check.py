@@ -249,7 +249,7 @@ def check_reference(path: str, sr: int = None) -> dict:
     """
     Full reference quality check including Harman-inspired tonal analysis.
     """
-    y, _ = librosa.load(path, sr=sr, mono=False)
+    y, sr = librosa.load(path, sr=sr, mono=False)
     if y.ndim == 1:
         y = np.stack([y, y])
 
