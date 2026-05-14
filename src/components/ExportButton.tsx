@@ -19,7 +19,7 @@ export default function ExportButton({ results, fileA, fileB }: Props) {
  const url = URL.createObjectURL(blob)
  const a = document.createElement('a')
  a.href = url
- a.download = `rtm-suite-${labelA}-vs-${labelB}.html`
+ a.download = `rtmcompare-${labelA}-vs-${labelB}.html`
  a.click()
  URL.revokeObjectURL(url)
  }, [results, fileA, fileB])

@@ -392,7 +392,13 @@ export default function App() {
  const [results, setResults] = useState<AnalysisResult | null>(null)
  const [error, setError] = useState<string | null>(null)
  // RTMcertify state — signed pre-delivery compliance certificate
- const [certifyResult, setCertifyResult] = useState<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
+ const [certifyResult, setCertifyResult] = useState<{
+  certificate_id?: string; file_a?: string; file_b?: string;
+  sha256_a?: string; sha256_b?: string; hmac_sha256?: string;
+  timestamp?: string; error?: string;
+  analysis?: Record<string, number | null | undefined>;
+  compliance?: Record<string, boolean>;
+} | null>(null)
  const [certifying, setCertifying] = useState(false)
  // Inline toast for certify Copy / Save actions — clears after 2s so
  // the user gets confirmation instead of a silent no-op.

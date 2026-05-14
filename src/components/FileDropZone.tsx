@@ -209,5 +209,5 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
 
 function isAudioFile(name: string): boolean {
  const ext = name.toLowerCase().split('.').pop()
- return ['wav', 'mp3', 'flac', 'aiff', 'aif', 'ogg', 'm4a', 'wma'].includes(ext || '')
+ return ['wav', 'mp3', 'flac', 'aiff', 'aif', 'ogg', 'm4a', 'wma', 'adm'].includes(ext || '')
 }

@@ -567,6 +567,7 @@ ipcMain.handle('history-append', async (_event, entry: any) => {
     mode:         typeof entry?.mode         === 'string'  ? entry.mode         : null,
     spec_versions: entry?.spec_versions != null && typeof entry.spec_versions === 'object' && !Array.isArray(entry.spec_versions) ? entry.spec_versions : undefined,
     ts:           now,
+    schema_version: 1,
   }
   const sha = sanitized.sha256
   const filtered = list.filter(e => !(e.sha256 === sha && (now - (e.ts || 0)) < 60 * 1000))

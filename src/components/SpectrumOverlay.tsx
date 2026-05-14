@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useId } from 'react'
 import { useSolo } from '../SoloContext'
 
 interface Props {
@@ -183,6 +183,7 @@ export default function SpectrumOverlay({
  * in the two-overlay chart.
  */
 function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[] }) {
+ const uid = useId().replace(/:/g, '')
  const w = 800
  const h = 200
  const padX = 0
@@ -201,11 +202,10 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
 
  const denom = Math.max(1, bands - 1)
  const centerY = padY + (h - padY * 2) / 2
- const dBToY = (d: number) => centerY - (d / CLAMP) * ((h - padY * 2) / 2)
-
  const pathD = useMemo(() => {
  if (diffs.length < 2) return ''
- const pts = diffs.map((v, i) => ({ x: padX + (i / denom) * (w - padX * 2), y: dBToY(v) }))
+ const _dBToY = (d: number) => centerY - (d / CLAMP) * ((h - padY * 2) / 2)
+ const pts = diffs.map((v, i) => ({ x: padX + (i / denom) * (w - padX * 2), y: _dBToY(v) }))
  let p = `M ${pts[0].x} ${pts[0].y}`
  for (let i = 1; i < pts.length; i++) {
  const prev = pts[i - 1], curr = pts[i]
@@ -213,7 +213,9 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
  p += ` C ${cpx} ${prev.y}, ${cpx} ${curr.y}, ${curr.x} ${curr.y}`
  }
  return p
- }, [diffs, denom])
+ }, [diffs, denom, centerY, CLAMP, h, padY, w, padX])
+
+ const dBToY = (d: number) => centerY - (d / CLAMP) * ((h - padY * 2) / 2)
 
  return (
  <div className="relative bg-dark-800 p-3" style={{ borderRadius: '2px' }}>
@@ -239,24 +241,24 @@ function SpectrumDeltaGraph({ dataA, dataB }: { dataA: number[]; dataB: number[]
  })}
  {/* Positive / negative fills */}
  <defs>
- <linearGradient id="delta-up" x1="0" y1="0" x2="0" y2="1">
+ <linearGradient id={`${uid}-delta-up`} x1="0" y1="0" x2="0" y2="1">
  <stop offset="0%" style={{ stopColor: 'var(--color-success)' }} stopOpacity="0.32" />
  <stop offset="100%" style={{ stopColor: 'var(--color-success)' }} stopOpacity="0" />
  </linearGradient>
- <linearGradient id="delta-down" x1="0" y1="1" x2="0" y2="0">
+ <linearGradient id={`${uid}-delta-down`} x1="0" y1="1" x2="0" y2="0">
  <stop offset="0%" style={{ stopColor: 'var(--color-danger)' }} stopOpacity="0.32" />
  <stop offset="100%" style={{ stopColor: 'var(--color-danger)' }} stopOpacity="0" />
  </linearGradient>
- <clipPath id="delta-above"><rect x={0} y={0} width={w} height={centerY} /></clipPath>
- <clipPath id="delta-below"><rect x={0} y={centerY} width={w} height={h - centerY} /></clipPath>
+ <clipPath id={`${uid}-delta-above`}><rect x={0} y={0} width={w} height={centerY} /></clipPath>
+ <clipPath id={`${uid}-delta-below`}><rect x={0} y={centerY} width={w} height={h - centerY} /></clipPath>
  </defs>
  {/* Fill above the zero line (B > A) */}
- <g clipPath="url(#delta-above)">
- <path d={`${pathD} L ${w - padX} ${centerY} L ${padX} ${centerY} Z`} fill="url(#delta-up)" />
+ <g clipPath={`url(#${uid}-delta-above)`}>
+ <path d={`${pathD} L ${w - padX} ${centerY} L ${padX} ${centerY} Z`} fill={`url(#${uid}-delta-up)`} />
  </g>
  {/* Fill below the zero line (B < A) */}
- <g clipPath="url(#delta-below)">
- <path d={`${pathD} L ${w - padX} ${centerY} L ${padX} ${centerY} Z`} fill="url(#delta-down)" />
+ <g clipPath={`url(#${uid}-delta-below)`}>
+ <path d={`${pathD} L ${w - padX} ${centerY} L ${padX} ${centerY} Z`} fill={`url(#${uid}-delta-down)`} />
  </g>
  <path d={pathD} fill="none" stroke="var(--color-accent)" strokeWidth="2" />
  {/* Click any band to solo that frequency on the player. */}

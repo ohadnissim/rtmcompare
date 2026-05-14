@@ -24,6 +24,8 @@ from scipy.signal import resample_poly
 from comparator import compute_lufs, bandpass
 from adm_parser import get_channel_index, get_group_indices, CHANNEL_GROUPS
 
+ATMOS_REQUIRED_SR = 48000
+MIN_SUPPORTED_SR = 44100
 
 # ─── Dolby specs ─────────────────────────────────────────────────────────────
 
@@ -32,7 +34,7 @@ SPECS = {
     "warn_integrated_lufs": -16.0,
     "max_true_peak_dbtp": -1.0,
     "warn_true_peak_dbtp": -0.5,
-    "required_sample_rate": 48000,
+    "required_sample_rate": ATMOS_REQUIRED_SR,
     "required_bit_depth": 24,
     "dead_channel_threshold_db": -60.0,
     "height_ratio_min": 0.03,
@@ -83,7 +85,7 @@ def _phase_correlation(left, right):
 
 # ─── Main QC function ────────────────────────────────────────────────────────
 
-def check_atmos_qc(file_path, multichannel, layout, sr=44100,
+def check_atmos_qc(file_path, multichannel, layout, sr=MIN_SUPPORTED_SR,
                      downmix_stereo=None, format_info=None):
     """
     Run Dolby Atmos QC checks on a multichannel file.
