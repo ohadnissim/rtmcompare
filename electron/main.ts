@@ -400,7 +400,10 @@ app.whenReady().then(async () => {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self' 'unsafe-inline' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: data:; img-src 'self' blob: data:; font-src 'self' data:"
+          // MED-7: removed 'unsafe-eval' — Vite production build does not need it.
+          // 'unsafe-inline' kept for inline styles used by React; script-src inline
+          // is required for Vite's injected module preload polyfill in packaged mode.
+          "default-src 'self' 'unsafe-inline' blob: data:; script-src 'self' 'unsafe-inline'; connect-src 'self' blob: http://127.0.0.1:* http://localhost:*; media-src 'self' blob: data:; img-src 'self' blob: data:; font-src 'self' data:"
         ],
       },
     })
