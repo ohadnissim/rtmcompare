@@ -202,6 +202,7 @@ def _handle_analyze(request_id: str, params: dict) -> dict:
     file_b = params.get("file_b", "")
     fast = bool(params.get("fast", True))
     profile_id = params.get("profile", "")
+    chain_profile_id = params.get("chain_profile", "")
 
     if not file_a or not file_b:
         return {"id": request_id, "error": "analyze requires file_a and file_b params"}
@@ -217,6 +218,12 @@ def _handle_analyze(request_id: str, params: dict) -> dict:
 
     # _analyze_lock serialises this entire block so concurrent requests
     # cannot race on sys.stdout / sys.argv / _analyze_mod.progress.
+    # MED-15: try non-blocking first — if already held, return a "busy"
+    # error immediately so the caller gets feedback instead of hanging for
+    # up to 30 minutes waiting on the lock.
+    if not _analyze_lock.acquire(blocking=False):
+        return {"id": request_id, "error": "busy: another analysis is already running — please wait and retry"}
+    _analyze_lock.release()
     with _analyze_lock:
         # Reset the per-run optional-failures accumulator (module-level list).
         _analyze_mod._optional_failures.clear()
@@ -236,6 +243,8 @@ def _handle_analyze(request_id: str, params: dict) -> dict:
         if fast:
             sys.argv.append("--fast")
         sys.argv.append(f"--profile={profile_id}")
+        if chain_profile_id:
+            sys.argv.append(f"--chain-profile={chain_profile_id}")
 
         try:
             _analyze_mod.main()

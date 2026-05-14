@@ -719,9 +719,17 @@ export default function App() {
  const refreshProfiles = useCallback(async () => {
    try {
      const list = await window.electronAPI?.listProfiles?.()
-     if (Array.isArray(list)) setProfiles(list)
+     if (Array.isArray(list)) {
+       setProfiles(list)
+       if (list.length === 0) {
+         setProfileError('No profiles found — try reinstalling or contact support.')
+       } else {
+         setProfileError(null)
+       }
+     }
    } catch (e) {
      console.error('[profiles] load failed', e)
+     setProfileError('Could not load profiles — check installation.')
    }
  }, [])
 

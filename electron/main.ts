@@ -824,7 +824,13 @@ function ensureUserProfilesDir() {
   try { fs.mkdirSync(USER_PROFILES_DIR, { recursive: true }) } catch {}
 }
 
+// MED-14: in-memory cache so list-profiles doesn't re-read every JSON on every call.
+// Invalidated by any write/delete that changes the profiles directory.
+let _profilesListCache: any[] | null = null
+function invalidateProfilesCache() { _profilesListCache = null }
+
 ipcMain.handle('list-profiles', async () => {
+  if (_profilesListCache) return _profilesListCache
   ensureUserProfilesDir()
   const profiles: any[] = []
   const seen = new Set<string>()
@@ -874,6 +880,7 @@ ipcMain.handle('list-profiles', async () => {
     }
   } catch {}
 
+  _profilesListCache = profiles
   return profiles
 })
 
@@ -930,6 +937,7 @@ ipcMain.handle('load-custom-profile', async () => {
     const destPath = path.join(USER_PROFILES_DIR, `${id}.json`)
     // CRIT-3 fix: atomic write so a crash mid-write doesn't leave a truncated profile JSON.
     atomicWriteFileSync(destPath, JSON.stringify(data, null, 2))
+    invalidateProfilesCache()
 
     return {
       id,
@@ -937,6 +945,7 @@ ipcMain.handle('load-custom-profile', async () => {
       description: data.description || '',
       sample_count: data.sample_count || 0,
       user_created: true,
+      profile_type: data.profile_type || 'fingerprint',
     }
   } catch (err: any) {
     throw new Error(`Invalid profile: ${err.message || err}`)
@@ -956,6 +965,7 @@ ipcMain.handle('delete-custom-profile', async (_event, profileId: string) => {
   }
   if (fs.existsSync(resolved)) {
     fs.unlinkSync(resolved)
+    invalidateProfilesCache()
     return true
   }
   return false

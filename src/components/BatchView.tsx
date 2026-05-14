@@ -39,14 +39,16 @@ export type SongAnalysisState = {
  startedAt?: number
  message?: string
 }
-function analysisPct(s: SongAnalysisState | undefined): number {
+// MED-13: accept an explicit `now` timestamp so callers can pass a stable
+// value from state rather than calling Date.now() on every render.
+function analysisPct(s: SongAnalysisState | undefined, now = Date.now()): number {
  if (!s || s.state !== 'running' || !s.startedAt) return 0
- const elapsed = (Date.now() - s.startedAt) / 1000
+ const elapsed = (now - s.startedAt) / 1000
  return Math.min(95, Math.round((elapsed / ANALYSIS_EXPECTED_SEC) * 100))
 }
-function analysisElapsedSec(s: SongAnalysisState | undefined): number {
+function analysisElapsedSec(s: SongAnalysisState | undefined, now = Date.now()): number {
  if (!s || s.state !== 'running' || !s.startedAt) return 0
- return Math.round((Date.now() - s.startedAt) / 1000)
+ return Math.round((now - s.startedAt) / 1000)
 }
 
 export default function BatchView({ results, folderName, onBack, initialSession }: Props) {
@@ -351,10 +353,12 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  () => Object.values(songAnalysis).some(s => s.state === 'running'),
  [songAnalysis]
  )
- const [, forceTick] = useState(0)
+ // MED-13: use a separate state for the elapsed-time tick so only the
+ // running-progress display re-renders at 1 Hz, not the entire table.
+ const [elapsedNow, setElapsedNow] = useState(() => Date.now())
  useEffect(() => {
  if (!analysisRunning) return
- const id = setInterval(() => forceTick(t => t + 1), 1000)
+ const id = setInterval(() => setElapsedNow(Date.now()), 1000)
  return () => clearInterval(id)
  }, [analysisRunning])
 
@@ -922,8 +926,8 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  </span>
  <span className="truncate max-w-[22ch]">{name}</span>
  {ana?.state === 'running' && (
- <span className="font-mono text-[9px]" style={{ color: 'var(--color-accent)' }} title={`Deep analysis running — ${analysisPct(ana)}%`}>
- {analysisPct(ana)}%
+ <span className="font-mono text-[9px]" style={{ color: 'var(--color-accent)' }} title={`Deep analysis running — ${analysisPct(ana, elapsedNow)}%`}>
+ {analysisPct(ana, elapsedNow)}%
  </span>
  )}
  {ana?.state === 'done' && (
@@ -1147,10 +1151,10 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  <span
  className="ml-auto inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 rounded"
  style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(197,165,90,0.1)' }}
- title={`Deep analysis running (${analysisElapsedSec(songAnalysis[r.path])}s elapsed) — ${songAnalysis[r.path].message || 'working…'}`}
+ title={`Deep analysis running (${analysisElapsedSec(songAnalysis[r.path], elapsedNow)}s elapsed) — ${songAnalysis[r.path].message || 'working…'}`}
  >
  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-accent)' }} />
- {analysisPct(songAnalysis[r.path])}%
+ {analysisPct(songAnalysis[r.path], elapsedNow)}%
  </span>
  )}
  {songAnalysis[r.path]?.state === 'done' && (
