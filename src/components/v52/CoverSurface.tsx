@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useAudience, setAudienceOverride } from '../../AudienceContext'
 import type { Audience } from '../../copy/v52'
 import { v52Copy } from '../../copy/v52'
@@ -23,6 +23,7 @@ export interface CoverSurfaceProps {
   fileAFormat?: string
   fileADuration?: string
   onDropA: (file: File) => void
+  onBrowseA?: () => void   // click-to-open Finder for slot A
   isDraggingA?: boolean
 
   // File B
@@ -30,6 +31,7 @@ export interface CoverSurfaceProps {
   fileBFormat?: string
   fileBDuration?: string
   onDropB: (file: File) => void
+  onBrowseB?: () => void   // click-to-open Finder for slot B
   isDraggingB?: boolean
 
   // Swap
@@ -51,12 +53,19 @@ export interface CoverSurfaceProps {
   // Recents
   recents?: Array<{ id: string; title: string; ts?: string }>
   onOpenRecent?: (id: string) => void
+  onClearRecents?: () => void
   recentsTotal?: number
 
   // Course context
   courseName?: string
   assignmentName?: string
   sessionCount?: number
+
+  // Tour
+  onTour?: () => void
+
+  // Extra content (ProfileDropdown, etc.) rendered below CTA row
+  children?: React.ReactNode
 }
 
 const SAND_700 = 'rgba(168,161,150,0.22)'
@@ -83,15 +92,22 @@ interface SlotProps {
   format?: string
   duration?: string
   onDrop: (file: File) => void
+  onBrowse?: () => void
   isDragging?: boolean
   bothLoaded: boolean
 }
 
-function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, isDragging, bothLoaded }: SlotProps) {
+function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrowse, isDragging, bothLoaded }: SlotProps) {
   const [hover, setHover] = useState(false)
   const dragging = isDragging || hover
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const metaLine = [format, duration].filter(Boolean).join(' · ')
+
+  const handleBrowse = () => {
+    if (onBrowse) { onBrowse(); return }
+    inputRef.current?.click()
+  }
 
   return (
     <div
@@ -114,6 +130,19 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, isDragg
         gap: 14,
       }}
     >
+      {/* Hidden native file input — fallback when Electron onBrowse not wired */}
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".wav,.aiff,.aif,.mp3,.flac,.m4a,.ogg"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) onDrop(f)
+          e.target.value = ''
+        }}
+      />
+
       <div style={trackedCaps(9, SAND_400)}>{eyebrow}</div>
 
       {name ? (
@@ -131,7 +160,29 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, isDragg
           {name}
         </div>
       ) : (
-        <div style={trackedCaps(11, SAND_500)}>{emptyLabel}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={trackedCaps(11, SAND_500)}>{emptyLabel}</div>
+          {/* Browse button — always shown so keyboard/trackpad users aren't drag-only */}
+          <button
+            type="button"
+            onClick={handleBrowse}
+            style={{
+              alignSelf: 'flex-start',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 10,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: SAND_300,
+              background: 'transparent',
+              border: `1px solid ${SAND_700}`,
+              borderRadius: 2,
+              padding: '5px 10px',
+              cursor: 'pointer',
+            }}
+          >
+            Browse…
+          </button>
+        </div>
       )}
 
       {!name && (
@@ -161,11 +212,13 @@ export function CoverSurface({
   fileAFormat,
   fileADuration,
   onDropA,
+  onBrowseA,
   isDraggingA,
   fileBName,
   fileBFormat,
   fileBDuration,
   onDropB,
+  onBrowseB,
   isDraggingB,
   onSwap,
   onBeginCompare,
@@ -177,10 +230,13 @@ export function CoverSurface({
   profileName,
   recents,
   onOpenRecent,
+  onClearRecents,
   recentsTotal,
   courseName,
   assignmentName,
   sessionCount,
+  onTour,
+  children,
 }: CoverSurfaceProps) {
   const audience = useAudience()
   const eyebrow = v52Copy.cover.eyebrow[audience]
@@ -214,20 +270,71 @@ export function CoverSurface({
     >
       {/* Masthead — cols 1-8 */}
       <header className="col-span-12 md:col-span-8" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <h1
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontStyle: 'italic',
-            fontWeight: 400,
-            fontSize: 'var(--text-wordmark-hero)',
-            lineHeight: 1,
-            color: CREAM,
-            margin: 0,
-            letterSpacing: '-0.01em',
-          }}
-        >
-          RTM<span style={{ color: SAND_400 }}>·</span>Compare
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <h1
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontStyle: 'italic',
+              fontWeight: 400,
+              fontSize: 'var(--text-wordmark-hero)',
+              lineHeight: 1,
+              color: CREAM,
+              margin: 0,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            RTM<span style={{ color: SAND_400 }}>·</span>Compare
+          </h1>
+
+          {/* Tour + pro/producer mode pill — top-right of masthead */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4, flexShrink: 0 }}>
+            {/* Pro / Producer toggle — persists audience to localStorage */}
+            {(audience === 'pro' || audience === 'producer') && (
+              <div style={{ display: 'flex', border: `1px solid ${SAND_700}`, borderRadius: 2, overflow: 'hidden' }}>
+                {(['pro', 'producer'] as Audience[]).map(a => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setAudienceOverride(audience === a ? null : a)}
+                    style={{
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 9,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      padding: '4px 9px',
+                      background: audience === a ? 'rgba(208,176,102,0.12)' : 'transparent',
+                      color: audience === a ? GOLD : SAND_500,
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            )}
+            {onTour && (
+              <button
+                type="button"
+                onClick={onTour}
+                style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 9,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: SAND_400,
+                  background: 'transparent',
+                  border: `1px solid ${SAND_700}`,
+                  borderRadius: 2,
+                  padding: '4px 9px',
+                  cursor: 'pointer',
+                }}
+              >
+                Tour
+              </button>
+            )}
+          </div>
+        </div>
 
         <div style={{ width: '30%', height: 1, backgroundColor: GOLD }} />
 
@@ -270,6 +377,7 @@ export function CoverSurface({
           format={fileAFormat}
           duration={fileADuration}
           onDrop={onDropA}
+          onBrowse={onBrowseA}
           isDragging={isDraggingA}
           bothLoaded={bothLoaded}
         />
@@ -281,6 +389,7 @@ export function CoverSurface({
           format={fileBFormat}
           duration={fileBDuration}
           onDrop={onDropB}
+          onBrowse={onBrowseB}
           isDragging={isDraggingB}
           bothLoaded={bothLoaded}
         />
@@ -374,6 +483,13 @@ export function CoverSurface({
         )}
       </div>
 
+      {/* Extra content — ProfileDropdown, ReferenceDropdown, etc. */}
+      {children && (
+        <div className="col-span-12" style={{ marginTop: 4 }}>
+          {children}
+        </div>
+      )}
+
       {/* Bottom-right: recents + greeting */}
       <aside
         className="col-span-12 md:col-start-8 md:col-span-5"
@@ -388,7 +504,31 @@ export function CoverSurface({
       >
         {visibleRecents.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={trackedCaps(9, SAND_400)}>Recent ({totalRecents})</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+              <div style={trackedCaps(9, SAND_400)}>Recent ({totalRecents})</div>
+              {onClearRecents && (
+                <button
+                  type="button"
+                  onClick={onClearRecents}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 9,
+                    letterSpacing: '0.10em',
+                    textTransform: 'uppercase',
+                    color: SAND_500,
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    textDecorationColor: SAND_700,
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
             {visibleRecents.map((r) => (
               <button
                 key={r.id}
@@ -431,55 +571,6 @@ export function CoverSurface({
           {greeting}
         </div>
 
-        {/* Audience switcher — discoverable per-tab override.
-            Replaces the DevTools-only localStorage workaround. */}
-        <div
-          className="mt-4 flex gap-3 items-center"
-          style={{ fontSize: '9px', letterSpacing: '0.16em' }}
-        >
-          <span style={{ color: SAND_400, textTransform: 'uppercase' }}>VIEW AS</span>
-          {(['pro', 'producer', 'student', 'teacher'] as Audience[]).map((a) => (
-            <button
-              key={a}
-              type="button"
-              onClick={() => setAudienceOverride(a)}
-              style={{
-                color: a === audience ? CREAM : SAND_400,
-                textTransform: 'uppercase',
-                background: 'transparent',
-                border: 'none',
-                padding: '2px 0',
-                borderBottom: a === audience ? `1px solid ${GOLD}` : '1px solid transparent',
-                cursor: 'pointer',
-                letterSpacing: '0.16em',
-                fontSize: '9px',
-              }}
-            >
-              {a}
-            </button>
-          ))}
-          {/* B5: RESET clears the audience override, falling back to the signal chain
-              (LearnMode role → persona → default). Auto-clears when Learn mode toggles. */}
-          <button
-            type="button"
-            onClick={() => setAudienceOverride(null)}
-            aria-label="Clear audience override — reverts to Learn Mode role or default"
-            style={{
-              color: SAND_400,
-              textTransform: 'uppercase',
-              background: 'transparent',
-              border: 'none',
-              padding: '2px 0',
-              borderBottom: '1px solid transparent',
-              cursor: 'pointer',
-              letterSpacing: '0.16em',
-              fontSize: '9px',
-              opacity: 0.6,
-            }}
-          >
-            ↺ reset
-          </button>
-        </div>
       </aside>
     </section>
   )

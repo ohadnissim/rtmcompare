@@ -269,6 +269,8 @@ interface CoverWiredEmptyStateProps {
  onBatch?: () => void
  recents: HistoryEntry[]
  onOpenRecents: () => void
+ onClearRecents?: () => void
+ onTour?: () => void
  error?: string | null
  fileA: FileInfo | null
  fileB: FileInfo | null
@@ -279,7 +281,7 @@ interface CoverWiredEmptyStateProps {
  children?: React.ReactNode
 }
 function CoverWiredEmptyState({
- canBegin, onBegin, onBeginCompare, onBeginRefOnly, onBatch, recents, onOpenRecents, error,
+ canBegin, onBegin, onBeginCompare, onBeginRefOnly, onBatch, recents, onOpenRecents, onClearRecents, onTour, error,
  fileA, fileB, setFileA, setFileB, history, profileName, children,
 }: CoverWiredEmptyStateProps) {
  const learn = useLearnMode()
@@ -304,6 +306,15 @@ function CoverWiredEmptyState({
    setFileB(info)
    getAudioDuration(file).then(d => setFileBDuration(d ?? undefined))
   }
+ }
+ // Browse via Electron native file dialog for each slot.
+ const browseFile = (slot: 'A' | 'B') => async () => {
+  const filePath = await window.electronAPI?.selectFile?.()
+  if (!filePath) return
+  const name = filePath.split('/').pop() ?? filePath
+  const info: FileInfo = { path: filePath, name }
+  if (slot === 'A') setFileA(info)
+  else setFileB(info)
  }
  const onOpenRecent = (id: string) => {
   // CoverSurface emits the recent's `id`, which we set to HistoryEntry.path
@@ -338,9 +349,13 @@ function CoverWiredEmptyState({
    fileBDuration={fileBDuration}
    onDropA={adoptFile('A')}
    onDropB={adoptFile('B')}
+   onBrowseA={browseFile('A')}
+   onBrowseB={browseFile('B')}
    onSwap={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
    v52Recents={v52Recents}
    onOpenRecent={onOpenRecent}
+   onClearRecents={onClearRecents}
+   onTour={onTour}
    profileName={profileName}
    courseName={assignment?.course}
    assignmentName={assignment?.title}
@@ -1155,7 +1170,7 @@ export default function App() {
  inDisabled: zoom >= 1.49,
  }}
  onNewSearch={handleReset}
- learnToggle={<LearnModeToggle disabled={!results} />}
+ learnToggle={<LearnModeToggle />}
  />
 
  {/* Learn Mode — GuidedFlowBar renders sticky below the header when
@@ -1276,12 +1291,7 @@ export default function App() {
  focus on the engineer side. The component + its tour + the
  releases store all remain in the codebase. */}
 
- {/* v5.2: cover-page empty state — Console Didone treatment.
-  Renders only the FileDropZones + primary CTA inside the cover
-  frame. The library shortcut, deep-scan toggle, educator banner,
-  workflow hints, and profile picker are intentionally NOT rendered
-  here — those secondary affordances are available via the v1
-  shell or via the OverflowMenu / future settings panel. */}
+ {/* v5.2: cover-page empty state — Console Didone treatment. */}
   {state === 'upload' && (
     <CoverWiredEmptyState
       canBegin={!!fileA}
@@ -1291,6 +1301,8 @@ export default function App() {
       onBatch={window.electronAPI?.selectFolder ? handleBatch : undefined}
       recents={history}
       onOpenRecents={() => { /* dropdown handled inline via the RecentAnalyses card below */ }}
+      onClearRecents={async () => { await window.electronAPI?.historyClear?.(); setHistory([]) }}
+      onTour={onHeaderTourClick}
       error={error}
       fileA={fileA}
       fileB={fileB}
@@ -1440,6 +1452,10 @@ export default function App() {
               const info: FileInfo = { path: entry.path, name: entry.name }
               if (slot === 'A') setFileA(info)
               else setFileB(info)
+            }}
+            onClear={async () => {
+              await (window.electronAPI as any)?.historyClear?.()
+              setHistory([])
             }}
           />
         </div>

@@ -74,6 +74,10 @@ interface Props {
  profileName?: string
  v52Recents?: Array<{ id: string; title: string; ts?: string }>
  onOpenRecent?: (id: string) => void
+ onClearRecents?: () => void
+ onTour?: () => void
+ onBrowseA?: () => void
+ onBrowseB?: () => void
  courseName?: string
  assignmentName?: string
  sessionCount?: number
@@ -103,6 +107,10 @@ export default function EmptyStateV2({
  profileName,
  v52Recents,
  onOpenRecent,
+ onClearRecents,
+ onTour,
+ onBrowseA,
+ onBrowseB,
  courseName,
  assignmentName,
  sessionCount,
@@ -143,10 +151,16 @@ export default function EmptyStateV2({
     })))}
     recentsTotal={v52Recents ? v52Recents.length : (recents?.length ?? 0)}
     onOpenRecent={onOpenRecent}
+    onClearRecents={onClearRecents}
+    onTour={onTour}
+    onBrowseA={onBrowseA}
+    onBrowseB={onBrowseB}
     courseName={courseName}
     assignmentName={assignmentName}
     sessionCount={sessionCount ?? recents?.length}
-   />
+   >
+    {children}
+   </CoverSurface>
   )
  }
 
