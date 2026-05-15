@@ -239,7 +239,7 @@ export function buildVerdict(m: SingleFileMetrics, full?: Partial<AnalysisResult
  // Apple, others leave them alone; neither rejects you for quietness).
  const tpOk = m.true_peak == null || m.true_peak <= streamingTpFloorDbtp()
  const pass = tpOk
- const detail = `${m.lufs.toFixed(1)} → plays ${target} LUFS (${delta > 0 ? '−' : ''}${Math.abs(delta).toFixed(1)} dB)`
+ const detail = `${isFinite(m.lufs) ? m.lufs.toFixed(1) : '—'} → plays ${target} LUFS (${delta > 0 ? '−' : ''}${isFinite(delta) ? Math.abs(delta).toFixed(1) : '—'} dB)`
  return { name, pass, detail }
  })
 

@@ -598,7 +598,7 @@ function buildTonalBalance(r: AnalysisResult, mode: ReportMode): string {
   ).slice(0, 6)
 
   const rows = sorted.map(i => {
-    const diff = i.diff ?? 0
+    const diff = (i.diff != null && isFinite(i.diff)) ? i.diff : 0
     const direction = diff > 0 ? 'too bright' : 'too dark'
     const region = i.name || 'Region'
     const freqRange = i.freq_range || ''
@@ -923,10 +923,10 @@ function buildTopActions(r: AnalysisResult, _labelA: string, labelB: string, _si
  (w, b) => (b.risk > (w?.risk || 0) ? b : w), null)
  if (worst) {
  out.push(mode === 'engineer' ? {
- title: `Mono loss ${worst.name}: ${worst.loss_pct.toFixed(0)}%`,
+ title: `Mono loss ${worst.name}: ${isFinite(worst.loss_pct) ? worst.loss_pct.toFixed(0) : '—'}%`,
  body: `Tighten stereo image in the ${worst.name.toLowerCase()} band.`,
  } : {
- title: `${worst.name} band loses ${worst.loss_pct.toFixed(0)}% in mono`,
+ title: `${worst.name} band loses ${isFinite(worst.loss_pct) ? worst.loss_pct.toFixed(0) : '—'}% in mono`,
  body: `Most listeners are on phones, Bluetooth, or in clubs; all sum to mono. Tighten stereo below 200 Hz.`,
  })
  }

@@ -1089,7 +1089,7 @@ function SongInfoBlock({ info }: { info: any }) {
  <div className="rounded-full" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: `${width}px`, height, backgroundColor: color, opacity: isRoot ? 0.9 : isOctave ? 0.6 : 0.35 }} />
  {(isRoot || isOctave) && (
  <span className="absolute text-[8px] font-mono whitespace-nowrap" style={{ bottom: '100%', marginBottom: '2px', color, transform: 'translateX(-50%)', left: '50%' }}>
- {h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)}
+ {isFinite(h.freq) ? (h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)) : '—'}
  </span>
  )}
  {isRoot && (
@@ -1111,7 +1111,7 @@ function SongInfoBlock({ info }: { info: any }) {
  color: h.is_root ? 'var(--color-data-warn)' : h.is_octave ? 'var(--color-data-a)' : 'var(--color-text-muted)',
  fontWeight: h.is_root ? 600 : 400,
  }}>
- {h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)} Hz
+ {isFinite(h.freq) ? (h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)) : '—'} Hz
  {h.label && <span className="ml-1 opacity-60">{h.label}</span>}
  </span>
  ))}

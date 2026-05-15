@@ -81,8 +81,8 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
  lines.push([
  i + 1,
  b.freq,
- b.gain_db.toFixed(2),
- b.q.toFixed(2),
+ isFinite(b.gain_db) ? b.gain_db.toFixed(2) : '0.00',
+ isFinite(b.q) ? b.q.toFixed(2) : '1.00',
  (b.q_note || '').replace(/,/g, ';'),
  (b.region || '').replace(/,/g, ';'),
  ].join(','))
@@ -101,8 +101,8 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
  source_file: fileName || null,
  eq_moves: bands.map(b => ({
  freq_hz: b.freq,
- gain_db: +b.gain_db.toFixed(2),
- q: +b.q.toFixed(2),
+ gain_db: +(isFinite(b.gain_db) ? b.gain_db.toFixed(2) : '0.00'),
+ q: +(isFinite(b.q) ? b.q.toFixed(2) : '1.00'),
  shape: b.q_note || null,
  region: b.region || null,
  })),
@@ -167,7 +167,7 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
  lines.push('')
  bands.forEach((b, i) => {
  lines.push(
- `band_${i + 1}: freq=${b.freq.toFixed(1)}Hz gain=${b.gain_db.toFixed(2)}dB q=${b.q.toFixed(2)} shape=bell enabled=true`
+ `band_${i + 1}: freq=${isFinite(b.freq) ? b.freq.toFixed(1) : '1000.0'}Hz gain=${isFinite(b.gain_db) ? b.gain_db.toFixed(2) : '0.00'}dB q=${isFinite(b.q) ? b.q.toFixed(2) : '1.00'} shape=bell enabled=true`
  )
  })
  saveFile(`${baseName}-eq.txt`, lines.join('\n') + '\n', [
@@ -215,9 +215,9 @@ export default function EQExportButton({ bands, engineer, fileName, amountPct }:
  const copyPlainTable = async () => {
  const header = ['Freq', 'Gain', 'Q', 'Shape', 'Region']
  const rows = bands.map(b => [
- b.freq >= 1000 ? `${(b.freq/1000).toFixed(1)} kHz` : `${b.freq} Hz`,
- `${b.gain_db >= 0 ? '+' : ''}${b.gain_db.toFixed(1)} dB`,
- b.q.toFixed(1),
+ isFinite(b.freq) ? (b.freq >= 1000 ? `${(b.freq/1000).toFixed(1)} kHz` : `${b.freq} Hz`) : '— Hz',
+ `${b.gain_db >= 0 ? '+' : ''}${isFinite(b.gain_db) ? b.gain_db.toFixed(1) : '—'} dB`,
+ isFinite(b.q) ? b.q.toFixed(1) : '—',
  b.q_note || '',
  b.region || '',
  ])
