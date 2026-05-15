@@ -269,7 +269,7 @@ export default function DeclickPanel({ filePath, onRendered }: Props) {
  <StatCell label="Per min" value={isFinite(lastResult.clicks_per_minute) ? lastResult.clicks_per_minute.toFixed(1) : '—'} />
  <StatCell
  label="Repaired"
- value={repairedPct != null ? `${repairedPct.toFixed(3)}%` : '--'}
+ value={repairedPct != null && isFinite(repairedPct) ? `${repairedPct.toFixed(3)}%` : '--'}
  />
  <StatCell label="Duration" value={`${isFinite(lastResult.duration_sec) ? lastResult.duration_sec.toFixed(1) : '—'} s`} />
  </div>
