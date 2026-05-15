@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import math
 import os
 import sys
 import uuid
@@ -61,7 +62,8 @@ def _compute_lufs(path: str) -> float | None:
         y, sr = librosa.load(path, sr=None, mono=False)
         if y.ndim == 1:
             y = np.stack([y, y])
-        return round(float(compute_lufs(y, sr)), 1)
+        v = float(compute_lufs(y, sr))
+        return round(v, 1) if math.isfinite(v) else None
     except Exception:
         return None
 
@@ -75,7 +77,10 @@ def _compute_true_peak(path: str) -> float | None:
         if y.ndim == 1:
             y = np.stack([y, y])
         tp, _ = _true_peak_and_overs(y)
-        return round(float(tp), 2) if tp is not None else None
+        if tp is None:
+            return None
+        v = float(tp)
+        return round(v, 2) if math.isfinite(v) else None
     except Exception:
         return None
 
@@ -86,7 +91,8 @@ def _compute_lra(path: str) -> float | None:
         import librosa
         from comparator import compute_dynamic_range
         y, sr = librosa.load(path, sr=None, mono=True)
-        return round(float(compute_dynamic_range(y, sr)), 1)
+        v = float(compute_dynamic_range(y, sr))
+        return round(v, 1) if math.isfinite(v) else None
     except Exception:
         return None
 
@@ -161,7 +167,8 @@ def _generation_loss_probability(path: str) -> float | None:
     try:
         from generation_loss_detector import analyse_generation_loss
         result = analyse_generation_loss(path)
-        return float(result.probability)
+        v = float(result.probability)
+        return v if math.isfinite(v) else None
     except Exception:
         return None
 
