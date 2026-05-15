@@ -1686,7 +1686,7 @@ function stemColor(name: string, alpha: number): string {
 
 function extractWaveform(buffer: AudioBuffer, bars: number): number[] {
  const data = buffer.getChannelData(0)
- const blockSize = Math.floor(data.length / bars)
+ const blockSize = Math.max(1, Math.floor(data.length / bars))
  const waveform: number[] = []
 
  for (let i = 0; i < bars; i++) {

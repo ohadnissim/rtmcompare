@@ -18,12 +18,12 @@ export default function WaveformCompare({ waveformA, waveformB, labelA, labelB, 
 
  const makePath = (data: number[], baseline: number, amplitude: number): string => {
  const points = data.map((v, i) => ({
- x: (i / (data.length - 1)) * w,
+ x: (i / Math.max(1, data.length - 1)) * w,
  y: baseline - v * amplitude,
  }))
  // Mirror for waveform shape
  const bottom = data.map((v, i) => ({
- x: (i / (data.length - 1)) * w,
+ x: (i / Math.max(1, data.length - 1)) * w,
  y: baseline + v * amplitude,
  })).reverse()
 
