@@ -329,6 +329,8 @@ def count_flat_sections(y: np.ndarray, sr: int) -> int:
     """Count samples in flat (over-limited) sections.
     A flat section: 3+ consecutive samples with nearly identical values
     AND near the peak level of the signal."""
+    if len(y) == 0:
+        return 0
     peak = np.max(np.abs(y))
     if peak < 0.1:
         return 0

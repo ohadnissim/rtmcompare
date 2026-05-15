@@ -209,6 +209,10 @@ def compute_stereo_width_per_band(left: np.ndarray, right: np.ndarray, sr: int) 
             l_band = sosfilt(sos, left)
             r_band = sosfilt(sos, right)
             r = float(np.corrcoef(l_band, r_band)[0, 1])
+            if np.isnan(r):
+                # Constant/zero-variance band (e.g. silence) — treat as mono.
+                widths.append(0.0)
+                continue
             # Clamp r to [-1, 1] defensively before formula application
             r = max(-1.0, min(1.0, r))
             widths.append(round((1.0 - r) / 2.0, 3))
