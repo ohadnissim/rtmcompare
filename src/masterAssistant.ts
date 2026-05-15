@@ -187,7 +187,7 @@ export function proposeMasterChain(
  if (compEnabled) {
  notes.push(`Glue compression — 2:1 at −18 dB, 10/200 ms, soft knee. Tames ${lraMeasured!.toFixed(1)} LU range to sit tighter under the limiter.`)
  } else {
- notes.push(lraMeasured != null
+ notes.push(lraMeasured != null && isFinite(lraMeasured)
  ? `Compression bypassed — ${lraMeasured.toFixed(1)} LU dynamics are already controlled.`
  : 'Compression bypassed — LRA not measured.')
  }

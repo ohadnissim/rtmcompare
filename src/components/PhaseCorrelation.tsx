@@ -59,8 +59,8 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
  <p className="text-xs text-dark-400">L/R phase relationship over time — red zones indicate phase issues</p>
  </div>
  <div className="flex items-center gap-3 text-[10px]">
- <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-500)' }} /> {labelA}: <span className="font-mono">{avgA.toFixed(2)}</span></span>
- <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-warm-amber)' }} /> {labelB}: <span className="font-mono text-amber-400">{avgB.toFixed(2)}</span></span>
+ <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-sand-500)' }} /> {labelA}: <span className="font-mono">{isFinite(avgA) ? avgA.toFixed(2) : '—'}</span></span>
+ <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: 'var(--color-warm-amber)' }} /> {labelB}: <span className="font-mono text-amber-400">{isFinite(avgB) ? avgB.toFixed(2) : '—'}</span></span>
  {onAnnotate && correlationDelta != null && (
   <button
    type="button"
