@@ -28,7 +28,7 @@ const V = {
 /** Shared default — keep in sync with main.ts DEFAULT_ROLE */
 const DEFAULT_ROLE = 'Mastering Engineer'
 
-interface ProgressEvent { i: number; total: number; file: string }
+interface ProgressEvent { i: number; total: number; file: string; stage?: string }
 interface BuildResult {
   ok: boolean
   path?: string
@@ -36,27 +36,32 @@ interface BuildResult {
   skipped?: number
   partialCount?: number
   error?: string
+  errorDetail?: string
   python_resolution?: string
   curve?: number[]
   curveMad?: number[]
+  chainPairCount?: number
+  chain_path?: string
+  chain_pair_count?: number
 }
 
 /** Memoised status line — owns the progress subscription + its own
  *  re-renders on every IPC tick. The rest of the App tree stays
  *  unmounted-by-renders during a long Python build. */
 const BuildStatusLine = memo(function BuildStatusLine({
-  busy, deepScan, onProgressUpdate,
-}: { busy: boolean; deepScan: boolean; onProgressUpdate?: (p: ProgressEvent | null) => void }) {
+  busy, onProgressUpdate,
+}: { busy: boolean; onProgressUpdate?: (p: ProgressEvent | null) => void }) {
   const [progress, setProgress] = useState<ProgressEvent | null>(null)
   useEffect(() => window.rtmprofileAPI.onProgress((p) => {
     setProgress(p)
     onProgressUpdate?.(p)
   }), [onProgressUpdate])
-  if (!busy) return <>{deepScan ? 'BUILD PROFILE — DEEP SCAN' : 'BUILD PROFILE'}</>
-  if (!progress) return <>STARTING</>
+  if (!busy) return <>BUILD PROFILE</>
+  if (!progress) return <>STARTING…</>
+  const label = 'ANALYZING'
   return (
     <>
-      {deepScan ? 'DEEP-SCANNING' : 'ANALYZING'} {progress.i} / {progress.total}
+      {label} {progress.i} / {progress.total}
     </>
   )
 })
@@ -111,8 +116,7 @@ const DEFAULT_ROLE_COLOR = 'var(--role-default)'
 export default function App() {
   const [files, setFiles] = useState<string[]>([])
   const [name, setName] = useState('')
-  const [role, setRole] = useState(DEFAULT_ROLE)
-  const [deepScan, setDeepScan] = useState(false)
+  const [role, setRole] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<BuildResult | null>(null)
   const [dragHover, setDragHover] = useState(false)
@@ -122,8 +126,10 @@ export default function App() {
   const [currentFile, setCurrentFile] = useState<ProgressEvent | null>(null)
   // Change 3: Compare a Mix CTA state
   const [showCompareHint, setShowCompareHint] = useState(false)
-  // Item 4: chain reference file for approximate chain analysis
-  const [chainRefFile, setChainRefFile] = useState<string>('')
+  // Chain analysis — multi-pair: each mix gets matched to a master by title
+  const [chainMixFiles, setChainMixFiles] = useState<string[]>([])
+  const [chainDragHover, setChainDragHover] = useState(false)
+  const chainDropRef = useRef<HTMLDivElement>(null)
   const resultRef = useRef<HTMLDivElement>(null)
 
   // Stable callback for BuildStatusLine to push progress updates up
@@ -167,10 +173,9 @@ export default function App() {
     try {
       const r = await window.rtmprofileAPI.buildProfile({
         name: name.trim(),
-        role: role.trim() || DEFAULT_ROLE,
-        deep: deepScan,
+        role: role.trim(),
         files,
-        ...(chainRefFile.trim() ? { chainReference: chainRefFile.trim() } : {}),
+        ...(chainMixFiles.length > 0 ? { chainMixes: chainMixFiles } : {}),
       })
       setResult(r)
       // Move focus to result panel for screen readers / keyboard users
@@ -178,10 +183,7 @@ export default function App() {
     } finally {
       setBusy(false)
     }
-  // CRIT-4 fix: chainRefFile was missing from the dep array. Without it,
-  // setting a chain reference file then immediately clicking Build would use
-  // a stale closure (chainRefFile = '') and silently skip chain analysis.
-  }, [files, name, role, deepScan, chainRefFile])
+  }, [files, name, role, chainMixFiles])
 
   const onCancel = useCallback(async () => {
     await window.rtmprofileAPI.cancelBuild()
@@ -216,27 +218,31 @@ export default function App() {
     window.addEventListener('dragleave', onDragLeave)
     window.addEventListener('dragover',  onDragOver)
     window.addEventListener('drop',      onDrop)
-    // Change 5: folder drag-and-drop — the preload already gives us
-    // absolute on-disk paths. For folders, we ask main to scan them.
-    const unsub = window.rtmprofileAPI?.onFilesDropped?.(async (paths) => {
-      const dropped = (paths || []).filter(Boolean)
-      if (dropped.length === 0) return
-      const audioExts = ['.wav', '.aif', '.aiff', '.flac', '.mp3', '.m4a', '.ogg']
-      const allFiles: string[] = []
-      for (const p of dropped) {
-        // If it looks like an audio file, add directly
+    // Preload resolves file paths via webUtils and calls this callback with
+    // { paths, zone } — zone matches the data-dropzone attribute on the drop target.
+    const audioExts = ['.wav', '.aif', '.aiff', '.flac', '.mp3', '.m4a', '.ogg']
+    const resolveAudioPaths = async (rawPaths: string[]): Promise<string[]> => {
+      const out: string[] = []
+      for (const p of rawPaths.filter(Boolean)) {
         const lower = p.toLowerCase()
         if (audioExts.some(ext => lower.endsWith(ext))) {
-          allFiles.push(p)
+          out.push(p)
         } else {
-          // Assume it might be a folder — ask main to scan it
           try {
-            const folderFiles = await window.rtmprofileAPI.scanFolder?.(p)
-            if (folderFiles && folderFiles.length > 0) allFiles.push(...folderFiles)
+            const ff = await window.rtmprofileAPI.scanFolder?.(p)
+            if (ff?.length) out.push(...ff)
           } catch { /* ignore */ }
         }
       }
-      if (allFiles.length > 0) {
+      return out
+    }
+
+    const unsub = window.rtmprofileAPI?.onFilesDropped?.(async ({ paths, zone }) => {
+      const allFiles = await resolveAudioPaths(paths)
+      if (allFiles.length === 0) return
+      if (zone === 'chain-mixes') {
+        setChainMixFiles(prev => Array.from(new Set([...prev, ...allFiles])))
+      } else {
         setFiles(prev => Array.from(new Set([...prev, ...allFiles])))
       }
     })
@@ -249,7 +255,7 @@ export default function App() {
     }
   }, [])
 
-  const nameError = nameTouched && !name.trim() ? 'Engineer name is required.' : null
+  const nameError = nameTouched && !name.trim() ? 'Profile name is required.' : null
   const canBuild = files.length > 0 && name.trim().length > 0 && !busy
 
   // Drop-zone style derived from drag state. Memoised for object identity stability.
@@ -285,7 +291,7 @@ export default function App() {
           Everything else stays cream / sand. */}
       <header
         className="drag-region"
-        style={{ marginBottom: 28, marginTop: 12 }}
+        style={{ marginBottom: 20, marginTop: 12 }}
       >
         <div
           className="display-serif"
@@ -313,9 +319,9 @@ export default function App() {
         </div>
 
         <p style={{ fontSize: 14, color: V.sand300, lineHeight: 1.5, marginTop: 0, marginBottom: 8, maxWidth: 620 }}>
-          Feed RTMprofile 5+ finished masters. It reads your spectral signature and
-          writes a fingerprint file that RTMcompare uses to grade new mixes against
-          your standard.
+          Feed RTMprofile 5+ of your best tracks — masters, mixes, or references.
+          It reads your spectral signature and writes a fingerprint file that
+          RTMcompare uses to grade new work against your standard.
         </p>
         <p style={{ fontSize: 12, color: V.sand400, lineHeight: 1.5, marginTop: 0, maxWidth: 620 }}>
           Output: a <span className="mono" style={{ color: V.sand100 }}>.json</span> profile.
@@ -326,11 +332,11 @@ export default function App() {
       {/* ── Identity fields ───────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
         <Field
-          label="Engineer name *"
+          label="Profile name *"
           value={name}
           onChange={setName}
           onBlur={() => setNameTouched(true)}
-          placeholder="e.g. Your Name"
+          placeholder="e.g. My Profile"
           error={nameError ?? undefined}
         />
         <Field label="Role" value={role} onChange={setRole} placeholder={DEFAULT_ROLE} />
@@ -365,6 +371,7 @@ export default function App() {
         style={dropZoneStyle}
         role="region"
         aria-label="Audio file drop zone — drop tracks here or click Browse"
+        data-dropzone="masters"
       >
         {files.length === 0 ? (
           <div style={{ paddingTop: 4 }}>
@@ -372,7 +379,7 @@ export default function App() {
               className="display-serif-italic"
               style={{ fontSize: 26, color: V.sand100, lineHeight: 1.15, marginBottom: 10 }}
             >
-              Drop your masters here.
+              Drop your files here.
             </div>
             <div style={{ fontSize: 13, color: V.sand400, fontWeight: 300, marginBottom: 16 }}>
               Or select files from disk —
@@ -394,134 +401,205 @@ export default function App() {
             </div>
             {/* Change 5: folder drop hint */}
             <div style={{ marginTop: 8, fontSize: 11, color: V.sand500, fontStyle: 'italic' }}>
-              Tip: drop an entire folder of masters for the best results (15+ tracks recommended)
+              Tip: drop an entire folder of tracks for the best results (15+ recommended)
             </div>
           </div>
         ) : (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: V.sand400, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-                {files.length} file{files.length === 1 ? '' : 's'} staged
+          <div className="no-drag">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: V.sand400 }}>
+                <span style={{ fontVariantNumeric: 'tabular-nums', color: V.sand100 }}>{files.length}</span>
+                {' '}track{files.length === 1 ? '' : 's'} ready
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }} className="no-drag">
-                <button onClick={onPick} disabled={busy} style={btnSecondary} className="no-drag">
-                  + add more
-                </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={onPick} disabled={busy} style={btnSecondary} className="no-drag">+ add more</button>
                 {clearPending ? (
                   <>
                     <span style={{ fontSize: 11, color: V.sand400 }}>Clear all?</span>
-                    <button onClick={onClearConfirm} disabled={busy} style={{ ...btnSecondary, color: 'var(--danger)', borderColor: 'rgba(201,103,101,0.45)' }} className="no-drag">
-                      Yes, clear
-                    </button>
-                    <button onClick={onClearCancel} disabled={busy} style={btnSecondary} className="no-drag">
-                      Cancel
-                    </button>
+                    <button onClick={onClearConfirm} disabled={busy} style={{ ...btnSecondary, color: 'var(--danger)', borderColor: 'rgba(201,103,101,0.45)' }} className="no-drag">Yes, clear</button>
+                    <button onClick={onClearCancel} disabled={busy} style={btnSecondary} className="no-drag">Cancel</button>
                   </>
                 ) : (
-                  <button onClick={onClear} disabled={busy} style={btnSecondary} className="no-drag">
-                    clear
-                  </button>
+                  <button onClick={onClear} disabled={busy} style={btnSecondary} className="no-drag">clear all</button>
                 )}
               </div>
             </div>
-            <div style={{ maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
-              {files.map(f => (
-                <FileRow key={f} path={f} busy={busy} onRemove={onRemoveOne} />
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {files.map(f => {
+                const name = f.split(/[/\\]/).pop() ?? f
+                return (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: V.sand300 }}>
+                    <button
+                      onClick={() => onRemoveOne(f)}
+                      disabled={busy}
+                      className="no-drag"
+                      title="Remove this file"
+                      style={{ background: 'none', border: 'none', color: V.sand500, cursor: busy ? 'not-allowed' : 'pointer', padding: '0 2px', fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+                    >×</button>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                  </div>
+                )
+              })}
             </div>
-          </>
+          </div>
         )}
       </div>
 
-      {/* ── Chain reference (optional) — only shown when files are staged ── */}
-      {files.length > 0 && (
-        <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 10, color: V.sand500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-            Reference Mix for Chain Analysis
-            <span style={{ marginLeft: 6, fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
-          </div>
-          <button
-            disabled={busy}
-            style={{ ...btnSecondary, fontSize: 10, padding: '4px 10px', flexShrink: 0 }}
-            className="no-drag"
-            onClick={async () => {
-              const picked = await window.rtmprofileAPI.selectFiles()
-              if (picked.length > 0) setChainRefFile(picked[0])
-            }}
-          >
-            {chainRefFile ? 'Change' : 'Pick file…'}
-          </button>
-          {chainRefFile && (
-            <>
-              <span className="mono" style={{ fontSize: 10, color: V.sand400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                {chainRefFile.split(/[/\\]/).pop()}
-              </span>
+      {/* ── Chain analysis mixes (optional) — multi-pair ── */}
+      {true && (
+        <div style={{ marginBottom: 4 }}>
+          {/* Header row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: V.sand500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+              Mix Files for Delta Analysis
+              {chainMixFiles.length > 0 && (
+                <span style={{
+                  marginLeft: 8,
+                  fontStyle: 'normal',
+                  textTransform: 'none',
+                  letterSpacing: 0,
+                  color: V.gold,
+                  fontWeight: 500,
+                }}>
+                  {chainMixFiles.length} {chainMixFiles.length === 1 ? 'file' : 'files'}
+                </span>
+              )}
+              {chainMixFiles.length === 0 && (
+                <span style={{ marginLeft: 6, fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>(optional)</span>
+              )}
+            </div>
+            {chainMixFiles.length > 0 && (
               <button
                 disabled={busy}
-                style={btnGhost}
+                style={{ ...btnGhost, fontSize: 10 }}
                 className="no-drag"
-                aria-label="Remove chain reference file"
-                onClick={() => setChainRefFile('')}
-              >×</button>
-            </>
-          )}
+                onClick={() => setChainMixFiles([])}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {/* Drop zone — routing handled by preload via data-dropzone="chain-mixes" */}
+          <div
+            ref={chainDropRef}
+            data-dropzone="chain-mixes"
+            onDragEnter={e => { e.preventDefault(); setChainDragHover(true) }}
+            onDragOver={e => { e.preventDefault() }}
+            onDragLeave={e => {
+              if (!chainDropRef.current?.contains(e.relatedTarget as Node))
+                setChainDragHover(false)
+            }}
+            onDrop={() => { setChainDragHover(false) }}
+            onClick={async () => {
+              if (busy) return
+              const picked = await window.rtmprofileAPI.selectFiles()
+              if (picked.length > 0)
+                setChainMixFiles(prev => Array.from(new Set([...prev, ...picked])))
+            }}
+            style={{
+              border: `1.5px ${chainDragHover ? 'solid' : 'dashed'} ${chainDragHover ? 'var(--gold)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius)',
+              backgroundColor: chainDragHover ? 'var(--gold-tint)' : 'transparent',
+              padding: chainMixFiles.length > 0 ? '10px 14px' : '14px',
+              marginBottom: 8,
+              cursor: busy ? 'default' : 'pointer',
+              transition: 'border-color 120ms, background-color 120ms',
+            }}
+          >
+            {chainMixFiles.length === 0 ? (
+              <div style={{ textAlign: 'center', color: V.sand500, fontSize: 11 }}>
+                Drop mix files here, or click to browse
+              </div>
+            ) : (() => {
+              const normalize = (s: string) =>
+                s.replace(/\.[^.]+$/, '')
+                 .replace(/^\d{1,3}\s+/, '')
+                 .replace(/\bM\d+(?:\.\d+)?\b/gi, '')
+                 .replace(/\bMIX\s*\d*\b/gi, '')
+                 .replace(/\d{2}-\d{2}-\d{4}/g, '')
+                 .replace(/\b(FINAL|FINEL|ROUGH|FLAT|MAIN|CLEAN|RADIO|V\d+)\b/gi, '')
+                 .replace(/[()]/g, '').replace(/\s+/g, ' ').trim().toUpperCase()
+              const overlap = (a: string, b: string) => {
+                const wa = new Set(a.split(' ').filter(Boolean))
+                const wb = new Set(b.split(' ').filter(Boolean))
+                let inter = 0; wa.forEach(w => { if (wb.has(w)) inter++ })
+                return inter / Math.max(1, new Set([...wa, ...wb]).size)
+              }
+              return (
+                <div onClick={e => e.stopPropagation()} className="no-drag">
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 16, fontWeight: 500, color: V.gold, fontVariantNumeric: 'tabular-nums' }}>
+                      {chainMixFiles.filter(mp => {
+                        const mixTitle = normalize(mp.split(/[/\\]/).pop() ?? mp)
+                        let best = 0
+                        files.forEach(f => { const s = overlap(mixTitle, normalize(f.split(/[/\\]/).pop() ?? f)); if (s > best) best = s })
+                        return best >= 0.4
+                      }).length} / {chainMixFiles.length}
+                    </span>
+                    <span style={{ fontSize: 10, color: V.sand500 }}>pairs matched</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {chainMixFiles.map(f => {
+                      const name = f.split(/[/\\]/).pop() ?? f
+                      const mixTitle = normalize(name)
+                      let best = 0
+                      files.forEach(mf => { const s = overlap(mixTitle, normalize(mf.split(/[/\\]/).pop() ?? mf)); if (s > best) best = s })
+                      const isMatched = best >= 0.4
+                      return (
+                        <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                          <button
+                            onClick={() => setChainMixFiles(prev => prev.filter(x => x !== f))}
+                            disabled={busy}
+                            title="Remove this file"
+                            style={{ background: 'none', border: 'none', color: V.sand500, cursor: busy ? 'not-allowed' : 'pointer', padding: '0 2px', fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+                          >×</button>
+                          <span style={{ color: isMatched ? V.sand300 : V.sand500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {name}
+                          </span>
+                          {!isMatched && <span style={{ fontSize: 10, color: V.sand500, flexShrink: 0 }}>· no match</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>{/* end drop zone */}
+
+          <div style={{ fontSize: 11, color: V.sand500, marginBottom: 14, lineHeight: 1.5 }}>
+            <strong style={{ color: V.sand300 }}>What this does:</strong> drop your pre-master mixes here. RTMprofile matches each mix to its master by song title (e.g. <em>TOO HIGH MIX3</em> ↔ <em>01 TOO HIGH M1</em>), computes the spectral delta per pair, then aggregates across all pairs. More pairs = more accurate delta signature.
+          </div>
         </div>
       )}
 
-      {/* ── Deep Scan toggle ──────────────────────────────────────── */}
-      <label style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 10,
-        padding: '12px 14px',
-        marginBottom: 12,
-        borderRadius: 'var(--radius)',
-        border: `1px solid ${deepScan ? 'rgba(208,176,102,0.45)' : 'var(--border)'}`,
-        backgroundColor: deepScan ? 'var(--gold-tint-hover)' : 'var(--color-sand-800)',  // NIT-8: CSS vars
-        cursor: busy ? 'not-allowed' : 'pointer',
-        transition: 'border-color 120ms, background-color 120ms',
-      }}>
-        <input
-          type="checkbox"
-          checked={deepScan}
-          onChange={e => setDeepScan(e.target.checked)}
-          disabled={busy}
-          style={{ accentColor: 'var(--gold)', marginTop: 2 }}
-          className="no-drag"
-        />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, color: V.sand100, fontWeight: 500 }}>
-            Deep Scan
-            <span style={{
-              fontSize: 10,
-              color: V.sand400,
-              fontWeight: 400,
-              marginLeft: 8,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-            }}>
-              per-stem analysis
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: V.sand400, marginTop: 4, lineHeight: 1.45 }}>
-            Separates each track into vocals, drums, bass, and other elements,
-            then builds an individual fingerprint for each stem in addition to
-            the full-mix fingerprint. Takes 30 seconds to 2 minutes per track
-            (Apple Silicon). On first use, downloads a ~190 MB model — only once.
-          </div>
-        </div>
-      </label>
-
       {/* ── Build / Cancel buttons ────────────────────────────────── */}
+      {/* Sticky so the button stays visible even when the result panel grows. */}
+      <div style={{ position: 'sticky', bottom: 0, paddingBottom: 4, zIndex: 10, backgroundColor: 'var(--color-sand-900, #1c1a17)' }}>
+{canBuild && !busy && (
+        <div style={{ fontSize: 10, color: V.sand500, marginBottom: 6, letterSpacing: '0.03em' }}>
+          Saves to <span className="mono" style={{ color: V.sand400 }}>~/.rtm/profiles/</span> — auto-loaded by RTMcompare's Match tab
+        </div>
+      )}
       <button
         onClick={onBuild}
         disabled={!canBuild}
         style={canBuild ? btnPrimary : btnDisabled}
         className="no-drag"
         aria-label="Build engineer profile from selected tracks"
+        title={
+          !name.trim() ? 'Enter a profile name above to continue' :
+          files.length === 0 ? 'Drop some tracks above to continue' :
+          undefined
+        }
       >
-        <BuildStatusLine busy={busy} deepScan={deepScan} onProgressUpdate={handleProgressUpdate} />
+        <BuildStatusLine busy={busy} onProgressUpdate={handleProgressUpdate} />
       </button>
+      {!busy && files.length > 0 && !name.trim() && (
+        <div style={{ fontSize: 10, color: 'var(--danger, #c96765)', marginTop: 6, textAlign: 'center' }}>
+          ↑ Enter a profile name to enable scan
+        </div>
+      )}
 
       {/* Change 6: animated audio-bars during build */}
       {busy && (
@@ -556,6 +634,7 @@ export default function App() {
           Cancel build
         </button>
       )}
+      </div>{/* end sticky build section */}
 
       {/* ── Result panel ──────────────────────────────────────────── */}
       {result && (
@@ -586,12 +665,42 @@ export default function App() {
                   ? <span style={{ color: V.sand400 }}> · {result.skipped} skipped</span>
                   : null}
               </div>
-              <div
-                className="mono"
-                style={{ color: V.sand400, fontSize: 11, marginTop: 4, userSelect: 'text' }}
-              >
-                {result.path}
+              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 10, color: V.sand500, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>Fingerprint</span>
+                  <span className="mono" style={{ color: V.sand300, fontSize: 11, userSelect: 'text', wordBreak: 'break-all' }}>
+                    {result.path}
+                  </span>
+                </div>
+                {result.chain_path && (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 10, color: V.gold, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>Delta ⛓</span>
+                    <span className="mono" style={{ color: V.sand300, fontSize: 11, userSelect: 'text', wordBreak: 'break-all' }}>
+                      {result.chain_path}
+                    </span>
+                  </div>
+                )}
               </div>
+              {result.chain_path && (result.chain_pair_count ?? 0) > 0 && (
+                <div style={{ color: V.gold, fontSize: 12, marginTop: 4 }}>
+                  {result.chain_pair_count} mix/master pair{result.chain_pair_count === 1 ? '' : 's'} matched — load the delta profile in RTMcompare's Match tab
+                </div>
+              )}
+              {chainMixFiles.length > 0 && !result.chain_path && (
+                <div style={{ color: V.sand400, fontSize: 12, marginTop: 4 }}>
+                  ⚠ No mix/master pairs could be matched — check that song titles overlap
+                </div>
+              )}
+              {(result.partialCount ?? 0) > 0 && (
+                <div style={{ color: V.sand400, fontSize: 12, marginTop: 6 }}>
+                  ⚠ {result.partialCount} track{result.partialCount === 1 ? '' : 's'} analyzed partially (short or low-signal sections skipped)
+                </div>
+              )}
+              {result.python_resolution && (
+                <div className="mono" style={{ color: V.sand500, fontSize: 10, marginTop: 6 }}>
+                  Python: {result.python_resolution}
+                </div>
+              )}
               {result.ok && result.curve && result.curve.length >= 31 && (
                 <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
                   <ProfileRadar
@@ -651,6 +760,16 @@ export default function App() {
                 <div style={{ color: V.sand400, fontSize: 12, marginTop: 6 }}>
                   {result.partialCount} track{result.partialCount === 1 ? '' : 's'} were analyzed before the build stopped.
                 </div>
+              )}
+              {result.errorDetail && (
+                <pre style={{
+                  color: V.sand400, fontSize: 10, marginTop: 8, whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all', maxHeight: 200, overflowY: 'auto',
+                  background: 'rgba(0,0,0,0.3)', padding: '8px 10px', borderRadius: 4,
+                  userSelect: 'text',
+                }}>
+                  {result.errorDetail}
+                </pre>
               )}
               {result.python_resolution && (
                 <div style={{ color: V.sand400, fontSize: 11, marginTop: 8 }}>

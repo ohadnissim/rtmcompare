@@ -25,8 +25,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return ''
     }
   },
-  analyzeFiles: (fileA: string, fileB: string, fast?: boolean, profile?: string) =>
-    ipcRenderer.invoke('analyze-files', fileA, fileB, fast ?? true, profile ?? ''),
+  analyzeFiles: (fileA: string, fileB: string, fast?: boolean, profile?: string, chainProfile?: string) =>
+    ipcRenderer.invoke('analyze-files', fileA, fileB, fast ?? true, profile ?? '', chainProfile ?? ''),
   // Returns an unsubscribe function. Callers MUST invoke it when their
   // component unmounts or starts a new analysis — otherwise each run
   // stacks a new listener on the renderer-side ipcRenderer and old
@@ -38,6 +38,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => { ipcRenderer.removeListener('analysis-progress', handler) }
   },
   listProfiles: () => ipcRenderer.invoke('list-profiles'),
+  onProfilesReady: (cb: (profiles: any[]) => void) => {
+    const handler = (_: any, profiles: any[]) => cb(profiles)
+    ipcRenderer.on('profiles-ready', handler)
+    return () => ipcRenderer.removeListener('profiles-ready', handler)
+  },
+  openProfilesFolder: () => ipcRenderer.invoke('open-profiles-folder'),
   loadCustomProfile: () => ipcRenderer.invoke('load-custom-profile'),
   deleteCustomProfile: (id: string) => ipcRenderer.invoke('delete-custom-profile', id),
   renderCorrectedEq: (srcPath: string, bands: any[], outPath?: string, truePeakLimit?: boolean, ceilingDbtp?: number, targetLufs?: number) =>

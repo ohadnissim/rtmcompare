@@ -29,15 +29,19 @@ function saveAnswer(stepId: string, text: string) {
 }
 
 export default function StudentWorkspace() {
-  const { enabled, role, step, assignment, previewingStudent } = useLearnMode()
+  const { enabled, role, step, assignment, previewingStudent, setAssignment } = useLearnMode()
   // Effective role: real student OR teacher previewing-as-student
   const isStudent = role === 'student' || previewingStudent
   const [expanded, setExpanded] = useState(true)
   const [showHint, setShowHint] = useState(false)
   const [answer, setAnswer] = useState('')
-  const [studentName, setStudentName] = useState('')
-  // BUG-03: student ID field — needed for Canvas LMS grade upload
-  const [studentId, setStudentId] = useState('')
+  // Persist student identity across sessions (keys match handleNameChange / handleIdChange)
+  const [studentName, setStudentName] = useState(() => {
+    try { return localStorage.getItem('rtm-learn-student-name') ?? '' } catch { return '' }
+  })
+  const [studentId, setStudentId] = useState(() => {
+    try { return localStorage.getItem('rtm-learn-student-id') ?? '' } catch { return '' }
+  })
 
   const currentStep = GUIDED_STEPS[step]
 
@@ -166,8 +170,9 @@ export default function StudentWorkspace() {
         </div>
 
         {/* Hint (collapsible) — replaces the duplicate question. The question
-            lives in GuidedFlowBar. This panel is the answer pad. */}
-        {currentStep?.hint && (
+            lives in GuidedFlowBar. This panel is the answer pad.
+            In teacher mode, the teacher hint overrides the student hint. */}
+        {(currentStep?.hint || (!isStudent && currentStep?.teacherHint)) && (
           <div style={{ marginBottom: 10 }}>
             <button
               onClick={() => setShowHint(v => !v)}
@@ -183,7 +188,7 @@ export default function StudentWorkspace() {
                 textDecorationStyle: 'dotted',
               }}
             >
-              {showHint ? 'Hide hint' : 'Show hint'}
+              {showHint ? (isStudent ? 'Hide hint' : 'Hide guidance') : (isStudent ? 'Show hint' : 'Show guidance')}
             </button>
             {showHint && (
               <p
@@ -196,7 +201,7 @@ export default function StudentWorkspace() {
                   lineHeight: 1.5,
                 }}
               >
-                {currentStep.hint}
+                {(!isStudent && currentStep.teacherHint) ? currentStep.teacherHint : currentStep.hint}
               </p>
             )}
           </div>
@@ -298,40 +303,89 @@ export default function StudentWorkspace() {
           />
         </div>
 
-        {/* Assignment info (when active) — title / course / due-date only */}
-        {assignment && (
-          <div
-            style={{
-              background: 'rgba(208,176,102,0.04)',
-              border: '1px solid rgba(208,176,102,0.1)',
-              borderRadius: '2px',
-              padding: '8px 10px',
-              marginBottom: 12,
-            }}
-          >
+        {/* Assignment import — students load the .rtm-assignment.json their
+            teacher shared. LM-AS-1: previously the Import button was teacher-only
+            inside AssignmentPanel; students had no way to load an assignment file. */}
+        <div style={{ marginBottom: 10 }}>
+          {assignment ? (
             <div
               style={{
-                fontSize: 10,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: 'var(--color-accent)',
-                marginBottom: 6,
+                background: 'rgba(208,176,102,0.04)',
+                border: '1px solid rgba(208,176,102,0.1)',
+                borderRadius: '2px',
+                padding: '8px 10px',
               }}
             >
-              {assignment.title}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-accent)',
+                      marginBottom: 4,
+                    }}
+                  >
+                    {assignment.title}
+                  </div>
+                  {assignment.course && (
+                    <div style={{ fontSize: 11, color: 'var(--color-sand-400)', marginBottom: 2 }}>
+                      {assignment.course}
+                    </div>
+                  )}
+                  {assignment.dueDate && (
+                    <div style={{ fontSize: 10, color: 'var(--color-sand-400)' }}>
+                      Due: {assignment.dueDate}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setAssignment(null)}
+                  title="Remove assignment"
+                  style={{
+                    background: 'none', border: 'none',
+                    color: 'rgba(168,161,150,0.5)',
+                    fontSize: 14, cursor: 'pointer', lineHeight: 1, padding: '2px 4px', flexShrink: 0,
+                  }}
+                  aria-label="Remove assignment"
+                >
+                  ×
+                </button>
+              </div>
             </div>
-            {assignment.course && (
-              <div style={{ fontSize: 11, color: 'var(--color-sand-400)', marginBottom: 4 }}>
-                {assignment.course}
-              </div>
-            )}
-            {assignment.dueDate && (
-              <div style={{ fontSize: 10, color: 'var(--color-sand-400)' }}>
-                Due: {assignment.dueDate}
-              </div>
-            )}
-          </div>
-        )}
+          ) : (
+            <button
+              onClick={async () => {
+                const picked = await (window as any).electronAPI?.openTextFileDialog?.([
+                  { name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json', 'json'] }
+                ])
+                if (!picked) return
+                try {
+                  const cfg = JSON.parse(picked.contents)
+                  setAssignment(cfg)
+                } catch {
+                  // invalid file — ignore silently (rare edge case)
+                }
+              }}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: '1px dashed rgba(208,176,102,0.3)',
+                borderRadius: '2px',
+                color: 'var(--color-accent)',
+                fontSize: 10,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                padding: '7px 10px',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              ↓ Load Assignment (.json)
+            </button>
+          )}
+        </div>
 
         {/* Progress bar */}
         <div style={{ marginTop: 'auto', paddingTop: 4 }}>

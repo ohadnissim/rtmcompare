@@ -47,9 +47,11 @@ interface Props {
   *  after the wordmark. Injected by App so HeaderV2 stays unaware of
   *  LearnModeContext internals. */
  learnToggle?: React.ReactNode
+ engineerName?: string
+ onEngineerNameChange?: (name: string) => void
 }
 
-export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpenShortcuts, onNewSearch, learnToggle }: Props) {
+export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpenShortcuts, onNewSearch, learnToggle, engineerName, onEngineerNameChange }: Props) {
  // Hide the instrument row on upload (cover screen owns the field)
  // and processing (no analysis to surface yet). Show on results,
  // ref-only, batch — anywhere actual numbers exist to render.
@@ -152,7 +154,7 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  + New analysis
  </button>
  )}
- <OverflowMenu canShowBlind={canShowBlind} zoom={zoom} onOpenShortcuts={onOpenShortcuts} />
+ <OverflowMenu canShowBlind={canShowBlind} zoom={zoom} onOpenShortcuts={onOpenShortcuts} engineerName={engineerName} onEngineerNameChange={onEngineerNameChange} />
  </div>
  </div>
 

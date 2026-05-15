@@ -1,11 +1,11 @@
 version: 7.6.5
 files:
   - url: RTMcompare-7.6.5-arm64.dmg
-    sha512: zGG4Iadl6X1VcLzqI7DX7rthBExt/BJNKpqH4jatCppxYMNAKo4elPig7sxIaxkZzFybDlIwsZj26sBrEuTbrA==
-    size: 989152207
+    sha512: ttiIMzzEg4qcKYs4OwaQmOF5rJUpdPGq6STH8HoEeh+8xX8wQkQzFdLjmCNhCZU5g2vDAgbE6IYuvii4fYTFXw==
+    size: 989249789
   - url: RTMcompare-7.6.5.dmg
-    sha512: QrQ+/Jl8UFwxnRPkIJN+GG6DzbX2NgKNPIkmfkpyN0UeGNt15O/sbnibaoY0tH+mTj1N4M7ZTT7LQqswSQwA8A==
-    size: 985129301
+    sha512: IsEQj7T+LUmoKurV1fz2LGzUyx31zywkn7nj/VNxKxL6f1ysHUyTdNfWloIPHIoBeDQ5C2W2ZEgV6Y1MLJKvBQ==
+    size: 985247050
 path: RTMcompare-7.6.5-arm64.dmg
-sha512: zGG4Iadl6X1VcLzqI7DX7rthBExt/BJNKpqH4jatCppxYMNAKo4elPig7sxIaxkZzFybDlIwsZj26sBrEuTbrA==
-releaseDate: '2026-05-14T09:41:03.531Z'
+sha512: ttiIMzzEg4qcKYs4OwaQmOF5rJUpdPGq6STH8HoEeh+8xX8wQkQzFdLjmCNhCZU5g2vDAgbE6IYuvii4fYTFXw==
+releaseDate: '2026-05-14T19:04:44.951Z'

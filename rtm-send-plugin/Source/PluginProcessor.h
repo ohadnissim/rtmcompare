@@ -250,6 +250,17 @@ public:
     // editor's status line can show it.
     int getRpcPort() const noexcept;
 
+    // LOW-5: per-instance send counter — public so the editor can display it.
+    std::atomic<int> sendCounter { 0 };
+
+    // Signal-presence indicator: updated in processBlock; polled by the editor
+    // every 250 ms to drive the animated ● ● ● / · · · dot indicator.
+    std::atomic<int64_t> lastAudioWriteTime { 0 };
+    bool hasRecentAudio() const noexcept
+    {
+        return (juce::Time::currentTimeMillis() - lastAudioWriteTime.load(std::memory_order_relaxed)) < 600;
+    }
+
 private:
     RingBuffer ring;
     double sampleRateHz { 48000.0 };
@@ -325,11 +336,6 @@ private:
     // in writeSidecar (relaxed) — single-direction publication, no
     // ordering required beyond the atomic itself.
     std::atomic<double> lastBpm { 0.0 };
-
-    // LOW-5: per-instance send counter (was function-local static, which
-    // meant all plugin instances shared one counter and the serial number
-    // mixed sends from different windows/instances).
-    std::atomic<int> sendCounter { 0 };
 
     // Plugin's floating editor window. May be null when no plugin is
     // loaded or when the user explicitly closed the window.

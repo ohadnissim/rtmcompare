@@ -4,6 +4,7 @@ import { LearnHome } from '../v52/LearnHome'
 import { TeacherDashboard } from '../v52/TeacherDashboard'
 import type { StudentSubmission } from '../v52/TeacherDashboard'
 import { getSubmissions } from '../../lib/submissions'
+import LearnTour, { useLearnTourState } from './LearnTour'
 
 /**
  * LearnCenter — top-level Learn surface mount.
@@ -28,6 +29,7 @@ export default function LearnCenter({ audienceOverride }: LearnCenterProps = {})
   const audience = audienceOverride ?? detected
   const useV52Learn = useV52Surface('learn')
   const [submissions, setSubmissions] = useState<StudentSubmission[]>(() => getSubmissions())
+  const learnTour = useLearnTourState()
 
   useEffect(() => {
     if (audience !== 'teacher') return
@@ -37,17 +39,61 @@ export default function LearnCenter({ audienceOverride }: LearnCenterProps = {})
   if (useV52Learn) {
     if (audience === 'teacher') {
       return (
-        <TeacherDashboard
-          courseName="Mastering 301"
-          teacherName="—"
-          submissions={submissions}
-          onOpenSubmission={id => console.log('open submission', id)}
-          onExportGradebook={() => console.log('export gradebook')}
-        />
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 16px', background: 'transparent' }}>
+            <button
+              onClick={learnTour.startTour}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(208,176,102,0.4)',
+                borderRadius: '2px',
+                color: 'var(--color-accent)',
+                fontSize: 10,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                padding: '4px 10px',
+                cursor: 'pointer',
+              }}
+            >
+              Take tour
+            </button>
+          </div>
+          <TeacherDashboard
+            courseName="Mastering 301"
+            teacherName="—"
+            submissions={submissions}
+            onOpenSubmission={id => console.log('open submission', id)}
+            onExportGradebook={() => console.log('export gradebook')}
+          />
+          <LearnTour tour={learnTour} />
+        </>
       )
     }
     if (audience === 'student') {
-      return <LearnHome />
+      return (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 16px', background: 'transparent' }}>
+            <button
+              onClick={learnTour.startTour}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(208,176,102,0.4)',
+                borderRadius: '2px',
+                color: 'var(--color-accent)',
+                fontSize: 10,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                padding: '4px 10px',
+                cursor: 'pointer',
+              }}
+            >
+              Take tour
+            </button>
+          </div>
+          <LearnHome />
+          <LearnTour tour={learnTour} />
+        </>
+      )
     }
   }
 

@@ -27,8 +27,39 @@ function clampEqFilter<T extends { freq: number; gain_db: number }>(f: T): T {
  return { ...f, gain_db: Math.max(-cap, Math.min(cap, f.gain_db)) }
 }
 
+// Convert a 31-band 1/3-octave eq_curve into parametric biquad filters,
+// one per region. Regions with |avg| < 0.3 dB are skipped (negligible).
+// Center frequencies chosen as the geometric mean of each region's band range.
+const REGION_CENTERS: [string, number, number, number][] = [
+ // [region label, center Hz, band start, band end]
+ ['Sub',        31.5,   0,  3],
+ ['Low Bass',   50,     3,  6],
+ ['Bass',       100,    6, 10],
+ ['Low Mids',   250,   10, 14],
+ ['Mids',       630,   14, 17],
+ ['Upper Mids', 1250,  17, 20],
+ ['Presence',   2500,  20, 23],
+ ['Brilliance', 5000,  23, 26],
+ ['Air',        10000, 26, 28],
+ ['Ultra High', 16000, 28, 31],
+]
+
+function chainCurveToFilters(curve: (number | null)[]): { freq: number; gain_db: number; q: number; region: string }[] {
+ return REGION_CENTERS
+   .map(([region, freq, start, end]) => {
+     const vals = curve.slice(start, end).filter((v): v is number => v != null)
+     const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+     return { freq, gain_db: Math.round(avg * 10) / 10, q: 0.7, region }
+   })
+   .filter(f => Math.abs(f.gain_db) >= 0.3)
+}
+
 export default function EngineerTipsPanel({ tips, fileB }: Props) {
- const filters = (tips.eq_filters || []).map(clampEqFilter)
+ const baseFilters = (tips.eq_filters || []).map(clampEqFilter)
+ // When the user clicks "Load into EQ preview" in ChainAnalysisPanel,
+ // we replace the filter set with chain-derived parametric bands.
+ const [chainFilters, setChainFilters] = useState<typeof baseFilters | null>(null)
+ const filters = chainFilters ?? baseFilters
  const [bandEnabled, setBandEnabled] = useState<boolean[]>(filters.map(() => false))
  // 5.7.x: reset bandEnabled when the filter set changes (new analysis,
  // new reference profile, new file). useState's initializer runs once
@@ -42,7 +73,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  useEffect(() => {
   setBandEnabled(filters.map(() => false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [tips.eq_filters])
+ }, [tips.eq_filters, chainFilters])
  // EQ amount lives at the panel level so the export / apply-and-bounce
  // buttons can scale their bands by it too.
  const [eqAmount, setEqAmount] = useState(100)
@@ -136,11 +167,8 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  <button
  onClick={async () => {
  try {
- const added = await (window as any).electronAPI.loadCustomProfile()
- if (added) {
- // Profile is saved — nudge user to re-analyze with it selected.
- alert(`Saved "${added.name}". Start a new comparison and pick it from the Engineer Profile dropdown.`)
- }
+ const added = await (window as any).electronAPI?.loadCustomProfile?.()
+ if (added) alert(`Saved "${added.name}". Start a new comparison and pick it from the Profile dropdown.`)
  } catch (err: any) {
  alert(err?.message || 'Could not load profile')
  }
@@ -169,7 +197,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
 
  {/* Tips list */}
  <div className="space-y-2">
- {tips.tips.map((tip, i) => (
+ {(tips.tips ?? []).map((tip, i) => (
  <TipRow key={i} tip={tip} />
  ))}
  </div>
@@ -187,6 +215,25 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  tpLimit={tpLimit}
  setTpLimit={setTpLimit}
  />
+ )}
+
+ {/* Chain-mode indicator — shown when the chain's eq_curve is loaded as
+   the active filter set. Lets the engineer know they're previewing /
+   soloing the chain's characteristic moves, not the tip-set bands. */}
+ {chainFilters != null && (
+   <div className="flex items-center justify-between px-3 py-2"
+     style={{ backgroundColor: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.25)', borderRadius: '2px' }}>
+     <span className="text-[10px]" style={{ color: '#d4a843' }}>
+       ⛓ EQ preview loaded from chain — solo any band to hear what the chain does at that frequency
+     </span>
+     <button
+       onClick={() => setChainFilters(null)}
+       className="text-[9px] px-2 py-0.5 rounded ml-3 flex-shrink-0"
+       style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
+     >
+       Restore tips
+     </button>
+   </div>
  )}
 
  {/* EQ Preview Player — after tips so user reads tips first, then listens */}
@@ -225,15 +272,41 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#6b8cbb' }} /> File B</span>
  <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#e07a4f' }} /> {tips.engineer}</span>
  <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#6ec577' }} /> After EQ</span>
+ {tips.chain_analysis && (
+ <span className="flex items-center gap-1" title={`Predicted position after ${tips.engineer}'s mastering chain (${tips.chain_analysis.pair_count} pairs)`}>
+ <span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#d4a843', opacity: 0.8 }} /> After chain
+ </span>
+ )}
  </div>
  </div>
  <SpectrumChart
  specFile={(tips.spectrum_file_smoothed ?? tips.spectrum_file) as number[]}
  specTarget={(tips.spectrum_target_smoothed ?? tips.spectrum_target) as number[]}
  specCorrected={liveCorrected}
+ specChain={tips.chain_analysis?.eq_curve && tips.spectrum_file_smoothed
+   ? tips.spectrum_file_smoothed.map((v, i) => {
+       const delta = tips.chain_analysis!.eq_curve[i]
+       return delta != null ? v + delta : v
+     })
+   : undefined}
+ chainMad={tips.chain_analysis?.eq_mad ?? undefined}
  freqs={tips.freqs || []}
  />
  </div>
+ )}
+
+ {tips.chain_analysis && (
+ <ChainAnalysisPanel
+   chain={tips.chain_analysis}
+   engineer={tips.engineer}
+   freqs={tips.freqs || []}
+   chainActive={chainFilters != null}
+   onLoadToPreview={() => {
+     const derived = chainCurveToFilters(tips.chain_analysis!.eq_curve)
+     setChainFilters(derived)
+   }}
+   onResetPreview={() => setChainFilters(null)}
+ />
  )}
 
  {/* Tonal differences bar chart */}
@@ -311,26 +384,31 @@ function RadarChart({ tips }: { tips: EngineerTips }) {
  const center = size / 2
  const radius = 70
 
+ // Guard: file_stats / target_stats may be absent on older API responses or
+ // when an engineer profile is partially initialised. Return null instead of
+ // crashing on tips.file_stats.lufs (TypeError: cannot read property of undefined).
+ if (!tips.file_stats || !tips.target_stats) return null
+
  // 5 axes: Loudness, Dynamics, Width, Low End, High End
  const axes = [
  { label: 'Loudness', file: normalize(tips.file_stats.lufs, -16, -4), target: normalize(tips.target_stats.lufs, -16, -4) },
  { label: 'Dynamics', file: normalize(tips.file_stats.dynamic_range, 1, 12), target: normalize(tips.target_stats.dynamic_range, 1, 12) },
- // Width axis: energy-ratio formula (commit 17e9a35) yields 0.30–0.55 for
- // commercial music. Old ceiling of 30 saturated every commercial track at max.
- // Updated to 60 (= 0.60 × 100) to keep the full range usable.
- { label: 'Width', file: normalize(tips.file_stats.width * 100, 0, 60), target: normalize(tips.target_stats.width * 100, 0, 60) },
+ // Width axis: energy-ratio formula yields 0.0 (mono) to ~0.5 (uncorrelated).
+ // Commercial music L/R correlation 0.6–0.9 → width 0.05–0.20.
+ // Range [0, 20] (×100 scale) keeps typical content in the usable 25–100%
+ // zone. Very wide content (>0.20) saturates at 1.0, which is acceptable.
+ { label: 'Width', file: normalize(tips.file_stats.width * 100, 0, 20), target: normalize(tips.target_stats.width * 100, 0, 20) },
  // 5.7.x: Low/High End axes pull from the smoothed spectrum when
  // available, matching the Tonal Curve chart + tonal_diff bars. Pre-fix
  // the radar would show "Low End is huge!" because of a single tuned
  // bass note while the recommender (correctly) ignored it.
- // 7.6.1 fix: symmetric ±10 dB range for both spectral axes. The old
- // ranges [-5,15] / [-15,0] assumed a warm/bass-forward master signature
- // and caused file vs target to plot at different absolute positions even
- // when they tonally matched. With mean-centred spectra, 0 dB = flat
- // relative to the mix mean, so a symmetric range centres both axes at
- // 0.5 (radar midpoint) for a flat/average spectrum regardless of style.
- { label: 'Low End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 3, 6), -10, 10) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 3, 6), -10, 10) : 0.5 },
- { label: 'High End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 23, 28), -10, 10) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 23, 28), -10, 10) : 0.5 },
+ // 7.6.1 fix: symmetric range for both spectral axes. Mean-centred spectra
+ // have 0 dB = flat relative to mix mean, so a symmetric range centres
+ // both axes at 0.5 for a flat spectrum. ±20 dB covers bass-heavy and
+ // bright content without clipping (±10 dB was too tight — bass-heavy
+ // mixes routinely sit +13–18 dB above mean in the low end).
+ { label: 'Low End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 3, 6), -20, 20) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 3, 6), -20, 20) : 0.5 },
+ { label: 'High End', file: (tips.spectrum_file_smoothed ?? tips.spectrum_file) ? normalize(avg((tips.spectrum_file_smoothed ?? tips.spectrum_file)!, 23, 28), -20, 20) : 0.5, target: (tips.spectrum_target_smoothed ?? tips.spectrum_target) ? normalize(avg((tips.spectrum_target_smoothed ?? tips.spectrum_target)!, 23, 28), -20, 20) : 0.5 },
  ]
 
  const n = axes.length
@@ -820,7 +898,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  try { ctxRef.current?.close() } catch {}
  ctxRef.current = null
  }
- }, [fileB, filters, bandEnabled, bypassed, stop, tpLimit])
+ }, [fileB, filters, bandEnabled, bypassed, stop, tpLimit, gainForBand])
 
  // Stop playback when the component unmounts — otherwise a leftover
  // AudioContext keeps producing audio after the panel closes.
@@ -1589,21 +1667,230 @@ function fmtDur(t: number | null): string {
 
 // ─── Spectrum Chart ─────────────────────────────────────────────────────────
 
-function SpectrumChart({ specFile, specTarget, specCorrected, freqs }: {
- specFile: number[]; specTarget: number[]; specCorrected?: number[]; freqs: string[]
+// ─── Chain Analysis Panel ────────────────────────────────────────────────────
+
+// 31-band frequency region map (mirrors REGION_NAMES in engineer_profile.py).
+const CHAIN_REGIONS: { label: string; range: [number, number] }[] = [
+ { label: 'Sub', range: [0, 3] },
+ { label: 'Low Bass', range: [3, 6] },
+ { label: 'Bass', range: [6, 10] },
+ { label: 'Low Mids', range: [10, 14] },
+ { label: 'Mids', range: [14, 17] },
+ { label: 'Upper Mids', range: [17, 20] },
+ { label: 'Presence', range: [20, 23] },
+ { label: 'Brilliance', range: [23, 26] },
+ { label: 'Air', range: [26, 28] },
+ { label: 'Ultra High', range: [28, 31] },
+]
+
+function regionAvg(curve: (number | null)[], start: number, end: number): number {
+ const vals = curve.slice(start, end).filter((v): v is number => v != null)
+ if (!vals.length) return 0
+ return vals.reduce((a, b) => a + b, 0) / vals.length
+}
+
+function regionMaxMad(mad: (number | null)[], start: number, end: number): number {
+ const vals = mad.slice(start, end).filter((v): v is number => v != null)
+ return vals.length ? Math.max(...vals) : 0
+}
+
+interface ChainAnalysis {
+ pair_count: number
+ eq_curve: (number | null)[]
+ eq_mad?: (number | null)[]
+}
+
+function ChainAnalysisPanel({ chain, engineer, freqs, chainActive, onLoadToPreview, onResetPreview }: {
+ chain: ChainAnalysis; engineer: string; freqs: string[]
+ chainActive?: boolean
+ onLoadToPreview?: () => void
+ onResetPreview?: () => void
+}) {
+ const { eq_curve, eq_mad, pair_count } = chain
+ const hasMad = eq_mad && eq_mad.some(v => v != null && v > 0)
+ const lowConfidence = pair_count < 5
+
+ // Characteristic moves: top 4 regions by absolute average delta.
+ const regionDeltas = CHAIN_REGIONS.map(r => ({
+   label: r.label,
+   avg: regionAvg(eq_curve, r.range[0], r.range[1]),
+   maxMad: hasMad ? regionMaxMad(eq_mad!, r.range[0], r.range[1]) : 0,
+ })).filter(r => Math.abs(r.avg) >= 0.3)
+ regionDeltas.sort((a, b) => Math.abs(b.avg) - Math.abs(a.avg))
+ const topMoves = regionDeltas.slice(0, 4)
+
+ // Inverse EQ hint: top moves that are large enough to be actionable.
+ const inverseHints = regionDeltas
+   .filter(r => Math.abs(r.avg) >= 0.8)
+   .slice(0, 3)
+   .map(r => {
+     const inv = -r.avg
+     const dir = inv > 0 ? 'boost' : 'cut'
+     return `${r.label} ${dir} ${Math.abs(inv).toFixed(1)} dB`
+   })
+
+ const fmtDb = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB`
+
+ return (
+   <div className="bg-dark-900 border border-dark-700/50 p-4 space-y-4" style={{ borderRadius: '2px' }}>
+     {/* Header */}
+     <div className="flex items-center justify-between flex-wrap gap-2">
+       <div className="flex items-center gap-2">
+         <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-accent)' }}>⛓ Chain Analysis</span>
+         <span className="text-[10px] text-dark-500">
+           {engineer}'s mastering chain · {pair_count} A/B pair{pair_count === 1 ? '' : 's'}
+         </span>
+       </div>
+       <div className="flex items-center gap-2 flex-wrap">
+         {lowConfidence && (
+           <span className="text-[9px] px-2 py-0.5 rounded font-mono"
+             style={{ color: 'var(--color-warm-amber)', backgroundColor: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)' }}
+             title={`Only ${pair_count} pair${pair_count === 1 ? '' : 's'} — predictions improve with more A/B data. Add more mix/master pairs to the chain profile for better accuracy.`}
+           >
+             ⚠ Low confidence — only {pair_count} pair{pair_count === 1 ? '' : 's'}
+           </span>
+         )}
+         {onLoadToPreview && !chainActive && (
+           <button
+             onClick={onLoadToPreview}
+             className="text-[9px] px-2 py-0.5 rounded transition-colors"
+             style={{ color: '#d4a843', backgroundColor: 'rgba(212,168,67,0.08)', border: '1px solid rgba(212,168,67,0.3)' }}
+             title="Load the chain's EQ curve into the EQ preview player so you can solo each frequency region and hear what the chain does there"
+           >
+             Load into EQ preview ↓
+           </button>
+         )}
+         {onResetPreview && chainActive && (
+           <button
+             onClick={onResetPreview}
+             className="text-[9px] px-2 py-0.5 rounded transition-colors"
+             style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)' }}
+           >
+             ✕ Loaded
+           </button>
+         )}
+       </div>
+     </div>
+
+     {/* Characteristic moves — per-region delta bars */}
+     {topMoves.length > 0 && (
+       <div className="space-y-1.5">
+         <span className="text-[9px] uppercase tracking-[0.12em] text-dark-500">Characteristic moves</span>
+         {topMoves.map(r => {
+           const pct = Math.min(50, Math.abs(r.avg / 6) * 50)
+           const madPct = hasMad ? Math.min(20, (r.maxMad / 6) * 50) : 0
+           const positive = r.avg >= 0
+           return (
+             <div key={r.label} className="flex items-center gap-2">
+               <span className="text-[10px] text-dark-400 w-24 flex-shrink-0">{r.label}</span>
+               <div className="flex-1 h-2.5 relative" style={{ backgroundColor: 'var(--color-bg-app)' }}>
+                 <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ backgroundColor: 'rgba(168,161,150,0.15)' }} />
+                 {/* MAD uncertainty band */}
+                 {hasMad && madPct > 0 && (
+                   <div className="absolute top-0 bottom-0 rounded-sm opacity-20"
+                     style={{
+                       left: positive ? `${50 - madPct}%` : `${50 + pct - madPct}%`,
+                       width: `${pct + madPct * 2}%`,
+                       backgroundColor: '#d4a843',
+                     }} />
+                 )}
+                 <div className="absolute top-0 bottom-0 rounded-sm"
+                   style={{
+                     left: positive ? '50%' : `${50 - pct}%`,
+                     width: `${pct}%`,
+                     backgroundColor: positive ? '#6b8cbb' : '#e07a4f',
+                     opacity: 0.7,
+                   }} />
+               </div>
+               <span className="text-[10px] font-mono w-14 text-right flex-shrink-0"
+                 style={{ color: positive ? '#6b8cbb' : '#e07a4f' }}
+                 title={hasMad ? `MAD ±${r.maxMad.toFixed(1)} dB` : undefined}
+               >
+                 {fmtDb(r.avg)}{hasMad && r.maxMad > 0.5 ? ' ±' + r.maxMad.toFixed(1) : ''}
+               </span>
+             </div>
+           )
+         })}
+       </div>
+     )}
+
+     {/* Inverse EQ hint */}
+     {inverseHints.length > 0 && (
+       <div className="pt-1 border-t border-dark-700/30">
+         <div className="flex items-start gap-2">
+           <span className="text-[9px] uppercase tracking-[0.12em] text-dark-500 mt-0.5 flex-shrink-0">Pre-EQ hint</span>
+           <span className="text-[10px] text-dark-400">
+             To land on target <em>after</em> this chain applies:{' '}
+             {inverseHints.join(' · ')}
+           </span>
+           <InfoTooltip text={`${engineer}'s chain adds these tonal moves on average. Applying the inverse before delivery means the chain's processing lands you at the target rather than past it.`} />
+         </div>
+       </div>
+     )}
+
+     {/* EQ curve bar chart — all 31 bands as mini bars */}
+     {eq_curve.some(v => v != null && Math.abs(v as number) > 0.2) && (
+       <div className="pt-1 border-t border-dark-700/30 space-y-1">
+         <span className="text-[9px] uppercase tracking-[0.12em] text-dark-500">Full EQ delta (31-band)</span>
+         <div className="flex items-end gap-px" style={{ height: '32px' }}>
+           {eq_curve.map((v, i) => {
+             const val = v ?? 0
+             const maxAbs = 6
+             const pct = Math.min(1, Math.abs(val) / maxAbs)
+             const madVal = hasMad ? (eq_mad![i] ?? 0) : 0
+             return (
+               <div key={i} className="flex-1 relative flex flex-col justify-center"
+                 title={`${freqs[i] || i}: ${fmtDb(val)}${hasMad && madVal > 0 ? ` ±${madVal.toFixed(1)}` : ''}`}
+               >
+                 {val >= 0
+                   ? <div className="absolute bottom-1/2 left-0 right-0 rounded-sm"
+                       style={{ height: `${pct * 14}px`, backgroundColor: '#6b8cbb', opacity: 0.75 }} />
+                   : <div className="absolute top-1/2 left-0 right-0 rounded-sm"
+                       style={{ height: `${pct * 14}px`, backgroundColor: '#e07a4f', opacity: 0.75 }} />
+                 }
+               </div>
+             )
+           })}
+         </div>
+         <div className="flex justify-between text-[7px] text-dark-600">
+           <span>20 Hz</span><span>1 kHz</span><span>20 kHz</span>
+         </div>
+       </div>
+     )}
+   </div>
+ )
+}
+
+
+function SpectrumChart({ specFile, specTarget, specCorrected, specChain, chainMad, freqs }: {
+ specFile: number[]; specTarget: number[]; specCorrected?: number[]; specChain?: number[]
+ /** Per-band MAD (mean absolute deviation) for the chain curve — used to
+  * shade a confidence band around the gold dashed line. Absent = no shading. */
+ chainMad?: (number | null)[]; freqs: string[]
 }) {
  const w = 800, h = 200
  const pad = { top: 10, bottom: 25, left: 5, right: 5 }
  const gw = w - pad.left - pad.right
  const gh = h - pad.top - pad.bottom
 
- const allVals = [...specFile, ...specTarget, ...(specCorrected || [])].filter(v => v > -50)
+ const allVals = [...specFile, ...specTarget, ...(specCorrected || []), ...(specChain || [])].filter(v => v > -50)
  const maxDb = Math.max(...allVals) + 2
  const minDb = Math.min(...allVals) - 2
 
  const toX = (i: number) => pad.left + (i / (specFile.length - 1)) * gw
  const toY = (v: number) => pad.top + (1 - (v - minDb) / (maxDb - minDb)) * gh
  const makePath = (data: number[]) => data.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ')
+
+ // Build SVG polygon path for the MAD confidence band around specChain.
+ const chainBandPath = specChain && chainMad && chainMad.length === specChain.length
+   ? (() => {
+       const top = specChain.map((v, i) => v + (chainMad[i] ?? 0))
+       const bot = specChain.map((v, i) => v - (chainMad[i] ?? 0))
+       const fwd = top.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ')
+       const rev = bot.map((v, i) => `L${toX(bot.length - 1 - i).toFixed(1)},${toY(bot[bot.length - 1 - i]).toFixed(1)}`).join(' ')
+       return `${fwd} ${rev} Z`
+     })()
+   : null
 
  const labelIndices = [0, 4, 8, 12, 16, 20, 24, 28, 30]
 
@@ -1616,6 +1903,9 @@ function SpectrumChart({ specFile, specTarget, specCorrected, freqs }: {
  </g>
  ))}
  <path d={makePath(specTarget)} fill="none" stroke="#e07a4f" strokeWidth="2" opacity="0.5" strokeDasharray="4 2" />
+ {/* MAD confidence band — rendered before the chain line so it sits behind */}
+ {chainBandPath && <path d={chainBandPath} fill="#d4a843" fillOpacity="0.12" stroke="none" />}
+ {specChain && <path d={makePath(specChain)} fill="none" stroke="#d4a843" strokeWidth="1.5" opacity="0.8" strokeDasharray="2 3" />}
  {specCorrected && <path d={makePath(specCorrected)} fill="none" stroke="#6ec577" strokeWidth="1.5" opacity="0.7" />}
  <path d={makePath(specFile)} fill="none" stroke="#6b8cbb" strokeWidth="2" />
  {labelIndices.map(i => (

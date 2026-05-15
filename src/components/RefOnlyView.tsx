@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
 import { ReferenceCheck, ClickArtifact, DistortionResult, TonalIssue, MonoCompatibility, EngineerTips, AnalysisResult } from '../types'
 import InfoTooltip from './InfoTooltip'
 import { TeachTerm } from '../teachMe'
@@ -23,6 +23,7 @@ import StreamingPreview from './StreamingPreview'
 import LoudnessOverTime from './LoudnessOverTime'
 import ReadyToDeliverVerdict from './ReadyToDeliverVerdict'
 import AttentionList from './AttentionList'
+import CommandPalette from './CommandPalette'
 import LimiterArtefactsPanel from './LimiterArtefactsPanel'
 import MasterAssistantPanel from './MasterAssistantPanel'
 import MetadataPanel from './MetadataPanel'
@@ -113,14 +114,61 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  const tonalIssues = data.tonal_issues || []
  const overall = data.overall
  const label = fileName.replace(/\.[^/.]+$/, '')
- const { advancedQc, surface } = useModes()
+ const { surface } = useModes()
  const pluginDrop = usePluginDrop()
+
+ // ⌘K command palette — same as AnalysisView. Header Search button
+ // dispatches 'rtm-open-palette'; we need to listen here too because
+ // AnalysisView is not mounted in single-file mode.
+ const [paletteOpen, setPaletteOpen] = useState(false)
+ useEffect(() => {
+ const onOpen = () => setPaletteOpen(true)
+ const onKey = (e: KeyboardEvent) => {
+ if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+ e.preventDefault(); setPaletteOpen(true)
+ }
+ }
+ window.addEventListener('rtm-open-palette', onOpen)
+ window.addEventListener('keydown', onKey)
+ return () => {
+ window.removeEventListener('rtm-open-palette', onOpen)
+ window.removeEventListener('keydown', onKey)
+ }
+ }, [])
+
+ // Attention checklist — tracks which items the user has signed off.
+ // When all attention items are checked the export button shows "Send".
+ const [checkedAttention, setCheckedAttention] = useState<Set<number>>(new Set())
+ const toggleAttentionCheck = useCallback((idx: number) => {
+ setCheckedAttention(prev => {
+ const next = new Set(prev)
+ next.has(idx) ? next.delete(idx) : next.add(idx)
+ return next
+ })
+ }, [])
+
  // Inline disclosure so we don't have to stand up a new modal stack
  // for one panel. Opens beneath the Clicks timeline on demand.
  const [declickOpen, setDeclickOpen] = useState(false)
 
  const streamingPreviewRows = data.streaming_preview?.b || []
  const fileAInfo = filePath ? { path: filePath, name: fileName } : undefined
+
+ // REF-B-1: allow the user to load a reference file into the A/B player
+ // from within the single-file view. Previously fileB was always set to
+ // fileAInfo (same file both sides — audibly identical). Now the user can
+ // drag-and-drop or browse a reference track to compare in the player.
+ const [refBInfo, setRefBInfo] = useState<{ path: string; name: string } | null>(null)
+ // playerFileB: prefer the user-loaded reference; fall back to fileAInfo.
+ // The cast is safe — this value is only consumed inside `{fileAInfo && …}`
+ // where fileAInfo is already asserted non-null.
+ const playerFileB = (refBInfo ?? fileAInfo) as import('../types').FileInfo
+
+ const handleLoadRefB = async () => {
+   const filePath = await (window as any).electronAPI?.selectFile?.()
+   if (!filePath) return
+   setRefBInfo({ path: filePath, name: filePath.split('/').pop() ?? filePath })
+ }
 
  // Compact metadata strip — same shape SongDetailPanel uses, so both
  // views read identically. Pulls SR / BD / channels / ISRC from
@@ -318,6 +366,14 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
 
  return (
  <div className="space-y-8">
+ {/* ⌘K command palette — same as AnalysisView. Needed here because
+ AnalysisView is not mounted in single-file mode. */}
+ {paletteOpen && (
+ <CommandPalette
+ onClose={() => setPaletteOpen(false)}
+ onNavigate={() => setPaletteOpen(false)}
+ />
+ )}
  {/* ── 1. Header ──────────────────────────────────────────── */}
  <div className="text-center space-y-2">
  <h2 className="text-2xl font-medium" style={{ color: '#f5f5f4' }}>Reference Analysis</h2>
@@ -675,12 +731,70 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  )
  })()}
 
- {attention.length > 0 && (
+ {attention.length > 0 && (() => {
+ const allChecked = attention.every((_, i) => checkedAttention.has(i))
+ return (
  <div data-tour-ref="attention" className="space-y-1.5">
+ <div className="flex items-center justify-between">
  <div className="text-[9px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>Attention</div>
- <AttentionList items={attention} onJump={handleAttentionJump} />
- </div>
+ {allChecked && (
+ <span
+ className="text-[9px] px-2 py-0.5 uppercase tracking-[0.12em]"
+ style={{ color: 'var(--color-data-pass)', backgroundColor: 'rgba(110,197,119,0.08)', border: '1px solid rgba(110,197,119,0.3)', borderRadius: '2px' }}
+ >✓ All reviewed — ready to send</span>
  )}
+ </div>
+ <ul className="space-y-1">
+ {(attention as Array<{ severity: 'hold' | 'warn' | 'info'; message: string; jumpSec?: number }>).map((item, idx) => {
+ const checked = checkedAttention.has(idx)
+ const accent = item.severity === 'hold' ? 'var(--color-danger)' : item.severity === 'warn' ? 'var(--color-warning)' : 'var(--color-sand-400)'
+ return (
+ <li key={idx} className="flex items-start gap-2 min-w-0">
+ <button
+ onClick={() => toggleAttentionCheck(idx)}
+ aria-label={checked ? 'Mark unresolved' : 'Mark resolved'}
+ title={checked ? 'Click to unmark' : 'Click to mark as addressed'}
+ style={{
+ flexShrink: 0,
+ marginTop: 2,
+ width: 14, height: 14,
+ borderRadius: '2px',
+ border: `1px solid ${checked ? 'rgba(110,197,119,0.6)' : 'rgba(168,161,150,0.35)'}`,
+ backgroundColor: checked ? 'rgba(110,197,119,0.2)' : 'transparent',
+ cursor: 'pointer',
+ display: 'flex', alignItems: 'center', justifyContent: 'center',
+ fontSize: 9, color: 'var(--color-data-pass)',
+ }}
+ >
+ {checked ? '✓' : ''}
+ </button>
+ <button
+ onClick={item.jumpSec != null && handleAttentionJump ? () => handleAttentionJump(item.jumpSec!) : undefined}
+ disabled={item.jumpSec == null}
+ className={`flex-1 text-left flex items-start gap-2 py-0.5 transition-colors text-[11px] ${item.jumpSec != null ? 'hover:bg-white/[0.04]' : ''}`}
+ style={{
+ borderLeft: `2px solid ${checked ? 'rgba(110,197,119,0.4)' : accent}`,
+ paddingLeft: 8, paddingRight: 8, borderRadius: '2px',
+ color: checked ? 'var(--color-text-muted)' : 'var(--color-sand-300)',
+ opacity: checked ? 0.55 : 1,
+ cursor: item.jumpSec != null ? 'pointer' : 'default',
+ textDecoration: checked ? 'line-through' : 'none',
+ }}
+ >
+ <span className="flex-1 min-w-0 break-words">{item.message}</span>
+ {item.jumpSec != null && (
+ <span className="text-[9px] font-mono" style={{ color: accent }}>
+ {`${Math.floor(item.jumpSec / 60)}:${Math.floor(item.jumpSec % 60).toString().padStart(2, '0')}`}
+ </span>
+ )}
+ </button>
+ </li>
+ )
+ })}
+ </ul>
+ </div>
+ )
+ })()}
 
  {/* Limiter-artefact granular metrics. Severity + issues already
  bleed into the Attention list above; this compact row surfaces
@@ -712,9 +826,48 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  Attention rows now have a listener. */}
  {fileAInfo && (
  <div data-tour-ref="player">
+  {/* REF-B-1: reference slot — lets the user load a second file so the
+      A/B player can do a real side-by-side audition from within the
+      single-file view. Shows "load reference" affordance when empty. */}
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+   <span style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>
+    A/B Player
+   </span>
+   <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(168,161,150,0.1)' }} />
+   {refBInfo ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+     <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontStyle: 'italic', fontFamily: 'var(--font-display)' }}>
+      B: {refBInfo.name}
+     </span>
+     <button
+      onClick={() => setRefBInfo(null)}
+      title="Remove reference"
+      style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: 13, cursor: 'pointer', lineHeight: 1, padding: 0 }}
+     >×</button>
+    </div>
+   ) : (
+    <button
+     onClick={handleLoadRefB}
+     style={{
+      fontFamily: 'var(--font-sans)',
+      fontSize: 10,
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      color: 'var(--color-accent)',
+      background: 'transparent',
+      border: '1px solid rgba(208,176,102,0.3)',
+      borderRadius: 2,
+      padding: '4px 10px',
+      cursor: 'pointer',
+     }}
+    >
+     + Load reference B
+    </button>
+   )}
+  </div>
  <ABPlayer
  fileA={fileAInfo}
- fileB={fileAInfo}
+ fileB={playerFileB}
  gainAppliedDb={0}
  currentCurve={data.spectrum_a || data.engineer_tips?.spectrum_file || null}
  />
@@ -748,6 +901,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  soloA
  fileA={fileAInfo}
  lufsA={singleFileMetrics.lufs}
+ surface={surface}
  />
  </CollapsibleSection>
  </div>
@@ -1029,17 +1183,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </div>
  )}
 
- {/* ── 17. Advanced section ─────────────────────────────────
- Panel consensus: the diagnostic tools (Mono Compat full
- panel, Phase, Tempo, Tonal Character, Mood, Masking,
- Transient Density, AI Detection, Vectorscope, Tonal
- Issues, Song Info trivia) all live behind Advanced QC.
- Only shown when the header toggle is on. */}
- {advancedQc && (
+ {/* ── 17. Diagnostic panels ─────────────────────────────── */}
  <div className="space-y-6">
- <div className="text-[9px] uppercase tracking-[0.18em] text-center" style={{ color: 'var(--color-text-muted)' }}>
- · Advanced QC ·
- </div>
 
  {/* Song Info used to live here; it has been promoted to the
  top of the page (section 2b) so levels are the first thing
@@ -1239,7 +1384,6 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <TonalIssues issues={tonalIssues} labelA={label} labelB={label} />
  </CollapsibleSection>
  </div>
- )}
  </div>
  )
 }

@@ -94,8 +94,24 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  eq.setBands(chain.bands)
  eq.setEnabled(true)
  eq.setAmount(1)
- setRenderMsg('EQ engaged in the main player. Press Space to audition — flip EQ BYPASS on the transport to A/B.')
+ if (chain.bands.length === 0) {
+ setRenderMsg(`Preview: no EQ moves for ${chain.profile.name} (gain-only chain). Tonal changes render into the file — load an engineer profile to audition EQ moves live.`)
+ } else {
+ setRenderMsg(`EQ engaged (${chain.bands.length} band${chain.bands.length === 1 ? '' : 's'}, ${chain.profile.name}). Press Space to audition — flip EQ BYPASS on the transport to A/B.`)
  }
+ }
+
+ // When the profile changes while preview is already engaged, silently
+ // re-push the new chain's bands so the player tracks the selected target
+ // without requiring the user to click Preview again.
+ const prevChainRef = React.useRef<typeof chain>(null)
+ useEffect(() => {
+ if (!chain) return
+ if (!eq.enabled) return
+ if (prevChainRef.current === chain) return
+ prevChainRef.current = chain
+ eq.setBands(chain.bands)
+ }, [chain, eq.enabled])
 
  const buildCfg = (overrideBitDepth?: number) => {
  if (!chain) return null
@@ -260,8 +276,9 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  render a delivery-ready master in one click.
  </p>
  </div>
- {/* Target picker */}
- <div className="flex items-center gap-1 p-1" style={{ backgroundColor: 'rgba(30,28,24,0.5)', borderRadius: '2px' }}>
+ {/* Target picker — flex-wrap so the row never clips outside the panel
+     on narrow windows or when the surface has many profiles. */}
+ <div className="flex gap-1 p-1" style={{ backgroundColor: 'rgba(30,28,24,0.5)', borderRadius: '2px', flexWrap: 'wrap', alignItems: 'center' }}>
  {profiles.map(p => (
  <button
  key={p.id}
@@ -310,9 +327,34 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  {result.engineer_tips ? (
  <EngineerTipsPanel tips={result.engineer_tips} fileB={fileB} />
  ) : (
+ <div className="space-y-3">
  <p className="text-[11px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
- No engineer profile active on this analysis — load a profile at scan time to generate tonal EQ tips.
+ No engineer profile active — select one on the upload screen before running analysis, or load a custom profile JSON below and re-run.
  </p>
+ <div className="flex items-center justify-between px-4 py-3"
+   style={{ backgroundColor: 'rgba(124,164,163,0.06)', border: '1px solid rgba(124,164,163,0.25)', borderRadius: '2px' }}>
+   <div className="flex-1 pr-3">
+   <div className="text-xs font-medium" style={{ color: 'var(--color-teal)' }}>Load a custom profile</div>
+   <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+     Pick a 31-band JSON from RTMprofile. Saved to your profile list — select it on the next analysis.
+   </div>
+   </div>
+   <button
+   onClick={async () => {
+     try {
+     const added = await (window as any).electronAPI.loadCustomProfile()
+     if (added) alert(`Saved "${added.name}". Start a new comparison and pick it from the Engineer Profile dropdown.`)
+     } catch (err: any) {
+     alert(err?.message || 'Could not load profile')
+     }
+   }}
+   className="text-[11px] px-3 py-1.5 transition-colors whitespace-nowrap"
+   style={{ backgroundColor: 'rgba(124,164,163,0.15)', color: 'var(--color-teal)', border: '1px solid rgba(124,164,163,0.35)', borderRadius: '2px' }}
+   >
+   Load profile…
+   </button>
+ </div>
+ </div>
  )}
  </div>
  )}

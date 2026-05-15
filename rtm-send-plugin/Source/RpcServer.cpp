@@ -1,7 +1,10 @@
 #include "RpcServer.h"
 #include "PluginProcessor.h"
-#include <cmath>  // std::isfinite — sanitiseFinite()
-#include <thread> // 5.7.1 v5: per-connection worker threads in run()
+#include <cmath>   // std::isfinite — sanitiseFinite()
+#include <thread>  // 5.7.1 v5: per-connection worker threads in run()
+#if ! JUCE_WINDOWS
+  #include <sys/stat.h>  // ::chmod
+#endif
 // 5.7.1 Tier-3: getpid() — juce::Process has no portable
 // process-id helper. POSIX has getpid in <unistd.h>; on Windows we'd
 // use GetCurrentProcessId from <windows.h>. RTMsend ships macOS / Linux

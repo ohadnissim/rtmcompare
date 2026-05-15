@@ -41,8 +41,11 @@ void RtmAraDocumentController::rebuildSnapshot()
     }
 
     std::vector<rtm::Region> regs;
-    std::vector<rtm::Marker> mks;  // TODO: named-marker extraction
+    std::vector<rtm::Marker> mks;
 
+    // ── PlaybackRegions (clips) ──────────────────────────────────────────────
+    // WaveLab montage clips, Studio One events, Cubase regions, REAPER items
+    // all surface here. This is the primary selection method.
     int autoIndex = 0;
     for (auto* seq : doc->getRegionSequences())
     {
@@ -88,6 +91,155 @@ void RtmAraDocumentController::rebuildSnapshot()
         if (a.startSec > b.startSec) return false;
         return a.name < b.name;
     });
+
+    // ── Musical-context markers (WaveLab CD tracks, timeline bar boundaries) ─
+    //
+    // The ARA 2 spec has no "named user marker" content type. What hosts
+    // DO publish via the MusicalContext are:
+    //   - kARAContentTypeTempoEntries  : BPM / tempo sync points (seconds ↔ beats)
+    //   - kARAContentTypeBarSignatures : time-signature changes (beats ↔ bars)
+    //
+    // WaveLab (Steinberg) uses kARAContentTypeBarSignatures to advertise its
+    // CD-track / montage region boundaries on the timeline. Each bar-signature
+    // event position is expressed in quarter notes; the tempo map is needed to
+    // convert to seconds.
+    //
+    // Strategy:
+    //   1. Build a quarter-note → seconds lookup from the tempo entries.
+    //   2. Walk the bar signatures; each one becomes a named Marker.
+    //   3. Name: hosts don't pass user-defined marker names through ARA 2,
+    //      so we synthesise "Marker N" (or "CD Track N" for WaveLab's typical
+    //      bar-per-track structure).
+    //
+    // If the musical context doesn't support either content type (most hosts
+    // that use DAW-loop or triggered-region workflows) mks stays empty and
+    // the "Between markers" section doesn't appear in the UI. That's correct.
+
+    for (auto* musCtx : doc->getMusicalContexts())
+    {
+        if (musCtx == nullptr) continue;
+
+        // HostContentReader checks availability internally; operator bool() reports it.
+        // Build quarter-note → seconds table from tempo entries.
+        // Each entry: { timePosition (seconds), contentValue.quarterPosition (qn) }
+        // Between two entries the tempo is constant; interpolate linearly in qn-space.
+        struct TempoPoint { double qn; double sec; double bps; }; // beats per second
+        std::vector<TempoPoint> tempoMap;
+
+        {
+            ARA::PlugIn::HostContentReader<ARA::kARAContentTypeTempoEntries> tempoReader(musCtx);
+            if (tempoReader)
+            {
+                // ARAContentTempoEntry has timePosition (seconds) and quarterPosition (qn).
+                // BPS between two sync points = ΔqnPositions / ΔtimePositions.
+                // We store each point; BPS is computed segment-by-segment in qnToSec.
+                struct RawEntry { double qn; double sec; };
+                std::vector<RawEntry> raw;
+                const ARA::ARAInt32 n = tempoReader.getEventCount();
+                raw.reserve(static_cast<size_t>(n));
+                for (ARA::ARAInt32 i = 0; i < n; ++i)
+                {
+                    const auto e = tempoReader.getDataForEvent(i);
+                    raw.push_back({ static_cast<double>(e.quarterPosition),
+                                    static_cast<double>(e.timePosition) });
+                }
+                tempoMap.reserve(raw.size());
+                for (size_t i = 0; i < raw.size(); ++i)
+                {
+                    // BPS for segment starting at raw[i]: derived from the next entry.
+                    // For the last entry, extrapolate using the previous segment's rate.
+                    double bps = 2.0; // 120 BPM fallback
+                    if (i + 1 < raw.size())
+                    {
+                        const double dqn = raw[i + 1].qn - raw[i].qn;
+                        const double dt  = raw[i + 1].sec - raw[i].sec;
+                        if (dt > 1e-9 && dqn > 0.0) bps = dqn / dt;
+                    }
+                    else if (tempoMap.size() > 0)
+                    {
+                        bps = tempoMap.back().bps; // carry forward last rate
+                    }
+                    tempoMap.push_back({ raw[i].qn, raw[i].sec, bps });
+                }
+            }
+        }
+
+        // Check bar signatures availability before proceeding.
+        {
+            ARA::PlugIn::HostContentReader<ARA::kARAContentTypeBarSignatures> testBarReader(musCtx);
+            if (!testBarReader) continue;   // nothing useful from this musical context
+        }
+        // Fallback: 120 BPM constant tempo if no tempo entries.
+        if (tempoMap.empty())
+            tempoMap.push_back({ 0.0, 0.0, 2.0 });
+
+        // Quarter-note position → wall-clock seconds.
+        auto qnToSec = [&](double qn) -> double
+        {
+            if (tempoMap.size() == 1 || qn <= tempoMap.front().qn)
+            {
+                // Before or at first tempo point — extrapolate backwards.
+                const auto& t0 = tempoMap.front();
+                return t0.sec + (qn - t0.qn) / t0.bps;
+            }
+            // Binary search for the segment containing qn.
+            size_t lo = 0, hi = tempoMap.size() - 1;
+            while (lo + 1 < hi)
+            {
+                const size_t mid = (lo + hi) / 2u;
+                if (tempoMap[mid].qn <= qn) lo = mid; else hi = mid;
+            }
+            const auto& ta = tempoMap[lo];
+            const auto& tb = tempoMap[hi];
+            if (qn >= tb.qn)
+                return tb.sec + (qn - tb.qn) / tb.bps; // extrapolate past last point
+            // Interpolate within segment [ta, tb]: tempo is constant between sync points.
+            return ta.sec + (qn - ta.qn) / ta.bps;
+        };
+
+        // Walk bar signatures → markers.
+        // ARAContentBarSignature: { numerator, denominator, position (in quarter notes) }
+        // Most hosts (WaveLab, Studio One, Cubase) only emit one event per
+        // time-signature CHANGE, so nBars is typically 1–5.
+        // Logic Pro may emit one entry per bar in certain project configurations,
+        // which would flood the dropdown. Cap at kMaxMarkers as a safety net.
+        constexpr int kMaxMarkers = 64;
+        ARA::PlugIn::HostContentReader<ARA::kARAContentTypeBarSignatures> barReader(musCtx);
+        const ARA::ARAInt32 nBars = barReader.getEventCount();
+        int markerIndex = 1;
+        for (ARA::ARAInt32 i = 0; i < nBars; ++i)
+        {
+            if (static_cast<int>(mks.size()) >= kMaxMarkers) break;
+            const auto bar = barReader.getDataForEvent(i);
+            // ARAContentBarSignature.position is in quarter notes
+            const double posSec = qnToSec(static_cast<double>(bar.position));
+            if (posSec < 0.0) continue;   // skip any pre-roll markers
+
+            rtm::Marker mk;
+            mk.positionSec = posSec;
+            // The ARA spec doesn't carry user-defined marker names.
+            // Name by index — matches WaveLab's CD-track numbering convention.
+            mk.name = juce::String("Marker ") + juce::String(markerIndex++);
+            mk.kind = "BarBoundary";   // internal tag for debugging
+            mks.push_back(std::move(mk));
+        }
+        // Only read one musical context — WaveLab and Studio One expose one;
+        // reading multiples would duplicate markers.
+        if (!mks.empty()) break;
+    }
+
+    // De-duplicate markers at the same position (some hosts publish the same
+    // bar boundary twice from different musical contexts).
+    std::sort(mks.begin(), mks.end(), [](const rtm::Marker& a, const rtm::Marker& b) {
+        return a.positionSec < b.positionSec;
+    });
+    mks.erase(std::unique(mks.begin(), mks.end(), [](const rtm::Marker& a, const rtm::Marker& b) {
+        return std::abs(a.positionSec - b.positionSec) < 0.01; // within 10 ms = same marker
+    }), mks.end());
+
+    // Renumber after de-dup so names are "Marker 1, 2, 3..." without gaps.
+    for (size_t i = 0; i < mks.size(); ++i)
+        mks[i].name = juce::String("Marker ") + juce::String(static_cast<int>(i + 1));
 
     model->setRegions(std::move(regs), std::move(mks));
 }
@@ -146,9 +298,9 @@ bool RtmAraDocumentController::readRegionSamples(const juce::String& regionId,
     constexpr juce::int64 kMaxSamples = 10LL * 3600 * 192000;  // 10 h at 192 kHz
     if (numSamples > kMaxSamples)
     {
-        errorOut = juce::String ("Region too long for analysis (") +
-                   juce::String (numSamples / static_cast<juce::int64>(sr), 0) +
-                   juce::String (" s). Maximum is 10 hours.");
+        errorOut = juce::String ("Region too long for analysis (")
+                   + juce::String (static_cast<int>(numSamples / static_cast<juce::int64>(sr)))
+                   + juce::String (" s). Maximum is 10 hours.");
         return false;
     }
 

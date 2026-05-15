@@ -21,11 +21,12 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 // contextBridge. Strings cross the bridge fine; the callback is a
 // proxy contextBridge wires up in both directions.
 //
-// Empirically verified by checking that `webUtils.getPathForFile()`
-// returns a non-empty string in the preload context, and that the
-// renderer-registered callback receives the path array on every drop.
+// 1.0.5 fix: support multiple named drop zones. The callback now receives
+// { paths, zone } where zone is the `data-dropzone` attribute of the
+// element (or its nearest ancestor) that received the drop. Renderer
+// registers a single callback and routes by zone name.
 
-let onDroppedCallback: ((paths: string[]) => void) | null = null
+let onDroppedCallback: ((payload: { paths: string[]; zone: string }) => void) | null = null
 
 window.addEventListener('dragover', (e) => {
   e.preventDefault()
@@ -35,6 +36,7 @@ window.addEventListener('drop', (e) => {
   e.preventDefault()
   const dt = e.dataTransfer
   if (!dt || !dt.files || dt.files.length === 0) return
+
   const paths: string[] = []
   for (const f of Array.from(dt.files)) {
     try {
@@ -42,16 +44,26 @@ window.addEventListener('drop', (e) => {
       if (p) paths.push(p)
     } catch { /* webUtils.getPathForFile not available in this context */ }
   }
-  if (paths.length > 0 && onDroppedCallback) {
-    try { onDroppedCallback(paths) } catch {}
+  if (paths.length === 0 || !onDroppedCallback) return
+
+  // Walk up from the drop target to find the nearest data-dropzone attribute.
+  let zone = 'masters'
+  let el = e.target as HTMLElement | null
+  while (el) {
+    const dz = el.getAttribute?.('data-dropzone')
+    if (dz) { zone = dz; break }
+    el = el.parentElement
   }
+
+  try { onDroppedCallback({ paths, zone }) } catch {}
 })
 
 contextBridge.exposeInMainWorld('rtmprofileAPI', {
   selectFiles: () => ipcRenderer.invoke('select-files') as Promise<string[]>,
   /** Renderer registers its drop callback once on mount; preload calls
-   *  it directly with the resolved on-disk paths from each drop. */
-  onFilesDropped: (cb: (paths: string[]) => void) => {
+   *  it with { paths, zone } so the renderer can route to the right zone.
+   *  zone is the `data-dropzone` attribute of the drop target element. */
+  onFilesDropped: (cb: (payload: { paths: string[]; zone: string }) => void) => {
     onDroppedCallback = cb
     return () => { onDroppedCallback = null }
   },
@@ -60,8 +72,8 @@ contextBridge.exposeInMainWorld('rtmprofileAPI', {
     role: string
     outPath?: string
     files: string[]
-    /** Deep Scan: per-stem profile via Demucs. Adds ~30s-2min per track. */
     deep?: boolean
+    chainMixes?: string[]
   }) => ipcRenderer.invoke('build-profile', args),
   showSavedProfile: (jsonPath: string) => ipcRenderer.invoke('show-saved-profile', jsonPath),
   cancelBuild: () => ipcRenderer.invoke('cancel-build') as Promise<boolean>,

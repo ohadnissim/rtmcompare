@@ -272,6 +272,35 @@ export interface MasteringDelta {
  estimated_gain_reduction_db?: number
  width_per_band_a?: number[]   // 8 values, 0=mono, 1=decorrelated, bands: 63/125/250/500/1k/2k/4k/8k Hz
  width_per_band_b?: number[]
+ // Crest trajectory — dynamic fatigue curve
+ crest_trajectory?: {
+  segments: { start_s: number; crest_db: number }[]
+  crest_variance_db2: number
+  crest_mean_db: number
+  trajectory: 'dynamic' | 'moderate' | 'flat'
+  n_segments: number
+ }
+ // Perceptual quality distance
+ perceptual_quality?: {
+  perceptual_distance_db: number
+  quality_interpretation: string
+ }
+ // Transient homogeneity (limiter tell)
+ transient_homogeneity?: {
+  homogeneity_score: number  // 0..1
+  flag: boolean
+ }
+ // PLR plausibility flag
+ plr_plausibility?: {
+  plr_db: number
+  lufs_i_db: number
+  flag: boolean
+  note: string
+ }
+ // Measurement chain inconsistency
+ measurement_inconsistency?: string
+ // Polarity inversion
+ polarity_inverted?: boolean
 }
 
 export interface AnalysisResult {
@@ -283,6 +312,7 @@ export interface AnalysisResult {
  atmos_channels?: { channel: string; label: string; role: string; level_db: number; centroid_hz: number; dynamic_range_db: number; is_active: boolean; description: string }[]
  atmos_downmix_path?: string
  engineer_tips?: EngineerTips
+ chain_tips?: ChainTips
  level_matched: boolean
  gain_applied_db: number
  categories: Category[]
@@ -575,6 +605,27 @@ export interface EngineerTips {
  freqs?: string[]
  eq_filters?: { freq: number; gain_db: number; q: number; q_note?: string; region: string }[]
  match_score?: number
+ chain_analysis?: {
+   eq_curve: (number | null)[]
+   eq_mad: (number | null)[]
+   pair_count: number
+   pairs: { mix: string; master: string }[]
+   label: string
+ }
+}
+
+/** Result returned when a chain profile is applied to a file. */
+export interface ChainTips {
+ engineer: string
+ profile_id: string
+ profile_type: 'chain'
+ pair_count: number
+ /** File spectrum shifted by the chain delta — where this mix lands after mastering. */
+ spectrum_after_chain: number[]
+ spectrum_file: number[]
+ freqs: string[]
+ eq_curve: (number | null)[]
+ eq_mad: (number | null)[]
 }
 
 export interface StemAnalysis {
@@ -728,6 +779,8 @@ export interface LearnGuidedStep {
  question: string        // question the student should answer
  hint?: string           // optional hint text
  targetTab?: string      // human-readable tab label shown as a navigate-to hint
+ teacherQuestion?: string  // teacher-facing focus prompt (what to teach / look for)
+ teacherHint?: string      // teacher-facing guidance on common mistakes + discussion
 }
 
 export interface BlindTestAnswer {

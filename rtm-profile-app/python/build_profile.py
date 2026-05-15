@@ -49,8 +49,10 @@ import math
 import os as _os
 import sys
 import unicodedata as _ucd
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 # ── Track analysis cache ───────────────────────────────────────────────
@@ -404,38 +406,43 @@ def _stereo_width(y: np.ndarray) -> float:
 _DEMUCS_MODEL = None
 _DEMUCS_DEVICE = None
 _STEM_NAMES = ("drums", "bass", "other", "vocals")
+_DEMUCS_LOAD_LOCK = Lock()
 
 
 def _load_demucs():
     """Load htdemucs once. Probes the same model-cache locations the
     parent RTMcompare app uses so the bundled .pth gets picked up
-    without a network fetch."""
+    without a network fetch. Thread-safe via _DEMUCS_LOAD_LOCK."""
     global _DEMUCS_MODEL, _DEMUCS_DEVICE
     if _DEMUCS_MODEL is not None:
         return _DEMUCS_MODEL, _DEMUCS_DEVICE
+    with _DEMUCS_LOAD_LOCK:
+        # Double-checked locking: another thread may have loaded while we waited.
+        if _DEMUCS_MODEL is not None:
+            return _DEMUCS_MODEL, _DEMUCS_DEVICE
 
-    import os as _os
-    # Look for a bundled Torch hub cache: dev tree, app bundle, or
-    # RTMcompare's installed Resources/.
-    here = Path(__file__).resolve().parent.parent
-    candidates = [
-        here / "model-cache",
-        here.parent / "model-cache",
-        Path("/Applications/RTMcompare.app/Contents/Resources/model-cache"),
-    ]
-    for base in candidates:
-        if (base / "torch" / "hub" / "checkpoints").is_dir():
-            _os.environ["TORCH_HOME"] = str(base / "torch")
-            break
+        import os as _os
+        # Look for a bundled Torch hub cache: dev tree, app bundle, or
+        # RTMcompare's installed Resources/.
+        here = Path(__file__).resolve().parent.parent
+        candidates = [
+            here / "model-cache",
+            here.parent / "model-cache",
+            Path("/Applications/RTMcompare.app/Contents/Resources/model-cache"),
+        ]
+        for base in candidates:
+            if (base / "torch" / "hub" / "checkpoints").is_dir():
+                _os.environ["TORCH_HOME"] = str(base / "torch")
+                break
 
-    import torch
-    from demucs.pretrained import get_model as _get_model
+        import torch
+        from demucs.pretrained import get_model as _get_model
 
-    _DEMUCS_DEVICE = torch.device("cpu")  # MPS works but eats RAM; CPU is steady
-    _DEMUCS_MODEL = _get_model("htdemucs")
-    _DEMUCS_MODEL.to(_DEMUCS_DEVICE)
-    _DEMUCS_MODEL.eval()
-    return _DEMUCS_MODEL, _DEMUCS_DEVICE
+        _DEMUCS_DEVICE = torch.device("cpu")  # MPS works but eats RAM; CPU is steady
+        _DEMUCS_MODEL = _get_model("htdemucs")
+        _DEMUCS_MODEL.to(_DEMUCS_DEVICE)
+        _DEMUCS_MODEL.eval()
+        return _DEMUCS_MODEL, _DEMUCS_DEVICE
 
 
 def _separate_in_memory(data: np.ndarray, sr: int) -> tuple[dict[str, np.ndarray], int]:
@@ -1112,6 +1119,189 @@ def _slugify(s: str) -> str:
     return "".join(c if c.isalnum() or c in "-_" else "-" for c in s.lower()).strip("-")
 
 
+# ── Chain-pair matching helpers ───────────────────────────────────────────────
+
+import re as _re
+
+# Tokens that mark a file as a master (but not a mix).
+# Pattern: word boundary + M + digits (+ optional .digits), NOT preceded by "IX"
+# so "MIX3" is not matched but "M1", "M1.1", "M2" are.
+_MASTER_VER_RE = _re.compile(r'\bM(\d+(?:\.\d+)?)\b(?!\s*IX)', _re.IGNORECASE)
+# Tokens that mark a file as a mix.
+_MIX_VER_RE    = _re.compile(r'\bMIX\s*\d*\b', _re.IGNORECASE)
+
+# Noise tokens to strip when extracting a canonical song title.
+_NOISE_RE = _re.compile(
+    r'''
+    ^\d{1,3}\s*[-._]?\s*   |  # leading track number: "01 ", "01 - ", "01.", "01-", "01_"
+    \(\s*MAIN\s*\)         |  # version tags in parens
+    \(\s*INST(?:RUMENTAL)?\s*\) |
+    \(\s*RADIO\s*\)        |
+    \(\s*EXPLICIT\s*\)     |
+    \(\s*CLEAN\s*\)        |
+    \(\s*FINAL\s*\)        |
+    \b(FINAL|FINEL|ROUGH|FLAT|STEMS?|INST|RADIO|MAIN|CLEAN|EXPLICIT|V\d+)\b |
+    \bM\d+(?:\.\d+)?\b     |  # master version "M1" "M1.1"
+    \bMIX\s*\d*\b          |  # mix version "MIX3"
+    \d{2}-\d{2}-\d{4}      |  # date "29-04-2026"
+    \d{4}-\d{2}-\d{2}      |  # date "2026-04-29"
+    \s{2,}                    # collapse runs of spaces
+    ''',
+    _re.IGNORECASE | _re.VERBOSE,
+)
+
+
+def _canonical_title(filename: str) -> str:
+    """Strip track numbers, version tags, dates and extension → comparable title."""
+    stem = Path(filename).stem
+    # Normalise underscores/hyphens used as word separators before any regex work.
+    stem = stem.replace('_', ' ').replace('-', ' ')
+    title = _NOISE_RE.sub(' ', stem).strip().upper()
+    # Collapse interior whitespace one more time after substitutions.
+    title = _re.sub(r'\s+', ' ', title).strip()
+    return title
+
+
+def _word_overlap(a: str, b: str) -> float:
+    """Similarity between two canonical titles — 0..1.
+
+    Uses the max of:
+    - Jaccard on word sets (good for same-length titles)
+    - Overlap coefficient (intersection / min size) — good when one title
+      is a subset of the other, e.g. mix "TOO HIGH" vs master "TOO HIGH BOUNCE"
+    - SequenceMatcher ratio — catches reordered words / partial matches
+    """
+    import difflib as _dl
+    wa = set(a.split())
+    wb = set(b.split())
+    if not wa or not wb:
+        return 0.0
+    jaccard = len(wa & wb) / len(wa | wb)
+    overlap = len(wa & wb) / min(len(wa), len(wb))
+    seq = _dl.SequenceMatcher(None, a, b).ratio()
+    return max(jaccard, overlap, seq)
+
+
+def _match_mix_to_master(
+    mix_path: str,
+    master_paths: list[str],
+    threshold: float = 0.4,
+) -> str | None:
+    """Return the best-matching master path for `mix_path`, or None if below threshold."""
+    mix_title = _canonical_title(mix_path)
+    best_score, best_path = 0.0, None
+    for mp in master_paths:
+        mt = _canonical_title(mp)
+        score = _word_overlap(mix_title, mt)
+
+        if score > best_score:
+            best_score, best_path = score, mp
+    if best_score >= threshold:
+        return best_path
+    return None
+
+
+def _compute_chain_analysis_multi(
+    mix_paths: list[str],
+    master_paths: list[str],
+    progress: bool = False,
+) -> dict[str, Any] | None:
+    """
+    For each mix file, find its matching master in `master_paths`, compute the
+    per-band spectral delta (master − mix), then aggregate across all pairs:
+      - eq_curve  : nanmedian of per-pair deltas (robust centre estimate)
+      - eq_mad    : per-band median absolute deviation (confidence measure;
+                    low = consistent chain, high = material-dependent)
+      - pairs     : list of {"mix", "master", "delta"} for transparency
+      - pair_count: number of successfully matched + measured pairs
+
+    Returns None if no pairs could be computed.
+    """
+    pairs_data: list[dict[str, Any]] = []
+
+    for mix_p in mix_paths:
+        matched_master = _match_mix_to_master(mix_p, master_paths)
+        mix_title = _canonical_title(mix_p)
+        master_title = _canonical_title(matched_master) if matched_master else "?"
+        if matched_master is None:
+            if progress:
+                sys.stderr.write(
+                    f"[chain] No master match for mix '{Path(mix_p).name}' "
+                    f"(title: '{mix_title}') — skipping\n"
+                )
+            continue
+
+        if progress:
+            sys.stderr.write(
+                f"[chain] Pair: '{Path(mix_p).name}' ↔ '{Path(matched_master).name}' "
+                f"(overlap: '{mix_title}' ↔ '{master_title}')\n"
+            )
+
+        try:
+            mix_data, mix_sr = sf.read(str(Path(mix_p).expanduser()), dtype="float32")
+            mas_data, mas_sr = sf.read(str(Path(matched_master).expanduser()), dtype="float32")
+            vm = _validate_signal(mix_data, mix_sr, mix_p)
+            va = _validate_signal(mas_data, mas_sr, matched_master)
+            if vm is None or va is None:
+                continue
+            mix_data, mix_sr, _ = vm
+            mas_data, mas_sr, _ = va
+            mix_curve = _third_octave_curve(mix_data, mix_sr)
+            mas_curve = _third_octave_curve(mas_data, mas_sr)
+            if len(mix_curve) == len(mas_curve) == 31:
+                delta = [
+                    round(float(mc) - float(xc), 2)
+                    if isinstance(mc, (int, float)) and isinstance(xc, (int, float))
+                       and not (math.isnan(mc) or math.isnan(xc))
+                    else None
+                    for mc, xc in zip(mas_curve, mix_curve)
+                ]
+                pairs_data.append({
+                    "mix":    Path(mix_p).name,
+                    "master": Path(matched_master).name,
+                    "delta":  delta,
+                })
+        except Exception as e:
+            sys.stderr.write(f"[chain] Error measuring pair for '{Path(mix_p).name}': {e}\n")
+
+    if not pairs_data:
+        return None
+
+    # Aggregate: median + MAD across pairs, band by band.
+    n_bands = 31
+    band_values: list[list[float]] = [[] for _ in range(n_bands)]
+    for pd_ in pairs_data:
+        for i, v in enumerate(pd_["delta"]):
+            if v is not None:
+                band_values[i].append(v)
+
+    eq_curve: list[float | None] = []
+    eq_mad:   list[float | None] = []
+    for vals in band_values:
+        if len(vals) >= 1:
+            med = float(np.nanmedian(vals))
+            mad = float(np.nanmedian([abs(v - med) for v in vals]))
+            eq_curve.append(round(med, 2))
+            eq_mad.append(round(mad, 2))
+        else:
+            eq_curve.append(None)
+            eq_mad.append(None)
+
+    return {
+        "type":       "multi_pair_spectral_diff",
+        "label":      "Chain Analysis",
+        "eq_curve":   eq_curve,
+        "eq_mad":     eq_mad,
+        "pair_count": len(pairs_data),
+        "pairs":      [{"mix": p["mix"], "master": p["master"]} for p in pairs_data],
+        "note": (
+            "Spectral delta aggregated across mix/master pairs. "
+            "eq_curve = median per-band lift applied by your mastering chain. "
+            "eq_mad = spread (low = consistent chain, high = material-dependent)."
+        ),
+    }
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="Build an RTMcompare engineer profile from a corpus.")
     p.add_argument("--name", required=True, help='Engineer name (e.g. "Your Name")')
@@ -1144,10 +1334,13 @@ def main() -> int:
                    help="Disable content-addressed track analysis cache (~/.rtm/tracks/). "
                         "Use when benchmarking or diagnosing cache-related issues.")
     p.add_argument("--chain-reference", default="",
-                   help="Path to a dry mix (pre-master) audio file. When provided, "
-                        "computes an approximate mastering chain EQ curve by subtracting "
-                        "the mix spectrum from the profile spectrum. Stored as "
-                        "'chain_analysis' in the output JSON.")
+                   help="(Legacy) Path to a single dry mix file for chain analysis. "
+                        "Prefer --chain-mixes for multi-pair analysis.")
+    p.add_argument("--chain-mixes", nargs="*", default=[],
+                   help="One or more pre-master mix files. RTMprofile matches each mix "
+                        "to a master in the corpus by title, computes per-pair spectral "
+                        "deltas, and aggregates them to a chain_analysis curve with "
+                        "confidence (MAD). More pairs = more accurate chain signature.")
     args = p.parse_args()
 
     # Parse + validate the optional plugin descriptor.
@@ -1180,7 +1373,8 @@ def main() -> int:
             sys.stderr.write(f"[warn] couldn't read --target-plugin-json: {e}\n")
             target_plugin = None
 
-    # Optional approximate chain analysis (spectral diff of mix vs master cohort)
+    # Optional chain analysis — prefer multi-pair (--chain-mixes) over legacy single-file.
+    chain_mixes: list[str] = [f.strip() for f in (args.chain_mixes or []) if f.strip()]
     chain_reference: str | None = args.chain_reference.strip() or None
 
     # 5.2.3: --genres ignored if passed (back-compat shim only)
@@ -1217,20 +1411,69 @@ def main() -> int:
     # renderer / shell may pass NFC. soundfile/libsndfile resolve both
     # in practice, but downstream string comparisons (e.g. logging
     # against the input path) drift. Coerce to NFC for stable display.
-    for i, f in enumerate(args.files, 1):
-        f_norm = _ucd.normalize("NFC", f) if isinstance(f, str) else f
+    files_norm = [
+        _ucd.normalize("NFC", f) if isinstance(f, str) else f
+        for f in args.files
+    ]
+
+    # Parallel file processing.
+    # - Non-deep: threads work well (numpy/soundfile release the GIL; I/O is
+    #   the bottleneck on most machines). Cap at 4 workers to avoid thrashing
+    #   a spinning disk; SSDs benefit more.
+    # - Deep scan: stem separation (BS-RoFormer / Demucs) is heavy CPU/GPU.
+    #   Threads still help if the model runs on GPU (CUDA allows concurrent
+    #   streams) and avoid multi-process pickling complexity. Cap at 2 workers
+    #   for deep to prevent OOM on consumer hardware.
+    max_workers = 2 if args.deep else min(4, total)
+
+    # Thread-safe progress counter and stderr lock.
+    _progress_lock = Lock()
+    _completed = [0]  # mutable int in a list so the closure can mutate it
+
+    def _measure_one(idx_f):
+        idx, f_norm = idx_f
+        if args.progress and args.deep:
+            # Emit a "starting" event immediately so the UI shows activity
+            # during the long stem-separation phase (30s-2min per file).
+            with _progress_lock:
+                sys.stderr.write(json.dumps({
+                    "type": "progress_start",
+                    "i": _completed[0],
+                    "total": total,
+                    "file": f_norm,
+                    "stage": "separating",
+                }) + "\n")
+                sys.stderr.flush()
+        result = measure_file(Path(f_norm).expanduser(), deep=args.deep,
+                              use_cache=not args.no_cache)
         if args.progress:
-            sys.stderr.write(json.dumps({
-                "type": "progress",
-                "i": i,
-                "total": total,
-                "file": f_norm,
-                "deep": bool(args.deep),
-            }) + "\n")
-            sys.stderr.flush()
-        m = measure_file(Path(f_norm).expanduser(), deep=args.deep,
-                        use_cache=not args.no_cache)
-        measurements.append(m)
+            with _progress_lock:
+                _completed[0] += 1
+                sys.stderr.write(json.dumps({
+                    "type": "progress",
+                    "i": _completed[0],
+                    "total": total,
+                    "file": f_norm,
+                    "deep": bool(args.deep),
+                }) + "\n")
+                sys.stderr.flush()
+        return idx, result
+
+    if max_workers > 1 and total > 1:
+        results_map: dict[int, "dict[str, Any] | None"] = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {
+                pool.submit(_measure_one, (i, f)): i
+                for i, f in enumerate(files_norm)
+            }
+            for fut in as_completed(futures):
+                idx, m = fut.result()
+                results_map[idx] = m
+        measurements = [results_map[i] for i in range(total)]
+    else:
+        for i, f_norm in enumerate(files_norm):
+            _, m = _measure_one((i, f_norm))
+            measurements.append(m)
 
     profile = aggregate(
         measurements,
@@ -1242,46 +1485,54 @@ def main() -> int:
         target_fingerprint=args.target_fingerprint or None,
         target_plugin=target_plugin,
     )
-    if chain_reference:
-        try:
-            ref_path = Path(chain_reference).expanduser()
-            ref_data, ref_sr = sf.read(str(ref_path), dtype="float32")
-            validated_ref = _validate_signal(ref_data, ref_sr, str(ref_path))
-            if validated_ref is not None:
-                ref_data, ref_sr, _ = validated_ref
-                ref_curve = _third_octave_curve(ref_data, ref_sr)
-                profile_curve = profile.get("curve", [])
-                # EQ approximation: master - mix per band (positive = boosted in mastering)
-                if len(ref_curve) == len(profile_curve) == 31:
-                    eq_approx = []
-                    for i, (pc, rc) in enumerate(zip(profile_curve, ref_curve)):
-                        if isinstance(pc, (int, float)) and isinstance(rc, (int, float)) \
-                           and not (math.isnan(pc) or math.isnan(rc)):
-                            eq_approx.append(round(float(pc) - float(rc), 1))
-                        else:
-                            eq_approx.append(None)
-                    profile["chain_analysis"] = {
-                        "type": "spectral_diff",
-                        "label": "Approximate Chain Analysis (beta)",
-                        "eq_curve": eq_approx,
-                        "reference_file": Path(chain_reference).name,
-                        "note": "Spectral difference between profile median and reference mix. "
-                                "Approximates the tonal shaping applied during mastering. "
-                                "Replace with ITO-Master inference when model weights are released."
-                    }
-                    sys.stderr.write(
-                        f"[chain] Approximate chain analysis computed from {Path(chain_reference).name}\n"
-                    )
-        except Exception as e:
-            sys.stderr.write(f"[chain] Warning: chain analysis failed: {e}\n")
+    chain_out_path: Path | None = None
 
-    # 5.7.x audit fix: atomic write. write_text() is non-atomic — a
-    # crash, disk-full, or kill mid-flush leaves a truncated JSON
-    # file that engineer_profile.load_profile silently fails to
-    # parse (returning None — the dropdown shows no profile but no
-    # error). Write to .tmp then os.replace for an atomic swap.
-    # LOW: try/except ensures the .tmp is cleaned up if write succeeds
-    # but replace fails (e.g. cross-device rename on a network volume).
+    if chain_mixes:
+        # Multi-pair chain analysis → write a separate *-chain.json file.
+        chain_result = _compute_chain_analysis_multi(
+            mix_paths=chain_mixes,
+            master_paths=files_norm,
+            progress=args.progress,
+        )
+        if chain_result:
+            sys.stderr.write(
+                f"[chain] Multi-pair chain analysis: {chain_result['pair_count']} pair(s) matched and measured.\n"
+            )
+            chain_profile = {
+                "schema_version": profile["schema_version"],
+                "profile_type": "chain",
+                "name": profile["name"],
+                "role": profile.get("role", ""),
+                "description": f"{profile.get('role', 'Mastering Engineer')} — chain delta from {chain_result['pair_count']} pair(s)",
+                "chain_analysis": chain_result,
+                "hmac": "",  # filled below
+            }
+            # Derive chain output path: same dir, same slug + "-chain"
+            chain_out_path = out_path.with_name(out_path.stem + "-chain" + out_path.suffix)
+            # HMAC for chain profile
+            _hmac_key = b"rtm-profile-v1"
+            chain_hmac_payload = json.dumps(
+                {k: v for k, v in chain_profile.items() if k != "hmac"},
+                sort_keys=True, separators=(",", ":"),
+            ).encode()
+            chain_profile["hmac"] = __import__("hmac").new(
+                _hmac_key, chain_hmac_payload, "sha256"
+            ).hexdigest()
+            tmp_chain = chain_out_path.with_suffix(chain_out_path.suffix + ".tmp")
+            try:
+                tmp_chain.write_text(json.dumps(chain_profile, indent=2), encoding="utf-8")
+                _os.replace(tmp_chain, chain_out_path)
+            except Exception:
+                try:
+                    tmp_chain.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                raise
+        else:
+            sys.stderr.write("[chain] Warning: no mix/master pairs could be matched — chain file not written.\n")
+
+    # 5.7.x audit fix: atomic write for the fingerprint profile.
+    profile["profile_type"] = "fingerprint"
     tmp_path = out_path.with_suffix(out_path.suffix + ".tmp")
     try:
         tmp_path.write_text(json.dumps(profile, indent=2), encoding="utf-8")
@@ -1293,12 +1544,16 @@ def main() -> int:
             pass
         raise
 
-    sys.stdout.write(json.dumps({
+    result: dict = {
         "ok": True,
         "path": str(out_path),
         "sample_count": profile["sample_count"],
         "skipped": total - profile["sample_count"],
-    }))
+    }
+    if chain_out_path is not None:
+        result["chain_path"] = str(chain_out_path)
+        result["chain_pair_count"] = chain_result["pair_count"] if chain_result else 0  # type: ignore[possibly-undefined]
+    sys.stdout.write(json.dumps(result))
     sys.stdout.write("\n")
     return 0
 

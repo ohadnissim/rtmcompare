@@ -128,6 +128,11 @@ class EarTrainingAudioEngine {
   private currentSource: AudioBufferSourceNode | null = null
   private proceduralCache: Partial<Record<ReferenceClipId, AudioBuffer>> = {}
   private activeClip: ReferenceClipId = 'pink_noise'
+  /** Locked playback offset for the current question round.
+   *  Set once when the first play fires per question, reused for all
+   *  subsequent plays (Reference + Modified) so both start at the same
+   *  point in the audio file. Reset to null by lockNewWindow(). */
+  private lockedOffset: number | null = null
 
   /** Lazily create the AudioContext on first use (avoids autoplay-policy errors). */
   private getContext(): AudioContext {
@@ -150,17 +155,20 @@ class EarTrainingAudioEngine {
       return this.masterBuffer.duration
     }
     const ctx = this.getContext()
-    // Build a proper file:// URL — handle both POSIX and Windows-drive paths.
-    let url: string
-    if (filePath.startsWith('file://')) {
-      url = filePath
+    // In Electron, fetch('file://') is blocked by CSP. Use the IPC bridge instead.
+    // Fall back to fetch() only in browser / dev-server contexts (no electronAPI).
+    let arr: ArrayBuffer
+    if ((window as any).electronAPI?.readAudioFile) {
+      arr = await (window as any).electronAPI.readAudioFile(filePath)
     } else {
+      // Browser / dev-server fallback — build a proper file:// URL.
       const normalized = filePath.replace(/\\/g, '/')
-      // Windows drive letter "C:/path/..." needs the third slash → "file:///C:/path/..."
-      url = /^[A-Za-z]:\//.test(normalized) ? `file:///${normalized}` : `file://${normalized}`
+      const url = filePath.startsWith('file://')
+        ? filePath
+        : /^[A-Za-z]:\//.test(normalized) ? `file:///${normalized}` : `file://${normalized}`
+      const res = await fetch(url)
+      arr = await res.arrayBuffer()
     }
-    const res = await fetch(url)
-    const arr = await res.arrayBuffer()
     this.masterBuffer = await ctx.decodeAudioData(arr)
     this.masterSourceName = filePath
     void displayName  // kept for future API symmetry
@@ -220,18 +228,11 @@ class EarTrainingAudioEngine {
     return buf
   }
 
-  /** Stop any currently-playing source. Safe to call at any time. */
-  stop() {
-    if (this.currentSource) {
-      try { this.currentSource.stop() } catch {}
-      try { this.currentSource.disconnect() } catch {}
-      this.currentSource = null
-    }
-  }
-
   /** Pick a random short window of the source buffer to play.
    *  Avoids the first/last 0.5s (often silence/fade) and clamps to maxSec.
-   *  For procedural clips (which are short loops), picks offset 0. */
+   *  For procedural clips (which are short loops), picks offset 0.
+   *  Uses lockedOffset when set so that Reference and Modified always start
+   *  at the same point in the file. Call lockNewWindow() before a new question. */
   private pickWindow(buffer: AudioBuffer, maxSec = 8): { offset: number; duration: number } {
     const total = buffer.duration
     if (total < 2) return { offset: 0, duration: total }
@@ -240,15 +241,42 @@ class EarTrainingAudioEngine {
     const usableStart = 0.5
     const usableEnd = Math.max(usableStart + 1, total - 0.5)
     const winLen = Math.min(maxSec, usableEnd - usableStart)
-    const offset = usableStart + Math.random() * (usableEnd - usableStart - winLen)
-    return { offset, duration: winLen }
+    if (this.lockedOffset === null) {
+      this.lockedOffset = usableStart + Math.random() * (usableEnd - usableStart - winLen)
+    }
+    return { offset: this.lockedOffset, duration: winLen }
+  }
+
+  /** Call this at the start of each new drill question so the next play
+   *  picks a fresh random window — shared by Reference and Modified for
+   *  that question round. */
+  lockNewWindow(): void {
+    this.lockedOffset = null
+  }
+
+  /** Resolve function for the current loop's done promise — called by stop(). */
+  private resolveCurrentDone: (() => void) | null = null
+
+  /** Stop any currently-playing source. Safe to call at any time. */
+  stop() {
+    if (this.currentSource) {
+      try { this.currentSource.stop() } catch {}
+      try { this.currentSource.disconnect() } catch {}
+      this.currentSource = null
+    }
+    if (this.resolveCurrentDone) {
+      this.resolveCurrentDone()
+      this.resolveCurrentDone = null
+    }
   }
 
   /** Play the source through a graph built by `chainBuilder`.
+   *  When `loop=true`, plays endlessly until stop() is called — done resolves on stop.
    *  Returns a PlayHandle whose `done` promise resolves on natural end or stop. */
   private play(
     chainBuilder: (ctx: AudioContext, destination: AudioNode) => AudioNode,
-    windowSec = 6
+    windowSec = 6,
+    loop = false
   ): PlayHandle {
     this.stop()
     const buffer = this.getCurrentBuffer()
@@ -272,15 +300,28 @@ class EarTrainingAudioEngine {
     src.connect(sourceInput)
     this.currentSource = src
 
-    const win = this.pickWindow(buffer, windowSec)
-    src.start(0, win.offset, win.duration)
+    let done: Promise<void>
+    if (loop) {
+      src.loop = true
+      // For looped playback: pick a window start point but play the whole buffer
+      // from there (loopStart/loopEnd not set so it loops the full buffer).
+      const win = this.pickWindow(buffer, windowSec)
+      src.start(0, win.offset)
+      // Done resolves when stop() is called.
+      done = new Promise<void>(resolve => {
+        this.resolveCurrentDone = resolve
+      })
+    } else {
+      const win = this.pickWindow(buffer, windowSec)
+      src.start(0, win.offset, win.duration)
+      done = new Promise<void>(resolve => {
+        src.onended = () => {
+          this.currentSource = null
+          resolve()
+        }
+      })
+    }
 
-    const done = new Promise<void>(resolve => {
-      src.onended = () => {
-        this.currentSource = null
-        resolve()
-      }
-    })
     return {
       stop: () => this.stop(),
       done,
@@ -288,17 +329,17 @@ class EarTrainingAudioEngine {
   }
 
   /** Play unprocessed reference. */
-  playReference(windowSec = 6): PlayHandle {
+  playReference(windowSec = 6, loop = false): PlayHandle {
     return this.play((ctx, dest) => {
       const passthrough = ctx.createGain()
       passthrough.gain.value = 1
       passthrough.connect(dest)
       return passthrough
-    }, windowSec)
+    }, windowSec, loop)
   }
 
   /** Play through a peaking EQ at `freq` with `gainDB` (positive = boost). */
-  playWithEQ(opts: EQOptions, windowSec = 6): PlayHandle {
+  playWithEQ(opts: EQOptions, windowSec = 6, loop = false): PlayHandle {
     return this.play((ctx, dest) => {
       const eq = ctx.createBiquadFilter()
       eq.type = opts.type ?? 'peaking'
@@ -307,11 +348,11 @@ class EarTrainingAudioEngine {
       eq.gain.value = opts.gainDB
       eq.connect(dest)
       return eq
-    }, windowSec)
+    }, windowSec, loop)
   }
 
   /** Play through dynamics compression. */
-  playWithCompression(opts: CompressionOptions, windowSec = 6): PlayHandle {
+  playWithCompression(opts: CompressionOptions, windowSec = 6, loop = false): PlayHandle {
     return this.play((ctx, dest) => {
       const comp = ctx.createDynamicsCompressor()
       comp.threshold.value = opts.threshold
@@ -322,13 +363,13 @@ class EarTrainingAudioEngine {
       makeup.gain.value = Math.pow(10, opts.makeup / 20)
       comp.connect(makeup).connect(dest)
       return comp
-    }, windowSec)
+    }, windowSec, loop)
   }
 
   /** Play through a synthesized reverb of `decaySec` length.
    *  IR is a noise burst with exponential decay — recognizable as plate-ish reverb,
    *  good enough for a "short vs long" drill without bundling IR files. */
-  playWithReverb(opts: ReverbOptions, windowSec = 6): PlayHandle {
+  playWithReverb(opts: ReverbOptions, windowSec = 6, loop = false): PlayHandle {
     return this.play((ctx, dest) => {
       const dry = ctx.createGain()
       const wet = ctx.createGain()
@@ -343,11 +384,11 @@ class EarTrainingAudioEngine {
       input.connect(dry).connect(dest)
       input.connect(convolver).connect(wet).connect(dest)
       return input
-    }, windowSec)
+    }, windowSec, loop)
   }
 
   /** Play through soft saturation (tanh waveshaper). */
-  playWithDistortion(opts: DistortionOptions, windowSec = 6): PlayHandle {
+  playWithDistortion(opts: DistortionOptions, windowSec = 6, loop = false): PlayHandle {
     return this.play((ctx, dest) => {
       const shaper = ctx.createWaveShaper()
       // Cast because TS 6 narrows Float32Array's underlying buffer type
@@ -359,7 +400,7 @@ class EarTrainingAudioEngine {
       trim.gain.value = 0.85
       shaper.connect(trim).connect(dest)
       return shaper
-    }, windowSec)
+    }, windowSec, loop)
   }
 
   // ─── Procedural signal generators ──────────────────────────────────────────
@@ -433,71 +474,70 @@ class EarTrainingAudioEngine {
     return buf
   }
 
-  /** Vocal-shaped noise — white noise filtered through stacked formant peaks.
-   *  Resembles a sung 'aa' vowel timbre, useful for "would I hear this on a vocal?" practice. */
+  /** Vocal-shaped noise — pink noise summed through three BANDPASS filters at vowel-'aa'
+   *  formant frequencies (F1/F2/F3). Using bandpass rather than peaking EQ concentrates
+   *  the noise energy AT each formant band instead of boosting a narrow sliver above a
+   *  full-spectrum noise floor — that's what makes it sound vocal rather than just noise. */
   private generateVocalNoise(ctx: AudioContext, durationSec: number): AudioBuffer {
     const rate = ctx.sampleRate
-    const len = Math.floor(rate * durationSec)
-    // Generate white noise then offline-filter it with formant peaks at 800/1200/2500 Hz
-    const offline = new OfflineAudioContext(2, len, rate)
-    const buf = offline.createBuffer(2, len, rate)
-    for (let ch = 0; ch < 2; ch++) {
-      const data = buf.getChannelData(ch)
-      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.3
-    }
-    const src = offline.createBufferSource()
-    src.buffer = buf
-    // Formant stack — three peaking filters at typical vowel-'aa' formants
-    const f1 = offline.createBiquadFilter()
-    f1.type = 'peaking'; f1.frequency.value = 800; f1.Q.value = 12; f1.gain.value = 18
-    const f2 = offline.createBiquadFilter()
-    f2.type = 'peaking'; f2.frequency.value = 1200; f2.Q.value = 12; f2.gain.value = 14
-    const f3 = offline.createBiquadFilter()
-    f3.type = 'peaking'; f3.frequency.value = 2500; f3.Q.value = 10; f3.gain.value = 10
-    const hp = offline.createBiquadFilter()
-    hp.type = 'highpass'; hp.frequency.value = 100
-    const lp = offline.createBiquadFilter()
-    lp.type = 'lowpass'; lp.frequency.value = 8000
-    src.connect(hp).connect(f1).connect(f2).connect(f3).connect(lp).connect(offline.destination)
-    src.start(0)
-    // OfflineAudioContext.startRendering returns a promise we can't await here in a sync method;
-    // so we do this synchronously via the deprecated suspendUntil + immediate render fallback.
-    // Workaround: render synchronously with a small buffer of pre-shaped noise (good enough).
-    // Simpler approach: just apply the formant peaks in-place via a single-sample IIR.
-    return this.applyFormantsInline(buf, rate)
-  }
+    const len  = Math.floor(rate * durationSec)
+    const buf  = ctx.createBuffer(2, len, rate)
 
-  /** Inline formant application — single-sample IIR cascade approximation.
-   *  Used as a fallback so vocal noise generation stays synchronous. */
-  private applyFormantsInline(input: AudioBuffer, rate: number): AudioBuffer {
+    // Vowel 'ah' formants: F1 ≈ 700 Hz, F2 ≈ 1200 Hz, F3 ≈ 2500 Hz
+    // Q=3 → bandwidth ≈ 230/400/830 Hz — perceptually wide enough to be recognisable
     const formants = [
-      { freq: 800,  q: 8, gain: 8 },
-      { freq: 1200, q: 8, gain: 6 },
-      { freq: 2500, q: 7, gain: 4 },
+      { freq: 700,  q: 3.0, weight: 1.0 },  // F1 — main body / low-mid warmth
+      { freq: 1200, q: 3.0, weight: 0.7 },  // F2 — vowel character / presence
+      { freq: 2500, q: 3.5, weight: 0.35 }, // F3 — upper harmonic / brightness
     ]
-    for (let ch = 0; ch < input.numberOfChannels; ch++) {
-      const data = input.getChannelData(ch)
+
+    for (let ch = 0; ch < 2; ch++) {
+      // Generate pink noise as the excitation source (Voss-McCartney)
+      const pink = new Float32Array(len)
+      const rows = 16; const pvals = new Array(rows).fill(0)
+      let psum = 0; let pctr = 0
+      for (let i = 0; i < len; i++) {
+        pctr++
+        for (let r = 0; r < rows; r++) {
+          if ((pctr & ((1 << r) - 1)) === 0) {
+            const old = pvals[r]; pvals[r] = Math.random() * 2 - 1; psum += pvals[r] - old
+          }
+        }
+        pink[i] = psum / rows
+      }
+
+      const out = buf.getChannelData(ch)
+      out.fill(0)
+
+      // Pass pink noise through each bandpass filter and sum the outputs
       for (const f of formants) {
-        // RBJ peaking biquad coefficients
-        const w0 = 2 * Math.PI * f.freq / rate
-        const A = Math.pow(10, f.gain / 40)
+        // RBJ bandpass (constant 0 dB peak gain): b0=α, b1=0, b2=-α, a0=1+α, a1=-2cosω, a2=1-α
+        const w0    = 2 * Math.PI * f.freq / rate
         const alpha = Math.sin(w0) / (2 * f.q)
-        const b0 = 1 + alpha * A
-        const b1 = -2 * Math.cos(w0)
-        const b2 = 1 - alpha * A
-        const a0 = 1 + alpha / A
-        const a1 = -2 * Math.cos(w0)
-        const a2 = 1 - alpha / A
+        const b0    =  alpha
+        const b2    = -alpha
+        const a0    = 1 + alpha
+        const a1    = -2 * Math.cos(w0)
+        const a2    = 1 - alpha
+        const ib0 = b0 / a0, ib2 = b2 / a0, ia1 = a1 / a0, ia2 = a2 / a0
         let x1 = 0, x2 = 0, y1 = 0, y2 = 0
-        for (let i = 0; i < data.length; i++) {
-          const x = data[i]
-          const y = (b0 / a0) * x + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2
+        for (let i = 0; i < len; i++) {
+          const x = pink[i]
+          const y = ib0 * x + ib2 * x2 - ia1 * y1 - ia2 * y2
           x2 = x1; x1 = x; y2 = y1; y1 = y
-          data[i] = y * 0.7  // compensate for cumulative gain
+          out[i] += y * f.weight
         }
       }
+
+      // RMS-normalise to ~−12 dBFS so it sits level with other procedural clips
+      let rms = 0
+      for (let i = 0; i < len; i++) rms += out[i] * out[i]
+      rms = Math.sqrt(rms / len)
+      const scale = rms > 0 ? 0.25 / rms : 1   // 0.25 linear ≈ −12 dBFS
+      for (let i = 0; i < len; i++) out[i] *= scale
     }
-    return input
+
+    return buf
   }
 
   /** Synthetic full-mix simulation — bass arpeggio + drum loop + pad.
@@ -652,21 +692,30 @@ class EarTrainingAudioEngine {
 
   /** Clean up the AudioContext (call on panel unmount). */
   dispose() {
-    this.stop()
+    this.stop()  // also resolves any pending loop done promise
     if (this.ctx) {
       try { this.ctx.close() } catch {}
       this.ctx = null
     }
     this.masterBuffer = null
     this.masterSourceName = null
+    this.resolveCurrentDone = null
   }
 }
 
-// Singleton — one engine for the whole app session.
+// Singleton — one engine per app session.
+// Version stamp: bump this string whenever the procedural generators change so
+// the singleton is rebuilt (and stale cached buffers are discarded) on next load.
+const ENGINE_VERSION = 'v3-bandpass-formants'
 let _engine: EarTrainingAudioEngine | null = null
+let _engineVersion = ''
 
 export function getEarTrainingEngine(): EarTrainingAudioEngine {
-  if (!_engine) _engine = new EarTrainingAudioEngine()
+  if (!_engine || _engineVersion !== ENGINE_VERSION) {
+    if (_engine) _engine.dispose()
+    _engine = new EarTrainingAudioEngine()
+    _engineVersion = ENGINE_VERSION
+  }
   return _engine
 }
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react'
 import { useModes, type UserSurface } from '../../ModesContext'
+import { useAudience } from '../../AudienceContext'
 
 /**
  * SurfaceChips — extracted from `App.tsx` (v1 lines 881–902) into a
@@ -49,6 +50,9 @@ interface Props {
 export default function SurfaceChips({ className }: Props) {
  const { surface, setSurface } = useModes()
  const groupRef = useRef<HTMLDivElement>(null)
+ const audience = useAudience()
+ // Hide in Learn Mode — students and teachers don't need delivery-target controls.
+ if (audience === 'student' || audience === 'teacher') return null
 
  const onKeyDown = useCallback(
  (e: React.KeyboardEvent<HTMLDivElement>) => {

@@ -175,7 +175,7 @@ export default function ProfileRadar({
     const labelIndices = [0, 5, 10, 14, 17, 23, 28, 30]
     ctx.save()
     ctx.font = '10px "JetBrains Mono", monospace'
-    ctx.fillStyle = 'rgba(255,255,255,0.45)'
+    ctx.fillStyle = 'rgba(255,255,255,0.65)'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
 
@@ -255,15 +255,28 @@ export default function ProfileRadar({
   }, [curve, curveMad, role, sampleCount, width, height, color, r, g, b])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width,
-        height,
-        display: 'block',
-        borderRadius: 2,  // NIT-7: match instrument-display aesthetic (was 6px)
-      }}
-      aria-label={`Frequency fingerprint radar for ${role}, ${sampleCount} tracks`}
-    />
+    <div style={{ display: 'inline-block', textAlign: 'center' }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width,
+          height,
+          display: 'block',
+          borderRadius: 2,  // NIT-7: match instrument-display aesthetic (was 6px)
+        }}
+        aria-label={`Frequency fingerprint radar for ${role}, ${sampleCount} tracks`}
+      />
+      {curveMad && curveMad.length >= 31 && (
+        <div style={{
+          fontSize: 11,
+          color: 'rgba(168,161,150,0.55)',
+          marginTop: 6,
+          fontStyle: 'italic',
+          lineHeight: 1.4,
+        }}>
+          Shaded band = consistency across your tracks — narrower means a more consistent spectral signature
+        </div>
+      )}
+    </div>
   )
 }

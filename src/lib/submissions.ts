@@ -60,9 +60,12 @@ export function upsertSubmission(sub: StudentSubmission): void {
  * Return all submissions sorted newest-first.
  */
 export function getSubmissions(): StudentSubmission[] {
-  return readStore().sort((a, b) =>
-    new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-  )
+  return readStore().sort((a, b) => {
+    // LOW-3: guard invalid date strings — NaN sorts unpredictably.
+    const ta = new Date(a.submittedAt).getTime()
+    const tb = new Date(b.submittedAt).getTime()
+    return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta)
+  })
 }
 
 /**

@@ -181,6 +181,53 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  </div>
  </div>
  )}
+
+ {/* Centroid / Punch / Pan supplementary metrics */}
+ {(category.centroid_b != null || category.punch_a != null || category.pan_b != null) && (
+ <div className="mt-2 pt-2 flex gap-4" style={{ borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+  {category.centroid_b != null && category.centroid_a != null && (
+  <div className="flex-1">
+   <div className="text-[9px] uppercase tracking-[0.12em] mb-0.5" style={{ color: 'var(--color-text-dim)' }}>Centroid</div>
+   <div className="text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
+   {category.centroid_b >= 1000 ? `${(category.centroid_b / 1000).toFixed(1)} kHz` : `${Math.round(category.centroid_b)} Hz`}
+   </div>
+   <div className="text-[9px] font-mono" style={{ color: 'var(--color-text-dim)' }}>
+   {(() => {
+    const d = category.centroid_b - category.centroid_a
+    if (Math.abs(d) < 10) return '0'
+    const kilo = Math.abs(d) >= 1000
+    return (d > 0 ? '+' : '') + (kilo ? `${(d / 1000).toFixed(1)}k` : `${Math.round(d)}`)
+   })()}
+   </div>
+  </div>
+  )}
+  {category.punch_a != null && category.punch_b != null && (
+  <div className="flex-1">
+   <div className="text-[9px] uppercase tracking-[0.12em] mb-0.5" style={{ color: 'var(--color-text-dim)' }}>Punch Δ</div>
+   <div className="text-[10px] font-mono" style={{
+   color: (category.punch_b - category.punch_a) > 0.05 ? '#d0b066' : 'var(--color-text-muted)',
+   }}>
+   {(() => {
+    const d = category.punch_b - category.punch_a
+    if (Math.abs(d) < 0.05) return '0.0'
+    return (d > 0 ? '+' : '') + d.toFixed(2)
+   })()}
+   </div>
+  </div>
+  )}
+  {category.pan_b != null && (
+  <div className="flex-1">
+   <div className="text-[9px] uppercase tracking-[0.12em] mb-0.5" style={{ color: 'var(--color-text-dim)' }}>Pan B</div>
+   <div className="text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
+   {category.pan_b < -0.1 ? 'L' : category.pan_b > 0.1 ? 'R' : 'C'}
+   </div>
+   <div className="text-[9px] font-mono" style={{ color: 'var(--color-text-dim)' }}>
+   {category.pan_b.toFixed(2)}
+   </div>
+  </div>
+  )}
+ </div>
+ )}
  </div>
  )
 }

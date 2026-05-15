@@ -39,15 +39,17 @@ interface Props {
  zoom?: ZoomControls
  onOpenShortcuts?: () => void
  className?: string
+ engineerName?: string
+ onEngineerNameChange?: (name: string) => void
 }
 
-export default function OverflowMenu({ canShowBlind = false, zoom, onOpenShortcuts, className }: Props) {
+export default function OverflowMenu({ canShowBlind = false, zoom, onOpenShortcuts, className, engineerName, onEngineerNameChange }: Props) {
  const [open, setOpen] = useState(false)
  const triggerRef = useRef<HTMLButtonElement>(null)
  const panelRef = useRef<HTMLDivElement>(null)
  const menuId = useId()
 
- const { educator, blind, advancedQc, toggleEducator, toggleBlind, toggleAdvancedQc } = useModes()
+ const { educator, blind, toggleEducator, toggleBlind } = useModes()
  const { theme, toggle: toggleTheme } = useTheme()
 
  // Close on click-outside. Bound only while open to avoid a global
@@ -123,6 +125,7 @@ export default function OverflowMenu({ canShowBlind = false, zoom, onOpenShortcu
  aria-controls={menuId}
  onClick={onToggleClick}
  title="More controls"
+ data-tour="overflow-menu"
  style={{
  width: 28,
  height: 28,
@@ -164,7 +167,31 @@ export default function OverflowMenu({ canShowBlind = false, zoom, onOpenShortcu
  // don't transform.
  }}
  >
- <Row label="Advanced QC" control={<Toggle checked={advancedQc} onChange={toggleAdvancedQc} ariaLabel="Advanced QC" />} />
+ {onEngineerNameChange && (
+   <Row
+     label="Your name"
+     control={
+       <input
+         type="text"
+         value={engineerName ?? ''}
+         onChange={e => onEngineerNameChange(e.target.value)}
+         placeholder="Engineer name"
+         aria-label="Your name"
+         style={{
+           fontFamily: 'var(--font-sans)',
+           fontSize: 12,
+           color: 'var(--color-text-primary)',
+           background: 'rgba(255,255,255,0.05)',
+           border: '1px solid rgba(168,161,150,0.2)',
+           borderRadius: 2,
+           padding: '3px 7px',
+           width: 130,
+           outline: 'none',
+         }}
+       />
+     }
+   />
+ )}
  <Row label="Learn mode" control={<Toggle checked={educator} onChange={toggleEducator} ariaLabel="Learn mode" />} />
  {canShowBlind && (
  <Row label="Blind A/B" control={<Toggle checked={blind} onChange={toggleBlind} ariaLabel="Blind A/B" />} />

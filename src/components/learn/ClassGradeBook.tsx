@@ -11,6 +11,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import { LmsExportPanel } from './LmsExportPanel'
 import ThemedConfirmDialog from '../v52/ThemedConfirmDialog'
+import InfoTip from './InfoTip'
 
 function detectRevisions(records: any[]): any[] {
   // BUG-11 fix: group by studentName + assignmentTitle so submissions for
@@ -183,13 +184,22 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     }
   }, [])
 
-  // Auto-scan when opened with a folder
-  // LOW-21: include `scan` in deps — it is stable (useCallback) but the
-  // linter correctly flags its absence.
+  // Track whether this is the first open to avoid stale-folder auto-scan.
+  // BUG-LM1: previously, opening the grade book with a folder saved from a
+  // prior session (assignment.submissionsFolder in localStorage) would
+  // immediately trigger a scan that almost always fails with "Folder not found"
+  // if the teacher is on a different machine or moved the folder. Now we only
+  // auto-scan when `folder` is explicitly changed by the user in this session
+  // (via pickFolder), not on the initial open. The user can always click ↻ Refresh
+  // to scan the existing folder path manually.
+  const prevFolderRef = useRef<string>(folder)
   useEffect(() => {
-    if (open && folder) scan(folder)
+    if (prevFolderRef.current !== folder) {
+      prevFolderRef.current = folder
+      if (folder) scan(folder)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, folder, scan])
+  }, [folder, scan])
 
   // Check if LMS is configured
   useEffect(() => {
@@ -406,6 +416,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
         role="dialog"
         aria-modal="true"
         aria-label="Class Grade Book"
+        data-tour-learn="grade-book"
         style={{
           position: 'fixed',
           top: 28,
@@ -702,8 +713,12 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                             <span style={{ color: isMostMissed ? 'rgba(220,80,60,0.9)' : 'var(--color-text-primary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {criterion}
                               {isMostMissed && (
-                                <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: '0.06em', color: 'rgba(220,80,60,0.9)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: '2px', padding: '1px 4px', textTransform: 'uppercase' }}>
+                                <span style={{ marginLeft: 6, fontSize: 9, letterSpacing: '0.06em', color: 'rgba(220,80,60,0.9)', border: '1px solid rgba(220,80,60,0.4)', borderRadius: '2px', padding: '1px 4px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                                   Most Missed
+                                  <InfoTip
+                                    label="Most Missed"
+                                    body="The metric where the most students scored below 50%. Focus class discussion here first."
+                                  />
                                 </span>
                               )}
                             </span>
@@ -720,8 +735,12 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                   {/* MED: blind test calibration — data computed by blindTestInsights useMemo above */}
                   {blindTestInsights && (
                     <div>
-                      <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8 }}>
+                      <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-sand-400)', marginBottom: 8, display: 'flex', alignItems: 'center' }}>
                         Blind Test Calibration
+                        <InfoTip
+                          label="Blind Test Calibration"
+                          body="How accurately students predicted A vs B before seeing the meters. Above 5/7 correct is excellent perceptual training."
+                        />
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <div>{blindTestInsights.btCount} student{blindTestInsights.btCount !== 1 ? 's' : ''} completed blind test</div>
@@ -796,7 +815,13 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                     </th>
                   ))}
                   <th style={{ ...thStyle, minWidth: 70, textAlign: 'center' }} onClick={() => toggleSort('pct')}>
-                    Total {sortCol === 'pct' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                      Total {sortCol === 'pct' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                      <InfoTip
+                        label="Score Color Code"
+                        body="Green: 90%+ (distinction). Yellow: 50–89% (pass). Red: below 50% (needs revision)."
+                      />
+                    </span>
                   </th>
                   <th style={{ ...thStyle, minWidth: 160 }}>
                     Feedback

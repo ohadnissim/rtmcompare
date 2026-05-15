@@ -12,9 +12,9 @@ declare global {
         role: string
         outPath?: string
         files: string[]
-        /** Deep Scan: per-stem profile via Demucs (adds ~30s-2min per track). */
         deep?: boolean
         chainReference?: string
+        chainMixes?: string[]
       }) => Promise<{
         ok: boolean
         path?: string
@@ -25,6 +25,7 @@ declare global {
         python_resolution?: string
         curve?: number[]
         curveMad?: number[]
+        chainPairCount?: number
       }>
       showSavedProfile: (jsonPath: string) => Promise<boolean>
       cancelBuild: () => Promise<boolean>
@@ -32,7 +33,7 @@ declare global {
       /** Drop callback — preload calls this with resolved on-disk
        *  paths every time files land on the window. Returns an
        *  unsubscribe function. */
-      onFilesDropped: (cb: (paths: string[]) => void) => () => void
+      onFilesDropped: (cb: (payload: { paths: string[]; zone: string }) => void) => () => void
       /** Open a URL via the OS default handler (rtmcompare:// or https://). */
       openExternal?: (url: string) => Promise<void>
       /** Recursively scan a folder and return audio file paths. */

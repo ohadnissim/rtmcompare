@@ -83,7 +83,7 @@ export interface V52Copy {
 export const v52Copy: V52Copy = {
   cover: {
     eyebrow: {
-      pro: 'MASTERING QC · LEVEL-MATCHED',
+      pro: 'QC · COMPARE · DELIVER',
       producer: 'RELEASE-READINESS · ONE LOOK',
       student: 'LISTEN · COMPARE · UNDERSTAND',
       teacher: 'ASSIGNMENT WORKSPACE',

@@ -33,8 +33,10 @@ function resolvePython(): { python: string; reason: string } {
   const inAppMac = path.join(process.resourcesPath, inAppMacBundleName, 'python', 'bin', 'python3')
   const inAppWin = path.join(process.resourcesPath, 'python-bundle-win', 'python', 'python.exe')
   const devMacBundleName = isArm ? 'python-bundle' : 'python-bundle-intel'
-  const devMac = path.resolve(__dirname, '..', '..', '..', devMacBundleName, 'python', 'bin', 'python3')
-  const devWin = path.resolve(__dirname, '..', '..', '..', 'python-bundle-win', 'python', 'python.exe')
+  // Dev: __dirname = rtm-profile-app/electron/ → go up 2 levels to reach "Compare App/"
+  // where python-bundle lives alongside rtm-profile-app/.
+  const devMac = path.resolve(__dirname, '..', '..', devMacBundleName, 'python', 'bin', 'python3')
+  const devWin = path.resolve(__dirname, '..', '..', 'python-bundle-win', 'python', 'python.exe')
 
   const candidates = process.platform === 'darwin'
     ? [
@@ -79,9 +81,9 @@ function getCachedPython() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 720,
-    height: 700,
+    height: 820,
     minWidth: 560,
-    minHeight: 520,
+    minHeight: 680,
     backgroundColor: '#1c1a17',
     title: 'RTMprofile',
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : {}),
@@ -226,8 +228,9 @@ interface BuildArgs {
   outPath?: string
   files: string[]
   /** Deep Scan: per-stem profile via Demucs. Adds ~30s-2min per track. */
-  deep?: boolean
   chainReference?: string
+  /** Multiple pre-master mix files for multi-pair chain analysis. */
+  chainMixes?: string[]
 }
 
 // MED-28: use a typed BuildResult instead of Promise<any>
@@ -239,9 +242,13 @@ interface BuildResult {
   // CRIT-11: number of tracks successfully analyzed before a crash
   partialCount?: number
   error?: string
+  errorDetail?: string
   python_resolution?: string
   curve?: number[]
   curveMad?: number[]
+  chainPairCount?: number
+  chain_path?: string
+  chain_pair_count?: number
 }
 
 // 5.7.x audit fix: serialise concurrent build-profile IPC calls. Pre-fix
@@ -335,9 +342,12 @@ ipcMain.handle('build-profile', async (_event, args: BuildArgs): Promise<BuildRe
     '--role', args.role || DEFAULT_ROLE,
     '--progress',
   ]
-  if (args.deep) cliArgs.push('--deep')
   if (safeOutPath) cliArgs.push('--out', safeOutPath)
-  if (args.chainReference) cliArgs.push('--chain-reference', args.chainReference)
+  if (args.chainMixes && args.chainMixes.length > 0) {
+    cliArgs.push('--chain-mixes', ...args.chainMixes, '--')
+  } else if (args.chainReference) {
+    cliArgs.push('--chain-reference', args.chainReference)
+  }
   cliArgs.push(...args.files)
 
   return await new Promise<BuildResult>((resolve) => {
@@ -393,6 +403,14 @@ ipcMain.handle('build-profile', async (_event, args: BuildArgs): Promise<BuildRe
           if (msg.type === 'progress') {
             lastProgressI = msg.i || 0
             mainWindow?.webContents.send('profile-progress', msg)
+          } else if (msg.type === 'progress_start') {
+            // Deep scan: fires at start of each file so UI shows activity
+            // during the long stem-separation phase before progress fires.
+            mainWindow?.webContents.send('profile-progress', {
+              ...msg,
+              type: 'progress',
+              i: msg.i,   // still the completed count (hasn't incremented yet)
+            })
           }
         } catch { /* not JSON, ignore */ }
       }
@@ -421,6 +439,7 @@ ipcMain.handle('build-profile', async (_event, args: BuildArgs): Promise<BuildRe
         resolve({
           ok: false,
           error: friendly,
+          errorDetail: wasCancelled ? undefined : stderr.slice(-800),
           python_resolution: reason,
           // CRIT-11: tell the renderer how many tracks got analyzed
           // before the crash/cancel so it can surface partial progress.
@@ -456,6 +475,7 @@ ipcMain.handle('build-profile', async (_event, args: BuildArgs): Promise<BuildRe
             const profileJson = JSON.parse(fs.readFileSync(result.path, 'utf8'))
             if (Array.isArray(profileJson.curve)) result.curve = profileJson.curve
             if (Array.isArray(profileJson.curve_mad)) result.curveMad = profileJson.curve_mad
+            if (result.chain_pair_count != null) result.chainPairCount = result.chain_pair_count
           } catch { /* non-fatal — radar just won't show */ }
         }
         resolve({ ...result, python_resolution: reason })

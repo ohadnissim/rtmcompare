@@ -10,7 +10,123 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react'
-import type { AssignmentConfig, RubricCriteria } from '../../types'
+import type { AssignmentConfig, RubricCriteria, LearnGuidedStep } from '../../types'
+import InfoTip from './InfoTip'
+
+// ─── Persistent teacher prefs (course / instructor) ──────────────────────────
+const TEACHER_PREFS_KEY = 'rtm-teacher-prefs-v1'
+interface TeacherPrefs { course: string; instructor: string }
+function loadTeacherPrefs(): TeacherPrefs {
+  try {
+    const raw = localStorage.getItem(TEACHER_PREFS_KEY)
+    if (!raw) return { course: '', instructor: '' }
+    const p = JSON.parse(raw) as Partial<TeacherPrefs>
+    return { course: p.course ?? '', instructor: p.instructor ?? '' }
+  } catch { return { course: '', instructor: '' } }
+}
+function saveTeacherPrefs(p: TeacherPrefs) {
+  try { localStorage.setItem(TEACHER_PREFS_KEY, JSON.stringify(p)) } catch {}
+}
+
+// ─── Step → suggested assignment ─────────────────────────────────────────────
+interface StepSuggestion {
+  title: string
+  description: string
+  metrics: Array<{ metric: string; target: number; tolerance: number; weight: number }>
+}
+const STEP_SUGGESTIONS: Record<string, StepSuggestion> = {
+  listening: {
+    title: 'Translation & Monitoring Check',
+    description: 'Students submit a mix and document how it translates across 3 playback systems.',
+    metrics: [
+      { metric: 'mono_compat_pct',  target: 90,  tolerance: 8,   weight: 0.40 },
+      { metric: 'lufs_i',           target: -14,  tolerance: 2,   weight: 0.30 },
+      { metric: 'stereo_width',     target: 0.65, tolerance: 0.2, weight: 0.30 },
+    ],
+  },
+  metering: {
+    title: 'Gain Staging & Loudness Assignment',
+    description: 'Evaluate LUFS-I, PLR, and gain staging discipline across the signal chain.',
+    metrics: [
+      { metric: 'lufs_i',  target: -14,  tolerance: 1.5, weight: 0.40 },
+      { metric: 'lra',     target: 9,    tolerance: 2,   weight: 0.35 },
+      { metric: 'plr',     target: 10,   tolerance: 3,   weight: 0.25 },
+    ],
+  },
+  breakdown: {
+    title: 'Mix Breakdown & Bus Architecture',
+    description: 'Assess element hierarchy, masking, reverb/send routing, and automation.',
+    metrics: [
+      { metric: 'masking_overlap',  target: 0,   tolerance: 15,  weight: 0.40 },
+      { metric: 'lufs_i',           target: -14,  tolerance: 2,   weight: 0.30 },
+      { metric: 'lra',              target: 9,    tolerance: 3,   weight: 0.30 },
+    ],
+  },
+  stereo: {
+    title: 'Stereo Field & Phase Coherence',
+    description: 'Evaluate mono compatibility, correlation, panning architecture, and center fill.',
+    metrics: [
+      { metric: 'mono_compat_pct',  target: 90,  tolerance: 6,   weight: 0.40 },
+      { metric: 'stereo_width',     target: 0.65, tolerance: 0.15, weight: 0.35 },
+      { metric: 'center_fill_ms',   target: 1.0, tolerance: 0.3, weight: 0.25 },
+    ],
+  },
+  tonal: {
+    title: 'Tonal Balance & EQ Decisions',
+    description: 'Assess frequency balance against reference and document HPF / vocal chain.',
+    metrics: [
+      { metric: 'tonal_deviation',  target: 0,   tolerance: 3,   weight: 0.50 },
+      { metric: 'lufs_i',           target: -14,  tolerance: 2,   weight: 0.25 },
+      { metric: 'masking_overlap',  target: 0,   tolerance: 12,  weight: 0.25 },
+    ],
+  },
+  dynamics: {
+    title: 'Dynamics & Compression Assignment',
+    description: 'Evaluate LRA, PLR, sidechain and parallel compression, saturation choices.',
+    metrics: [
+      { metric: 'lra',              target: 9,   tolerance: 2,   weight: 0.40 },
+      { metric: 'plr',              target: 10,  tolerance: 3,   weight: 0.35 },
+      { metric: 'transient_integrity', target: 1, tolerance: 0.2, weight: 0.25 },
+    ],
+  },
+  quality: {
+    title: 'Artifact & QC Submission',
+    description: 'Zero-tolerance check for clicks, hum, clipping, and noise floor issues.',
+    metrics: [
+      { metric: 'click_count',   target: 0,   tolerance: 0,  weight: 0.30 },
+      { metric: 'distortion',    target: 0,   tolerance: 2,  weight: 0.30 },
+      { metric: 'noise_floor',   target: -75, tolerance: 10, weight: 0.25 },
+      { metric: 'hum_detected',  target: 0,   tolerance: 0,  weight: 0.15 },
+    ],
+  },
+  delivery: {
+    title: 'Delivery Spec & Dithering',
+    description: 'Confirm True Peak ceiling, platform compliance, bit depth, and dither application.',
+    metrics: [
+      { metric: 'true_peak_dbtp',  target: -1,  tolerance: 0.5, weight: 0.40 },
+      { metric: 'dither_applied',  target: 1,   tolerance: 0,   weight: 0.35 },
+      { metric: 'lufs_i',          target: -14,  tolerance: 1.5, weight: 0.25 },
+    ],
+  },
+  reflection: {
+    title: 'Final Mastering Project',
+    description: 'Full 12-metric rubric — mastering chain documentation required.',
+    metrics: [
+      { metric: 'lufs_i',           target: -14,  tolerance: 1,   weight: 0.12 },
+      { metric: 'lra',              target: 9,    tolerance: 2,   weight: 0.12 },
+      { metric: 'true_peak_dbtp',   target: -1,   tolerance: 0.5, weight: 0.10 },
+      { metric: 'mono_compat_pct',  target: 92,   tolerance: 5,   weight: 0.10 },
+      { metric: 'stereo_width',     target: 0.65, tolerance: 0.15,weight: 0.08 },
+      { metric: 'plr',              target: 10,   tolerance: 3,   weight: 0.08 },
+      { metric: 'tonal_deviation',  target: 0,    tolerance: 2,   weight: 0.10 },
+      { metric: 'distortion',       target: 0,    tolerance: 2,   weight: 0.08 },
+      { metric: 'masking_overlap',  target: 0,    tolerance: 10,  weight: 0.08 },
+      { metric: 'click_count',      target: 0,    tolerance: 0,   weight: 0.06 },
+      { metric: 'noise_floor',      target: -75,  tolerance: 10,  weight: 0.04 },
+      { metric: 'dither_applied',   target: 1,    tolerance: 0,   weight: 0.04 },
+    ],
+  },
+}
 
 // ─── Default rubric rows ─────────────────────────────────────────────────────
 
@@ -160,14 +276,18 @@ interface Props {
   current: AssignmentConfig | null
   /** Current reference file path (from App state) — captured when lock is toggled on */
   referenceFilePath: string | null
+  /** Currently active guided step — used to show step-aware assignment suggestions */
+  currentStep?: LearnGuidedStep
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function AssignmentPanel({ open, onClose, onSave, onClear, current, referenceFilePath }: Props) {
+export default function AssignmentPanel({ open, onClose, onSave, onClear, current, referenceFilePath, currentStep }: Props) {
+  // Load persisted teacher prefs once on mount — pre-fill course/instructor
+  const savedPrefs = React.useMemo(() => loadTeacherPrefs(), [])
   const [title, setTitle]               = useState(current?.title ?? '')
-  const [course, setCourse]             = useState(current?.course ?? '')
-  const [instructor, setInstructor]     = useState(current?.instructor ?? '')
+  const [course, setCourse]             = useState(current?.course ?? savedPrefs.course)
+  const [instructor, setInstructor]     = useState(current?.instructor ?? savedPrefs.instructor)
   const [dueDate, setDueDate]           = useState(current?.dueDate ?? '')
   const [genre, setGenre]               = useState(current?.genre ?? '')
   const [lockRef, setLockRef]           = useState(!!current?.lockedReferenceFile)
@@ -182,6 +302,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
   const [importError, setImportError]         = useState('')
   const [clearPending, setClearPending]       = useState(false)
   const [defaultsPending, setDefaultsPending] = useState(false)
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false)
   const clearPendingTimerRef   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const defaultsPendingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => () => {
@@ -198,12 +319,15 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
     }
   }, [open])
 
+  // Reset suggestion banner when the guided step changes
+  useEffect(() => { setSuggestionDismissed(false) }, [currentStep?.id])
+
   // Sync when `current` changes (e.g. loaded from context)
   useEffect(() => {
     if (current) {
       setTitle(current.title ?? '')
-      setCourse(current.course ?? '')
-      setInstructor(current.instructor ?? '')
+      setCourse(current.course ?? savedPrefs.course)
+      setInstructor(current.instructor ?? savedPrefs.instructor)
       setDueDate(current.dueDate ?? '')
       setGenre(current.genre ?? '')
       setSubmissionsFolder(current.submissionsFolder ?? '')
@@ -212,7 +336,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       setSelectedSpec(current.lockedTargetSpec ?? SPEC_OPTIONS[0].id)
       setRubric(current.rubric?.length ? current.rubric : DEFAULT_RUBRIC)
     }
-  }, [current])
+  }, [current, savedPrefs.course, savedPrefs.instructor])
 
   // Clear template confirmation after 2s
   useEffect(() => {
@@ -241,6 +365,8 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
     if (clearPendingTimerRef.current !== undefined) { clearTimeout(clearPendingTimerRef.current); clearPendingTimerRef.current = undefined }
     setDefaultsPending(false)
     if (defaultsPendingTimerRef.current !== undefined) { clearTimeout(defaultsPendingTimerRef.current); defaultsPendingTimerRef.current = undefined }
+    // Persist course + instructor for next session
+    saveTeacherPrefs({ course, instructor })
     const cfg: AssignmentConfig = {
       title,
       course,
@@ -261,6 +387,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
       role="dialog"
       aria-modal="true"
       aria-label="Assignment Setup"
+      data-tour-learn="assignment-panel"
       style={{
         position: 'fixed',
         right: 0,
@@ -305,6 +432,62 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           ×
         </button>
       </div>
+
+      {/* ── Step-aware suggestion banner ─────────────────────────────── */}
+      {currentStep && STEP_SUGGESTIONS[currentStep.id] && !suggestionDismissed && (
+        <div style={{
+          background: 'rgba(208,176,102,0.06)',
+          border: '1px solid rgba(208,176,102,0.25)',
+          borderRadius: 3,
+          padding: '10px 12px',
+          marginBottom: 12,
+          marginTop: 4,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+            <span style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.7)' }}>
+              ✦ Suggested for Step: {currentStep.label}
+            </span>
+            <button
+              onClick={() => setSuggestionDismissed(true)}
+              aria-label="Dismiss suggestion"
+              style={{ background: 'none', border: 'none', color: 'rgba(208,176,102,0.4)', fontSize: 14, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
+            >×</button>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-sand-300)', marginBottom: 7, lineHeight: 1.4 }}>
+            <strong style={{ color: 'rgba(208,176,102,0.85)' }}>{STEP_SUGGESTIONS[currentStep.id].title}</strong><br />
+            {STEP_SUGGESTIONS[currentStep.id].description}
+          </div>
+          <button
+            onClick={() => {
+              const sug = STEP_SUGGESTIONS[currentStep.id]
+              setTitle(sug.title)
+              const rows: RubricCriteria[] = sug.metrics.map((m, i) => ({
+                id: `${m.metric}-${i}`,
+                metric: m.metric,
+                label: METRIC_OPTIONS.find(o => o.key === m.metric)?.label ?? m.metric,
+                target: m.target,
+                tolerance: m.tolerance,
+                weight: m.weight,
+              }))
+              setRubric(rows)
+              setSuggestionDismissed(true)
+            }}
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              background: 'rgba(208,176,102,0.12)',
+              border: '1px solid rgba(208,176,102,0.3)',
+              borderRadius: 2,
+              color: 'rgba(208,176,102,0.9)',
+              padding: '4px 10px',
+              cursor: 'pointer',
+            }}
+          >
+            Apply suggestion →
+          </button>
+        </div>
+      )}
 
       {/* ── Metadata ─────────────────────────────────────────────────── */}
       <div style={sectionTitleStyle}>Details</div>
@@ -655,9 +838,23 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
               color: 'var(--color-sand-400)',
+              display: 'inline-flex',
+              alignItems: 'center',
             }}
           >
             {h}
+            {h === 'Wt%' && (
+              <InfoTip
+                label="Weight"
+                body="Relative importance of this metric in the final grade. Weights are normalized — a 2.0 weight counts twice as much as a 1.0 weight toward the total score."
+              />
+            )}
+            {h === '±' && (
+              <InfoTip
+                label="Pass/Fail Threshold"
+                body="Students whose score on this metric falls outside this tolerance will see it flagged in red on their report."
+              />
+            )}
           </span>
         ))}
       </div>

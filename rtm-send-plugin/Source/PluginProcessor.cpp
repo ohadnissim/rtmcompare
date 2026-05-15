@@ -232,6 +232,17 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     // Ring buffer - always on, no allocation on this thread.
     ring.writeBlock(channelPtrs, std::min(numInput, 32), numFrames);
 
+    // Signal-presence: update timestamp whenever the block carries audio.
+    // Cheap magnitude check on ch0 only — sufficient for "is anything playing".
+    if (numInput > 0 && numFrames > 0 && channelPtrs[0] != nullptr)
+    {
+        float peak = 0.0f;
+        for (int s = 0; s < numFrames; ++s)
+            peak = std::max(peak, std::abs(channelPtrs[0][s]));
+        if (peak > 1e-6f)
+            lastAudioWriteTime.store(juce::Time::currentTimeMillis(), std::memory_order_relaxed);
+    }
+
     // Loop-region capture. Prefer AudioPlayHead::getPosition() (JUCE
     // 7.1+); fall back to CurrentPositionInfo on older JUCE. Hosts
     // that don't expose loop info leave loopPointsSeen false and the
@@ -606,7 +617,12 @@ bool RtmSendAudioProcessor::writeSidecar(const juce::File& out,
                                          const juce::String& capturedAt) const
 {
     // 5.3.0 (audit P0 #4): same symlink-safety as writeWav.
+    // On Windows, do an upfront lstat check. On POSIX, the O_NOFOLLOW
+    // in openAtomicExcl (below) provides the atomic equivalent — no
+    // pre-check needed and writeTargetIsSafe is not defined there.
+#if JUCE_WINDOWS
     if (! writeTargetIsSafe(out)) return false;
+#endif
     juce::DynamicObject::Ptr obj = new juce::DynamicObject();
     // 5.3.0: explicit protocol version on every sidecar. Tolerant
     // additive - receiver ignores unknown fields but treats a

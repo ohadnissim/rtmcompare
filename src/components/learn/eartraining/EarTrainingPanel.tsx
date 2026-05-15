@@ -16,6 +16,7 @@ import type {
   EarTrainingDifficulty,
   EarTrainingProgress,
 } from '../../../types'
+import InfoTip from '../InfoTip'
 import {
   DRILL_PROGRESSION,
   DRILL_LABELS,
@@ -127,6 +128,22 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   const [question, setQuestion] = React.useState<DrillQuestion | null>(null)
   const [userAnswer, setUserAnswer] = React.useState<string | null>(null)
   const [revealed, setRevealed] = React.useState(false)
+  // LM-ET-1: allow students to browse their own file directly inside the panel,
+  // without needing to load File A in the main comparison view first.
+  const [localFilePath, setLocalFilePath] = React.useState<string | null>(null)
+  const [localFileName, setLocalFileName] = React.useState<string | undefined>(undefined)
+  // Effective path: panel-local pick takes priority over the parent's fileAPath.
+  const effectiveFilePath = localFilePath ?? fileAPath
+  const effectiveFileName = localFileName ?? fileAName
+
+  const handleBrowseFile = React.useCallback(async () => {
+    const filePath = await (window as any).electronAPI?.selectFile?.()
+    if (!filePath) return
+    const name = filePath.split('/').pop() ?? filePath
+    setLocalFilePath(filePath)
+    setLocalFileName(name)
+    setActiveClipState('loaded_file_a')
+  }, [])
   // MED: initialize to true for procedural clips (pink_noise default) — avoids a
   // flash of the loading spinner before the mount effect fires and sets it true.
   // NIT-2: this value is coupled to the DEFAULT_CLIP being 'pink_noise' (a
@@ -136,10 +153,16 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   const [sourceLoaded, setSourceLoaded] = React.useState<boolean>(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [playingLabel, setPlayingLabel] = React.useState<string | null>(null)
+  // Generation counter: incremented on every new play. The finally block only
+  // clears playingLabel when its own generation is still current — prevents
+  // the race where clicking Modified while Reference is playing causes Reference's
+  // onended to fire and wipe out the freshly-set 'Modified' label.
+  const playGenRef = React.useRef(0)
   // Pink noise is the default — it's the Golden Ears standard for frequency ID
   // and doesn't require File A to be loaded.
   const [activeClip, setActiveClipState] = React.useState<ReferenceClipId>('pink_noise')
   const [confirmReset, setConfirmReset] = React.useState(false)  // LOW: replace confirm()
+  const confirmDialogRef = React.useCallback((el: HTMLDivElement | null) => el?.focus(), [])
 
   const engine = React.useMemo(() => getEarTrainingEngine(), [])
 
@@ -161,12 +184,13 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
       return
     }
     let cancelled = false
-    if (!fileAPath) {
-      setLoadError('Load File A in the main view first, or pick a procedural source.')
+    if (!effectiveFilePath) {
+      setLoadError('Drop a file on File A or click "Browse…" to load your own audio.')
       setSourceLoaded(false)
       return
     }
-    engine.loadSource(fileAPath, fileAName).then(
+    setSourceLoaded(false)
+    engine.loadSource(effectiveFilePath, effectiveFileName).then(
       () => {
         if (cancelled) return
         // MED-21: only commit the load if the user is STILL on loaded_file_a.
@@ -178,7 +202,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
       (err) => { if (!cancelled) setLoadError(err?.message || 'Failed to load audio') }
     )
     return () => { cancelled = true; engine.stop() }
-  }, [activeClip, fileAPath, fileAName, engine])
+  }, [activeClip, effectiveFilePath, effectiveFileName, engine])
 
   // Stop audio when leaving the panel.
   React.useEffect(() => () => { engine.stop() }, [engine])
@@ -229,6 +253,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   function startDrill(drillId: EarTrainingDrillId, difficulty: EarTrainingDifficulty) {
     setActiveDrill(drillId)
     setActiveDifficulty(difficulty)
+    engine.lockNewWindow()
     setQuestion(generateQuestion(drillId, difficulty))
     setUserAnswer(null)
     setRevealed(false)
@@ -236,6 +261,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   }
 
   function nextQuestion() {
+    engine.lockNewWindow()
     setQuestion(generateQuestion(activeDrill, activeDifficulty))
     setUserAnswer(null)
     setRevealed(false)
@@ -259,47 +285,55 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   }
 
   // ── Audio playback handlers ────────────────────────────────────
-  // MED-23 fix: wrap every play in try/finally so playingLabel always clears,
-  // even if the engine throws (e.g. AudioContext was closed by an external dispose).
+  // All play functions use loop=true so audio plays endlessly until the user
+  // clicks Stop or switches to the other version. The done promise resolves
+  // when engine.stop() is called (via the Stop button or next play call).
+  // The generation counter prevents stale finally blocks from clearing the
+  // playingLabel when a new play has already started.
+
+  function stopPlayback() {
+    ++playGenRef.current
+    engine.stop()
+    setPlayingLabel(null)
+  }
+
   async function playReference() {
+    const gen = ++playGenRef.current
     setPlayingLabel('Reference')
     try {
-      await engine.playReference(6).done
+      await engine.playReference(6, true).done
     } finally {
-      setPlayingLabel(null)
+      if (playGenRef.current === gen) setPlayingLabel(null)
     }
   }
 
   // MED-22 fix: explicit type annotation on `handle` + exhaustiveness default.
-  // Previously `let handle` was implicit any; if a new drill kind was added to the
-  // type but not handled here, `handle` stayed undefined and `await handle.done`
-  // threw a TypeError. Now TS enforces the discriminated-union check and the
-  // default branch throws a clear error.
   async function playProcessed() {
     if (!question) return
+    const gen = ++playGenRef.current
     setPlayingLabel('Modified')
     try {
       let handle: PlayHandle
       switch (question.kind) {
         case 'frequency_id':
         case 'eq_direction':
-          handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: DEFAULT_Q })
+          handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: DEFAULT_Q }, 6, true)
           break
         case 'q_width':
-          handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: question.q })
+          handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: question.q }, 6, true)
           break
         case 'compression':
           handle = question.isCompressed
-            ? engine.playWithCompression({ threshold: -20, ratio: 8, attack: 0.003, release: 0.1, makeup: 6 })
-            : engine.playReference()
+            ? engine.playWithCompression({ threshold: -20, ratio: 8, attack: 0.003, release: 0.1, makeup: 6 }, 6, true)
+            : engine.playReference(6, true)
           break
         case 'reverb_time':
-          handle = engine.playWithReverb({ decaySec: question.decaySec, mix: 0.45 })
+          handle = engine.playWithReverb({ decaySec: question.decaySec, mix: 0.45 }, 6, true)
           break
         case 'distortion':
           handle = question.isDistorted
-            ? engine.playWithDistortion({ drive: question.drive })
-            : engine.playReference()
+            ? engine.playWithDistortion({ drive: question.drive }, 6, true)
+            : engine.playReference(6, true)
           break
         default: {
           const _exhaustive: never = question
@@ -308,7 +342,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
       }
       await handle.done
     } finally {
-      setPlayingLabel(null)
+      if (playGenRef.current === gen) setPlayingLabel(null)
     }
   }
 
@@ -321,7 +355,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
         style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         tabIndex={-1}
         onKeyDown={e => { if (e.key === 'Escape') setConfirmReset(false) }}
-        ref={React.useCallback((el: HTMLDivElement | null) => el?.focus(), [])}
+        ref={confirmDialogRef}
       >
         <div style={{ background: 'rgba(28,26,22,0.98)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: 4, padding: '24px 28px', maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>Reset all ear training progress?</div>
@@ -335,6 +369,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
     )}
     <div
       data-eartraining-open="true"
+      data-tour-learn="ear-training"
       style={{
         position: 'fixed',
         inset: 0,
@@ -360,9 +395,9 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {screen !== 'home' && (
-            <button onClick={() => { engine.stop(); setScreen('home') }} style={navBtnStyle}>← Home</button>
+            <button onClick={() => { engine.stop(); ++playGenRef.current; setPlayingLabel(null); setScreen('home') }} style={navBtnStyle}>← Home</button>
           )}
-          <button onClick={() => { engine.stop(); onClose() }} style={navBtnStyle}>× Close</button>
+          <button onClick={() => { engine.stop(); ++playGenRef.current; setPlayingLabel(null); onClose() }} style={navBtnStyle}>× Close</button>
         </div>
       </div>
 
@@ -391,8 +426,10 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
         <HomeScreen
           progress={progress}
           activeClip={activeClip}
-          fileAvailable={!!fileAPath}
+          fileAvailable={!!effectiveFilePath}
+          localFileName={localFileName ?? (localFilePath ? localFilePath.split('/').pop() : undefined)}
           onClipChange={(id) => setActiveClipState(id)}
+          onBrowseFile={handleBrowseFile}
           onStartDrill={startDrill}
           onOpenHeatMap={() => setScreen('heatmap')}
           onReset={() => setConfirmReset(true)}
@@ -409,6 +446,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
           playingLabel={playingLabel}
           onPlayReference={playReference}
           onPlayProcessed={playProcessed}
+          onStop={stopPlayback}
           onAnswer={answer}
           onNext={nextQuestion}
           drillStats={progress.drills[activeDrill]}
@@ -425,11 +463,13 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
 
 // ─── Home screen — drill selector ────────────────────────────────────────────
 
-function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStartDrill, onOpenHeatMap, onReset }: {
+function HomeScreen({ progress, activeClip, fileAvailable, localFileName, onClipChange, onBrowseFile, onStartDrill, onOpenHeatMap, onReset }: {
   progress: EarTrainingProgress
   activeClip: ReferenceClipId
   fileAvailable: boolean
+  localFileName?: string
   onClipChange: (id: ReferenceClipId) => void
+  onBrowseFile: () => void
   onStartDrill: (d: EarTrainingDrillId, df: EarTrainingDifficulty) => void
   onOpenHeatMap: () => void
   onReset: () => void
@@ -454,12 +494,17 @@ function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStart
       {/* Source clip selector — Golden Ears uses pink noise; we also offer drums,
           vocal-shaped noise, synth mix, and the student's loaded File A. */}
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.55)', marginBottom: 8 }}>
+        <div style={{ fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.55)', marginBottom: 8, display: 'flex', alignItems: 'center' }}>
           Source material
+          <InfoTip
+            label="Source Material"
+            body="Pink noise (equal energy/octave) is the gold standard for frequency training. White noise emphasizes highs. Your own file applies the training to real-world material."
+          />
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {REFERENCE_CLIPS.map(clip => {
-            const disabled = clip.id === 'loaded_file_a' && !fileAvailable
+            const isFileClip = clip.id === 'loaded_file_a'
+            const disabled = isFileClip && !fileAvailable
             const active = clip.id === activeClip
             return (
               <button
@@ -486,11 +531,38 @@ function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStart
               >
                 <span>{clip.label}</span>
                 <span style={{ fontSize: 9, color: 'rgba(168,161,150,0.55)', letterSpacing: '0.02em' }}>
-                  {clip.description}
+                  {isFileClip && localFileName ? localFileName : clip.description}
                 </span>
               </button>
             )
           })}
+          {/* LM-ET-1: Browse button — lets students load their own file without
+              needing to drop it on the main comparison view first. */}
+          <button
+            onClick={onBrowseFile}
+            title="Pick any audio file from your drive"
+            style={{
+              padding: '6px 12px',
+              background: 'transparent',
+              border: '1px solid rgba(208,176,102,0.35)',
+              borderRadius: 2,
+              color: 'var(--color-accent)',
+              fontSize: 11,
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 2,
+              minWidth: 90,
+            }}
+          >
+            <span>Browse…</span>
+            <span style={{ fontSize: 9, color: 'rgba(208,176,102,0.55)', letterSpacing: '0.02em' }}>
+              Pick audio file
+            </span>
+          </button>
         </div>
       </div>
 
@@ -526,11 +598,49 @@ function HomeScreen({ progress, activeClip, fileAvailable, onClipChange, onStart
               <div style={{ fontSize: 12, color: 'rgba(168,161,150,0.7)', marginBottom: 12, lineHeight: 1.4 }}>
                 {DRILL_DESCRIPTIONS[drillId]}
               </div>
-              <div style={{ fontSize: 10, color: 'rgba(168,161,150,0.55)', marginBottom: 8 }}>
+              <div style={{ fontSize: 10, color: 'rgba(168,161,150,0.55)', marginBottom: 4 }}>
                 {stats.attempts > 0 ? `${stats.correct}/${stats.attempts} correct · ${(acc * 100).toFixed(0)}% · best streak ${stats.bestStreak}` : 'No attempts yet'}
               </div>
+              {/* Unlock progress bar toward next difficulty */}
+              {unlocked && (() => {
+                const MIN_ATT = 12, THR = 0.70
+                const met = stats.attempts >= MIN_ATT && acc >= THR
+                const prog = Math.min(1, stats.attempts / MIN_ATT)
+                const attLeft = Math.max(0, MIN_ATT - stats.attempts)
+                const corrLeft = Math.max(0, Math.ceil(MIN_ATT * THR) - stats.correct)
+                return (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ height: 3, width: '100%', background: 'rgba(168,161,150,0.1)', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
+                      <div style={{
+                        height: '100%', width: `${prog * 100}%`,
+                        background: met ? '#7bc49e' : acc >= THR ? 'rgba(208,176,102,0.7)' : 'rgba(168,161,150,0.3)',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <div style={{ fontSize: 9, color: met ? '#7bc49e' : 'rgba(168,161,150,0.45)', letterSpacing: '0.04em' }}>
+                      {met ? '✓ Ready to advance' : attLeft > 0 ? `${stats.attempts}/${MIN_ATT} attempts · need ${corrLeft} more correct at ≥70%` : `${(acc * 100).toFixed(0)}% accuracy · need 70% to advance`}
+                    </div>
+                  </div>
+                )
+              })()}
               {unlocked && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {drillId === 'q_width' && (
+                    <InfoTip
+                      label="Q Width"
+                      body="Narrow Q (high Q value) sounds surgical and ringy. Wide Q (low value) sounds tonal and musical. Distinguishing them is essential for creative EQ work."
+                    />
+                  )}
+                  {drillId === 'compression' && (
+                    <InfoTip
+                      label="Compression Ratio"
+                      body="2:1 is gentle levelling. 4:1 is typical vocal/instrument. 8:1+ is limiting. Train to hear the attack transient being softened and the sustain lifted."
+                    />
+                  )}
+                  <InfoTip
+                    label="Difficulty"
+                    body="Beginner: ±12 dB, 1-octave bands. Intermediate: ±6 dB. Advanced: ±3 dB, 1/3-octave bands — the real-world threshold for professional frequency identification."
+                  />
                   {DIFFICULTY_ORDER.map((diff, i) => {
                     const accessible = i <= unlockedIdx
                     return (
@@ -586,7 +696,7 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 
 function DrillScreen({
   drill, difficulty, question, revealed, userAnswer, playingLabel,
-  onPlayReference, onPlayProcessed, onAnswer, onNext, drillStats,
+  onPlayReference, onPlayProcessed, onStop, onAnswer, onNext, drillStats,
 }: {
   drill: EarTrainingDrillId
   difficulty: EarTrainingDifficulty
@@ -596,6 +706,7 @@ function DrillScreen({
   playingLabel: string | null
   onPlayReference: () => void
   onPlayProcessed: () => void
+  onStop: () => void
   onAnswer: (option: string) => void
   onNext: () => void
   drillStats: any
@@ -604,21 +715,80 @@ function DrillScreen({
   const correctOption = getCorrectOption(question)
   const wasCorrect = revealed && userAnswer === correctOption
 
+  // Unlock progress toward next difficulty / next drill
+  const MIN_ATTEMPTS = 12
+  const THRESHOLD = 0.70
+  const acc = drillStats.attempts > 0 ? drillStats.correct / drillStats.attempts : 0
+  const attemptsNeeded = Math.max(0, MIN_ATTEMPTS - drillStats.attempts)
+  const correctNeeded = drillStats.attempts > 0
+    ? Math.max(0, Math.ceil(MIN_ATTEMPTS * THRESHOLD) - drillStats.correct)
+    : Math.ceil(MIN_ATTEMPTS * THRESHOLD)
+  const unlockMet = drillStats.attempts >= MIN_ATTEMPTS && acc >= THRESHOLD
+  const unlockProgress = Math.min(1, drillStats.attempts / MIN_ATTEMPTS)
+
   return (
     <div style={{ maxWidth: 880, width: '100%' }}>
-      {/* Streak banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+      {/* Streak banner + unlock counter */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, gap: 16, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 11, color: 'rgba(168,161,150,0.6)' }}>
           Streak: <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>{drillStats.streak}</span>
           {' · '}Best: {drillStats.bestStreak}
-          {' · '}Accuracy: {drillStats.attempts > 0 ? `${((drillStats.correct / drillStats.attempts) * 100).toFixed(0)}%` : '—'}
+          {' · '}Accuracy: {drillStats.attempts > 0 ? `${(acc * 100).toFixed(0)}%` : '—'}
+        </div>
+        {/* Unlock progress counter */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end',
+          fontSize: 10, color: unlockMet ? '#7bc49e' : 'rgba(168,161,150,0.55)',
+          minWidth: 200,
+        }}>
+          {unlockMet ? (
+            <span style={{ color: '#7bc49e', letterSpacing: '0.06em' }}>✓ Unlock criteria met — go back to advance</span>
+          ) : (
+            <span style={{ letterSpacing: '0.04em' }}>
+              {attemptsNeeded > 0
+                ? `${drillStats.attempts}/${MIN_ATTEMPTS} attempts · need ${correctNeeded} more correct at ≥70%`
+                : `${drillStats.attempts} attempts · ${(acc * 100).toFixed(0)}% accuracy · need 70% to advance`
+              }
+            </span>
+          )}
+          <div style={{ width: 200, height: 3, background: 'rgba(168,161,150,0.12)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${unlockProgress * 100}%`,
+              background: unlockMet ? '#7bc49e' : acc >= THRESHOLD ? 'rgba(208,176,102,0.7)' : 'rgba(168,161,150,0.35)',
+              transition: 'width 0.3s ease',
+            }} />
+          </div>
         </div>
       </div>
 
-      {/* Playback row */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 28 }}>
+      {/* Playback row — clicking either button stops current and starts new immediately */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 28, alignItems: 'center', flexWrap: 'wrap' }}>
         <PlayButton label="▶ Reference" onClick={onPlayReference} active={playingLabel === 'Reference'} />
         <PlayButton label="▶ Modified" onClick={onPlayProcessed} active={playingLabel === 'Modified'} primary />
+        {playingLabel !== null && (
+          <button
+            onClick={onStop}
+            style={{
+              padding: '11px 18px',
+              background: 'rgba(220,80,60,0.1)',
+              border: '1px solid rgba(220,80,60,0.4)',
+              borderRadius: 2,
+              color: 'rgba(220,80,60,0.85)',
+              fontSize: 12,
+              letterSpacing: '0.06em',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            ■ Stop
+          </button>
+        )}
+        {playingLabel === null && (
+          <span style={{ fontSize: 10, color: 'rgba(168,161,150,0.4)', letterSpacing: '0.04em', fontStyle: 'italic' }}>
+            Plays until you stop it — flip between Reference and Modified freely
+          </span>
+        )}
       </div>
 
       {/* Question */}
@@ -822,7 +992,6 @@ function PlayButton({ label, onClick, active, primary }: { label: string; onClic
   return (
     <button
       onClick={onClick}
-      disabled={active}
       style={{
         padding: '11px 22px',
         background: active
@@ -830,13 +999,14 @@ function PlayButton({ label, onClick, active, primary }: { label: string; onClic
           : primary
             ? 'rgba(208,176,102,0.08)'
             : 'transparent',
-        border: `1px solid ${primary ? 'rgba(208,176,102,0.55)' : 'rgba(208,176,102,0.3)'}`,
+        border: `1px solid ${active ? 'rgba(208,176,102,0.9)' : primary ? 'rgba(208,176,102,0.55)' : 'rgba(208,176,102,0.3)'}`,
         borderRadius: 2,
-        color: 'var(--color-text-primary)',
+        color: active ? 'var(--color-accent)' : 'var(--color-text-primary)',
         fontSize: 13,
         letterSpacing: '0.06em',
-        cursor: active ? 'wait' : 'pointer',
+        cursor: 'pointer',
         fontFamily: 'inherit',
+        transition: 'all 0.12s',
       }}
     >
       {active ? '▶ Playing…' : label}

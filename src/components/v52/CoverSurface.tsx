@@ -49,6 +49,7 @@ export interface CoverSurfaceProps {
 
   // Profile / context
   profileName?: string
+  onProfileNameChange?: (name: string) => void
 
   // Recents
   recents?: Array<{ id: string; title: string; ts?: string }>
@@ -64,7 +65,10 @@ export interface CoverSurfaceProps {
   // Tour
   onTour?: () => void
 
-  // Extra content (ProfileDropdown, etc.) rendered below CTA row
+  // Controls (ProfileDropdown, etc.) rendered in top-right column, above file slots
+  controls?: React.ReactNode
+
+  // Extra content rendered below CTA row
   children?: React.ReactNode
 }
 
@@ -120,8 +124,8 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
         if (f) onDrop(f)
       }}
       style={{
-        padding: '24px 28px',
-        minHeight: 168,
+        padding: '32px 36px',
+        minHeight: 220,
         borderLeft: bothLoaded ? `2px solid ${GOLD}` : '2px solid transparent',
         backgroundColor: dragging ? 'rgba(208,176,102,0.04)' : 'transparent',
         transition: 'background-color 120ms var(--easing-shell, ease)',
@@ -134,7 +138,7 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
       <input
         ref={inputRef}
         type="file"
-        accept=".wav,.aiff,.aif,.mp3,.flac,.m4a,.ogg"
+        accept=".wav,.aiff,.aif,.mp3,.flac,.m4a,.ogg,.adm"
         style={{ display: 'none' }}
         onChange={(e) => {
           const f = e.target.files?.[0]
@@ -143,7 +147,7 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
         }}
       />
 
-      <div style={trackedCaps(9, SAND_400)}>{eyebrow}</div>
+      <div style={trackedCaps(10, SAND_400)}>{eyebrow}</div>
 
       {name ? (
         <div
@@ -151,7 +155,7 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
             fontFamily: 'var(--font-display)',
             fontStyle: 'italic',
             fontWeight: 400,
-            fontSize: 24,
+            fontSize: 28,
             lineHeight: 1.15,
             color: CREAM,
             wordBreak: 'break-word',
@@ -161,7 +165,7 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={trackedCaps(11, SAND_500)}>{emptyLabel}</div>
+          <div style={trackedCaps(13, SAND_500)}>{emptyLabel}</div>
           {/* Browse button — always shown so keyboard/trackpad users aren't drag-only */}
           <button
             type="button"
@@ -169,14 +173,14 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
             style={{
               alignSelf: 'flex-start',
               fontFamily: 'var(--font-sans)',
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
               color: SAND_300,
               background: 'transparent',
               border: `1px solid ${SAND_700}`,
               borderRadius: 2,
-              padding: '5px 10px',
+              padding: '6px 14px',
               cursor: 'pointer',
             }}
           >
@@ -186,8 +190,8 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
       )}
 
       {!name && (
-        <div style={trackedCaps(8, SAND_400)}>
-          WAV · AIFF · MP3 · FLAC · up to 192 kHz
+        <div style={trackedCaps(10, SAND_400)}>
+          WAV · AIFF · MP3 · FLAC · ADM · up to 192 kHz
         </div>
       )}
 
@@ -228,6 +232,7 @@ export function CoverSurface({
   onBeginBatch,
   canBatch,
   profileName,
+  onProfileNameChange,
   recents,
   onOpenRecent,
   onClearRecents,
@@ -236,8 +241,12 @@ export function CoverSurface({
   assignmentName,
   sessionCount,
   onTour,
+  controls,
   children,
 }: CoverSurfaceProps) {
+  const [editingName, setEditingName] = useState(false)
+  const [nameInputVal, setNameInputVal] = useState(profileName ?? '')
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const audience = useAudience()
   const eyebrow = v52Copy.cover.eyebrow[audience]
   const valueProp = v52Copy.cover.valueProp[audience]
@@ -260,17 +269,18 @@ export function CoverSurface({
   return (
     <section
       aria-label="RTMcompare cover"
-      className="grid grid-cols-12 gap-8"
+      className="grid grid-cols-12"
       style={{
-        minHeight: '100vh',
-        padding: 'clamp(32px, 5vw, 64px)',
+        rowGap: 28,
+        columnGap: 40,
+        padding: 'clamp(36px, 5vw, 72px)',
         backgroundColor: 'var(--color-bg-app)',
         position: 'relative',
       }}
     >
       {/* Masthead — cols 1-8 */}
       <header className="col-span-12 md:col-span-8" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
           <h1
             style={{
               fontFamily: 'var(--font-display)',
@@ -285,76 +295,152 @@ export function CoverSurface({
           >
             RTM<span style={{ color: SAND_400 }}>·</span>Compare
           </h1>
-
-          {/* Tour + pro/producer mode pill — top-right of masthead */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4, flexShrink: 0 }}>
-            {/* Pro / Producer toggle — persists audience to localStorage */}
-            {(audience === 'pro' || audience === 'producer') && (
-              <div style={{ display: 'flex', border: `1px solid ${SAND_700}`, borderRadius: 2, overflow: 'hidden' }}>
-                {(['pro', 'producer'] as Audience[]).map(a => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => setAudienceOverride(audience === a ? null : a)}
-                    style={{
-                      fontFamily: 'var(--font-sans)',
-                      fontSize: 9,
-                      letterSpacing: '0.12em',
-                      textTransform: 'uppercase',
-                      padding: '4px 9px',
-                      background: audience === a ? 'rgba(208,176,102,0.12)' : 'transparent',
-                      color: audience === a ? GOLD : SAND_500,
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {a}
-                  </button>
-                ))}
-              </div>
-            )}
-            {onTour && (
-              <button
-                type="button"
-                onClick={onTour}
-                style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 9,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: SAND_400,
-                  background: 'transparent',
-                  border: `1px solid ${SAND_700}`,
-                  borderRadius: 2,
-                  padding: '4px 9px',
-                  cursor: 'pointer',
-                }}
-              >
-                Tour
-              </button>
-            )}
-          </div>
         </div>
 
         <div style={{ width: '30%', height: 1, backgroundColor: GOLD }} />
 
-        <div style={trackedCaps(11, SAND_400)}>{eyebrow}</div>
+        <div style={trackedCaps(13, SAND_400)}>{eyebrow}</div>
 
         <div
           style={{
             fontFamily: 'var(--font-display)',
             fontStyle: 'italic',
             fontWeight: 400,
-            fontSize: 22,
-            lineHeight: 1.3,
+            fontSize: 32,
+            lineHeight: 1.25,
             color: CREAM,
             marginTop: 4,
-            maxWidth: '32ch',
+            maxWidth: '28ch',
           }}
         >
           {valueProp}
         </div>
       </header>
+
+      {/* Right column — utility controls + greeting */}
+      <div
+        className="hidden md:flex col-start-10 col-span-3"
+        style={{ flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-end', gap: 16 }}
+      >
+        {/* Pills row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {(audience === 'pro' || audience === 'producer') && (
+            <div style={{ display: 'flex', border: `1px solid ${SAND_700}`, borderRadius: 2, overflow: 'hidden' }}>
+              {(['pro', 'producer'] as Audience[]).map(a => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setAudienceOverride(audience === a ? null : a)}
+                  style={{
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 9,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    padding: '4px 9px',
+                    background: audience === a ? 'rgba(208,176,102,0.12)' : 'transparent',
+                    color: audience === a ? GOLD : SAND_500,
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
+          {onTour && (
+            <button
+              type="button"
+              onClick={onTour}
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 9,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: SAND_400,
+                background: 'transparent',
+                border: `1px solid ${SAND_700}`,
+                borderRadius: 2,
+                padding: '4px 9px',
+                cursor: 'pointer',
+              }}
+            >
+              Tour
+            </button>
+          )}
+        </div>
+
+        {/* Greeting — right-aligned, click to edit */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <div style={{ width: '60%', height: 1, backgroundColor: SAND_700 }} />
+          {editingName && onProfileNameChange ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={nameInputVal}
+                onChange={e => setNameInputVal(e.target.value)}
+                onBlur={() => { onProfileNameChange(nameInputVal.trim()); setEditingName(false) }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === 'Escape') {
+                    if (e.key === 'Enter') onProfileNameChange(nameInputVal.trim())
+                    else setNameInputVal(profileName ?? '')
+                    setEditingName(false)
+                  }
+                }}
+                placeholder="Your name"
+                autoFocus
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontStyle: 'italic',
+                  fontSize: 14,
+                  color: CREAM,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${SAND_700}`,
+                  borderRadius: 2,
+                  padding: '3px 10px',
+                  outline: 'none',
+                  width: 180,
+                  textAlign: 'right',
+                }}
+              />
+              <span style={{ ...trackedCaps(9, SAND_500) }}>↵ to save</span>
+            </div>
+          ) : (
+            <div
+              role={onProfileNameChange ? 'button' : undefined}
+              tabIndex={onProfileNameChange ? 0 : undefined}
+              onClick={() => { if (!onProfileNameChange) return; setNameInputVal(profileName ?? ''); setEditingName(true) }}
+              onKeyDown={e => {
+                if (onProfileNameChange && (e.key === 'Enter' || e.key === ' ')) {
+                  setNameInputVal(profileName ?? ''); setEditingName(true)
+                }
+              }}
+              title={onProfileNameChange ? 'Click to set your name' : undefined}
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontStyle: 'italic',
+                fontSize: 14,
+                color: SAND_400,
+                textAlign: 'right',
+                whiteSpace: 'nowrap',
+                cursor: onProfileNameChange ? 'text' : 'default',
+                borderBottom: onProfileNameChange ? `1px dashed ${SAND_700}` : 'none',
+                paddingBottom: onProfileNameChange ? 1 : 0,
+              }}
+            >
+              {greeting}
+            </div>
+          )}
+        </div>
+
+        {/* Profile / Delta controls — right-aligned, above file slots */}
+        {controls && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+            {controls}
+          </div>
+        )}
+      </div>
 
       {/* File slots — full-width row */}
       <div
@@ -363,7 +449,6 @@ export function CoverSurface({
           display: 'grid',
           gridTemplateColumns: '1fr 1px 1fr',
           alignItems: 'stretch',
-          marginTop: 8,
           border: `1px solid ${SAND_700}`,
           borderLeft: 'none',
           borderRight: 'none',
@@ -424,21 +509,21 @@ export function CoverSurface({
       </div>
 
       {/* CTA row */}
-      <div className="col-span-12" style={{ display: 'flex', alignItems: 'baseline', gap: 28, marginTop: 8 }}>
+      <div className="col-span-12" style={{ display: 'flex', alignItems: 'baseline', gap: 32 }}>
         <button
           type="button"
           onClick={canCompare ? onBeginCompare : undefined}
           disabled={!canCompare}
           style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: 13,
+            fontSize: 14,
             letterSpacing: '0.12em',
             textTransform: 'uppercase',
             color: canCompare ? CREAM : SAND_500,
             backgroundColor: 'transparent',
             border: `1px solid ${canCompare ? SAND_300 : SAND_700}`,
             borderRadius: 2,
-            padding: '12px 22px',
+            padding: '14px 28px',
             cursor: canCompare ? 'pointer' : 'not-allowed',
             transition: 'border-color 120ms var(--easing-shell, ease)',
           }}
@@ -452,7 +537,7 @@ export function CoverSurface({
           disabled={!canRefOnly}
           style={{
             fontFamily: 'var(--font-sans)',
-            fontSize: 12,
+            fontSize: 13,
             color: canRefOnly ? SAND_300 : SAND_500,
             background: 'transparent',
             border: 'none',
@@ -483,95 +568,69 @@ export function CoverSurface({
         )}
       </div>
 
-      {/* Extra content — ProfileDropdown, ReferenceDropdown, etc. */}
+      {/* Profile / extra content — bottom, centered */}
       {children && (
-        <div className="col-span-12" style={{ marginTop: 4 }}>
+        <div className="col-span-12" style={{ display: 'flex', justifyContent: 'center' }}>
           {children}
         </div>
       )}
 
-      {/* Bottom-right: recents + greeting */}
-      <aside
-        className="col-span-12 md:col-start-8 md:col-span-5"
-        style={{
-          marginTop: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 18,
-          alignItems: 'flex-end',
-          textAlign: 'right',
-        }}
-      >
-        {visibleRecents.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
-              <div style={trackedCaps(9, SAND_400)}>Recent ({totalRecents})</div>
-              {onClearRecents && (
-                <button
-                  type="button"
-                  onClick={onClearRecents}
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 9,
-                    letterSpacing: '0.10em',
-                    textTransform: 'uppercase',
-                    color: SAND_500,
-                    background: 'transparent',
-                    border: 'none',
-                    padding: 0,
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    textDecorationColor: SAND_700,
-                    textUnderlineOffset: 3,
-                  }}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            {visibleRecents.map((r) => (
+      {/* Recents strip — below CTA, left-aligned */}
+      {visibleRecents.length > 0 && (
+        <div
+          className="col-span-12 md:col-span-8"
+          style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={trackedCaps(9, SAND_400)}>Recent ({totalRecents})</div>
+            {onClearRecents && (
               <button
-                key={r.id}
                 type="button"
-                onClick={onOpenRecent ? () => onOpenRecent(r.id) : undefined}
+                onClick={onClearRecents}
                 style={{
-                  fontFamily: 'var(--font-display)',
-                  fontStyle: 'italic',
-                  fontWeight: 400,
-                  fontSize: 14,
-                  color: SAND_200,
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 9,
+                  letterSpacing: '0.10em',
+                  textTransform: 'uppercase',
+                  color: SAND_500,
                   background: 'transparent',
                   border: 'none',
                   padding: 0,
-                  cursor: onOpenRecent ? 'pointer' : 'default',
-                  textAlign: 'right',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  textDecorationColor: SAND_700,
+                  textUnderlineOffset: 3,
                 }}
               >
-                — {r.title}
+                Clear
               </button>
-            ))}
-            {remainder > 0 && (
-              <span style={{ ...trackedCaps(9, SAND_500), marginTop: 2 }}>+ {remainder} more</span>
             )}
           </div>
-        )}
-
-        <div style={{ width: '30%', height: 1, backgroundColor: SAND_700 }} />
-
-        <div
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontStyle: 'italic',
-            fontWeight: 400,
-            fontSize: 14,
-            color: SAND_300,
-            maxWidth: '36ch',
-          }}
-        >
-          {greeting}
+          {visibleRecents.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={onOpenRecent ? () => onOpenRecent(r.id) : undefined}
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontStyle: 'italic',
+                fontWeight: 400,
+                fontSize: 13,
+                color: SAND_300,
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: onOpenRecent ? 'pointer' : 'default',
+              }}
+            >
+              {r.title}
+            </button>
+          ))}
+          {remainder > 0 && (
+            <span style={trackedCaps(9, SAND_500)}>+{remainder} more</span>
+          )}
         </div>
-
-      </aside>
+      )}
     </section>
   )
 }

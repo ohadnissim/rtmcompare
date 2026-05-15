@@ -12,7 +12,7 @@
  * Console Didone: ink panel, 2px corners, single gold CTA.
  */
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import ThemedConfirmDialog from './ThemedConfirmDialog'
 
 export interface AnnotationRecord {
@@ -26,6 +26,8 @@ export interface AnnotationRecord {
 }
 
 const ANNOTATION_STORE_KEY = 'rtm-custom-annotations'
+/** LOW-5: cap the custom annotation store — prevents unbounded localStorage growth. */
+const MAX_ENTRIES = 200
 /** MED-16: bump when AnnotationRecord shape changes incompatibly. */
 const ANNOTATION_SCHEMA_VERSION = 1
 
@@ -51,6 +53,8 @@ function saveAnnotation(record: AnnotationRecord): void {
     const idx = existing.findIndex(a => a.id === record.id)
     if (idx >= 0) existing[idx] = record
     else existing.unshift(record)
+    // LOW-5: enforce MAX_ENTRIES cap.
+    if (existing.length > MAX_ENTRIES) existing.length = MAX_ENTRIES
     window.localStorage.setItem(ANNOTATION_STORE_KEY, JSON.stringify(existing))
   } catch { /* silently fail */ }
 }
@@ -110,6 +114,9 @@ export function AnnotationEditor() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // LOW-4: clear the "Saved ✓" dismiss timer on unmount to prevent setState-after-unmount.
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (savedTimerRef.current != null) clearTimeout(savedTimerRef.current) }, [])
 
   const refresh = () => setAnnotations(getCustomAnnotations())
 
@@ -130,7 +137,8 @@ export function AnnotationEditor() {
     setBody('')
     setThreshold('')
     setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    if (savedTimerRef.current != null) clearTimeout(savedTimerRef.current)
+    savedTimerRef.current = setTimeout(() => setSaved(false), 2000)
   }
 
   const handleEdit = (a: AnnotationRecord) => {

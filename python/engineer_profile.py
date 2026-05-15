@@ -122,6 +122,12 @@ def _validate_profile_schema(data: dict, profile_id: str) -> bool:
     """
     import sys as _sys
 
+    # Chain profiles have no curve — they only carry chain_analysis.
+    # Skip the curve check for them; the chain_analysis eq_curve is
+    # validated separately in generate_chain_tips().
+    if data.get("profile_type") == "chain":
+        return True
+
     # curve: 31 bands, all values between -120 dB and +60 dB
     curve = data.get("curve", [])
     if not isinstance(curve, list) or len(curve) < 10:
@@ -433,7 +439,6 @@ def generate_tips(file_b_path, file_a_path, profile_id="", sr=None):
         y_a = np.stack([y_a, y_a])
     if sr_a != sr:
         # Resample A to B's SR so downstream comparisons stay aligned.
-        import librosa.core
         y_a = librosa.resample(y_a, orig_sr=sr_a, target_sr=sr)
     mono_a = librosa.to_mono(y_a)
 

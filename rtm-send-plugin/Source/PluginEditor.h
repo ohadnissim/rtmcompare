@@ -44,6 +44,8 @@ private:
     juce::TextEditor sessionInput;
 
     juce::Label bufferLabel;
+    juce::Label signalDotLabel;   // animated ● ● ● / · · · indicator
+    juce::Label sendCountLabel;   // "↑ N sends" badge
     juce::Slider bufferSlider;
 
     // Source picker. Triggered mode reveals Rec/Stop; ARA reveals
@@ -60,6 +62,22 @@ private:
     uint64_t lastRegionsRevision { 0 };
     std::vector<juce::String> lastRegionIds;
     void refreshRegionBox();
+
+    // Cached timer-state: only call setAlpha/setEnabled/setText when
+    // the value actually changes to avoid 4 Hz repaint storms that cause
+    // visible UI jitter in complex hosts (WaveLab, Nuendo).
+    struct TimerCache {
+        float  regionAlpha   { -1.f };
+        bool   trigVisible   { false };
+        bool   trigEnabled   { false };
+        float  bufAlpha      { -1.f };
+        bool   bufEnabled    { false };
+        bool   signalActive  { false };
+        int    sendCount     { -1 };
+        juce::String statusText;
+        juce::Colour statusColour { juce::Colours::transparentBlack };
+        juce::String pluginStatusText;
+    } timerCache;
 
     // One-line DAW-specific tip based on PluginHostType.
     juce::Label hostHintLabel;

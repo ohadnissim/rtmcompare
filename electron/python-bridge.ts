@@ -213,7 +213,8 @@ export async function analyzePython(
   fileB: string,
   onProgress: (msg: string) => void,
   fast: boolean = true,
-  profile: string = ''
+  profile: string = '',
+  chainProfile: string = ''
 ): Promise<any> {
   // Ensure deps are installed before running
   await ensureDeps(onProgress)
@@ -224,6 +225,7 @@ export async function analyzePython(
     const args = [scriptPath, fileA, fileB]
     if (fast) args.push('--fast')
     if (profile) args.push(`--profile=${profile}`)
+    if (chainProfile) args.push(`--chain-profile=${chainProfile}`)
 
     const proc = spawn(pythonCmd, args, {
       cwd: pythonDir,

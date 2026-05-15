@@ -9,15 +9,16 @@ A surface-by-surface reference. Read alongside `README.md`.
 The flagship surface. Two files in. Every difference between them out.
 
 - **Level-matched playback** — both files normalised to −18 LUFS integrated before comparison so a louder master can't fake "better."
-- **LUFS-I, true peak (dBTP), LRA, MONO** — the four delivery numbers, surfaced in the v5.2 instrument row at the top of every screen.
-- **Per-band masking** — Demucs AI stem separation reveals where vocals, drums, bass, and other are losing energy. Per-band, not just whole-mix.
+- **LUFS-I, true peak (dBTP), LRA, MONO** — the four delivery numbers, surfaced in the instrument row at the top of every screen.
+- **Per-band masking** — BS-RoFormer AI stem separation reveals where vocals, drums, bass, and other are losing energy. Per-band, not just whole-mix.
 - **Phase correlation over time** — full-track plot plus per-band phase ribbon. Catches phase issues that scalar correlation hides.
 - **Vectorscope** — XY mid/side scope with peak-hold. Read width and centre-energy at a glance.
 - **Streaming-normalisation preview** — Spotify, Apple, Amazon, Tidal, YouTube. See exactly how each platform will play your master.
 - **Inter-sample peak meter** — 4× oversampled true-peak detection (BS.1770-4). The Apply-and-bounce limiter steps internally to 16× polyphase Kaiser for sub-0.05 dB ceiling accuracy on the rendered master.
 - **AAC encode preview** — render through Apple's AAC encoder, A/B against the source.
-- **Engineer-profile matching** — Serban Ghenea, Chris Lord-Alge, your own (built with RTMprofile). Match-score plus concrete EQ-move recommendations.
+- **Engineer-profile matching** — Serban Ghenea, Chris Lord-Alge, your own (built with RTMprofile). Match-score plus concrete EQ-move recommendations, now driven by 3-band Hann-smoothed spectra so a tuned-kick fundamental at 50 Hz doesn't read as a broad-band imbalance.
 - **EQ-move export** — FabFilter Pro-Q text, CSV, JSON. Or apply-and-bounce a corrected master WAV in one click.
+- **Send to Plugin** — push EQ recommendations live into a hosted plugin in your DAW via RTMsend. Adjust the Amount fader to dial in how hard you apply the move.
 
 ## Single-File QC
 
@@ -68,11 +69,20 @@ ADM BWF native. Built for immersive mix supervisors.
 
 The "what should I change" surface.
 
-- **AI-generation detection per stem** — flags stems with high-confidence ML synthesis fingerprints.
-- **Mood, genre, section classifier** — for sync pitching, library tagging.
-- **Engineer-target curves** — match-score against the chosen profile.
-- **Concrete EQ moves** — frequency, gain, Q. Exportable.
+- **Engineer-target curves** — match-score against the chosen profile, driven by smoothed spectra. The Tonal Curve chart, Tonal Differences bars, EQ chips, and EQ moves all live in the same number-space — what you see is what the engine acts on.
+- **Concrete EQ moves** — frequency, gain, Q. Tip text reads "X dB hot — consider a Y dB cut" where Y is exactly half of X. Apply half, listen, decide whether to push further.
+- **Loudness tip** — fires when your master is off-target vs the engineer's cohort average. ±0.5 LU = low-priority, ±1.0 LU = noticeable in A/B, ±1.5 LU = ease the limiter.
 - **Apply-and-bounce** — one click, corrected WAV in your render folder.
+- **Mood, genre, section classifier** — for sync pitching, library tagging.
+
+## Breakdown Tab
+
+Element-by-element dissection. Starts with the most actionable view.
+
+- **Per-Element Breakdown** — KICK / SNARE / SUB / BASS / VOCALS / INSTRUMENTS / BRIGHTNESS level-matched against the reference. All 7 visible by default. Powered by BS-RoFormer 4-stem (SDR 9.66 on MUSDB18HQ — sum-back error ±0.2 dB).
+- **Masking Overlap** — where your elements are fighting each other in frequency.
+- **Transient Density and Structure** — attack shape, transient density, envelope comparisons.
+- **Tonal Issues** — surfaces when the engine finds tonal divergence worth calling out. Smoothed spectra only, so narrow resonances (a tuned kick, a key-rooted harmonic) don't register as phantom wideband cuts.
 
 ## A/B Player
 
@@ -96,7 +106,7 @@ Optional. For release QC, not engineer workflow.
 The visual surface. Documented separately in `.rtm-design/`.
 
 - **Two-row header** — presence row (wordmark, mode chips, `⋯`) and instrument row (LUFS-I, TP, LRA, MONO).
-- **Cover-state empty screen** — Didone wordmark, single drop frame, colophon at bottom.
+- **Cover-state empty screen** — Didone wordmark, single drop frame, colophon at bottom. Engineer-profile dropdown lives here — pick your reference before the analysis starts.
 - **Per-panel verdict** — Didone hero number at the top of each of the seven main analysis tabs.
 - **Single-gold rule** — gold appears on exactly one element per screen: the active delivery-target chip.
 - **Classic shell as fallback** — `localStorage['rtm-shell'] = 'v1'` returns to the v5.1.x markup byte-for-byte.
@@ -106,6 +116,6 @@ The visual surface. Documented separately in `.rtm-design/`.
 ## Companion Apps
 
 - **RTMprofile** — feed it 5+ of your finished masters; it learns your sound and saves a fingerprint that loads into RTMcompare's Match tab.
-- **RTMsend** — VST3 / AU plugin. One-button bridge from Wavelab, Logic, Pro Tools, Studio One into RTMcompare's Single, Compare-B, or Album surfaces. ARA-aware on hosts that support it.
+- **RTMsend** — VST3 / AU JUCE plugin that hosts any third-party EQ inside it. RTMcompare pushes its recommended moves directly into the live plugin in your DAW — bands appear as parameter moves on the hosted EQ, dial in the Amount fader to taste. 16 EQ profiles ship out of the box (FabFilter Pro-Q 4, Pro-Q 3, TBTECH Kirchhoff-EQ, bx_digital V3, bx_dynEQ V2, SSL 4000 E/G/J variants, Maag EQ4, elysia museq, SPL PQ, SPL Passeq Single, Lindell EQ825, Sontec MES432D9D, MixWave Pultec EQP-1S3, Ozone 12 Equalizer, MixWave DW Fearn VT-5). Unlisted plugins auto-detect. ARA-aware on Studio One, Cubase/Nuendo, Reaper, and Bitwig; falls back to a 30-second ring buffer on Wavelab Pro 13.
 
-Both apps share the v5.2 Console Didone aesthetic. The wordmark, palette, and typographic hierarchy carry across the suite.
+Both apps share the Console Didone aesthetic. The wordmark, palette, and typographic hierarchy carry across the suite.

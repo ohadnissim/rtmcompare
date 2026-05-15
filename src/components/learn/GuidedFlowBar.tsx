@@ -13,6 +13,7 @@ import ClassGradeBook from './ClassGradeBook'
 import BlindTestPanel from './BlindTestPanel'
 import EarTrainingPanel from './eartraining/EarTrainingPanel'
 import { StudentReportButton } from './StudentReportButton'
+import InfoTip from './InfoTip'
 
 interface Props {
   /** Called when a step pill is clicked — callers use this to navigate tabs */
@@ -71,6 +72,10 @@ export default function GuidedFlowBar({
   const currentStep = GUIDED_STEPS[step]
 
   const stepQuestion = React.useMemo(() => {
+    // In teacher mode, use the teacher-specific question if available
+    if (effectiveRole === 'teacher' && currentStep?.teacherQuestion) {
+      return currentStep.teacherQuestion
+    }
     if (currentStep?.id === 'dynamics' && assignment?.genre) {
       const genreLraGuide: Record<string, string> = {
         'Pop': '4–7 LU',
@@ -87,7 +92,7 @@ export default function GuidedFlowBar({
       return `What is the LRA and PLR of your mix? For ${assignment.genre}, a typical LRA is ${target}. Is your mix within that range, or has limiting eroded the punch?`
     }
     return currentStep?.question ?? ''
-  }, [currentStep, assignment?.genre])
+  }, [effectiveRole, currentStep, assignment?.genre])
 
   // BUG-06: sync step pill when user manually clicks a tab in AnalysisView
   // Only sync for tabs that map unambiguously to a single step (not 'overview'
@@ -259,6 +264,7 @@ export default function GuidedFlowBar({
       )}
 
       <div
+        data-tour-learn="guided-steps"
         style={{
           position: 'sticky',
           top: 92,
@@ -725,40 +731,52 @@ export default function GuidedFlowBar({
                   textTransform: 'uppercase',
                   color: 'var(--color-accent)',
                   marginBottom: 5,
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
               >
                 Step {step + 1} of {GUIDED_STEPS.length} — {currentStep.label}
+                <InfoTip
+                  label="Guided Steps"
+                  body="Nine structured listening tasks that build your ear from monitoring fundamentals to delivery specs. Complete each step at your own pace."
+                />
               </div>
               {currentStep.targetTab && (
-                <button
-                  onClick={() => onNavigate(currentStep.tabId)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    marginBottom: 8,
-                    padding: '3px 8px',
-                    border: '1px solid rgba(208,176,102,0.4)',
-                    borderRadius: '2px',
-                    fontSize: 10,
-                    color: 'var(--color-accent)',
-                    letterSpacing: '0.05em',
-                    background: 'rgba(208,176,102,0.08)',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    transition: 'background 0.15s, border-color 0.15s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(208,176,102,0.15)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(208,176,102,0.08)')}
-                >
-                  <span style={{ fontSize: 9 }}>▶</span>
-                  <span style={{ textTransform: 'uppercase', letterSpacing: '0.07em', opacity: 0.7 }}>
-                    Open:
-                  </span>
-                  <span style={{ fontWeight: 600 }}>
-                    {currentStep.targetTab}
-                  </span>
-                </button>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+                  <button
+                    data-tour-learn="navigate-chip"
+                    onClick={() => onNavigate(currentStep.tabId)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '3px 8px',
+                      border: '1px solid rgba(208,176,102,0.4)',
+                      borderRadius: '2px',
+                      fontSize: 10,
+                      color: 'var(--color-accent)',
+                      letterSpacing: '0.05em',
+                      background: 'rgba(208,176,102,0.08)',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'background 0.15s, border-color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(208,176,102,0.15)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(208,176,102,0.08)')}
+                  >
+                    <span style={{ fontSize: 9 }}>▶</span>
+                    <span style={{ textTransform: 'uppercase', letterSpacing: '0.07em', opacity: 0.7 }}>
+                      Open:
+                    </span>
+                    <span style={{ fontWeight: 600 }}>
+                      {currentStep.targetTab}
+                    </span>
+                  </button>
+                  <InfoTip
+                    label="Navigate Hint"
+                    body="Click this to jump to the app tab where you'll find the data for this step."
+                  />
+                </span>
               )}
               {/* BUG-08: show rubric metrics relevant to this step when an assignment is active.
                   FIX (NEW-02): was checking non-existent `rubricMetrics` property; now uses
@@ -958,6 +976,7 @@ export default function GuidedFlowBar({
         }}
         current={assignment ?? null}
         referenceFilePath={referenceFilePath ?? null}
+        currentStep={currentStep ?? undefined}
       />
 
       {/* Grade Book (teacher only) */}

@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { AnalysisResult, FileInfo } from '../types'
+import { AnalysisResult, FileInfo, ChainTips } from '../types'
 import MatchReferenceEQPanel, { Band } from './MatchReferenceEQPanel'
 import EngineerTipsPanel from './EngineerTipsPanel'
 import ReferenceMatchEQFromLibrary from './ReferenceMatchEQFromLibrary'
 import MasterAssistantPanel from './MasterAssistantPanel'
 
-type Mode = 'reference' | 'engineer' | 'hybrid' | 'library' | 'assistant'
+type Mode = 'reference' | 'engineer' | 'hybrid' | 'library' | 'assistant' | 'chain'
 
 interface Props {
  results: AnalysisResult
@@ -34,7 +34,8 @@ interface Props {
  */
 export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  const hasEngineer = !!results.engineer_tips
- const [mode, setMode] = useState<Mode>(hasEngineer ? 'reference' : 'reference')
+ const hasChain = !!results.chain_tips
+ const [mode, setMode] = useState<Mode>('reference')
  // Listen for the '✦ Assistant' header button so it can deep-link directly
  // to this mode without the user needing to click the mode picker.
  useEffect(() => {
@@ -109,6 +110,14 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  onClick={() => setMode('assistant')}
  label="Assistant"
  hint="One-click: compose gain → EQ → TP limiter → dither for a specific DSP target, preview live, render."
+ />
+ <ModePill
+ active={mode === 'chain'}
+ onClick={() => setMode('chain')}
+ label="⛓ Delta"
+ hint={hasChain
+ ? `Preview where this mix lands after ${results.chain_tips?.engineer || 'the loaded engineer'}'s mastering chain`
+ : "Select a Delta profile before analysis to see chain prediction"}
  />
  </div>
  </div>
@@ -189,6 +198,85 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  label={labelB}
  />
  )}
+
+ {mode === 'chain' && (
+ results.chain_tips
+   ? <ChainTipsPanel tips={results.chain_tips} />
+   : (
+     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+       <div className="text-2xl opacity-30">⛓</div>
+       <div className="text-sm font-medium" style={{ color: 'var(--color-text-dim)' }}>No delta data for this session</div>
+       <div className="text-xs max-w-xs" style={{ color: 'var(--color-text-muted)' }}>
+         Load a delta profile, select it in the top-right dropdown, then re-run the analysis.
+       </div>
+       {(window as any).electronAPI?.loadCustomProfile && (
+         <button
+           onClick={async () => {
+             try { await (window as any).electronAPI.loadCustomProfile() } catch {}
+           }}
+           className="text-[11px] px-4 py-2 mt-2 transition-colors"
+           style={{ backgroundColor: 'rgba(208,176,102,0.12)', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: '2px' }}
+         >
+           Load delta profile…
+         </button>
+       )}
+     </div>
+   )
+ )}
+ </div>
+ )
+}
+
+// ─── Chain Tips Panel ────────────────────────────────────────────────────────
+
+const FREQ_LABELS = ['20','25','31.5','40','50','63','80','100','125','160','200','250','315','400','500','630','800','1k','1.25k','1.6k','2k','2.5k','3.15k','4k','5k','6.3k','8k','10k','12.5k','16k','20k']
+
+function ChainTipsPanel({ tips }: { tips: ChainTips }) {
+ const w = 800, h = 200
+ const pad = { top: 10, bottom: 25, left: 5, right: 5 }
+ const gw = w - pad.left - pad.right
+ const gh = h - pad.top - pad.bottom
+
+ const allVals = [...tips.spectrum_file, ...tips.spectrum_after_chain].filter(v => v > -50)
+ const maxDb = Math.max(...allVals) + 2
+ const minDb = Math.min(...allVals) - 2
+
+ const toX = (i: number) => pad.left + (i / (tips.spectrum_file.length - 1)) * gw
+ const toY = (v: number) => pad.top + (1 - (v - minDb) / (maxDb - minDb)) * gh
+ const makePath = (data: number[]) => data.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ')
+ const labelIndices = [0, 4, 8, 12, 16, 20, 24, 28, 30]
+
+ return (
+ <div className="space-y-4">
+ <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-3" style={{ borderRadius: '2px' }}>
+ <div className="flex items-center justify-between">
+ <div className="flex items-center gap-2">
+ <span className="text-xs font-medium text-dark-300">Chain Prediction</span>
+ <span className="text-[10px] text-dark-500">— where this mix lands after {tips.engineer}'s mastering chain</span>
+ </div>
+ <div className="flex items-center gap-3 text-[9px]">
+ <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#6b8cbb' }} /> This mix</span>
+ <span className="flex items-center gap-1"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: '#d4a843' }} /> After chain</span>
+ </div>
+ </div>
+ <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: '180px' }} preserveAspectRatio="none">
+ {[0, -5, -10, -15, -20].map(db => (
+ <g key={db}>
+ <line x1={pad.left} y1={toY(db)} x2={w - pad.right} y2={toY(db)} stroke="#2a2927" strokeWidth="0.5" />
+ <text x={pad.left + 2} y={toY(db) - 3} fontSize="7" fill="#4a4845">{db} dB</text>
+ </g>
+ ))}
+ <path d={makePath(tips.spectrum_after_chain)} fill="none" stroke="#d4a843" strokeWidth="2" opacity="0.85" />
+ <path d={makePath(tips.spectrum_file)} fill="none" stroke="#6b8cbb" strokeWidth="2" />
+ {labelIndices.map(i => (
+ i < FREQ_LABELS.length && <text key={i} x={toX(i)} y={h - 3} textAnchor="middle" fontSize="7" fill="#57534e">{FREQ_LABELS[i]}</text>
+ ))}
+ </svg>
+ <div className="text-[10px] text-dark-500">
+ Delta from {tips.pair_count} mix/master pair{tips.pair_count === 1 ? '' : 's'} — gold = predicted master position (blue + chain delta).
+ Max shift: {Math.max(...tips.eq_curve.filter((v): v is number => v !== null).map(Math.abs)).toFixed(1)} dB.
+ </div>
+ </div>
  </div>
  )
 }

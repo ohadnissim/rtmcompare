@@ -27,7 +27,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="7.6.2"
+VERSION="7.6.5"
 DEV_ID_APP="Developer ID Application: Ohad Nissim (3RL52RHGT3)"
 NOTARY_PROFILE="rtm-notary"
 OUT_DIR="${PROJECT}/release"
@@ -63,6 +63,15 @@ echo "==> Checking sources (arch: ${ARCH_SUFFIX})"
 for path in "$RTMCOMPARE_APP" "$RTMPROFILE_APP" "$PLUGIN_VST3" "$PLUGIN_AU"; do
   [[ -e "$path" ]] || { echo "MISSING: $path" >&2; exit 1; }
 done
+
+# ── Sign plugins ──────────────────────────────────────────────────────────────
+# The JUCE make build does not code-sign; sign here before staging so that
+# every bundle in the DMG satisfies Apple notarization requirements.
+echo "==> Signing RTM Send plugins"
+codesign --force --deep --options runtime --timestamp \
+  --sign "$DEV_ID_APP" "$PLUGIN_VST3"
+codesign --force --deep --options runtime --timestamp \
+  --sign "$DEV_ID_APP" "$PLUGIN_AU"
 
 mkdir -p "$OUT_DIR"
 rm -rf "$STAGE" "$DMG_OUT"

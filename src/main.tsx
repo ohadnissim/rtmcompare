@@ -16,6 +16,28 @@ import { PluginDropProvider } from './PluginDropContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import './styles.css'
 
+// Dev-only render-loop detector. "Maximum update depth exceeded" is a React
+// warning (not an Error throw), so it bypasses the ErrorBoundary. Without a
+// component stack we can't tell which component is looping. This intercept
+// captures and logs the full stack the first time the error fires so the next
+// occurrence shows exactly where to look.
+if (import.meta.env.DEV) {
+ const _origError = console.error.bind(console)
+ let loopReported = false
+ console.error = (...args: unknown[]) => {
+   const msg = typeof args[0] === 'string' ? args[0] : ''
+   if (!loopReported && msg.includes('Maximum update depth exceeded')) {
+     loopReported = true
+     _origError('[RTM render-loop] Component stack follows ↓')
+     _origError(...args)
+     // Print a clean stack trace so we can trace back to the component.
+     try { throw new Error('[RTM render-loop] call stack') } catch (e) { _origError(e) }
+   } else {
+     _origError(...args)
+   }
+ }
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
  <React.StrictMode>
  {/* Top-level error boundary — without this, any throw inside the

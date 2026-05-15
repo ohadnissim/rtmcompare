@@ -32,6 +32,23 @@ interface Props {
  * the Python renderer applies the right normalisation gain. */
  lufsA?: number | null
  lufsB?: number | null
+ /** Delivery surface — filters which platforms are shown.
+  * streaming = music only; broadcast = R128/A85; post/netflix = those +
+  * broadcast; full = everything (default). */
+ surface?: 'streaming' | 'full' | 'broadcast' | 'post' | 'netflix'
+}
+
+// Platform names that belong to each surface grouping.
+const BROADCAST_PLATFORMS = new Set(['EBU R128', 'ATSC A/85', 'Netflix', 'Broadcast'])
+const STREAMING_PLATFORMS = new Set(['Spotify', 'Spotify Loud', 'Apple Music', 'Apple', 'YouTube', 'YouTube Music', 'Tidal', 'Amazon Music', 'Amazon Music HD', 'Amazon', 'Deezer', 'SoundCloud', 'Pandora'])
+
+function filterRows(rows: Row[], surface: Props['surface']): Row[] {
+ if (!surface || surface === 'full') return rows
+ if (surface === 'streaming') return rows.filter(r => STREAMING_PLATFORMS.has(r.name) || !BROADCAST_PLATFORMS.has(r.name))
+ if (surface === 'broadcast') return rows.filter(r => BROADCAST_PLATFORMS.has(r.name))
+ if (surface === 'netflix') return rows.filter(r => r.name === 'Netflix' || BROADCAST_PLATFORMS.has(r.name))
+ if (surface === 'post') return rows // post shows everything
+ return rows
 }
 
 /**
@@ -55,8 +72,10 @@ const DSP_ID_BY_NAME: Record<string, string> = {
  'Amazon': 'amazon',
 }
 
-export default function StreamingPreview({ previewA, previewB, labelA, labelB, soloA, fileA, fileB, lufsA, lufsB }: Props) {
- const twoCol = !soloA && previewB && previewB.length > 0
+export default function StreamingPreview({ previewA, previewB, labelA, labelB, soloA, fileA, fileB, lufsA, lufsB, surface }: Props) {
+ const filteredA = filterRows(previewA, surface)
+ const filteredB = filterRows(previewB, surface)
+ const twoCol = !soloA && filteredB && filteredB.length > 0
  const audition = useAudition()
  const eq = useEQ()
  const twin = useSoundCheckTwin(eq.enabled ? eq.proposalKey : 0)
@@ -120,8 +139,8 @@ export default function StreamingPreview({ previewA, previewB, labelA, labelB, s
  <span className={`${twoCol ? 'w-48' : 'w-48'} text-right`}>{labelA}</span>
  {twoCol && <span className="w-48 text-right">{labelB}</span>}
  </div>
- {previewA.map((rowA, i) => {
- const rowB = twoCol ? previewB[i] : null
+ {filteredA.map((rowA, i) => {
+ const rowB = twoCol ? filteredB[i] : null
  return (
  <div key={rowA.name} className="flex items-center px-3 py-2 text-[11px] border-b border-dark-700/20 last:border-0">
  <span className="flex-1 text-dark-200 font-medium">{rowA.name}</span>

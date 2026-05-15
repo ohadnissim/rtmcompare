@@ -190,6 +190,10 @@
     letter-spacing: 0.005em;
     line-height: 1.55;
     transition: background-color 0.3s, color 0.3s;
+    /* Prevent horizontal scroll that exposes blank dark canvas to the left.
+       Any fixed/absolute element wider than the viewport was creating a
+       scrollable region; clipping at body level eliminates it. */
+    overflow-x: hidden;
   }
 
   h1, h2 {

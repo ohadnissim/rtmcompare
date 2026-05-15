@@ -17,28 +17,16 @@ import React from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import type { LearnRole } from '../../types'
 
-interface Props {
-  /** Disable the toggle when no analysis results are loaded yet. */
-  disabled?: boolean
-}
-
-export default function LearnModeToggle({ disabled = false }: Props) {
+export default function LearnModeToggle() {
   const { enabled, role, toggleLearnMode, setRole } = useLearnMode()
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {/* Main toggle badge — disabled until analysis results are present */}
       <button
         type="button"
-        onClick={disabled ? undefined : toggleLearnMode}
-        disabled={disabled}
+        onClick={toggleLearnMode}
         aria-pressed={enabled}
-        aria-label={
-          disabled
-            ? 'Learn Mode — run analysis first'
-            : enabled ? 'Disable Learn Mode' : 'Enable Learn Mode'
-        }
-        title={disabled ? 'Run analysis first to enable Learn Mode' : undefined}
+        aria-label={enabled ? 'Disable Learn Mode' : 'Enable Learn Mode'}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -54,8 +42,7 @@ export default function LearnModeToggle({ disabled = false }: Props) {
           fontSize: 10,
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
-          cursor: disabled ? 'default' : 'pointer',
-          opacity: disabled ? 0.4 : 1,
+          cursor: 'pointer',
           transition: 'border-color 150ms ease, color 150ms ease, background-color 150ms ease',
           whiteSpace: 'nowrap',
         }}

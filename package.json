@@ -1,10 +1,10 @@
 {
   "name": "rtm",
-  "version": "7.6.2",
+  "version": "7.6.5",
   "description": "RTMcompare — Industry-standard A/B compare · Single-file QC · Album batch · Atmos",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
+    "dev": "concurrently -k \"NODE_OPTIONS=--max-old-space-size=4096 vite\" \"tsc -p tsconfig.electron.json -w\" \"sleep 4 && electron .\"",
     "build": "python3 scripts/generate_specs.py && tsc -p tsconfig.electron.json && vite build",
     "pack": "node -e \"const fs=require('fs');if(!fs.existsSync('python-bundle/python')){console.error('ERROR: python-bundle/python missing (arm64 bundle).');process.exit(1);}if(!fs.existsSync('python-bundle-intel/python')){console.error('ERROR: python-bundle-intel/python missing (Intel bundle). Run scripts/setup-python-bundle-intel.sh or ask the release team.');process.exit(1);}\" && npm run build && electron-builder --mac",
     "pack:win": "node -e \"const fs=require('fs');if(!fs.existsSync('python-bundle-win/python')){console.error('ERROR: python-bundle-win/python missing. See python-bundle-win/README.txt for setup instructions.');process.exit(1);}\" && npm run build && electron-builder --win --publish=never",

@@ -28,10 +28,32 @@ const DEFAULT_UPLOAD_STEPS: TourStep[] = [
  {
  selector: '[data-tour="dropzone"]',
  placement: 'bottom',
- // 5.7.2 copy:
  title: 'Drop two tracks here',
- // 5.7.2 copy:
  body: 'Left side, the sound you want to chase. Right side, the mix or master you\'re working on. WAV, FLAC, MP3, AIFF, ADM BWF. 16/24/32-bit, up to 192 kHz.',
+ },
+ {
+ selector: '[data-tour="overflow-menu"]',
+ placement: 'bottom',
+ title: 'Settings & your name',
+ body: 'Hit ⋯ to set your engineer name (it shows up on every certificate), toggle Learn Mode, switch themes, and control zoom. Your name is saved locally.',
+ },
+ {
+ selector: '[data-tour="surface-picker"]',
+ placement: 'center',
+ title: 'Six views, one session',
+ body: 'After analysis, tabs give you Overview, Mix Breakdown, Stereo & Spectrum, EQ Match, Mastering Delta, and QC. Switch freely — the comparison stays live.',
+ },
+ {
+ selector: '[data-tour-target="player"]',
+ placement: 'center',
+ title: 'Level-matched A/B playback',
+ body: 'Hit Space to flip between A and B at matched loudness — no volume bias. Codec previews (AAC, Opus, HE-AAC) let you hear how streaming will colour your master before you commit.',
+ },
+ {
+ selector: '[data-tour-learn="bar"]',
+ placement: 'center',
+ title: 'Learn Mode for classrooms',
+ body: 'Turn on Learn Mode (⋯ menu) to get guided curriculum steps, ear training, and assignment rubrics. Teachers get a grade book and Canvas LMS export. Students get a practice report PDF.',
  },
 ]
 
@@ -187,7 +209,7 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
  <div className="text-left"><Wordmark size="lg" /></div>
  {/* 5.7.2 copy: */}
  <h2 id="welcome-modal-title" className="mt-4 text-left" style={{ fontSize: '18px', lineHeight: 1.4, color: 'var(--color-text-primary)', fontWeight: 400 }}>
- Mastering QC, level-matched.
+ QC, compare, deliver.
  </h2>
  {/* 5.7.2 copy: */}
  <p className="mt-3 text-left text-sm leading-relaxed" style={{ color: 'var(--color-sand-300)' }}>

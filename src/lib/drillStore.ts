@@ -95,7 +95,12 @@ export function summarizeDrill(drillId: string, studentId?: string): {
   cumulativeGrade?: string
 } {
   const attempts = getAttemptsForDrill(drillId, studentId)
-    .sort((a, b) => new Date(a.attemptedAt).getTime() - new Date(b.attemptedAt).getTime())
+    // LOW-2: guard invalid date strings — NaN from a bad ISO string sorts unpredictably.
+    .sort((a, b) => {
+      const ta = new Date(a.attemptedAt).getTime()
+      const tb = new Date(b.attemptedAt).getTime()
+      return (isNaN(ta) ? 0 : ta) - (isNaN(tb) ? 0 : tb)
+    })
   const scores = attempts.map(a => a.score)
   const recentScores = scores.slice(-10)
   return {

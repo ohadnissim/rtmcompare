@@ -127,6 +127,19 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     bufferLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(bufferLabel);
 
+    // Signal-presence dots: "● ● ●" gold when audio is flowing, "· · ·" dim when idle.
+    signalDotLabel.setText("· · ·", juce::dontSendNotification);
+    signalDotLabel.setFont(juce::Font(9.0f));
+    signalDotLabel.setColour(juce::Label::textColourId, LF::kSandDim);
+    signalDotLabel.setJustificationType(juce::Justification::centredRight);
+    addAndMakeVisible(signalDotLabel);
+
+    // Send-count badge: shown after first successful send.
+    sendCountLabel.setFont(juce::Font(10.0f));
+    sendCountLabel.setColour(juce::Label::textColourId, LF::kSandMuted);
+    sendCountLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(sendCountLabel);
+
     sourceLabel.setText("Source", juce::dontSendNotification);
     sourceLabel.setFont(juce::Font(9.0f).withExtraKerningFactor(0.15f));
     sourceLabel.setColour(juce::Label::textColourId, LF::kSandDim);
@@ -320,7 +333,12 @@ void RtmSendAudioProcessorEditor::resized()
     triggerButton.setBounds(r.removeFromTop(24));
     r.removeFromTop(10);
 
-    bufferLabel.setBounds(r.removeFromTop(14));
+    {
+        auto bufRow = r.removeFromTop(14);
+        const int dotW = 40;
+        signalDotLabel.setBounds(bufRow.removeFromRight(dotW));
+        bufferLabel.setBounds(bufRow);
+    }
     bufferSlider.setBounds(r.removeFromTop(24));
     r.removeFromTop(12);
 
@@ -353,25 +371,97 @@ void RtmSendAudioProcessorEditor::resized()
     sendBatchButton.setBounds(buttonRow);
     r.removeFromTop(10);
     statusLabel.setBounds(r.removeFromTop(16));
+    sendCountLabel.setBounds(r.removeFromTop(14));
+}
+
+// Helper: only call setText if the text actually changed.
+// juce::Label::setText() always calls repaint() even for the same string,
+// causing unnecessary redraws at 4 Hz that manifest as UI jitter in
+// complex hosts (WaveLab, Nuendo). Guard every call in timerCallback.
+static void setTextIfChanged(juce::Label& label, const juce::String& text)
+{
+    if (label.getText() != text)
+        label.setText(text, juce::dontSendNotification);
+}
+static void setColourIfChanged(juce::Label& label, int colourId, juce::Colour c)
+{
+    if (label.findColour(colourId) != c)
+        label.setColour(colourId, c);
+}
+static void setAlphaIfChanged(juce::Component& comp, float alpha)
+{
+    if (!juce::approximatelyEqual(comp.getAlpha(), alpha))
+        comp.setAlpha(alpha);
+}
+static void setEnabledIfChanged(juce::Component& comp, bool enabled)
+{
+    if (comp.isEnabled() != enabled)
+        comp.setEnabled(enabled);
+}
+static void setVisibleIfChanged(juce::Component& comp, bool visible)
+{
+    if (comp.isVisible() != visible)
+        comp.setVisible(visible);
 }
 
 void RtmSendAudioProcessorEditor::timerCallback()
 {
-    // Show "(saved)" to confirm that the ring length persists across DAW sessions
-    // via getStateInformation / setStateInformation.
-    bufferLabel.setText("Buffer  " + juce::String(static_cast<int>(processor.getBufferSeconds()))
-                        + " s  (saved)", juce::dontSendNotification);
-    const auto s = processor.getLastStatus();
-    if (s.isNotEmpty()) statusLabel.setText(s, juce::dontSendNotification);
+    // Buffer label — only changes when the user drags the slider, so
+    // usually a no-op. Guard it anyway to avoid the unconditional repaint.
+    setTextIfChanged(bufferLabel,
+        "Buffer  " + juce::String(static_cast<int>(processor.getBufferSeconds()))
+        + " s  (saved)");
 
-    // Live scan-progress feedback: while the scan thread is running the
-    // button reads "Scanning..." — show the current discovered count in the
-    // plugin status label so the user knows it's making progress.
+    const auto s = processor.getLastStatus();
+    if (s.isNotEmpty())
+        setTextIfChanged(statusLabel, s);
+
+    // Signal-presence indicator: two states, guard both text + colour.
+    const bool hasAudio = processor.hasRecentAudio();
+    if (hasAudio != timerCache.signalActive)
+    {
+        timerCache.signalActive = hasAudio;
+        if (hasAudio)
+        {
+            signalDotLabel.setText("\xe2\x97\x8f \xe2\x97\x8f \xe2\x97\x8f", juce::dontSendNotification);  // "● ● ●"
+            signalDotLabel.setColour(juce::Label::textColourId, LF::kGold);
+        }
+        else
+        {
+            signalDotLabel.setText("\xc2\xb7 \xc2\xb7 \xc2\xb7", juce::dontSendNotification);  // "· · ·"
+            signalDotLabel.setColour(juce::Label::textColourId, LF::kSandDim);
+        }
+    }
+
+    // Send-count badge: only rewrite when the count changes.
+    const int cnt = processor.sendCounter.load(std::memory_order_relaxed);
+    if (cnt != timerCache.sendCount)
+    {
+        timerCache.sendCount = cnt;
+        if (cnt > 0)
+            sendCountLabel.setText(juce::String("\xe2\x86\x91 ") + juce::String(cnt)
+                                   + (cnt == 1 ? juce::String(" send") : juce::String(" sends")),
+                                   juce::dontSendNotification);
+        else
+            sendCountLabel.setText({}, juce::dontSendNotification);
+    }
+
+    // Plugin status label: guarded to avoid 4 Hz repaints while a plugin is loaded.
     if (pluginScanButton.getButtonText().startsWith("Scanning"))
     {
         const int found = processor.getKnownPluginList().getNumTypes();
-        pluginStatusLabel.setText("Scanning...  " + juce::String(found) + " found",
-                                  juce::dontSendNotification);
+        setTextIfChanged(pluginStatusLabel, "Scanning...  " + juce::String(found) + " found");
+    }
+    else if (processor.isHostedPluginPresent())
+    {
+        const int rpcPort = processor.getRpcPort();
+        auto pluginName = processor.getHostedPluginName();
+        if (rpcPort > 0)
+        {
+            const auto txt = "Hosting: " + pluginName + "  \xc2\xb7  RPC :" + juce::String(rpcPort);
+            setTextIfChanged(pluginStatusLabel, txt);
+            setColourIfChanged(pluginStatusLabel, juce::Label::textColourId, LF::kSandMuted);
+        }
     }
 
     const auto src = processor.getSource();
@@ -380,27 +470,30 @@ void RtmSendAudioProcessorEditor::timerCallback()
     const bool loopMode      = src == RtmSendAudioProcessor::Source::LoopRegion;
     const bool araMode       = src == RtmSendAudioProcessor::Source::AraRegion;
 
-    triggerButton.setVisible(triggeredMode);
-    triggerButton.setEnabled(triggeredMode);
-    triggerButton.setButtonText(processor.isTriggeredCapturing() ? "STOP capture" : "REC region");
+    // Guard all alpha / enabled / visible changes — JUCE calls repaint()
+    // even when the new value matches the old one for some of these.
+    setVisibleIfChanged(triggerButton, triggeredMode);
+    setEnabledIfChanged(triggerButton, triggeredMode);
+    // Button text changes only when capturing state flips, not every tick.
+    const bool capturing = processor.isTriggeredCapturing();
+    const auto trigText = capturing ? juce::String("STOP capture") : juce::String("REC region");
+    if (triggerButton.getButtonText() != trigText)
+        triggerButton.setButtonText(trigText);
 
-    // Dim but keep clickable - a pick flips Source to ARA.
-    regionBox.setAlpha(araMode ? 1.0f : 0.65f);
-    regionLabel.setAlpha(araMode ? 1.0f : 0.65f);
+    const float regionAlpha = araMode ? 1.0f : 0.65f;
+    setAlphaIfChanged(regionBox,   regionAlpha);
+    setAlphaIfChanged(regionLabel, regionAlpha);
 
-    bufferSlider.setEnabled(ringMode);
-    bufferSlider.setAlpha(ringMode ? 1.0f : 0.35f);
-    bufferLabel.setAlpha(ringMode ? 1.0f : 0.35f);
+    setEnabledIfChanged(bufferSlider, ringMode);
+    const float bufAlpha = ringMode ? 1.0f : 0.35f;
+    setAlphaIfChanged(bufferSlider, bufAlpha);
+    setAlphaIfChanged(bufferLabel,  bufAlpha);
 
     // Loop mode but no loop points yet - tell the user.
     if (loopMode && !processor.hostHasLoopPoints())
     {
-        // 5.2.4: was juce::Colour(197, 165, 90) - use kGold directly.
-        // This is the ONE contextual gold use allowed: a status warning
-        // on the statusLabel, which is off the primary button path.
-        statusLabel.setColour(juce::Label::textColourId, LF::kGold);
-        statusLabel.setText("Set loop points in the DAW + play across them once.",
-                            juce::dontSendNotification);
+        setColourIfChanged(statusLabel, juce::Label::textColourId, LF::kGold);
+        setTextIfChanged(statusLabel, "Set loop points in the DAW + play across them once.");
     }
 
     // Rebuild the combo only on an actual revision bump.
@@ -415,10 +508,8 @@ void RtmSendAudioProcessorEditor::timerCallback()
         // ARA picked but the host hasn't published any regions yet.
         if (araMode && model->empty())
         {
-            // 5.2.4: juce::Colour(141,134,123) == kSandMuted. Use the constant.
-            statusLabel.setColour(juce::Label::textColourId, LF::kSandMuted);
-            statusLabel.setText("No ARA regions yet - open a montage with clips in the host.",
-                                juce::dontSendNotification);
+            setColourIfChanged(statusLabel, juce::Label::textColourId, LF::kSandMuted);
+            setTextIfChanged(statusLabel, "No ARA regions yet - open a montage with clips in the host.");
         }
     }
 }
@@ -511,14 +602,14 @@ juce::String RtmSendAudioProcessorEditor::buildHostHint() const
         suffix = " · Send-to-Plugin: VST3-only.";
 
     juce::PluginHostType h;
-    if (h.isLogic())                 return "Logic Pro: any Source works. ARA arrives in v4.0.1." + suffix;
+    if (h.isLogic())                 return "Logic Pro 11+: ARA works via VST3 - Region list shows clips on the insert track." + suffix;
     if (h.isProTools())              return "Pro Tools: use Last N seconds or Triggered (AAX, no ARA)." + suffix;
     if (h.isAbletonLive())           return "Ableton Live: use Last N seconds or Triggered (no ARA)." + suffix;
-    if (h.isCubase() || h.isNuendo())return "Cubase / Nuendo: ARA works - pick a region below." + suffix;
+    if (h.isCubase() || h.isNuendo())return "Cubase / Nuendo: ARA works - pick an audio event below." + suffix;
     if (h.isStudioOne())             return "Studio One: ARA works - pick an event below." + suffix;
     if (h.isReaper())                return "REAPER 7+: ARA works - pick a media item below." + suffix;
     if (h.isBitwigStudio())          return "Bitwig: use Last N seconds or Triggered (no ARA)." + suffix;
-    if (h.isWavelab())               return "Wavelab: pick a clip from the Region list below." + suffix;
+    if (h.isWavelab())               return "Wavelab: pick a montage clip (Region) or use Between Markers for CD-track boundaries." + suffix;
     if (h.isGarageBand())            return "GarageBand: Last N seconds or Triggered (limited host)." + suffix;
     if (h.isMainStage())             return "MainStage: Last N seconds or Triggered (live use)." + suffix;
     return "Pick a Source below - ARA region if your host publishes clips." + suffix;

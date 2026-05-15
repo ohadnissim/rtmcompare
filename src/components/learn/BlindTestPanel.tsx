@@ -10,6 +10,7 @@ import React from 'react'
 import { useLearnMode } from '../../context/LearnModeContext'
 import type { BlindTestAnswer, BlindTestPredictions, EarTrainingAnswers } from '../../types'
 import ABPlayer from '../ABPlayer'
+import InfoTip from './InfoTip'
 
 interface Props {
   onClose: () => void
@@ -43,6 +44,16 @@ const DIMENSIONS: DimensionConfig[] = [
 
 function truncate(name: string, maxLen = 18): string {
   return name.length > maxLen ? name.slice(0, maxLen - 1) + '…' : name
+}
+
+const DIMENSION_TIPS: Record<string, string> = {
+  loudness:     'Integrated loudness (LUFS-I) — the psychoacoustic average level across the whole track. Streaming platforms normalize to −14 LUFS, so the louder-sounding file may actually be turned down on release.',
+  tonal_low:    'Low-frequency energy below ~250 Hz. Excess here can mask kick and bass clarity; too little leaves the mix thin on consumer speakers.',
+  tonal_bright: 'High-frequency energy above ~8 kHz. Brightness adds air and clarity but too much causes listener fatigue; too little sounds dull or "lo-fi".',
+  stereo_width: 'The spread of information between left and right channels. Wide mixes translate well on headphones but can collapse to mono on phones or club systems.',
+  dynamics:     'Loudness Range (LRA) — how much the level varies over time. Heavy limiting compresses LRA to 3–5 LU; gentle mastering leaves 8–14 LU of natural dynamic breath.',
+  translation:  'Mono compatibility: how much level or tonality is lost when the stereo mix is summed to mono. Poor mono compat hurts phone listening and club playback.',
+  overall:      'Your holistic preference for one file over the other, independent of any single dimension. This is the most important ear training — trusting your overall impression.',
 }
 
 // ─── Meter comparison helpers ─────────────────────────────────────────────────
@@ -185,8 +196,21 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   const resetPendingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(() => () => { if (resetPendingTimer.current) clearTimeout(resetPendingTimer.current) }, [])
 
-  const labelA = truncate(fileAName)
-  const labelB = truncate(fileBName)
+  // Blind test — never show the filename. Labels are always plain "A" and "B".
+  // fileAName/fileBName are only used for the ABPlayer's internal `name` prop.
+  const labelA = 'A'
+  const labelB = 'B'
+
+  // Shuffle once per session so the student can't assume "A = Reference".
+  // swapped=true means physical fileA is presented as button B and vice versa.
+  // Stable across re-renders via useState initialiser (never re-rolls mid-session).
+  const [swapped] = React.useState<boolean>(() => Math.random() < 0.5)
+  const playerFileA = swapped
+    ? { path: fileBPath ?? '', name: 'A' }
+    : { path: fileAPath ?? '', name: 'A' }
+  const playerFileB = swapped
+    ? { path: fileAPath ?? '', name: 'B' }
+    : { path: fileBPath ?? '', name: 'B' }
 
   const allAnswered = DIMENSIONS.every(d => answers[d.dimension] != null)
 
@@ -346,6 +370,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
   return (
     <div
       data-blind-test-open="true"
+      data-tour-learn="blind-test"
       style={{
         position: 'fixed',
         inset: 0,
@@ -373,9 +398,15 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                 textTransform: 'uppercase',
                 color: 'rgba(208,176,102,0.9)',
                 marginBottom: 6,
+                display: 'flex',
+                alignItems: 'center',
               }}
             >
               BLIND TEST — Trust Your Ears First
+              <InfoTip
+                label="Blind A/B Test"
+                body="Lock in your prediction before the meters are revealed. Develops unbiased listening — the most valuable skill in mastering."
+              />
             </div>
             <div
               style={{
@@ -425,8 +456,8 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
             {/* Real ABPlayer — continuous playback, waveform, gain-aligned */}
             {fileAPath && fileBPath && (
               <ABPlayer
-                fileA={{ path: fileAPath, name: labelA }}
-                fileB={{ path: fileBPath, name: labelB }}
+                fileA={playerFileA}
+                fileB={playerFileB}
                 gainAppliedDb={analysisResult?.gain_applied_db ?? 0}
               />
             )}
@@ -448,9 +479,14 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       textTransform: 'uppercase',
                       color: 'rgba(208,176,102,0.7)',
                       marginBottom: 6,
+                      display: 'flex',
+                      alignItems: 'center',
                     }}
                   >
                     {label}
+                    {DIMENSION_TIPS[dimension] && (
+                      <InfoTip label={label} body={DIMENSION_TIPS[dimension]} />
+                    )}
                   </div>
                   <p
                     style={{
@@ -547,9 +583,15 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                     textTransform: 'uppercase',
                     color: 'rgba(208,176,102,0.7)',
                     marginBottom: 8,
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
                   Frequency Regions
+                  <InfoTip
+                    label="Frequency Region"
+                    body="Identifies which part of the spectrum is most prominent. Training this skill lets you name EQ problems by ear before reaching for an analyzer."
+                  />
                 </div>
                 <p style={{ fontSize: 13, color: 'rgba(220,215,205,0.9)', margin: '0 0 12px', lineHeight: 1.5 }}>
                   Which frequency regions stand out most in File B compared to the reference? (select all that apply)
@@ -671,9 +713,15 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                     textTransform: 'uppercase',
                     color: 'rgba(208,176,102,0.7)',
                     marginBottom: 8,
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
                   Reverb Type
+                  <InfoTip
+                    label="Reverb Type"
+                    body="Plate sounds metallic and dense; hall sounds spacious and diffuse; room sounds intimate. Identifying reverb character by ear is key for matching reference productions."
+                  />
                 </div>
                 <p style={{ fontSize: 13, color: 'rgba(220,215,205,0.9)', margin: '0 0 12px', lineHeight: 1.5 }}>
                   What type of reverb is most prominent on the lead element?
@@ -731,9 +779,15 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                     textTransform: 'uppercase',
                     color: 'rgba(208,176,102,0.7)',
                     marginBottom: 8,
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
                   Mono Prediction
+                  <InfoTip
+                    label="Mono Prediction"
+                    body="Phase cancellation when stereo is summed to mono can erase sub bass, thin the midrange, or collapse the stereo image entirely. Predicting this trains your ear to hear phase before the vectorscope tells you."
+                  />
                 </div>
                 <p style={{ fontSize: 13, color: 'rgba(220,215,205,0.9)', margin: '0 0 12px', lineHeight: 1.5 }}>
                   When summed to mono, what do you predict will be most affected?
@@ -886,6 +940,22 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
             {/* Comparison table */}
             {blindTest?.revealed && (
               <>
+                {/* Shuffle reveal — show which physical file was behind A vs B */}
+                <div style={{
+                  padding: '10px 14px',
+                  marginBottom: 12,
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(208,176,102,0.07)',
+                  border: '1px solid rgba(208,176,102,0.25)',
+                  fontSize: 12,
+                  color: 'var(--color-text-primary)',
+                  display: 'flex',
+                  gap: 20,
+                }}>
+                  <span style={{ color: 'rgba(168,161,150,0.7)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', alignSelf: 'center' }}>Files were</span>
+                  <span><strong style={{ color: 'var(--color-gold)' }}>A</strong> = {swapped ? fileAName || 'Modified' : fileAName || 'Reference'}</span>
+                  <span><strong style={{ color: 'var(--color-gold)' }}>B</strong> = {swapped ? fileBName || 'Reference' : fileBName || 'Modified'}</span>
+                </div>
                 {/* Column headers */}
                 <div
                   style={{
@@ -1011,9 +1081,15 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                       textTransform: 'uppercase',
                       color: 'rgba(208,176,102,0.6)',
                       marginBottom: 4,
+                      display: 'flex',
+                      alignItems: 'center',
                     }}
                   >
                     Calibration Score
+                    <InfoTip
+                      label="Calibration Score"
+                      body="Tracks how often your ears align with the objective measurements. 70%+ is excellent. Berklee ear training studies show 8 weeks of daily practice reaches 85% accuracy."
+                    />
                   </div>
                   <div style={{ fontSize: 13, color: 'rgba(220,215,205,0.85)' }}>
                     You correctly predicted {correctCount} of {measurableTotal} measurable dimensions.
