@@ -174,7 +174,7 @@ function evaluate(result: AnalysisResult): Check[] {
  // 5.3.1: never blocks — at worst warns. ILD-approx is too coarse
  // to make a delivery call on; Apple's renderer is the authority.
  status: binTp > -1 ? 'warn' : binTp > -2 ? 'warn' : 'pass',
- value: `${binTp.toFixed(1)} dBTP`,
+ value: `${isFinite(binTp) ? binTp.toFixed(1) : '—'} dBTP`,
  target: '≤ −1 dBTP (Apple guideline)',
  note: binTp > -1
  ? 'ILD-approx headroom is over Apple\'s −1 dBTP guideline. Verify on Apple\'s renderer before delivery — this is not a substitute.'

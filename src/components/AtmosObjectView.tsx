@@ -115,7 +115,7 @@ export default function AtmosObjectView({ view }: Props) {
  >
  <span className="flex-1 truncate text-dark-200" title={s.name}>{s.name}</span>
  <span className="w-20 text-center font-mono text-[10px]" style={{ color }}>{s.motion}</span>
- <span className="w-20 text-center font-mono text-[10px] text-dark-400">{s.travel_deg.toFixed(0)}°</span>
+ <span className="w-20 text-center font-mono text-[10px] text-dark-400">{isFinite(s.travel_deg) ? s.travel_deg.toFixed(0) : '—'}°</span>
  <span className="w-20 text-center font-mono text-[10px]" style={{ color: s.height_pct > 0.2 ? 'var(--color-accent)' : 'var(--color-text-muted)' }}>
  {Math.round(s.height_pct * 100)}%
  </span>

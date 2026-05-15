@@ -101,7 +101,7 @@ const WidthPerBandChart = React.memo(function WidthPerBandChart({ widthA, widthB
                         backgroundColor: 'rgba(255,255,255,0.25)',
                         borderRadius: '1px 1px 0 0',
                       }}
-                      title={`A ${band} Hz: ${(valA * 100).toFixed(0)}%`}
+                      title={`A ${band} Hz: ${valA != null && isFinite(valA) ? (valA * 100).toFixed(0) : '—'}%`}
                     />
                   )}
                   {valB !== null && (
@@ -115,7 +115,7 @@ const WidthPerBandChart = React.memo(function WidthPerBandChart({ widthA, widthB
                         borderRadius: '1px 1px 0 0',
                         boxSizing: 'border-box',
                       }}
-                      title={`B ${band} Hz: ${(valB * 100).toFixed(0)}%`}
+                      title={`B ${band} Hz: ${valB != null && isFinite(valB) ? (valB * 100).toFixed(0) : '—'}%`}
                     />
                   )}
                 </div>

@@ -284,7 +284,8 @@ def build_html(payload):
         label    = esc(criterion.get('label') or METRIC_LABELS.get(metric, metric))
         target   = criterion.get('target')
         tol      = criterion.get('tolerance')
-        points   = criterion.get('points') or (criterion.get('weight', 0) * 100)
+        _pts = criterion.get('points')
+        points   = _pts if _pts is not None else (criterion.get('weight', 0) * 100)
         unit     = METRIC_UNITS.get(metric, '')
 
         actual = get_actual(metric, result)
@@ -880,7 +881,7 @@ def build_html(payload):
     # Guard: recs may contain non-dict items (strings, etc.) — skip them
     # to prevent AttributeError on .get().
     dict_recs = [r for r in recs if isinstance(r, dict)]
-    sorted_recs = sorted(dict_recs, key=lambda r: -(r.get('priority') or r.get('score') or 0))[:3]
+    sorted_recs = sorted(dict_recs, key=lambda r: -(_p if (_p := r.get('priority')) is not None else (_s if (_s := r.get('score')) is not None else 0)))[:3]
     rec_rows = ''
     for rec in sorted_recs:
         text = esc(rec.get('text') or rec.get('message') or rec.get('description') or str(rec))

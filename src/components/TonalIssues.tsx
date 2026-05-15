@@ -129,7 +129,7 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  backgroundColor: issue.severity === 'warning' ? 'rgba(224,122,79,0.15)' : 'rgba(87,83,78,0.2)',
  }}
  >
- {issue.diff > 0 ? '+' : ''}{issue.diff} dB
+ {isFinite(issue.diff) ? `${issue.diff > 0 ? '+' : ''}${issue.diff} dB` : '—'}
  </span>
  </div>
  </div>

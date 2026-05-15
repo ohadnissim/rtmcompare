@@ -165,7 +165,7 @@ export default function TranslationCheckPanel({ file }: Props) {
     else play(envId)
   }, [activeId, stop, play])
 
-  const fmtSigned = (v?: number) => (typeof v === 'number' ? `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB` : '—')
+  const fmtSigned = (v?: number) => (typeof v === 'number' && isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB` : '—')
 
   return (
     <div className="border p-3 space-y-3" style={{ borderRadius: '2px', borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>

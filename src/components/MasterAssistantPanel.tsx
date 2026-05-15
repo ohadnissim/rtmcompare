@@ -172,10 +172,10 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  if (!res?.ok) {
  setError(res?.error || 'Render failed.')
  } else {
- const delta = res.lufs_in != null && res.lufs_out != null
+ const delta = res.lufs_in != null && isFinite(res.lufs_in) && res.lufs_out != null && isFinite(res.lufs_out)
  ? ` · ${res.lufs_in.toFixed(1)} → ${res.lufs_out.toFixed(1)} LUFS`
  : ''
- const tp = res.tp_out_dbtp != null ? ` · TP ${res.tp_out_dbtp.toFixed(1)} dBTP` : ''
+ const tp = res.tp_out_dbtp != null && isFinite(res.tp_out_dbtp) ? ` · TP ${res.tp_out_dbtp.toFixed(1)} dBTP` : ''
  const meta = (res as any).metadata_note ? ` · ${(res as any).metadata_note}` : ''
  const riaa = chain.riaa.enabled ? ' · RIAA pre-emphasis applied' : ''
  setRenderMsg(`Rendered: ${res.path}${delta}${tp}${meta}${riaa}`)
