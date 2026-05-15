@@ -114,6 +114,8 @@ def detect_tonal_issues(path_a: str, path_b: str, sr: int = None) -> list:
     # at the same perceptual level before band comparison.  Falls back to
     # RMS if pyloudnorm is not installed.
     def _compute_lufs(y: np.ndarray, sample_rate: int) -> float:
+        if len(y) == 0:
+            return -70.0
         try:
             import pyloudnorm as pyln
             meter = pyln.Meter(sample_rate)
@@ -121,6 +123,8 @@ def detect_tonal_issues(path_a: str, path_b: str, sr: int = None) -> list:
             return float(meter.integrated_loudness(data))
         except Exception:
             rms = float(np.sqrt(np.mean(y ** 2)))
+            if np.isnan(rms):
+                return -70.0
             return float(20 * np.log10(max(rms, 1e-10)))
 
     lufs_a = _compute_lufs(y_a, sr)
