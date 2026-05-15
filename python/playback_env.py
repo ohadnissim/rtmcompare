@@ -305,7 +305,7 @@ def apply_playback_env(y: np.ndarray, sr: int, env_id: str):
     if fn is None:
         return y, {
             "headroom_db_applied": 0.0,
-            "peak_dbfs_post_chain": float("-inf"),
+            "peak_dbfs_post_chain": None,
             "saturator_engaged": False,
             "env_id": env_id,
         }

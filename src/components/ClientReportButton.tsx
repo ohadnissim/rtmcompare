@@ -504,10 +504,10 @@ function buildPlatformRow(r: AnalysisResult): { name: string; played: string; de
  for (const name of pick) {
  const row = rows.find(r => r.name === name)
  if (!row) continue
- const delta = row.delta_db === 0 ? '±0 dB' : `${row.delta_db > 0 ? '+' : ''}${row.delta_db.toFixed(1)} dB`
+ const delta = row.delta_db === 0 ? '±0 dB' : `${row.delta_db > 0 ? '+' : ''}${isFinite(row.delta_db) ? row.delta_db.toFixed(1) : '—'} dB`
  out.push({
  name,
- played: `${row.played_lufs.toFixed(1)} LUFS`,
+ played: `${isFinite(row.played_lufs) ? row.played_lufs.toFixed(1) : '—'} LUFS`,
  delta,
  // TP-breach warnings disabled by user direction — show numbers only.
  tpBreach: false,

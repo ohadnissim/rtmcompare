@@ -92,7 +92,7 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  backgroundColor: `${diffColor}20`,
  }}
  >
- {absDiff < 0.3 ? '=' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB`}
+ {absDiff < 0.3 ? '=' : `${diff > 0 ? '+' : ''}${isFinite(diff) ? diff.toFixed(1) : '—'} dB`}
  </span>
  </div>
  </div>
@@ -154,7 +154,7 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>Stereo width</span>
  <span>
- {(category.width_a * 100).toFixed(0)}% → {(category.width_b * 100).toFixed(0)}%
+ {category.width_a != null && isFinite(category.width_a) ? (category.width_a * 100).toFixed(0) : '—'}% → {category.width_b != null && isFinite(category.width_b) ? (category.width_b * 100).toFixed(0) : '—'}%
  </span>
  </div>
  </div>
@@ -165,7 +165,7 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>Transient punch</span>
  <span>
- {category.punch_a.toFixed(1)}x → {category.punch_b.toFixed(1)}x
+ {category.punch_a != null && isFinite(category.punch_a) ? category.punch_a.toFixed(1) : '—'}x → {category.punch_b != null && isFinite(category.punch_b) ? category.punch_b.toFixed(1) : '—'}x
  </span>
  </div>
  </div>
@@ -176,7 +176,7 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
  <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>Dynamic range</span>
  <span>
- {category.dynamics_a.toFixed(1)} → {category.dynamics_b.toFixed(1)} dB
+ {category.dynamics_a != null && isFinite(category.dynamics_a) ? category.dynamics_a.toFixed(1) : '—'} → {category.dynamics_b != null && isFinite(category.dynamics_b) ? category.dynamics_b.toFixed(1) : '—'} dB
  </span>
  </div>
  </div>

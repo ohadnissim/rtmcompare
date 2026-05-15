@@ -335,7 +335,7 @@ function ReferenceCard({ record, onPick, onDelete, editing, onEditToggle, onSave
  {tpLabel}
  </span>
  <span title="Loudness range">{lraLabel}</span>
- {record.bpm != null && <span title="Beats per minute">{record.bpm.toFixed(0)} BPM</span>}
+ {record.bpm != null && isFinite(record.bpm) && <span title="Beats per minute">{record.bpm.toFixed(0)} BPM</span>}
  {record.key && <span title="Estimated key">{record.key}</span>}
  </div>
 

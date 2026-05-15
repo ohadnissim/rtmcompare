@@ -69,7 +69,7 @@ function generateReport(results: AnalysisResult, labelA: string, labelB: string)
  <div class="cat-header">
  <strong>${cat.name}</strong>
  <span class="badge ${cat.level_diff > 0.3 ? 'up' : cat.level_diff < -0.3 ? 'down' : 'same'}">
- ${Math.abs(cat.level_diff) < 0.3 ? '=' : `${cat.level_diff > 0 ? '+' : ''}${cat.level_diff.toFixed(1)} dB`}
+ ${Math.abs(cat.level_diff) < 0.3 ? '=' : `${cat.level_diff > 0 ? '+' : ''}${isFinite(cat.level_diff) ? cat.level_diff.toFixed(1) : '—'} dB`}
  </span>
  </div>
  <p>${cat.insight}</p>

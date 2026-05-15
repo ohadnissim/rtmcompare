@@ -111,13 +111,13 @@ export default function RecentAnalyses({ history, onPick, onClear }: Props) {
  className="flex flex-wrap items-center gap-2 mt-0.5 text-[9px] font-mono tabular-nums min-w-0"
  style={{ color: 'var(--color-text-muted)' }}
  >
- {e.lufs != null && <span>{e.lufs.toFixed(1)} LUFS</span>}
- {e.true_peak != null && (
+ {e.lufs != null && isFinite(e.lufs) && <span>{e.lufs.toFixed(1)} LUFS</span>}
+ {e.true_peak != null && isFinite(e.true_peak) && (
  <span>
  {e.true_peak.toFixed(1)} dBTP
  </span>
  )}
- {e.lra != null && <span>{e.lra.toFixed(1)} LU</span>}
+ {e.lra != null && isFinite(e.lra) && <span>{e.lra.toFixed(1)} LU</span>}
  {e.duration_sec != null && <span>{fmtDur(e.duration_sec)}</span>}
  <span style={{ color: 'var(--color-text-muted)' }}>· {fmtTime(e.ts)}</span>
  </div>
