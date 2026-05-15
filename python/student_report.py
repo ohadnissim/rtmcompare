@@ -119,7 +119,8 @@ def get_actual(metric, result):
         if val is not None:
             return val
         # Fall back to a boolean-style field
-        has_clipping = distortion.get('has_clipping_b') or distortion.get('has_clipping')
+        _hcb = distortion.get('has_clipping_b')
+        has_clipping = _hcb if _hcb is not None else distortion.get('has_clipping')
         if has_clipping is True:
             return 1.0
         if has_clipping is False:
