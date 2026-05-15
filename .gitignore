@@ -38,8 +38,10 @@ __pycache__/
 *.pyo
 
 # ── Local-only ───────────────────────────────────────────────────────
-.claude/        # MED-8: skill files, session memory, API keys — never commit
-model-cache/    # NIT-1: 503 MB model weights — already excluded, adding comment
+# MED-8: skill files, session memory, API keys — never commit
+.claude/
+# NIT-1: 503 MB model weights — excluded to keep repo size sane
+model-cache/
 .env
 .env.local
 .env.*.local
@@ -55,6 +57,7 @@ commercial-clips/**/*.wav
 commercial-clips/**/*.aif
 commercial-clips/**/*.aiff
 commercial-clips/**/*.flac
+commercial-clips/ref-frames/
 
 # ── Older release-doc dirs (only the active version stays in git) ────
 # Each v*.* dir holds rendered PDFs + Higgsfield hero PNGs (~5 MB each).
@@ -63,6 +66,11 @@ commercial-clips/**/*.flac
 release/v5.0.*
 release/v5.1.0/
 release/v5.1.1/
+
+# ── External SDKs — cloned by CI; not committed ─────────────────────
+JUCE/
+ARA_SDK/
+python-bundle-intel/
 
 # ── RTM Send plugin — source is tracked so CI can build it inline ────
 # The plugin is a JUCE/CMake project. CI clones JUCE + ARA SDK on the
