@@ -165,7 +165,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  const playerFileB = (refBInfo ?? fileAInfo) as import('../types').FileInfo
 
  const handleLoadRefB = async () => {
-   const filePath = await (window as any).electronAPI?.selectFile?.()
+   const filePath = await window.electronAPI?.selectFile?.()
    if (!filePath) return
    setRefBInfo({ path: filePath, name: filePath.split('/').pop() ?? filePath })
  }

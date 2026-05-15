@@ -357,7 +357,7 @@ export default function StudentWorkspace() {
           ) : (
             <button
               onClick={async () => {
-                const picked = await (window as any).electronAPI?.openTextFileDialog?.([
+                const picked = await window.electronAPI?.openTextFileDialog?.([
                   { name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json', 'json'] }
                 ])
                 if (!picked) return

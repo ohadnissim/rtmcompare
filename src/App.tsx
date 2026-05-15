@@ -212,6 +212,33 @@ declare global {
  }>
  /** Share as HTML — save a self-contained static HTML report. */
  shareAsHtml?: (payload: { title: string; reportJson: string }) => Promise<{ success: boolean; filePath?: string }>
+ // RTMsend bridge
+ rtmsendStatus?: () => Promise<{
+   running: boolean
+   loaded?: { name: string; parameter_count: number } | null
+   profile?: any
+   supported_plugins?: string[]
+ }>
+ rtmsendSendEq?: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) => Promise<any>
+ rtmsendKnowledgeList?: () => Promise<any[]>
+ rtmsendKnowledgeCapture?: () => Promise<any>
+ rtmsendKnowledgeRecapture?: () => Promise<any>
+ rtmsendKnowledgeReadme?: () => Promise<{ path: string; plugins: number }>
+ rtmsendBestPluginForMove?: (band: { region: string; freq_hz: number; gain_db: number; q: number }) => Promise<any>
+ rtmsendBestPluginsForBands?: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) => Promise<{
+   per_band: any[]
+   best_overall: any | null
+ }>
+ // Canvas LMS / Learn Mode
+ canvasTestConnection?: () => Promise<{ ok: boolean; courseName?: string; error?: string }>
+ canvasGetAssignments?: () => Promise<{ ok: boolean; assignments?: any[]; error?: string }>
+ canvasUploadGrades?: (payload: { assignmentId: string; grades: Array<{ studentId: string; studentName: string; score: number; totalPossible: number }> }) => Promise<{ ok: boolean; submitted?: number; skipped?: number; rejected?: number; total?: number; error?: string }>
+ saveLmsConfig?: (config: { baseUrl: string; apiToken: string; courseId: string; assignmentName?: string }) => Promise<{ ok: boolean; error?: string }>
+ loadLmsConfig?: () => Promise<{ ok: boolean; config?: { baseUrl: string; courseId: string; assignmentName: string; hasToken: boolean } | null; error?: string }>
+ clearLmsConfig?: () => Promise<{ ok: boolean; error?: string }>
+ saveStudentFeedback?: (reportPath: string, feedback: string) => Promise<{ ok: boolean; error?: string }>
+ scanClassFolder?: (folderPath: string) => Promise<{ ok: boolean; records?: any[]; count?: number; error?: string }>
+ exportGradebookCsv?: (records: any[]) => Promise<{ ok: boolean; path?: string; error?: string }>
  }
  }
 }
@@ -305,7 +332,7 @@ function CoverWiredEmptyState({
  }
  const adoptFile = (slot: 'A' | 'B') => (file: File) => {
   // Mirror FileDropZone path-resolution: Electron 32+ requires webUtils.getPathForFile.
-  const fullPath = (window as any).electronAPI?.getPathForFile?.(file) || (file as any).path || ''
+  const fullPath = window.electronAPI?.getPathForFile?.(file) || (file as any).path || ''
   if (!fullPath) return
   const info: FileInfo = { path: fullPath, name: file.name }
   if (slot === 'A') {

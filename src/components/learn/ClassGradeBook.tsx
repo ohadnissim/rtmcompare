@@ -149,7 +149,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
     setLoading(true)
     setError(null)
     try {
-      const result = await (window as any).electronAPI?.scanClassFolder(folderPath)
+      const result = await window.electronAPI?.scanClassFolder?.(folderPath)
       if (result?.ok) {
         const raw: GradeRecord[] = (result.records ?? []).map((r: GradeRecord, idx: number) => ({
           ...r,
@@ -204,14 +204,14 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   // Check if LMS is configured
   useEffect(() => {
     let mounted = true
-    ;(window as any).electronAPI?.loadLmsConfig?.().then((res: any) => {
+    ;window.electronAPI?.loadLmsConfig?.().then((res: any) => {
       if (mounted) setHasLmsConfig(res?.ok && res.config?.hasToken)
     }).catch(() => {})
     return () => { mounted = false }
   }, [])
 
   async function pickFolder() {
-    const picked = await (window as any).electronAPI?.pickFolder('Select submissions folder')
+    const picked = await window.electronAPI?.pickFolder?.('Select submissions folder')
     if (picked) {
       setFolder(picked)
       scan(picked)
@@ -221,7 +221,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
   async function exportCsv() {
     if (!records.length) return
     try {
-      const res = await (window as any).electronAPI?.exportGradebookCsv(records)
+      const res = await window.electronAPI?.exportGradebookCsv?.(records)
       setCsvStatus(res?.ok === false ? 'error' : 'ok')
     } catch {
       setCsvStatus('error')
@@ -930,7 +930,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                               // BUG-09: save to _reportFilePath (teacher's machine path) not pdfPath (student's path)
                               const savePath = rec._reportFilePath || rec.pdfPath
                               if (savePath) {
-                                ;(window as any).electronAPI?.saveStudentFeedback(savePath, text)
+                                ;window.electronAPI?.saveStudentFeedback?.(savePath, text)
                               }
                             }}
                             style={{

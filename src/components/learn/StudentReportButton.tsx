@@ -76,13 +76,13 @@ export function StudentReportButton({ analysisResult, fileAName = 'File A', file
 
     try {
       const result = await Promise.race([
-        (window as any).electronAPI.generateStudentReport(payload),
+        window.electronAPI?.generateStudentReport?.(payload),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Report generation timed out after 30 s')), TIMEOUT_MS)
         ),
       ])
       if (result?.ok && result.path) {
-        await (window as any).electronAPI.revealInFinder(result.path)
+        await window.electronAPI?.revealInFinder?.(result.path)
       } else {
         setError(result?.error || 'Export failed')
       }

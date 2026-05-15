@@ -209,10 +209,10 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
        <div className="text-xs max-w-xs" style={{ color: 'var(--color-text-muted)' }}>
          Load a delta profile, select it in the top-right dropdown, then re-run the analysis.
        </div>
-       {(window as any).electronAPI?.loadCustomProfile && (
+       {window.electronAPI?.loadCustomProfile && (
          <button
            onClick={async () => {
-             try { await (window as any).electronAPI.loadCustomProfile() } catch {}
+             try { await window.electronAPI?.loadCustomProfile?.() } catch {}
            }}
            className="text-[11px] px-4 py-2 mt-2 transition-colors"
            style={{ backgroundColor: 'rgba(208,176,102,0.12)', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.35)', borderRadius: '2px' }}

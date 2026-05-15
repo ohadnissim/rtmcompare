@@ -152,7 +152,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
 
  {/* Prominent "Load custom target" action — discoverable here next to the
  EQ preview where users actually care about tonal targets. */}
- {(window as any).electronAPI?.loadCustomProfile && (
+ {window.electronAPI?.loadCustomProfile && (
  <div className="flex items-center justify-between px-4 py-3"
  style={{ backgroundColor: 'rgba(124,164,163,0.06)', border: '1px solid rgba(124,164,163,0.25)', borderRadius: '2px' }}>
  <div className="flex-1 pr-3">
@@ -167,7 +167,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  <button
  onClick={async () => {
  try {
- const added = await (window as any).electronAPI?.loadCustomProfile?.()
+ const added = await window.electronAPI?.loadCustomProfile?.()
  if (added) alert(`Saved "${added.name}". Start a new comparison and pick it from the Profile dropdown.`)
  } catch (err: any) {
  alert(err?.message || 'Could not load profile')
@@ -598,8 +598,8 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
    | { state: 'connected'; plugin: string; hasProfile: boolean; isAuto: boolean }
  const [conn, setConn] = useState<RtmConn>({ state: 'unknown' })
  useEffect(() => {
-   const api = (window as any).electronAPI
-   if (!api?.rtmsendStatus) return
+   const api = window.electronAPI
+   if (!api || !api.rtmsendStatus) return
    let cancelled = false
    let timeoutId: number | null = null
    // 5.7.1 v5 HIGH fix: self-rescheduling poll instead of setInterval.
@@ -613,7 +613,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
    const poll = async () => {
      if (cancelled) return
      try {
-       const s = await api.rtmsendStatus()
+       const s = await api?.rtmsendStatus?.()
        if (cancelled) return
        if (!s?.running) setConn({ state: 'disconnected' })
        else if (!s.loaded) setConn({ state: 'no-plugin' })
@@ -1011,7 +1011,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // will simply not place a dot for them, leaving the engineer's
  // existing band layout untouched on those frequencies.
  const sendToHostedPlugin = useCallback(async () => {
-   const api = (window as any).electronAPI
+   const api = window.electronAPI
    if (!api?.rtmsendSendEq) {
      setSendStatus('error')
      setSendDetail('RTMsend bridge not available in this build')
@@ -1074,8 +1074,8 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // plugins against the move-category profile (warm-lf-boost, mud-cut,
  // air-shimmer, surgical-cut, etc.) and returns the best overall.
  useEffect(() => {
-   const api = (window as any).electronAPI
-   if (!api?.rtmsendBestPluginsForBands) { setBestPlugin(null); return }
+   const api = window.electronAPI
+   if (!api || !api.rtmsendBestPluginsForBands) { setBestPlugin(null); return }
    const enabledBands = filters
      .map((f, i) => ({ f, on: bandEnabled[i] ?? false }))
      .filter(({ on }) => on)
@@ -1084,7 +1084,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
    let cancelled = false
    ;(async () => {
      try {
-       const r = await api.rtmsendBestPluginsForBands(enabledBands)
+       const r = await api?.rtmsendBestPluginsForBands?.(enabledBands)
        if (cancelled) return
        const best = r?.best_overall
        if (best && best.score >= 0.5) {

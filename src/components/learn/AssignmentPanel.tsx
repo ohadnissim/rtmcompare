@@ -662,7 +662,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           />
           <button
             onClick={async () => {
-              const folderPath = await (window as any).electronAPI?.pickFolder('Select submissions folder')
+              const folderPath = await window.electronAPI?.pickFolder?.('Select submissions folder')
               if (folderPath) setSubmissionsFolder(folderPath)
             }}
             style={{
@@ -1026,7 +1026,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             // extension AGAIN on some platforms, producing
             // `<title>.rtm-assignment.json.json`. Bare title now; the dialog
             // adds the extension exactly once.
-            await (window as any).electronAPI?.saveFileDialog(
+            await window.electronAPI?.saveFileDialog?.(
               `${title || 'assignment'}`,
               json,
               [{ name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json'] }]
@@ -1049,7 +1049,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         </button>
         <button
           onClick={async () => {
-            const picked = await (window as any).electronAPI?.openTextFileDialog([
+            const picked = await window.electronAPI?.openTextFileDialog?.([
               { name: 'RTMcompare Assignment', extensions: ['rtm-assignment.json', 'json'] }
             ])
             if (!picked) return

@@ -137,7 +137,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   const effectiveFileName = localFileName ?? fileAName
 
   const handleBrowseFile = React.useCallback(async () => {
-    const filePath = await (window as any).electronAPI?.selectFile?.()
+    const filePath = await window.electronAPI?.selectFile?.()
     if (!filePath) return
     const name = filePath.split('/').pop() ?? filePath
     setLocalFilePath(filePath)

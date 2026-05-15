@@ -158,8 +158,8 @@ class EarTrainingAudioEngine {
     // In Electron, fetch('file://') is blocked by CSP. Use the IPC bridge instead.
     // Fall back to fetch() only in browser / dev-server contexts (no electronAPI).
     let arr: ArrayBuffer
-    if ((window as any).electronAPI?.readAudioFile) {
-      arr = await (window as any).electronAPI.readAudioFile(filePath)
+    if (window.electronAPI?.readAudioFile) {
+      arr = await window.electronAPI?.readAudioFile(filePath)
     } else {
       // Browser / dev-server fallback — build a proper file:// URL.
       const normalized = filePath.replace(/\\/g, '/')

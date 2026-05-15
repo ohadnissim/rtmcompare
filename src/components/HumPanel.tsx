@@ -26,8 +26,8 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  `${n.freq.toFixed(1)} Hz Q=${n.q.toFixed(1)} ${n.gain_db.toFixed(1)} dB`
  ).join('\n')
  try {
- if ((window as any).electronAPI?.copyToClipboard) {
- await (window as any).electronAPI.copyToClipboard(text)
+ if (window.electronAPI?.copyToClipboard) {
+ await window.electronAPI?.copyToClipboard(text)
  } else {
  await navigator.clipboard.writeText(text)
  }

@@ -40,7 +40,7 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  // Use Electron's webUtils.getPathForFile API. Accept any non-empty
  // absolute path — DO NOT check for `/` since Windows paths use `\`
  // (e.g. `C:\Users\nicka\Downloads\song.wav`).
- const fullPath = (window as any).electronAPI?.getPathForFile?.(dropped) || (dropped as any).path || ''
+ const fullPath = window.electronAPI?.getPathForFile?.(dropped) || (dropped as any).path || ''
 
  if (fullPath) {
  onFile({ path: fullPath, name: dropped.name })
@@ -58,7 +58,7 @@ export default function FileDropZone({ label, hint, file, onFile, locked, onTogg
  const selected = e.target.files?.[0]
  if (!selected || !isAudioFile(selected.name)) return
  // Electron 32+: File.path is undefined. Resolve via webUtils.getPathForFile().
- const fullPath = (window as any).electronAPI?.getPathForFile?.(selected) || (selected as any).path
+ const fullPath = window.electronAPI?.getPathForFile?.(selected) || (selected as any).path
  onFile({ path: fullPath || selected.name, name: selected.name })
  }, [onFile])
 

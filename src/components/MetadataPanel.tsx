@@ -309,8 +309,8 @@ function UmidRow({ value }: { value?: string }) {
  if (!value) return null
  const copy = async () => {
  try {
- if ((window as any).electronAPI?.copyToClipboard) {
- await (window as any).electronAPI.copyToClipboard(value)
+ if (window.electronAPI?.copyToClipboard) {
+ await window.electronAPI?.copyToClipboard(value)
  } else {
  await navigator.clipboard.writeText(value)
  }

@@ -1230,7 +1230,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  else if (nameLower.includes('other') || nameLower.includes('melody') || nameLower.includes('synth')) stemName = 'other'
  // Electron 32+: File.path is undefined; use webUtils.getPathForFile()
  // to resolve the path. Works on macOS (forward-slash) and Windows (backslash).
- const path = (window as any).electronAPI?.getPathForFile?.(f) || (f as any).path
+ const path = window.electronAPI?.getPathForFile?.(f) || (f as any).path
  if (!path) continue
  try {
  const ab = await window.electronAPI.readAudioFile(path)

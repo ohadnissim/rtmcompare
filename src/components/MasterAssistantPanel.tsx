@@ -337,7 +337,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
    <button
    onClick={async () => {
      try {
-     const added = await (window as any).electronAPI.loadCustomProfile()
+     const added = await window.electronAPI?.loadCustomProfile?.()
      if (added) alert(`Saved "${added.name}". Start a new comparison and pick it from the Engineer Profile dropdown.`)
      } catch (err: any) {
      alert(err?.message || 'Could not load profile')

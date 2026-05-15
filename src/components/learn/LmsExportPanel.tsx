@@ -91,7 +91,7 @@ export function LmsExportPanel({ records }: Props) {
 
   // Load saved config on mount
   React.useEffect(() => {
-    ;(window as any).electronAPI?.loadLmsConfig?.().then((res: any) => {
+    ;window.electronAPI?.loadLmsConfig?.().then((res: any) => {
       if (res?.ok && res.config) {
         setConfig(res.config)
         setFormUrl(res.config.baseUrl)
@@ -119,7 +119,7 @@ export function LmsExportPanel({ records }: Props) {
     setStatus('testing')
     setTestResult(null)
     try {
-      const res = await (window as any).electronAPI?.canvasTestConnection()
+      const res = await window.electronAPI?.canvasTestConnection?.()
       if (res?.ok) {
         setTestResult({ ok: true, courseName: res.courseName })
       } else {
@@ -134,7 +134,7 @@ export function LmsExportPanel({ records }: Props) {
 
   async function handleSave() {
     try {
-      const res = await (window as any).electronAPI?.saveLmsConfig({
+      const res = await window.electronAPI?.saveLmsConfig?.({
         baseUrl: formUrl,
         apiToken: formToken,
         courseId: formCourseId,
@@ -144,7 +144,7 @@ export function LmsExportPanel({ records }: Props) {
         setFormToken('')
         setConfigOpen(false)
         // Reload config
-        const reload = await (window as any).electronAPI?.loadLmsConfig()
+        const reload = await window.electronAPI?.loadLmsConfig?.()
         if (reload?.ok && reload.config) {
           setConfig(reload.config)
           setFormUrl(reload.config.baseUrl)
@@ -163,7 +163,7 @@ export function LmsExportPanel({ records }: Props) {
     setStatus('fetching')
     setMessage('')
     try {
-      const res = await (window as any).electronAPI?.canvasGetAssignments()
+      const res = await window.electronAPI?.canvasGetAssignments?.()
       if (res?.ok && res.assignments) {
         setAssignments(res.assignments)
         if (res.assignments.length === 0) {
@@ -241,7 +241,7 @@ export function LmsExportPanel({ records }: Props) {
     setMessage('')
     setUploadResult(null)
     try {
-      const res = await (window as any).electronAPI?.canvasUploadGrades({
+      const res = await window.electronAPI?.canvasUploadGrades?.({
         assignmentId: selectedAssignmentId,
         grades,
       })
