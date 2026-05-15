@@ -893,7 +893,7 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     # Per-band M/S width curve: nanmedian across tracks
     width_curves = np.array([m.get("width_curve", [float('nan')] * len(THIRD_OCTAVE_HZ)) for m in valid])
     width_curve_median = np.nanmedian(width_curves, axis=0)
-    out["width_curve"] = [round(float(v), 3) if np.isfinite(v) else float('nan') for v in width_curve_median]
+    out["width_curve"] = [round(float(v), 3) if np.isfinite(v) else None for v in width_curve_median]
     return out
 
 
