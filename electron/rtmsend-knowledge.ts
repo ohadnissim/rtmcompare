@@ -134,7 +134,9 @@ export interface ReferenceProfile {
  */
 export function getKnowledgeDir (): string {
   const dir = path.join(os.homedir(), '.rtm', 'plugin-knowledge')
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  if (!fs.existsSync(dir)) {
+    try { fs.mkdirSync(dir, { recursive: true }) } catch { /* permission denied — callers handle missing dir */ }
+  }
   return dir
 }
 

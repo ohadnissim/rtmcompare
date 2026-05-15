@@ -68,7 +68,7 @@ def _parse_bext(data: bytes) -> dict:
         origination_date = data[320:330].decode("latin-1", errors="replace").strip()
         origination_time = data[330:338].decode("latin-1", errors="replace").strip()
         # time reference (64-bit sample count) — not critical
-        umid = data[346:410].hex() if len(data) > 410 else ""
+        umid = data[346:410].hex() if len(data) >= 410 else ""
         # coding history starts at byte 602
         coding_history = ""
         if len(data) > 602:

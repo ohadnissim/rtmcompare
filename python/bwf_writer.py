@@ -187,7 +187,10 @@ def patch_bwf(src_path: str, out_path: str, bext_fields: dict | None,
             cid = fh.read(4)
             if len(cid) < 4:
                 break
-            (size,) = struct.unpack('<I', fh.read(4))
+            size_bytes = fh.read(4)
+            if len(size_bytes) < 4:
+                break
+            (size,) = struct.unpack('<I', size_bytes)
             data = fh.read(size)
             # Skip pad byte
             if size & 1:
