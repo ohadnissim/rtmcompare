@@ -1874,10 +1874,10 @@ function SpectrumChart({ specFile, specTarget, specCorrected, specChain, chainMa
  const gh = h - pad.top - pad.bottom
 
  const allVals = [...specFile, ...specTarget, ...(specCorrected || []), ...(specChain || [])].filter(v => v > -50)
- const maxDb = Math.max(...allVals) + 2
- const minDb = Math.min(...allVals) - 2
+ const maxDb = allVals.length > 0 ? Math.max(...allVals) + 2 : 0
+ const minDb = allVals.length > 0 ? Math.min(...allVals) - 2 : -20
 
- const toX = (i: number) => pad.left + (i / (specFile.length - 1)) * gw
+ const toX = (i: number) => pad.left + (i / Math.max(1, specFile.length - 1)) * gw
  const toY = (v: number) => pad.top + (1 - (v - minDb) / (maxDb - minDb)) * gh
  const makePath = (data: number[]) => data.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ')
 
