@@ -47,6 +47,7 @@ import TransientDensityPanel from './TransientDensityPanel'
 import ClientReportButton from './ClientReportButton'
 import AtmosObjectView from './AtmosObjectView'
 import SpecDriftBadge from './SpecDriftBadge'
+import ErrorBoundary from './ErrorBoundary'
 import MasteringDelta from './MasteringDelta'
 import { useAudience, useV52Surface } from '../AudienceContext'
 import { ReleaseReadiness, PlatformResult } from './v52/ReleaseReadiness'
@@ -571,6 +572,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {/* Sentinel — tab-switch scrolls here so the new tab always starts at the top */}
  <div ref={tabTopRef} aria-hidden="true" />
 
+ {/* key=activeTab resets the boundary on every tab switch so a crash
+     in one tab doesn't prevent other tabs from rendering. */}
+ <ErrorBoundary key={activeTab} label={`${activeTab} tab`}>
 
  {/* ─── OVERVIEW TAB ─── */}
  {activeTab === 'overview' && (
@@ -1683,6 +1687,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
      scoped per-tab per-step. Renders as a fixed overlay so it
      works identically regardless of which tab is showing. */}
  {learnEnabled && <AnnotationLayer tabId={activeTab} />}
+
+ </ErrorBoundary>
 
  </div>
  )
