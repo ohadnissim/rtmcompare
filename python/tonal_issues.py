@@ -102,8 +102,10 @@ def detect_tonal_issues(path_a: str, path_b: str, sr: int = None) -> list:
     Compare tonal characteristics between File A and File B.
     Returns a list of detected issues with severity, description, and fix.
     """
-    y_a, _ = librosa.load(path_a, sr=sr, mono=True)
+    y_a, sr_a = librosa.load(path_a, sr=sr, mono=True)
     y_b, _ = librosa.load(path_b, sr=sr, mono=True)
+    if sr is None:
+        sr = int(sr_a)
 
     min_len = min(len(y_a), len(y_b))
     y_a = y_a[:min_len]
