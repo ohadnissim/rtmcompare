@@ -51,8 +51,13 @@ def get_actual(metric, result):
         return overall.get('lufs_a')
     if metric == 'lra':
         # BUG-17 fix: analysis result stores lra_b at top-level, not in overall sub-object
-        return (result.get('lra_b') or result.get('lra_a') or
-                overall.get('lra_b') or overall.get('lra') or overall.get('dynamics_b'))
+        # Use explicit None-check (same pattern as lufs_i) so LRA=0.0 is not
+        # treated as missing by Python's falsy `or` evaluation.
+        for v in (result.get('lra_b'), result.get('lra_a'),
+                  overall.get('lra_b'), overall.get('lra'), overall.get('dynamics_b')):
+            if v is not None:
+                return v
+        return None
     if metric == 'true_peak_dbtp':
         # Try headroom first, then true_peaks array, then overall
         headroom = overall.get('headroom_b') or overall.get('headroom')
@@ -64,9 +69,13 @@ def get_actual(metric, result):
         return overall.get('true_peak_b') or overall.get('true_peak')
     if metric in ('mono_compat', 'mono_compat_pct'):
         # BUG-04 fix: rubric uses 'mono_compat_pct' key; also accept 'mono_compat'
+        # Use explicit None-check so 0.0% (fully incompatible) is not skipped.
         mono = result.get('mono_compat', {}) if result else {}
-        return (result.get('mono_compat_pct') or result.get('mono_compat_b') or
-                mono.get('mono_loss_b_pct') or mono.get('mono_loss_pct'))
+        for v in (result.get('mono_compat_pct'), result.get('mono_compat_b'),
+                  mono.get('mono_loss_b_pct'), mono.get('mono_loss_pct')):
+            if v is not None:
+                return v
+        return None
     if metric == 'stereo_width':
         return overall.get('width_b') or overall.get('width')
 

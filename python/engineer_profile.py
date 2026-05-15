@@ -754,6 +754,8 @@ def generate_chain_tips(file_b_path, profile_id="", sr=None):
 
     y_b, sr_b = librosa.load(file_b_path, sr=None, mono=True)
     spec_b = compute_spectrum(y_b, sr_b)
+    if spec_b is None:
+        return None  # silent/corrupt master — no chain tips possible
     spec_b_sm = _smooth_log_spectrum(spec_b)
 
     # Apply delta: clamp None bands to 0 shift.

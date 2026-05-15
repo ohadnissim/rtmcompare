@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import https from 'https'
 import http from 'http'
 import type { ChildProcess } from 'child_process'
-import { analyzePython, ensureDeps, cancelActiveAnalysis, getPythonPaths, pythonSpawnEnv } from './python-bridge'
+import { analyzePython, ensureDeps, cancelActiveAnalysis, registerJob, unregisterJob, getPythonPaths, pythonSpawnEnv } from './python-bridge'
 import { startDaemon, shutdownDaemon, daemonAnalyze, DaemonUnavailableError } from './python-daemon'
 import * as rtmsend from './rtmsend-bridge'
 import {
@@ -736,6 +736,9 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
   if (options?.deep) args.push('--deep')
   if (options?.deepWorkers && Number.isInteger(options.deepWorkers) && options.deepWorkers > 0 && options.deepWorkers <= 32) args.push(`--deep-workers=${options.deepWorkers}`)
   const proc = spawn(pythonCmd, args, { cwd: pythonDir, env: pythonSpawnEnv() })
+  // Register in the multi-job tracker so cancelActiveAnalysis() kills
+  // batch runs on cancel or app-quit (same pattern as analyze-files).
+  const batchJobId = registerJob('batch', proc)
 
   // Tap stderr for progress events before handing off to watchdogSpawn,
   // which will collect the rest. We read stderr bytes as they arrive so
@@ -756,6 +759,7 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
   })
 
   const { stdout, stderr, code } = await watchdogSpawn(proc, 'analyze-batch')
+  unregisterJob(batchJobId)
   if (code !== 0) {
     return { ok: false, error: stderr.slice(-500) || `batch analyser exited ${code}` }
   }
