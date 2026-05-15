@@ -181,11 +181,13 @@ export default function TabVerdict({ tab, results, isAtmos }: Props) {
 
 // helpers ────────────────────────────────────────────────────────
 function fmt(n: number, digits: number): string {
+ if (!isFinite(n)) return '—'
  const s = n.toFixed(digits)
  return s.startsWith('-') ? `−${s.slice(1)}` : s
 }
 
 function signed(n: number, digits: number): string {
+ if (!isFinite(n)) return '—'
  if (Math.abs(n) < Math.pow(10, -digits) / 2) return `±${(0).toFixed(digits)}`
  if (n > 0) return `+${n.toFixed(digits)}`
  return `−${(-n).toFixed(digits)}`

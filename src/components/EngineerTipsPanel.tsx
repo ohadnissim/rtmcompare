@@ -1660,7 +1660,7 @@ function fmtSec(t: number | null): string {
  return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`
 }
 function fmtDur(t: number | null): string {
- if (t == null) return '—'
+ if (t == null || !isFinite(t)) return '—'
  return `${t.toFixed(1)} s`
 }
 
@@ -1726,10 +1726,10 @@ function ChainAnalysisPanel({ chain, engineer, freqs, chainActive, onLoadToPrevi
    .map(r => {
      const inv = -r.avg
      const dir = inv > 0 ? 'boost' : 'cut'
-     return `${r.label} ${dir} ${Math.abs(inv).toFixed(1)} dB`
+     return `${r.label} ${dir} ${isFinite(inv) ? Math.abs(inv).toFixed(1) : '—'} dB`
    })
 
- const fmtDb = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB`
+ const fmtDb = (v: number) => isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(1)} dB` : '— dB'
 
  return (
    <div className="bg-dark-900 border border-dark-700/50 p-4 space-y-4" style={{ borderRadius: '2px' }}>
@@ -1804,9 +1804,9 @@ function ChainAnalysisPanel({ chain, engineer, freqs, chainActive, onLoadToPrevi
                </div>
                <span className="text-[10px] font-mono w-14 text-right flex-shrink-0"
                  style={{ color: positive ? '#6b8cbb' : '#e07a4f' }}
-                 title={hasMad ? `MAD ±${r.maxMad.toFixed(1)} dB` : undefined}
+                 title={hasMad ? `MAD ±${isFinite(r.maxMad) ? r.maxMad.toFixed(1) : '—'} dB` : undefined}
                >
-                 {fmtDb(r.avg)}{hasMad && r.maxMad > 0.5 ? ' ±' + r.maxMad.toFixed(1) : ''}
+                 {fmtDb(r.avg)}{hasMad && r.maxMad > 0.5 ? ' ±' + (isFinite(r.maxMad) ? r.maxMad.toFixed(1) : '—') : ''}
                </span>
              </div>
            )
@@ -1840,7 +1840,7 @@ function ChainAnalysisPanel({ chain, engineer, freqs, chainActive, onLoadToPrevi
              const madVal = hasMad ? (eq_mad![i] ?? 0) : 0
              return (
                <div key={i} className="flex-1 relative flex flex-col justify-center"
-                 title={`${freqs[i] || i}: ${fmtDb(val)}${hasMad && madVal > 0 ? ` ±${madVal.toFixed(1)}` : ''}`}
+                 title={`${freqs[i] || i}: ${fmtDb(val)}${hasMad && madVal > 0 ? ` ±${isFinite(madVal) ? madVal.toFixed(1) : '—'}` : ''}`}
                >
                  {val >= 0
                    ? <div className="absolute bottom-1/2 left-0 right-0 rounded-sm"
@@ -1924,7 +1924,7 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
  const move = tip.eq_move
 
  const fmtFreq = (hz: number) =>
- hz >= 1000 ? `${(hz / 1000).toFixed(1).replace(/\.0$/, '')} kHz` : `${Math.round(hz)} Hz`
+ !isFinite(hz) ? '— Hz' : hz >= 1000 ? `${(hz / 1000).toFixed(1).replace(/\.0$/, '')} kHz` : `${Math.round(hz)} Hz`
 
  return (
  <div className="overflow-hidden" style={{ backgroundColor: config.bg, border: `1px solid ${config.color}15`, borderRadius: '2px' }}>
@@ -1938,13 +1938,13 @@ function TipRow({ tip }: { tip: { category: string; priority: string; tip: strin
  {move && (
  <span className="flex items-center gap-1.5 flex-shrink-0 px-2 py-1 font-mono text-[10px]"
  style={{ backgroundColor: 'rgba(14,13,11,0.4)', border: '1px solid rgba(168,161,150,0.15)', borderRadius: '2px' }}
- title={move.q_note ? `Q ${move.q.toFixed(1)} — ${move.q_note}` : `Q ${move.q.toFixed(1)}`}
+ title={move.q_note ? `Q ${isFinite(move.q) ? move.q.toFixed(1) : '—'} — ${move.q_note}` : `Q ${isFinite(move.q) ? move.q.toFixed(1) : '—'}`}
  >
  <span style={{ color: 'var(--color-text-muted)' }}>{fmtFreq(move.freq)}</span>
  <span style={{ color: move.gain_db >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
- {move.gain_db >= 0 ? '+' : ''}{move.gain_db.toFixed(1)} dB
+ {move.gain_db >= 0 ? '+' : ''}{isFinite(move.gain_db) ? move.gain_db.toFixed(1) : '—'} dB
  </span>
- <span style={{ color: 'var(--color-accent)' }}>Q {move.q.toFixed(1)}</span>
+ <span style={{ color: 'var(--color-accent)' }}>Q {isFinite(move.q) ? move.q.toFixed(1) : '—'}</span>
  </span>
  )}
 

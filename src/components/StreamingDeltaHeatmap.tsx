@@ -51,7 +51,7 @@ export default function StreamingDeltaHeatmap({
  <div className="flex items-center justify-between px-3 py-1.5 text-[9px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)', borderBottom: '1px solid rgba(168,161,150,0.06)' }}>
  <span>{dsp} limiter · where it engaged</span>
  <span className="font-mono" style={{ color: worstGrDb < -1 ? 'var(--color-danger)' : worstGrDb < -0.3 ? 'var(--color-accent)' : 'var(--color-data-pass)' }}>
- {worstGrDb < -0.3 ? `worst ${worstGrDb.toFixed(1)} dB` : 'clean'}
+ {worstGrDb < -0.3 ? `worst ${isFinite(worstGrDb) ? worstGrDb.toFixed(1) : '—'} dB` : 'clean'}
  </span>
  </div>
  {!hasData ? (
@@ -68,7 +68,7 @@ export default function StreamingDeltaHeatmap({
  const bg = intensity <= 0.02
  ? 'rgba(110,197,119,0.04)' // faint green = idle
  : `rgba(224,90,90,${0.15 + intensity * 0.65})`
- const tooltip = `${(i * secondsPerBlock).toFixed(1)}s · ${grDb.toFixed(1)} dB gain reduction (limiter pull-down)`
+ const tooltip = `${(i * secondsPerBlock).toFixed(1)}s · ${isFinite(grDb) ? grDb.toFixed(1) : '—'} dB gain reduction (limiter pull-down)`
  return (
  <div
  key={i}
@@ -99,8 +99,8 @@ export default function StreamingDeltaHeatmap({
  {hasData && (
  <div className="flex items-center justify-between px-3 py-1 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
  <span>0 s</span>
- <span>{(windowSec / 2).toFixed(0)} s</span>
- <span>{windowSec.toFixed(0)} s</span>
+ <span>{isFinite(windowSec) ? (windowSec / 2).toFixed(0) : '—'} s</span>
+ <span>{isFinite(windowSec) ? windowSec.toFixed(0) : '—'} s</span>
  </div>
  )}
  </div>

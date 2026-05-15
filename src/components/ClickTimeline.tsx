@@ -557,7 +557,7 @@ function ClickRow({ click, fileA, fileB }: { click: ClickArtifact; fileA?: { pat
 
  {/* Energy */}
  <span className="text-dark-500 font-mono ml-auto flex-shrink-0">
- {click.energy_db.toFixed(1)} dB
+ {isFinite(click.energy_db) ? click.energy_db.toFixed(1) : '—'} dB
  </span>
 
  {/* Inline error — appears only after a failed playback attempt.

@@ -83,7 +83,7 @@ function ElementRow({ element }: { element: MissingElement }) {
  className="text-xs font-mono"
  style={{ color: isMissing ? 'var(--color-danger)' : 'var(--color-data-warn)' }}
  >
- {element.diff_db > 0 ? '+' : ''}{element.diff_db.toFixed(1)} dB
+ {element.diff_db > 0 ? '+' : ''}{isFinite(element.diff_db) ? element.diff_db.toFixed(1) : '—'} dB
  </span>
  <span
  className="text-[10px] px-1.5 py-0.5 rounded"

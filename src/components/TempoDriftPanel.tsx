@@ -39,12 +39,12 @@ export default function TempoDriftPanel({ drift }: Props) {
  <div className="flex items-center gap-3 text-right">
  <div>
  <div className="text-[9px] uppercase tracking-[0.14em] text-dark-500">Median</div>
- <div className="text-base font-mono text-dark-100">{drift.median_bpm.toFixed(1)} BPM</div>
+ <div className="text-base font-mono text-dark-100">{isFinite(drift.median_bpm) ? drift.median_bpm.toFixed(1) : '—'} BPM</div>
  </div>
  <div>
  <div className="text-[9px] uppercase tracking-[0.14em] text-dark-500">Range</div>
  <div className="text-base font-mono" style={{ color: drift.drift ? 'var(--color-accent)' : 'var(--color-success)' }}>
- ±{(drift.range_bpm / 2).toFixed(1)}
+ ±{isFinite(drift.range_bpm) ? (drift.range_bpm / 2).toFixed(1) : '—'}
  </div>
  </div>
  </div>
@@ -71,14 +71,14 @@ export default function TempoDriftPanel({ drift }: Props) {
  })}
  </svg>
  <div className="flex justify-between mt-1 text-[9px] text-dark-500 font-mono">
- <span>{yMin.toFixed(1)} BPM</span>
- <span>{yMax.toFixed(1)} BPM</span>
+ <span>{isFinite(yMin) ? yMin.toFixed(1) : '120.0'} BPM</span>
+ <span>{isFinite(yMax) ? yMax.toFixed(1) : '120.0'} BPM</span>
  </div>
  </div>
 
  {drift.drift && (
  <div className="text-[11px] px-3 py-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.10)', color: 'var(--color-accent)' }}>
- Tempo range {drift.range_bpm.toFixed(1)} BPM — this track varies in tempo across the timeline. Expect beat-grid misalignment if you're DJ-syncing or re-cutting.
+ Tempo range {isFinite(drift.range_bpm) ? drift.range_bpm.toFixed(1) : '—'} BPM — this track varies in tempo across the timeline. Expect beat-grid misalignment if you're DJ-syncing or re-cutting.
  </div>
  )}
  </div>

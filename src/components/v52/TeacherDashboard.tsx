@@ -482,10 +482,10 @@ export function defaultExportGradebook(args: {
   const students: CertificateStudent[] = args.submissions.map(s => {
     const metrics = s.metrics
       ? [
-          { label: 'LUFS-I', value: s.metrics.lufsI.toFixed(1), unit: 'LU' },
-          { label: 'TRUE PEAK', value: s.metrics.peakDbtp.toFixed(1), unit: 'dBTP' },
+          { label: 'LUFS-I', value: isFinite(s.metrics.lufsI) ? s.metrics.lufsI.toFixed(1) : '—', unit: 'LU' },
+          { label: 'TRUE PEAK', value: isFinite(s.metrics.peakDbtp) ? s.metrics.peakDbtp.toFixed(1) : '—', unit: 'dBTP' },
           ...(s.metrics.lra != null
-            ? [{ label: 'LRA', value: s.metrics.lra.toFixed(1), unit: 'LU' }]
+            ? [{ label: 'LRA', value: isFinite(s.metrics.lra) ? s.metrics.lra.toFixed(1) : '—', unit: 'LU' }]
             : []),
         ]
       : []

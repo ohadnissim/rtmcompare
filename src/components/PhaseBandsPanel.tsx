@@ -118,11 +118,11 @@ export default function PhaseBandsPanel({ bandsA, bandsB, labelA, labelB }: Prop
  <span className="text-[9px] text-dark-500 font-mono ml-2">{band.freq_range}</span>
  </div>
  <span className="w-20 text-center font-mono text-[11px]" style={{ color: corrColor(band.correlation) }}>
- {band.correlation.toFixed(2)}
+ {isFinite(band.correlation) ? band.correlation.toFixed(2) : '—'}
  </span>
  {b && (
  <span className="w-20 text-center font-mono text-[11px]" style={{ color: corrColor(b.correlation) }}>
- {b.correlation.toFixed(2)}
+ {isFinite(b.correlation) ? b.correlation.toFixed(2) : '—'}
  </span>
  )}
  <span className="w-24 text-center text-[10px]" style={{ color: verdictColor }}>

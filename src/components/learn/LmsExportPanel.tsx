@@ -221,7 +221,7 @@ export function LmsExportPanel({ records }: Props) {
         `Your rubric totals ${rubricTotals[0]} points but the Canvas assignment ` +
         `"${selectedAssignment?.name}" is configured for ${canvasPoints} points.\n\n` +
         `Canvas will scale: a student who earned ${rubricTotals[0]} pts (100%) will appear ` +
-        `as ${rubricTotals[0]} / ${canvasPoints} = ${((rubricTotals[0] / canvasPoints) * 100).toFixed(0)}% in Canvas.\n\n` +
+        `as ${rubricTotals[0]} / ${canvasPoints} = ${(() => { const v = (rubricTotals[0] / canvasPoints) * 100; return isFinite(v) ? v.toFixed(0) : '—' })()}% in Canvas.\n\n` +
         `Update the Canvas assignment to ${rubricTotals[0]} points first?`
       )
       if (!proceed) return

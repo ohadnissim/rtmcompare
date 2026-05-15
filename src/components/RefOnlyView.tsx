@@ -512,12 +512,12 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
  <StatBox label="Integrated" value={`${check.stats.lufs} LUFS`} />
  {overall?.short_term_max_a != null && (
- <StatBox label="Short-Term Max" value={`${overall.short_term_max_a.toFixed(1)} LUFS`} />
+ <StatBox label="Short-Term Max" value={`${isFinite(overall.short_term_max_a) ? overall.short_term_max_a.toFixed(1) : '—'} LUFS`} />
  )}
  <StatBox label="True Peak" value={distortion ? `${distortion.true_peaks.b_true_peak_db} dBTP` : 'N/A'} />
  <StatBox label="LRA" value={`${check.stats.dynamic_range} LU`} />
  {overall?.width_a != null && (
- <StatBox label="Stereo Width" value={`${(overall.width_a * 100).toFixed(0)}%`} />
+ <StatBox label="Stereo Width" value={`${isFinite(overall.width_a) ? (overall.width_a * 100).toFixed(0) : '—'}%`} />
  )}
  </div>
  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mt-2">
@@ -564,7 +564,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div className="flex items-center justify-center gap-2 text-[10px] font-mono" style={{ color: 'var(--color-text-primary)' }}>
  <span className="uppercase tracking-[0.16em]" style={{ color: 'var(--color-text-muted)' }}>Dialog</span>
  <span style={{ color: hideLufs ? 'var(--color-text-muted)' : 'var(--color-accent)' }}>
- {hideLufs ? '-' : `${dg.lufs_i!.toFixed(1)} LKFS`}
+ {hideLufs ? '-' : `${isFinite(dg.lufs_i!) ? dg.lufs_i!.toFixed(1) : '—'} LKFS`}
  </span>
  <span
  className="text-[9px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full"
@@ -1019,7 +1019,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div className="rounded-full" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', width: `${width}px`, height, backgroundColor: color, opacity: isRoot ? 0.9 : isOctave ? 0.6 : 0.35 }} />
  {(isRoot || isOctave) && (
  <span className="absolute text-[8px] font-mono whitespace-nowrap" style={{ bottom: '100%', marginBottom: '2px', color, transform: 'translateX(-50%)', left: '50%' }}>
- {h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)}
+ {h.freq >= 1000 ? `${isFinite(h.freq) ? (h.freq/1000).toFixed(1) : '—'}k` : Math.round(h.freq)}
  </span>
  )}
  {isRoot && (
@@ -1041,7 +1041,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  color: h.is_root ? 'var(--color-data-warn)' : h.is_octave ? 'var(--color-data-a)' : 'var(--color-text-muted)',
  fontWeight: h.is_root ? 600 : 400,
  }}>
- {h.freq >= 1000 ? `${(h.freq/1000).toFixed(1)}k` : Math.round(h.freq)} Hz
+ {h.freq >= 1000 ? `${isFinite(h.freq) ? (h.freq/1000).toFixed(1) : '—'}k` : Math.round(h.freq)} Hz
  <span className="ml-1 opacity-60">{h.label}</span>
  </span>
  ))}

@@ -87,7 +87,7 @@ export default function AtmosChannelEnergy({ channels, layout, objectCount, obje
  <span className="text-xs" style={{ color: 'var(--color-slate-blue)' }}>
  {objectCount} audio objects
  </span>
- {objectEnergyDb != null && (
+ {objectEnergyDb != null && isFinite(objectEnergyDb) && (
  <span className="text-[10px] font-mono text-dark-400">
  {objectEnergyDb.toFixed(1)} dB total energy
  </span>

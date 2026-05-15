@@ -243,7 +243,7 @@ function ChainTipsPanel({ tips }: { tips: ChainTips }) {
 
  const toX = (i: number) => pad.left + (i / Math.max(1, tips.spectrum_file.length - 1)) * gw
  const toY = (v: number) => pad.top + (1 - (v - minDb) / (maxDb - minDb)) * gh
- const makePath = (data: number[]) => data.map((v, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ')
+ const makePath = (data: number[]) => data.map((v, i) => !isFinite(v) ? null : `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${isFinite(toY(v)) ? toY(v).toFixed(1) : '0'}`).filter(Boolean).join(' ')
  const labelIndices = [0, 4, 8, 12, 16, 20, 24, 28, 30]
 
  return (

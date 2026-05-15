@@ -144,10 +144,10 @@ function PlatformRow({ row }: { row: PlatformResult }) {
       </div>
 
       <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
-        <Numeral value={currentLufs.toFixed(1)} unit="LUFS-I" color={valColor} />
-        <Numeral value={currentPeakDbtp.toFixed(1)} unit="dBTP" color={valColor} />
+        <Numeral value={isFinite(currentLufs) ? currentLufs.toFixed(1) : '—'} unit="LUFS-I" color={valColor} />
+        <Numeral value={isFinite(currentPeakDbtp) ? currentPeakDbtp.toFixed(1) : '—'} unit="dBTP" color={valColor} />
         <Numeral
-          value={currentLraLu != null ? currentLraLu.toFixed(1) : '—'}
+          value={currentLraLu != null && isFinite(currentLraLu) ? currentLraLu.toFixed(1) : '—'}
           unit="LRA LU"
           color={valColor}
         />
@@ -164,7 +164,7 @@ function PlatformRow({ row }: { row: PlatformResult }) {
           textAlign: 'right',
         }}
       >
-        Δ {deltaSign}{deltaLu.toFixed(1)} LU
+        Δ {deltaSign}{isFinite(deltaLu) ? deltaLu.toFixed(1) : '—'} LU
       </div>
     </div>
   )
@@ -190,10 +190,10 @@ export function ReleaseReadiness({
     const first = platforms[0]
     const derivedMetrics: CertificateMetric[] = first
       ? [
-          { label: 'LUFS-I', value: first.currentLufs.toFixed(1), unit: 'LU' },
-          { label: 'TRUE PEAK', value: first.currentPeakDbtp.toFixed(1), unit: 'dBTP' },
+          { label: 'LUFS-I', value: isFinite(first.currentLufs) ? first.currentLufs.toFixed(1) : '—', unit: 'LU' },
+          { label: 'TRUE PEAK', value: isFinite(first.currentPeakDbtp) ? first.currentPeakDbtp.toFixed(1) : '—', unit: 'dBTP' },
           ...(first.currentLraLu != null
-            ? [{ label: 'LRA', value: first.currentLraLu.toFixed(1), unit: 'LU' }]
+            ? [{ label: 'LRA', value: isFinite(first.currentLraLu) ? first.currentLraLu.toFixed(1) : '—', unit: 'LU' }]
             : []),
         ]
       : []

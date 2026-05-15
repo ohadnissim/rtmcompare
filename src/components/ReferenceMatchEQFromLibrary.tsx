@@ -132,8 +132,8 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  </span>
  </span>
  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
- gap closed {(proposal.rmsBefore - proposal.rmsAfter).toFixed(1)} dB RMS
- ({proposal.rmsBefore.toFixed(1)} → {proposal.rmsAfter.toFixed(1)})
+ gap closed {isFinite(proposal.rmsBefore) && isFinite(proposal.rmsAfter) ? (proposal.rmsBefore - proposal.rmsAfter).toFixed(1) : '—'} dB RMS
+ ({isFinite(proposal.rmsBefore) ? proposal.rmsBefore.toFixed(1) : '—'} → {isFinite(proposal.rmsAfter) ? proposal.rmsAfter.toFixed(1) : '—'})
  </span>
  </div>
  <div className="flex items-center gap-2">
@@ -285,14 +285,14 @@ function BandsTable({ bands }: { bands: EQBand[] }) {
  </div>
  {bands.map(b => (
  <div key={b.id} className="flex items-center px-3 py-1.5 text-[11px] font-mono" style={{ color: 'var(--color-sand-300)', borderTop: '1px solid rgba(168,161,150,0.05)' }}>
- <span className="w-16">{b.freq >= 1000 ? `${(b.freq / 1000).toFixed(b.freq % 1000 === 0 ? 0 : 1)}k` : b.freq}</span>
+ <span className="w-16">{isFinite(b.freq) && b.freq >= 1000 ? `${(b.freq / 1000).toFixed(b.freq % 1000 === 0 ? 0 : 1)}k` : b.freq}</span>
  <span
  className="w-14 text-right"
  style={{ color: b.gain_db > 0 ? 'var(--color-data-pass)' : 'var(--color-data-warn)' }}
  >
- {b.gain_db > 0 ? '+' : ''}{b.gain_db.toFixed(1)} dB
+ {b.gain_db > 0 ? '+' : ''}{isFinite(b.gain_db) ? b.gain_db.toFixed(1) : '—'} dB
  </span>
- <span className="w-12 text-right">{b.q.toFixed(1)}</span>
+ <span className="w-12 text-right">{isFinite(b.q) ? b.q.toFixed(1) : '—'}</span>
  <span className="flex-1 pl-4 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{b.label || ''}</span>
  </div>
  ))}

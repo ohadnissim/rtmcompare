@@ -66,7 +66,7 @@ export function RubricGrade({ grade, pct }: RubricGradeProps) {
             color: SAND_400,
           }}
         >
-          {pct.toFixed(0)}%
+          {isFinite(pct) ? pct.toFixed(0) : '—'}%
         </div>
       )}
     </div>

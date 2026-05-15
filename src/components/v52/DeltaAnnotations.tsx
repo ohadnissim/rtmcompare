@@ -168,7 +168,7 @@ export function DeltaAnnotations({
   }, [onClose])
 
   const deltaSign = delta > 0 ? '+' : delta < 0 ? '' : ''
-  const deltaDisplay = `Δ ${deltaSign}${delta.toFixed(1)} ${unit}`
+  const deltaDisplay = `Δ ${deltaSign}${isFinite(delta) ? delta.toFixed(1) : '—'} ${unit}`
 
   return (
     <div

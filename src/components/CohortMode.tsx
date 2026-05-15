@@ -105,10 +105,10 @@ export default function CohortMode({ rows, reference, onPickReference, onLoadRef
  {reference.filename}
  </div>
  <div className="text-[10px] font-mono mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
- {reference.lufs_i != null && <>{reference.lufs_i.toFixed(1)} LUFS · </>}
- {reference.true_peak_dbtp != null && <>{reference.true_peak_dbtp.toFixed(1)} dBTP · </>}
- {reference.lra != null && <>{reference.lra.toFixed(1)} LU · </>}
- {reference.sample_rate != null && <>{(reference.sample_rate / 1000).toFixed(reference.sample_rate % 1000 === 0 ? 0 : 1)}k Hz</>}
+ {reference.lufs_i != null && <>{isFinite(reference.lufs_i) ? reference.lufs_i.toFixed(1) : '—'} LUFS · </>}
+ {reference.true_peak_dbtp != null && <>{isFinite(reference.true_peak_dbtp) ? reference.true_peak_dbtp.toFixed(1) : '—'} dBTP · </>}
+ {reference.lra != null && <>{isFinite(reference.lra) ? reference.lra.toFixed(1) : '—'} LU · </>}
+ {reference.sample_rate != null && <>{isFinite(reference.sample_rate) ? (reference.sample_rate / 1000).toFixed(reference.sample_rate % 1000 === 0 ? 0 : 1) : '—'}k Hz</>}
  </div>
  </div>
  <div className="flex items-center gap-3 text-[10px]">
@@ -150,9 +150,9 @@ export default function CohortMode({ rows, reference, onPickReference, onLoadRef
  const hotPct = (drift.hot[i] / drift.n) * 100
  const coldPct = (drift.cold[i] / drift.n) * 100
  if (hotPct >= 40) {
- warnings.push(`${hotPct.toFixed(0)}% of the cohort is hot at ${fmtFreq(BAND_CENTRES[i])} Hz (mean ${drift.mean[i].toFixed(1)} dB above reference)`)
+ warnings.push(`${isFinite(hotPct) ? hotPct.toFixed(0) : '—'}% of the cohort is hot at ${fmtFreq(BAND_CENTRES[i])} Hz (mean ${isFinite(drift.mean[i]) ? drift.mean[i].toFixed(1) : '—'} dB above reference)`)
  } else if (coldPct >= 40) {
- warnings.push(`${coldPct.toFixed(0)}% of the cohort is dark at ${fmtFreq(BAND_CENTRES[i])} Hz (mean ${drift.mean[i].toFixed(1)} dB below reference)`)
+ warnings.push(`${isFinite(coldPct) ? coldPct.toFixed(0) : '—'}% of the cohort is dark at ${fmtFreq(BAND_CENTRES[i])} Hz (mean ${isFinite(drift.mean[i]) ? drift.mean[i].toFixed(1) : '—'} dB below reference)`)
  }
  }
  if (warnings.length === 0) return null
@@ -220,7 +220,7 @@ function DriftHeatmap({ deltas }: {
  <div
  key={d.row.path + idx}
  className="flex items-center gap-2 mb-0.5"
- title={`${d.row.filename}${d.distance != null ? ` · ${d.distance.toFixed(2)} dB RMS distance from reference` : ''}`}
+ title={`${d.row.filename}${d.distance != null ? ` · ${isFinite(d.distance) ? d.distance.toFixed(2) : '—'} dB RMS distance from reference` : ''}`}
  >
  <div
  className="w-[28ch] flex-shrink-0 text-[10px] truncate"
@@ -246,7 +246,7 @@ function DriftHeatmap({ deltas }: {
  backgroundColor: colourFor(v),
  height: 14,
  }}
- title={`${fmtFreq(BAND_CENTRES[i])} Hz · ${v > 0 ? '+' : ''}${v.toFixed(1)} dB vs reference`}
+ title={`${fmtFreq(BAND_CENTRES[i])} Hz · ${v > 0 ? '+' : ''}${isFinite(v) ? v.toFixed(1) : '—'} dB vs reference`}
  />
  ))}
  </div>
@@ -254,7 +254,7 @@ function DriftHeatmap({ deltas }: {
  className="w-[7ch] flex-shrink-0 text-right text-[10px] font-mono tabular-nums"
  style={{ color: d.distance != null && d.distance > 3 ? 'var(--color-data-warn)' : 'var(--color-accent)' }}
  >
- {d.distance != null ? d.distance.toFixed(1) : '—'}
+ {d.distance != null ? (isFinite(d.distance) ? d.distance.toFixed(1) : '—') : '—'}
  </div>
  </div>
  ))}

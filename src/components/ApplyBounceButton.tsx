@@ -154,7 +154,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  <label
  className="flex items-center gap-2 px-2.5 py-1 cursor-pointer transition-colors"
  style={{ backgroundColor: 'rgba(14,13,11,0.35)' }}
- title={`Closed-loop loudness trim toward ${(refLufs as number).toFixed(1)} LUFS${refLabel ? ` (${refLabel})` : ''}. Boost capped at +4 dB so quiet mixes chasing hot references don't slam the limiter.`}
+ title={`Closed-loop loudness trim toward ${isFinite(refLufs as number) ? (refLufs as number).toFixed(1) : '—'} LUFS${refLabel ? ` (${refLabel})` : ''}. Boost capped at +4 dB so quiet mixes chasing hot references don't slam the limiter.`}
  >
  <input
  type="checkbox"
@@ -163,7 +163,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  style={{ accentColor: '#d0b066' }}
  />
  <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: matchLoudness ? '#d0b066' : '#8d867b' }}>
- Match {(refLufs as number).toFixed(1)} LUFS
+ Match {isFinite(refLufs as number) ? (refLufs as number).toFixed(1) : "—"} LUFS
  </span>
  </label>
  )}

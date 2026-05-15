@@ -421,7 +421,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  gap: 4,
  }}
  >
- ViSQOL {results.overall.visqol_mos.toFixed(2)}
+ ViSQOL {isFinite(results.overall.visqol_mos) ? results.overall.visqol_mos.toFixed(2) : '—'}
  <span title="ViSQOL (Virtual Speech Quality Objective Listener) is a perceptual audio quality score from Google. Scale: 5.0 = files sound identical, 4.0+ = very similar (transparent mastering), 3.0–4.0 = noticeable differences, below 3.0 = significant sonic gap. High scores confirm your master is a faithful representation of the reference." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.5)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.5)' : 'rgba(220,80,60,0.5)', border: `1px solid ${results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.3)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.3)' : 'rgba(220,80,60,0.3)'}`, lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </div>
  ) : results?.overall && (
@@ -612,7 +612,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  : results.headroom?.true_peak_b
  const tpDelta = (tpA != null && tpB != null) ? (tpB - tpA) : null
  const fmtDelta = (d: number | null) => {
- if (d == null) return ''
+ if (d == null || !isFinite(d)) return ''
  if (Math.abs(d) < 0.05) return '±0'
  return (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1)
  }
@@ -628,14 +628,14 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </div>
  <div className="flex items-baseline gap-3">
  <span className="font-mono tabular-nums" style={{ fontSize: 'var(--text-metric-value)', lineHeight: 1, color: 'var(--color-accent)' }}>
- {lufsB.toFixed(1)}
+ {isFinite(lufsB) ? lufsB.toFixed(1) : '—'}
  </span>
  <span className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  {fmtDelta(lufsDelta)} {isAtmos && <span className="text-[9px] opacity-60">(Atmos)</span>}
  </span>
  </div>
  <div className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
- Reference: <span className="font-mono">{lufsA.toFixed(1)}</span>
+ Reference: <span className="font-mono">{isFinite(lufsA) ? lufsA.toFixed(1) : '—'}</span>
  </div>
  </div>
  {/* True Peak hero */}
@@ -652,14 +652,14 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  color: tpWarn ? '#e07a4f' : 'var(--color-accent)',
  }}
  >
- {tpB != null ? tpB.toFixed(1) : '—'}
+ {tpB != null && isFinite(tpB) ? tpB.toFixed(1) : '—'}
  </span>
  <span className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
  {fmtDelta(tpDelta)} {isAtmos && <span className="text-[9px] opacity-60">(Atmos)</span>}
  </span>
  </div>
  <div className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
- Reference: <span className="font-mono">{tpA != null ? tpA.toFixed(1) : '—'}</span>
+ Reference: <span className="font-mono">{tpA != null && isFinite(tpA) ? tpA.toFixed(1) : '—'}</span>
  </div>
  </div>
  </div>
@@ -712,12 +712,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  )}
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Integrated</td>
- <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.lufs_a.toFixed(1)} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{isFinite(results.overall.lufs_a) ? results.overall.lufs_a.toFixed(1) : '—'} LUFS</td>
  <td className="text-right font-mono tabular-nums text-terra">
- {(isAtmos && results.atmos_qc?.specs?.loudness_lufs != null
- ? results.atmos_qc.specs.loudness_lufs
- : results.overall.lufs_b
- ).toFixed(1)} LUFS
+ {(() => { const v = isAtmos && results.atmos_qc?.specs?.loudness_lufs != null ? results.atmos_qc.specs.loudness_lufs : results.overall.lufs_b; return isFinite(v) ? v.toFixed(1) : '—' })()} LUFS
  {isAtmos && <span className="text-[9px] text-dark-500 ml-1">(Atmos)</span>}
  </td>
  <td className="text-right font-mono tabular-nums text-dark-500 pr-4">
@@ -726,7 +723,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  ? results.atmos_qc.specs.loudness_lufs
  : results.overall.lufs_b
  const d = b - results.overall.lufs_a
- return (d > 0 ? '+' : '') + d.toFixed(1)
+ return isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(1) : '—'
  })()}
  </td>
  </tr>
@@ -755,7 +752,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <td className="text-right font-mono tabular-nums text-dark-300" colSpan={2}>
  <span className="inline-flex items-center justify-center gap-2">
  <span style={{ color: hideLufs ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
- {hideLufs ? '-' : `${dg.lufs_i!.toFixed(1)} LKFS`}
+ {hideLufs ? '-' : `${isFinite(dg.lufs_i!) ? dg.lufs_i!.toFixed(1) : '—'} LKFS`}
  </span>
  <span
  className="text-[9px] uppercase tracking-[0.14em] px-2 py-0.5"
@@ -765,7 +762,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {dg.confidence}
  </span>
  <span style={{ color: 'var(--color-text-muted)' }}>
- {`${dg.speech_pct.toFixed(0)}% speech`}
+ {`${isFinite(dg.speech_pct) ? dg.speech_pct.toFixed(0) : '—'}% speech`}
  </span>
  </span>
  </td>
@@ -785,28 +782,25 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {!isAtmos && results.overall.short_term_max_a != null && results.overall.short_term_max_b != null && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Short-Term Max <span className="text-[9px] text-dark-600">(3s)</span></td>
- <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.short_term_max_a.toFixed(1)} LUFS</td>
- <td className="text-right font-mono tabular-nums text-terra">{results.overall.short_term_max_b.toFixed(1)} LUFS</td>
- <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.short_term_max_b - results.overall.short_term_max_a) > 0 ? '+' : ''}{(results.overall.short_term_max_b - results.overall.short_term_max_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{isFinite(results.overall.short_term_max_a) ? results.overall.short_term_max_a.toFixed(1) : '—'} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-terra">{isFinite(results.overall.short_term_max_b) ? results.overall.short_term_max_b.toFixed(1) : '—'} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(() => { const d = results.overall.short_term_max_b - results.overall.short_term_max_a; return isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(1) : '—' })()}</td>
  </tr>
  )}
  {!isAtmos && results.overall.momentary_max_a != null && results.overall.momentary_max_b != null && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Momentary Max <span className="text-[9px] text-dark-600">(400ms)</span></td>
- <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.momentary_max_a.toFixed(1)} LUFS</td>
- <td className="text-right font-mono tabular-nums text-terra">{results.overall.momentary_max_b.toFixed(1)} LUFS</td>
- <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.momentary_max_b - results.overall.momentary_max_a) > 0 ? '+' : ''}{(results.overall.momentary_max_b - results.overall.momentary_max_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{isFinite(results.overall.momentary_max_a) ? results.overall.momentary_max_a.toFixed(1) : '—'} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-terra">{isFinite(results.overall.momentary_max_b) ? results.overall.momentary_max_b.toFixed(1) : '—'} LUFS</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(() => { const d = results.overall.momentary_max_b - results.overall.momentary_max_a; return isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(1) : '—' })()}</td>
  </tr>
  )}
  {results.headroom && (
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">True Peak</td>
- <td className="text-right font-mono tabular-nums text-dark-300">{results.headroom.true_peak_a.toFixed(1)} dBTP</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{isFinite(results.headroom.true_peak_a) ? results.headroom.true_peak_a.toFixed(1) : '—'} dBTP</td>
  <td className="text-right font-mono tabular-nums text-terra">
- {(isAtmos && results.atmos_qc?.specs?.true_peak_dbtp != null
- ? results.atmos_qc.specs.true_peak_dbtp
- : results.headroom.true_peak_b
- ).toFixed(1)} dBTP
+ {(() => { const v = isAtmos && results.atmos_qc?.specs?.true_peak_dbtp != null ? results.atmos_qc.specs.true_peak_dbtp : results.headroom.true_peak_b; return isFinite(v) ? v.toFixed(1) : '—' })()} dBTP
  {isAtmos && <span className="text-[9px] text-dark-500 ml-1">(Atmos)</span>}
  </td>
  <td className="text-right font-mono tabular-nums text-dark-500 pr-4">
@@ -815,7 +809,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  ? results.atmos_qc.specs.true_peak_dbtp
  : results.headroom.true_peak_b
  const d = b - results.headroom.true_peak_a
- return (d > 0 ? '+' : '') + d.toFixed(1)
+ return isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(1) : '—'
  })()}
  </td>
  </tr>
@@ -824,7 +818,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <tr className="border-b border-dark-700/20">
  <td className="px-4 py-2 text-dark-400">Binaural TP <span className="text-[9px] text-dark-600">(approx)</span></td>
  <td className="text-right font-mono tabular-nums text-dark-500 pr-4">—</td>
- <td className="text-right font-mono tabular-nums text-terra">{results.atmos.binaural_tp.true_peak_db.toFixed(1)} dBTP</td>
+ <td className="text-right font-mono tabular-nums text-terra">{isFinite(results.atmos.binaural_tp.true_peak_db) ? results.atmos.binaural_tp.true_peak_db.toFixed(1) : '—'} dBTP</td>
  <td className="text-right font-mono tabular-nums text-dark-500 pr-4">—</td>
  </tr>
  )}
@@ -833,9 +827,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  className="px-4 py-2 text-dark-400"
  title="LRA — Loudness Range (BS.1770-4 / EBU R128). Difference between the loudest and quietest loudness-gated sections, in LU. Big LRA = dynamic; small LRA = over-limited. Modern pop sits 4–8 LU; classical can run 15+ LU."
  >LRA</td>
- <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.dynamics_a.toFixed(1)} LU</td>
- <td className="text-right font-mono tabular-nums text-terra">{results.overall.dynamics_b.toFixed(1)} LU</td>
- <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.dynamics_b - results.overall.dynamics_a) > 0 ? '+' : ''}{(results.overall.dynamics_b - results.overall.dynamics_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{isFinite(results.overall.dynamics_a) ? results.overall.dynamics_a.toFixed(1) : '—'} LU</td>
+ <td className="text-right font-mono tabular-nums text-terra">{isFinite(results.overall.dynamics_b) ? results.overall.dynamics_b.toFixed(1) : '—'} LU</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(() => { const d = results.overall.dynamics_b - results.overall.dynamics_a; return isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(1) : '—' })()}</td>
  </tr>
  {results.overall.plr_a != null && results.overall.plr_b != null && (
  <tr className="border-b border-dark-700/20">
@@ -843,9 +837,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  className="px-4 py-2 text-dark-400"
  title="PLR — Peak-to-Loudness Ratio. True-peak minus integrated LUFS, in dB. How much crest-factor your master has. 8–12 dB is punchy; <6 dB is squashed; >14 dB is unusually dynamic for music."
  >PLR</td>
- <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.plr_a.toFixed(1)} dB</td>
- <td className="text-right font-mono tabular-nums text-terra">{results.overall.plr_b.toFixed(1)} dB</td>
- <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(results.overall.plr_b - results.overall.plr_a) > 0 ? '+' : ''}{(results.overall.plr_b - results.overall.plr_a).toFixed(1)}</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{isFinite(results.overall.plr_a) ? results.overall.plr_a.toFixed(1) : '—'} dB</td>
+ <td className="text-right font-mono tabular-nums text-terra">{isFinite(results.overall.plr_b) ? results.overall.plr_b.toFixed(1) : '—'} dB</td>
+ <td className="text-right font-mono tabular-nums text-dark-500 pr-4">{(() => { const d = results.overall.plr_b - results.overall.plr_a; return isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(1) : '—' })()}</td>
  </tr>
  )}
  {results.overall.psr_a != null && results.overall.psr_b != null && (
@@ -854,7 +848,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  className="px-4 py-2 text-dark-400"
  title="PSR — Peak-to-Short-term Ratio. True-peak minus max short-term LUFS. Limiter stress on peaks. Target: >3 LU. <1 LU = over-limited."
  >PSR</td>
- <td className="text-right font-mono tabular-nums text-dark-300">{results.overall.psr_a.toFixed(1)} LU</td>
+ <td className="text-right font-mono tabular-nums text-dark-300">{isFinite(results.overall.psr_a) ? results.overall.psr_a.toFixed(1) : '—'} LU</td>
  <td
  className="text-right font-mono tabular-nums"
  style={{
@@ -864,9 +858,9 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  ? 'rgba(242,201,76,0.8)'
  : 'var(--color-danger)',
  }}
- >{results.overall.psr_b.toFixed(1)} LU</td>
+ >{isFinite(results.overall.psr_b) ? results.overall.psr_b.toFixed(1) : '—'} LU</td>
  <td className="text-right font-mono tabular-nums text-dark-500 pr-4 text-[10px]">
- Δ {(results.overall.psr_b - results.overall.psr_a) > 0 ? '+' : ''}{(results.overall.psr_b - results.overall.psr_a).toFixed(1)} LU
+ Δ {(() => { const d = results.overall.psr_b - results.overall.psr_a; return isFinite(d) ? (d > 0 ? '+' : '') + d.toFixed(1) : '—' })()} LU
  </td>
  </tr>
  )}
@@ -1306,11 +1300,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <div key={ch.channel} className="flex items-center gap-3 px-3 py-2 bg-dark-800/30" style={{ borderRadius: '2px' }}>
  <span className="text-[11px] font-mono text-dark-400 w-8">{ch.channel}</span>
  <span className={`text-[10px] font-mono w-14 ${ch.is_active ? 'text-dark-300' : 'text-dark-600'}`}>
- {ch.is_active ? `${ch.level_db.toFixed(1)} dB` : 'silent'}
+ {ch.is_active ? `${isFinite(ch.level_db) ? ch.level_db.toFixed(1) : '—'} dB` : 'silent'}
  </span>
  <span className="text-[10px] text-dark-500 flex-1">{ch.description}</span>
  {ch.is_active && ch.dynamic_range_db > 0 && (
- <span className="text-[9px] text-dark-600">DR {ch.dynamic_range_db.toFixed(1)} dB</span>
+ <span className="text-[9px] text-dark-600">DR {isFinite(ch.dynamic_range_db) ? ch.dynamic_range_db.toFixed(1) : '—'} dB</span>
  )}
  </div>
  ))}
@@ -1880,14 +1874,14 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  <div className="flex items-center justify-center gap-0 py-1.5 flex-wrap">
  <CockpitMetric
  label="LUFS-I"
- value={`${lufsB.toFixed(1)}`}
+ value={`${isFinite(lufsB) ? lufsB.toFixed(1) : '—'}`}
  unit="LUFS"
  delta={lufsB - lufsA}
  deltaUnit="dB"
  />
  <CockpitMetric
  label="TP"
- value={tpB != null ? tpB.toFixed(1) : '—'}
+ value={tpB != null && isFinite(tpB) ? tpB.toFixed(1) : '—'}
  unit="dBTP"
  delta={tpA != null && tpB != null ? tpB - tpA : null}
  deltaUnit="dB"
@@ -1895,7 +1889,7 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  />
  <CockpitMetric
  label="LRA"
- value={lraB != null ? lraB.toFixed(1) : '—'}
+ value={lraB != null && isFinite(lraB) ? lraB.toFixed(1) : '—'}
  unit="LU"
  delta={lraA != null && lraB != null ? lraB - lraA : null}
  deltaUnit="LU"
@@ -1920,7 +1914,7 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  Binaural TP <span style={{ color: 'var(--color-text-muted)' }}>(approx)</span>
  </span>
  <span className="font-mono tabular-nums text-[11px]" style={{ color: btpWarn ? '#e07a4f' : 'var(--color-text-primary)' }}>
- {btp.toFixed(1)}
+ {isFinite(btp) ? btp.toFixed(1) : '—'}
  </span>
  <span className="text-[11px] tracking-[0.14em] uppercase" style={{ color: 'var(--color-text-muted)' }}>dBTP</span>
  </div>
@@ -2096,13 +2090,13 @@ function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fi
  const issues: string[] = []
  const worstDelta = Math.max(...platforms.map(p => Math.abs(p.currentLufs - p.platform.targetLufs)))
  if (worstDelta > 0.5) {
-   issues.push(`Integrated loudness drifts ${worstDelta.toFixed(1)} LU from the worst-case streaming target — re-render the limiter pass.`)
+   issues.push(`Integrated loudness drifts ${isFinite(worstDelta) ? worstDelta.toFixed(1) : '—'} LU from the worst-case streaming target — re-render the limiter pass.`)
  }
  if (tp > -1) {
-   issues.push(`True peak at ${tp.toFixed(1)} dBTP exceeds the -1 dBTP ceiling — pull the limiter ceiling and re-bounce.`)
+   issues.push(`True peak at ${isFinite(tp) ? tp.toFixed(1) : '—'} dBTP exceeds the -1 dBTP ceiling — pull the limiter ceiling and re-bounce.`)
  }
  if (lra != null && lra < 4) {
-   issues.push(`LRA at ${lra.toFixed(1)} LU reads over-limited — consider easing the master-bus compression.`)
+   issues.push(`LRA at ${isFinite(lra) ? lra.toFixed(1) : '—'} LU reads over-limited — consider easing the master-bus compression.`)
  }
 
  const handleMasterForRelease = async () => {

@@ -763,7 +763,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--color-text-primary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <div>{earTrainingInsights.etCount} student{earTrainingInsights.etCount !== 1 ? 's' : ''} practised ear training</div>
-                        <div>Class avg accuracy: <span style={{ color: 'var(--color-accent)' }}>{(earTrainingInsights.avgAccuracy * 100).toFixed(0)}%</span></div>
+                        <div>Class avg accuracy: <span style={{ color: 'var(--color-accent)' }}>{(() => { const v = earTrainingInsights.avgAccuracy * 100; return isFinite(v) ? v.toFixed(0) : '—' })()}%</span></div>
                         <div>Total drills completed: <span style={{ color: 'var(--color-sand-400)' }}>{earTrainingInsights.totalDrills}</span></div>
                         {earTrainingInsights.weakBandsClass.length > 0 && (
                           <div style={{ marginTop: 6 }}>
@@ -774,7 +774,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
                               <div key={b.band} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '2px 0' }}>
                                 <span style={{ color: 'rgba(168,161,150,0.85)' }}>{b.band}</span>
                                 <span style={{ color: b.acc >= 0.7 ? '#7bc49e' : b.acc >= 0.4 ? 'rgba(208,176,102,0.85)' : '#e07060', fontWeight: 600 }}>
-                                  {(b.acc * 100).toFixed(0)}% ({b.attempts})
+                                  {(() => { const v = b.acc * 100; return isFinite(v) ? v.toFixed(0) : '—' })()}% ({b.attempts})
                                 </span>
                               </div>
                             ))}

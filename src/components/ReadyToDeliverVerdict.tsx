@@ -202,9 +202,9 @@ function LegacyVerdict({ verdict, compact, showDspGrid }: { verdict: Verdict; co
  color: verdict.monoLossPct > 30 ? 'var(--color-danger)' : verdict.monoLossPct > 10 ? 'var(--color-accent)' : '#6ec577',
  backgroundColor: verdict.monoLossPct > 30 ? 'rgba(224,90,90,0.12)' : verdict.monoLossPct > 10 ? 'rgba(197,165,90,0.12)' : 'rgba(110,197,119,0.12)',
  }}
- title={`Mono compatibility — ${verdict.monoLossPct.toFixed(0)}% energy loss when collapsed to mono. Press M in the player to hear it.`}
+ title={`Mono compatibility — ${isFinite(verdict.monoLossPct) ? verdict.monoLossPct.toFixed(0) : "—"}% energy loss when collapsed to mono. Press M in the player to hear it.`}
  >
- Mono −{verdict.monoLossPct.toFixed(0)}%
+ Mono −{isFinite(verdict.monoLossPct) ? verdict.monoLossPct.toFixed(0) : "—"}%
  </span>
  )}
  </div>

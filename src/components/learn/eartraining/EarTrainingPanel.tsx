@@ -890,7 +890,7 @@ function HeatMapScreen({ progress }: { progress: EarTrainingProgress }) {
                 <td style={{ padding: '8px 12px', color: 'var(--color-text-primary)' }}>{b.option}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', color: 'rgba(168,161,150,0.75)' }}>{b.attempts}</td>
                 <td style={{ padding: '8px 12px', textAlign: 'right', color: b.accuracy >= 0.7 ? '#7bc49e' : b.accuracy >= 0.4 ? 'rgba(208,176,102,0.85)' : '#e07060' }}>
-                  {(b.accuracy * 100).toFixed(0)}%
+                  {(() => { const v = b.accuracy * 100; return isFinite(v) ? v.toFixed(0) : '—' })()}%
                 </td>
                 <td style={{ padding: '8px 12px', width: '40%' }}>
                   <div style={{ height: 4, background: 'rgba(168,161,150,0.1)', borderRadius: 2, overflow: 'hidden' }}>

@@ -533,7 +533,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  if ((r.clipped_samples || 0) > 0) notes.push(`${r.clipped_samples} clipped samples`)
  // ISRC missing/duplicate warnings disabled by user direction.
  if (stats.lufsMedian != null && r.lufs_i != null && Math.abs(r.lufs_i - stats.lufsMedian) > 1.5) {
- notes.push(`LUFS outlier (${(r.lufs_i - stats.lufsMedian > 0 ? '+' : '') + (r.lufs_i - stats.lufsMedian).toFixed(1)} vs median)`)
+ const d = r.lufs_i - stats.lufsMedian; notes.push(`LUFS outlier (${(d > 0 ? '+' : '') + (isFinite(d) ? d.toFixed(1) : '—')} vs median)`)
  }
  // User's own per-song note — append last so it's easy to scan past
  // the machine warnings.
@@ -1170,19 +1170,19 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  </td>
  <td className="px-3 py-2 text-center font-mono">
  <span style={{ color: lufsOutlier ? 'var(--color-danger)' : 'var(--color-sand-100)' }}>
- {r.lufs_i != null ? r.lufs_i.toFixed(1) : '—'}
+ {r.lufs_i != null ? (isFinite(r.lufs_i) ? r.lufs_i.toFixed(1) : '—') : '—'}
  </span>
  {lufsDelta != null && Math.abs(lufsDelta) >= 0.5 && (
  <span className="ml-1 text-[9px]" style={{ color: lufsOutlier ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
- {lufsDelta > 0 ? '+' : ''}{lufsDelta.toFixed(1)}
+ {lufsDelta > 0 ? '+' : ''}{isFinite(lufsDelta) ? lufsDelta.toFixed(1) : '—'}
  </span>
  )}
  </td>
  <td className="px-3 py-2 text-center font-mono" style={{ color: tpHot ? 'var(--color-danger)' : 'var(--color-sand-100)' }}>
- {r.true_peak_dbtp != null ? r.true_peak_dbtp.toFixed(1) : '—'}
+ {r.true_peak_dbtp != null ? (isFinite(r.true_peak_dbtp) ? r.true_peak_dbtp.toFixed(1) : '—') : '—'}
  </td>
  <td className="px-3 py-2 text-center font-mono text-dark-300">
- {r.lra != null ? r.lra.toFixed(1) : '—'}
+ {r.lra != null ? (isFinite(r.lra) ? r.lra.toFixed(1) : '—') : '—'}
  </td>
  <td className="px-3 py-2 text-center font-mono text-dark-300">
  {r.duration_sec != null ? formatDuration(r.duration_sec) : '—'}
@@ -1224,8 +1224,8 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  const rms = Math.sqrt(delta.reduce((s, d) => s + d * d, 0) / delta.length)
  const warn = rms > 3
  return (
- <span style={{ color: warn ? 'var(--color-data-warn)' : 'var(--color-accent)' }} title={`${rms.toFixed(2)} dB RMS distance from reference across 31 bands`}>
- {rms.toFixed(1)}
+ <span style={{ color: warn ? 'var(--color-data-warn)' : 'var(--color-accent)' }} title={`${isFinite(rms) ? rms.toFixed(2) : '—'} dB RMS distance from reference across 31 bands`}>
+ {isFinite(rms) ? rms.toFixed(1) : '—'}
  </span>
  )
  })()}
@@ -1258,7 +1258,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  {stats.lufsMedian != null && results.filter(r => r.lufs_i != null && Math.abs(r.lufs_i - stats.lufsMedian!) > 1.5).map(r => (
  <div key={r.path}>
  <span style={{ color: 'var(--color-danger)' }}>⚠</span> {r.filename} is {
- ((r.lufs_i! - stats.lufsMedian!) > 0 ? '+' : '') + (r.lufs_i! - stats.lufsMedian!).toFixed(1)
+ (() => { const d = r.lufs_i! - stats.lufsMedian!; return (d > 0 ? '+' : '') + (isFinite(d) ? d.toFixed(1) : '—') })()
  } LU from the album median — consider re-levelling.
  </div>
  ))}
@@ -1540,11 +1540,11 @@ function buildBatchPdfHtml(
  <td class="num">${esc(r.track_number || '')}</td>
  <td>${esc(r.filename)}${r.title ? `<div class="sub">${esc(r.title)}${r.artist ? ' · ' + esc(r.artist) : ''}</div>` : ''}</td>
  <td class="mono ${lufsOutlier ? 'warn' : ''}">
- ${r.lufs_i != null ? r.lufs_i.toFixed(1) : '—'}
- ${lufsDelta != null && Math.abs(lufsDelta) >= 0.5 ? `<span class="delta">${lufsDelta > 0 ? '+' : ''}${lufsDelta.toFixed(1)}</span>` : ''}
+ ${r.lufs_i != null ? (isFinite(r.lufs_i) ? r.lufs_i.toFixed(1) : '—') : '—'}
+ ${lufsDelta != null && Math.abs(lufsDelta) >= 0.5 ? `<span class="delta">${lufsDelta > 0 ? '+' : ''}${isFinite(lufsDelta) ? lufsDelta.toFixed(1) : '—'}</span>` : ''}
  </td>
- <td class="mono ${tpHot ? 'warn' : ''}">${r.true_peak_dbtp != null ? r.true_peak_dbtp.toFixed(1) : '—'}</td>
- <td class="mono">${r.lra != null ? r.lra.toFixed(1) : '—'}</td>
+ <td class="mono ${tpHot ? 'warn' : ''}">${r.true_peak_dbtp != null ? (isFinite(r.true_peak_dbtp) ? r.true_peak_dbtp.toFixed(1) : '—') : '—'}</td>
+ <td class="mono">${r.lra != null ? (isFinite(r.lra) ? r.lra.toFixed(1) : '—') : '—'}</td>
  <td class="mono">${r.duration_sec != null ? formatDuration(r.duration_sec) : '—'}</td>
  <td class="mono sub">${r.sample_rate ? `${Math.round(r.sample_rate / 100) / 10}k` : '—'}${r.bit_depth ? ` · ${r.bit_depth}` : ''}</td>
  <td class="mono sub">${r.isrc ? esc(r.isrc) : '—'}</td>
@@ -1555,7 +1555,7 @@ function buildBatchPdfHtml(
  // ISRC duplicate / missing notes removed by user direction.
  void dupIsrcs; void missingIsrc;
  const outlierNotes = outlierRows
- .map(r => `<li><b>${esc(r.filename)}</b> is ${((r.lufs_i! - (stats.lufsMedian as number)) > 0 ? '+' : '') + (r.lufs_i! - (stats.lufsMedian as number)).toFixed(1)} LU from the album median. Consider re-levelling.</li>`)
+ .map(r => { const d = r.lufs_i! - (stats.lufsMedian as number); return `<li><b>${esc(r.filename)}</b> is ${(d > 0 ? '+' : '') + (isFinite(d) ? d.toFixed(1) : '—')} LU from the album median. Consider re-levelling.</li>` })
  .join('')
 
  // User-authored notes — album-level block (up top, always shown when
@@ -1693,7 +1693,7 @@ function buildDDPPreflightHtml(
  const dup = !!(isrc && (isrcCounts.get(isrc) || 0) > 1)
  return {
  row: r,
- tp: { pass: tp != null && tp <= streamingTpFloorDbtp(), detail: tp != null ? `${tp.toFixed(1)} dBTP` : 'unknown' },
+ tp: { pass: tp != null && tp <= streamingTpFloorDbtp(), detail: tp != null ? `${isFinite(tp) ? tp.toFixed(1) : '—'} dBTP` : 'unknown' },
  sr: { pass: sr != null && [44100, 48000, 88200, 96000, 176400, 192000].includes(sr), detail: sr != null ? `${sr} Hz` : 'unknown' },
  bd: { pass: bd != null && bd >= 16, detail: bd != null ? `${bd}-bit` : 'unknown' },
  ch: { pass: ch === 2, detail: ch != null ? `${ch} ch` : 'unknown' },

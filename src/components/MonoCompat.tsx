@@ -165,7 +165,7 @@ function RiskSummary({
  <div className="flex items-center justify-between text-[10px]">
  <span className="text-dark-400">Weighted risk</span>
  <div className="flex items-center gap-1.5">
- <span className="font-mono" style={{ color: status.color }}>{risk.toFixed(1)}</span>
+ <span className="font-mono" style={{ color: status.color }}>{isFinite(risk) ? risk.toFixed(1) : '—'}</span>
  {offScale && (
  <span className="text-[8px] px-1 rounded" style={{ color: status.color, backgroundColor: `${status.color}20` }}>
  off-scale
@@ -212,7 +212,7 @@ function BandRow({
  <span className="text-[9px] text-dark-500 font-mono">{band.freq_range}</span>
  {degraded && (
  <span className="text-[8px] px-1 py-0.5 rounded" style={{ color: 'var(--color-warm-amber)', backgroundColor: 'rgba(245,158,11,0.1)' }}>
- +{delta.toFixed(0)}%
+ +{isFinite(delta) ? delta.toFixed(0) : '—'}%
  </span>
  )}
  </div>
@@ -225,12 +225,12 @@ function BandRow({
  <ImpactDots impact={band.impact} />
  </div>
  <div className="w-24 flex flex-col items-center pt-0.5">
- <span className="font-mono text-[10px]" style={{ color: colorA }}>{bandA.loss_pct.toFixed(1)}%</span>
- <span className="text-[8px] text-dark-600">r={bandA.correlation.toFixed(2)}</span>
+ <span className="font-mono text-[10px]" style={{ color: colorA }}>{isFinite(bandA.loss_pct) ? bandA.loss_pct.toFixed(1) : '—'}%</span>
+ <span className="text-[8px] text-dark-600">r={isFinite(bandA.correlation) ? bandA.correlation.toFixed(2) : '—'}</span>
  </div>
  <div className="w-24 flex flex-col items-center pt-0.5">
- <span className="font-mono text-[10px]" style={{ color: colorB }}>{band.loss_pct.toFixed(1)}%</span>
- <span className="text-[8px] text-dark-600">r={band.correlation.toFixed(2)}</span>
+ <span className="font-mono text-[10px]" style={{ color: colorB }}>{isFinite(band.loss_pct) ? band.loss_pct.toFixed(1) : '—'}%</span>
+ <span className="text-[8px] text-dark-600">r={isFinite(band.correlation) ? band.correlation.toFixed(2) : '—'}</span>
  </div>
  </div>
  )
@@ -331,7 +331,7 @@ function MonoWaterfallRow({ label, bands, heightFor }: {
  backgroundColor: lossColor(b.risk || 0),
  opacity: 0.85,
  }}
- title={`${b.name} (${b.freq_range}) — risk ${(b.risk || 0).toFixed(1)} · raw mono loss ${(b.loss_pct || 0).toFixed(1)}% · ${b.note || ''}`}
+ title={`${b.name} (${b.freq_range}) — risk ${(b.risk != null && isFinite(b.risk) ? b.risk : 0).toFixed(1)} · raw mono loss ${(b.loss_pct != null && isFinite(b.loss_pct) ? b.loss_pct : 0).toFixed(1)}% · ${b.note || ''}`}
  />
  ))}
  </div>

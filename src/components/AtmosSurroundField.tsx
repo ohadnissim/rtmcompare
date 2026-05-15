@@ -120,7 +120,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  <div className="space-y-1">
  <span className="text-[10px] text-dark-500 uppercase tracking-wider">Height Energy</span>
  <div className="text-xl font-semibold" style={{ color: heightRatio > 0.05 ? 'var(--color-slate-blue)' : 'var(--color-text-muted)' }}>
- {(heightRatio * 100).toFixed(1)}%
+ {isFinite(heightRatio) ? (heightRatio * 100).toFixed(1) : '—'}%
  </div>
  <span className="text-[10px] text-dark-500">
  {heightRatio < 0.03 ? 'Very little height content' :
@@ -133,7 +133,7 @@ export default function AtmosSurroundField({ channels, heightRatio, centerExtrac
  <div className="space-y-1">
  <span className="text-[10px] text-dark-500 uppercase tracking-wider">Center Extraction</span>
  <div className="text-xl font-semibold" style={{ color: centerExtraction > 0.5 ? 'var(--color-data-pass)' : 'var(--color-data-warn)' }}>
- {(centerExtraction * 100).toFixed(0)}%
+ {isFinite(centerExtraction) ? (centerExtraction * 100).toFixed(0) : '—'}%
  </div>
  <span className="text-[10px] text-dark-500">
  {centerExtraction > 0.8 ? 'Excellent center isolation' :

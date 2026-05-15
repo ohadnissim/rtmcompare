@@ -23,7 +23,7 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  const copyPreset = async () => {
  if (!hum.notch_preset.length) return
  const text = hum.notch_preset.map(n =>
- `${n.freq.toFixed(1)} Hz Q=${n.q.toFixed(1)} ${n.gain_db.toFixed(1)} dB`
+ `${isFinite(n.freq) ? n.freq.toFixed(1) : '—'} Hz Q=${isFinite(n.q) ? n.q.toFixed(1) : '—'} ${isFinite(n.gain_db) ? n.gain_db.toFixed(1) : '—'} dB`
  ).join('\n')
  try {
  if (window.electronAPI?.copyToClipboard) {
@@ -63,8 +63,8 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  </div>
  {hum.harmonics.map((h, i) => (
  <div key={i} className="flex items-center text-[11px] px-2 py-1">
- <span className="flex-1 font-mono text-dark-200">{h.freq.toFixed(1)} Hz</span>
- <span className="w-24 text-right font-mono" style={{ color }}>+{h.prominence_db.toFixed(1)} dB</span>
+ <span className="flex-1 font-mono text-dark-200">{isFinite(h.freq) ? h.freq.toFixed(1) : '—'} Hz</span>
+ <span className="w-24 text-right font-mono" style={{ color }}>+{isFinite(h.prominence_db) ? h.prominence_db.toFixed(1) : '—'} dB</span>
  <span className="w-20 text-right font-mono text-dark-400">{Math.round(h.coverage * 100)}%</span>
  </div>
  ))}
@@ -100,9 +100,9 @@ export default function HumPanel({ hum }: { hum: Hum }) {
  <div className="p-3 font-mono text-[11px] space-y-0.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(26,25,24,0.6)' }}>
  {hum.notch_preset.map((n, i) => (
  <div key={i} className="flex gap-4">
- <span className="text-dark-300">{n.freq.toFixed(1)} Hz</span>
- <span className="text-dark-500">Q = {n.q.toFixed(1)}</span>
- <span style={{ color: 'var(--color-danger)' }}>{n.gain_db.toFixed(1)} dB</span>
+ <span className="text-dark-300">{isFinite(n.freq) ? n.freq.toFixed(1) : '—'} Hz</span>
+ <span className="text-dark-500">Q = {isFinite(n.q) ? n.q.toFixed(1) : '—'}</span>
+ <span style={{ color: 'var(--color-danger)' }}>{isFinite(n.gain_db) ? n.gain_db.toFixed(1) : '—'} dB</span>
  </div>
  ))}
  </div>

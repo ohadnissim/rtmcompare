@@ -25,7 +25,7 @@ export default function LevelMeter({ label, valueA, valueB, diff, unit, labelA, 
  <div className="flex items-center justify-between">
   <span className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
   <span className="text-xs font-mono" style={{ color: diffColor }}>
-  {diffSign}{diff.toFixed(1)} {unit}
+  {diffSign}{isFinite(diff) ? diff.toFixed(1) : '—'} {unit}
   </span>
  </div>
  <div className="space-y-1">
@@ -37,7 +37,7 @@ export default function LevelMeter({ label, valueA, valueB, diff, unit, labelA, 
    style={{ width: `${widthA}%`, backgroundColor: 'var(--color-sand-400)', borderRadius: '2px' }}
    />
   </div>
-  <span className="text-[10px] font-mono w-12 text-right" style={{ color: 'var(--color-text-dim)' }}>{valueA.toFixed(1)}</span>
+  <span className="text-[10px] font-mono w-12 text-right" style={{ color: 'var(--color-text-dim)' }}>{isFinite(valueA) ? valueA.toFixed(1) : '—'}</span>
   </div>
   <div className="flex items-center gap-2">
   <span className="text-[10px] w-6" style={{ color: 'var(--color-text-dim)' }}>{labelB}</span>
@@ -47,7 +47,7 @@ export default function LevelMeter({ label, valueA, valueB, diff, unit, labelA, 
    style={{ width: `${widthB}%`, backgroundColor: barColor, borderRadius: '2px' }}
    />
   </div>
-  <span className="text-[10px] font-mono w-12 text-right" style={{ color: 'var(--color-text-dim)' }}>{valueB.toFixed(1)}</span>
+  <span className="text-[10px] font-mono w-12 text-right" style={{ color: 'var(--color-text-dim)' }}>{isFinite(valueB) ? valueB.toFixed(1) : '—'}</span>
   </div>
  </div>
  </div>

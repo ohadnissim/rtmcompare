@@ -54,7 +54,7 @@ export default function DurationPill({ seconds, label, tint, compact }: Props) {
  backgroundColor: 'rgba(87,83,78,0.18)',
  border: '1px solid rgba(168,161,150,0.1)',
  }}
- title={seconds != null && !isNaN(seconds) ? `${(seconds as number).toFixed(2)} seconds` : 'Duration unknown'}
+ title={seconds != null && !isNaN(seconds) ? `${isFinite(seconds as number) ? (seconds as number).toFixed(2) : "—"} seconds` : 'Duration unknown'}
  >
  <svg className={compact ? 'w-2.5 h-2.5' : 'w-3 h-3'} fill="none" viewBox="0 0 24 24" stroke={color} strokeWidth={2}>
  <circle cx="12" cy="12" r="9" />

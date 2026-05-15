@@ -62,7 +62,9 @@ function lufsVerdict(a: number | null | undefined, b: number | null | undefined)
   if (a == null || b == null) return 'No loudness data available'
   const delta = a - b
   if (Math.abs(delta) < 0.5) return 'Roughly equal (< 0.5 dB)'
-  return delta > 0 ? `A is +${Math.abs(delta).toFixed(1)} dB louder` : `B is +${Math.abs(delta).toFixed(1)} dB louder`
+  const absDelta = Math.abs(delta)
+  if (!isFinite(absDelta)) return 'No loudness data available'
+  return delta > 0 ? `A is +${absDelta.toFixed(1)} dB louder` : `B is +${absDelta.toFixed(1)} dB louder`
 }
 
 function deltaVerdict(
@@ -76,8 +78,10 @@ function deltaVerdict(
   if (a == null || b == null) return 'No data available'
   const delta = a - b
   if (Math.abs(delta) < 0.1) return 'Roughly equal'
+  const absDelta = Math.abs(delta)
+  if (!isFinite(absDelta)) return 'No data available'
   const winner = (higherMeansMore ? delta > 0 : delta < 0) ? labelA : labelB
-  return `${winner} ${unit}(${Math.abs(delta).toFixed(1)} difference)`
+  return `${winner} ${unit}(${absDelta.toFixed(1)} difference)`
 }
 
 function matchLufs(

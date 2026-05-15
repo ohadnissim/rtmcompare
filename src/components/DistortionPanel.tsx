@@ -59,7 +59,7 @@ export default function DistortionPanel({ distortion, labelA, labelB, singleFile
  labelA={labelA}
  labelB={labelB}
  singleFile={singleFile}
- format={(v) => `${v.toFixed(1)} dBTP`}
+ format={(v) => `${isFinite(v) ? v.toFixed(1) : '—'} dBTP`}
  status={distortion.true_peaks.b_true_peak_db > 0 ? 'bad' : 'good'}
  />
 
@@ -72,7 +72,7 @@ export default function DistortionPanel({ distortion, labelA, labelB, singleFile
  labelA={labelA}
  labelB={labelB}
  singleFile={singleFile}
- format={(v) => `${v.toFixed(1)}%`}
+ format={(v) => `${isFinite(v) ? v.toFixed(1) : '—'}%`}
  status={distortion.limiting.b_flat_pct > 5 ? 'bad' : distortion.limiting.b_flat_pct > 2 ? 'warn' : 'good'}
  />
 
@@ -85,7 +85,7 @@ export default function DistortionPanel({ distortion, labelA, labelB, singleFile
  valueB={distortion.harmonics.thd_increase_pct}
  labelA={labelA}
  labelB={labelB}
- format={(v, isA) => isA ? 'Baseline' : v > 0.5 ? `+${v.toFixed(1)}%` : 'Minimal'}
+ format={(v, isA) => isA ? 'Baseline' : v > 0.5 ? `+${isFinite(v) ? v.toFixed(1) : '—'}%` : 'Minimal'}
  status={'good'}
  />
  )}

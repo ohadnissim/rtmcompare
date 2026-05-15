@@ -69,7 +69,7 @@ export default function MaskingPanel({ masking }: Props) {
  <span className="text-sm font-medium text-dark-100">{o.pair}</span>
  <span className="text-[10px] font-mono text-dark-500">{o.freq_range}</span>
  <span className="text-[9px] font-mono text-dark-500">
- · A {o.level_a.toFixed(1)} dB / B {o.level_b.toFixed(1)} dB
+ · A {isFinite(o.level_a) ? o.level_a.toFixed(1) : '—'} dB / B {isFinite(o.level_b) ? o.level_b.toFixed(1) : '—'} dB
  </span>
  </div>
  <p className="text-[11px] text-dark-300 mt-0.5">{o.description}</p>

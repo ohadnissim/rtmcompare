@@ -259,9 +259,9 @@ function DropChip({ drop, onLoad, onDismiss }: {
  const name = meta.sessionName || basename(drop.audioPath)
  const sub = [
  meta.daw,
- meta.sampleRate ? `${(meta.sampleRate / 1000).toFixed(meta.sampleRate % 1000 === 0 ? 0 : 1)} kHz` : null,
+ meta.sampleRate ? `${isFinite(meta.sampleRate) ? (meta.sampleRate / 1000).toFixed(meta.sampleRate % 1000 === 0 ? 0 : 1) : "—"} kHz` : null,
  meta.channels ? `${meta.channels} ch` : null,
- meta.durationSec ? `${meta.durationSec.toFixed(1)} s` : null,
+ meta.durationSec ? `${isFinite(meta.durationSec) ? meta.durationSec.toFixed(1) : "—"} s` : null,
  ].filter(Boolean).join(' · ')
 
  return (

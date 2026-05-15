@@ -51,7 +51,7 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  Math.abs(cat.diff_db) > 1.5 ? 'text-orange-400' :
  Math.abs(cat.diff_db) > 0.5 ? 'text-amber-400' : 'text-dark-400'
  }`}>
- {cat.diff_db > 0 ? '+' : ''}{cat.diff_db.toFixed(1)} dB
+ {cat.diff_db > 0 ? '+' : ''}{isFinite(cat.diff_db) ? cat.diff_db.toFixed(1) : '—'} dB
  </span>
  </div>
  )
@@ -61,7 +61,7 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  <div className="flex items-center gap-2 text-xs">
  <span className="text-dark-500">Overall:</span>
  <span className={Math.abs(delta.overall_diff_db) > 1 ? 'text-orange-400' : 'text-dark-300'}>
- {delta.overall_diff_db > 0 ? '+' : ''}{delta.overall_diff_db.toFixed(1)} dB
+ {delta.overall_diff_db > 0 ? '+' : ''}{isFinite(delta.overall_diff_db) ? delta.overall_diff_db.toFixed(1) : '—'} dB
  </span>
  </div>
  </div>
@@ -78,13 +78,13 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  <div className="flex items-center justify-between">
  <span className="text-[10px] text-dark-500">Ls / Rs</span>
  <span className={`text-[10px] font-mono ${surroundBalance.lr_diff_db > 2 ? 'text-orange-400' : 'text-dark-400'}`}>
- {surroundBalance.lr_diff_db.toFixed(1)} dB diff
+ {isFinite(surroundBalance.lr_diff_db) ? surroundBalance.lr_diff_db.toFixed(1) : '—'} dB diff
  </span>
  </div>
  <div className="flex items-center justify-between">
  <span className="text-[10px] text-dark-500">Lrs / Rrs</span>
  <span className={`text-[10px] font-mono ${surroundBalance.rear_lr_diff_db > 2 ? 'text-orange-400' : 'text-dark-400'}`}>
- {surroundBalance.rear_lr_diff_db.toFixed(1)} dB diff
+ {isFinite(surroundBalance.rear_lr_diff_db) ? surroundBalance.rear_lr_diff_db.toFixed(1) : '—'} dB diff
  </span>
  </div>
  <div className="mt-1">
@@ -107,13 +107,13 @@ export default function DownmixDelta({ delta, surroundBalance, lfe }: Props) {
  <div className="flex items-center justify-between">
  <span className="text-[10px] text-dark-500">Level</span>
  <span className={`text-[10px] font-mono ${lfe.has_content ? 'text-dark-300' : 'text-dark-600'}`}>
- {lfe.has_content ? `${lfe.level_db.toFixed(1)} dB` : 'No content'}
+ {lfe.has_content ? `${isFinite(lfe.level_db) ? lfe.level_db.toFixed(1) : '—'} dB` : 'No content'}
  </span>
  </div>
  {lfe.high_freq_warning && (
  <div className="flex items-center gap-1 mt-1">
  <span className="text-[10px] text-orange-400">
- HF content detected ({lfe.high_freq_energy_db.toFixed(1)} dB above 120 Hz)
+ HF content detected ({isFinite(lfe.high_freq_energy_db) ? lfe.high_freq_energy_db.toFixed(1) : '—'} dB above 120 Hz)
  </span>
  </div>
  )}

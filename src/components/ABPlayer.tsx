@@ -1177,8 +1177,8 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  border: activeStem === name ? `1px solid ${stemColor(name, 0.4)}` : '1px solid transparent',
  fontWeight: activeStem === name ? 500 : 400,
  }}
- title={m
- ? `${name} · ${activeFile}: TP ${tp!.toFixed(1)} dBTP · Loud ${loud!.toFixed(1)} dBFS${isTpOffender ? ' · highest TP of the loaded stems' : ''}. TP is 4× oversampled (~0.5 dB accurate); Loud is broadband RMS, not strict LUFS.`
+ title={m && tp != null && loud != null && isFinite(tp) && isFinite(loud)
+ ? `${name} · ${activeFile}: TP ${tp.toFixed(1)} dBTP · Loud ${loud.toFixed(1)} dBFS${isTpOffender ? ' · highest TP of the loaded stems' : ''}. TP is 4× oversampled (~0.5 dB accurate); Loud is broadband RMS, not strict LUFS.`
  : name}
  >
  <span>{name}</span>

@@ -967,7 +967,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
             !title.trim()
               ? 'Add an assignment title'
               : !weightOk
-                ? `Rubric weights must equal 100% (currently ${(totalWeight * 100).toFixed(0)}%)`
+                ? `Rubric weights must equal 100% (currently ${(() => { const v = totalWeight * 100; return isFinite(v) ? v.toFixed(0) : '—' })()}%)`
                 : 'Save and export this assignment'
           }
           style={{
