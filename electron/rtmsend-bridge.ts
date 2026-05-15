@@ -58,6 +58,11 @@ export interface RtmSendInstanceMeta {
   host_app?: string
   plugin_name?: string
   build?: string
+  /** Per-connection auth token. RpcServer (v1.2+) requires every client
+   *  to send this as the FIRST line before any JSON-RPC traffic. The
+   *  server closes silently on mismatch. Absent on pre-v1.2 instances
+   *  (legacy) and the single-line legacy port file. */
+  auth_token?: string
   /** True when we got this from the legacy single-line file (pre-5.7.0).
    *  Such instances don't speak Tier-3 ping handshake. */
   legacy: boolean
@@ -82,10 +87,16 @@ function validateInstanceMeta (raw: any, sourcePath: string): RtmSendInstanceMet
   if (!Number.isFinite(port) || port <= 0 || port >= 65536) return null
   // String fields are optional but must be strings if present.
   const checkStr = (v: unknown) => (typeof v === 'string' && v.length < 256 ? v : undefined)
+  // auth_token: 32-char hex (128-bit from juce::Uuid). Validate shape
+  // so a malformed file can't inject content onto the socket.
+  const rawToken = raw.auth_token
+  const auth_token = (typeof rawToken === 'string' && /^[0-9a-fA-F]{32}$/.test(rawToken))
+    ? rawToken : undefined
   return {
     pid: typeof raw.pid === 'number' && Number.isFinite(raw.pid) ? raw.pid : undefined,
     uuid: checkStr(raw.uuid),
     port,
+    auth_token,
     host_app: checkStr(raw.host_app),
     plugin_name: checkStr(raw.plugin_name),
     build: checkStr(raw.build),
@@ -213,10 +224,21 @@ let inFlightResolve: Promise<RtmSendInstanceMeta | null> | null = null
  * port discovery — that's `resolveInstance()`'s job. Used by both the
  * public RPC functions (after resolveInstance() returns) and by the
  * probe path inside resolveInstance() itself (to avoid re-entering it).
+ *
+ * auth_token: RpcServer v1.2+ requires the per-instance auth token as
+ * the FIRST line sent on every new TCP connection (before any JSON-RPC
+ * traffic). The server closes silently on mismatch. Legacy instances
+ * (no token in the port file) receive no prefix line — they just get
+ * the JSON-RPC request as before.
  */
-function rpcOn<T = unknown> (port: number, method: string, params: unknown, timeoutMs: number): Promise<T> {
+function rpcOn<T = unknown> (port: number, method: string, params: unknown, timeoutMs: number, auth_token?: string): Promise<T> {
   const id = nextId++
   const request = JSON.stringify({ jsonrpc: '2.0', method, params, id }) + '\n'
+  // Auth prefix: send token first, then the JSON-RPC request. RpcServer
+  // reads exactly one line before any RPC traffic; we join them so the
+  // kernel delivers both in a single TCP segment on the fast path
+  // (avoids an extra round-trip on the slow-start window).
+  const payload = auth_token ? (auth_token + '\n' + request) : request
 
   return new Promise<T>((resolve, reject) => {
     const sock = new net.Socket()
@@ -254,7 +276,7 @@ function rpcOn<T = unknown> (port: number, method: string, params: unknown, time
     })
     sock.on('close', () => settle(() => { clearTimeout(t); reject(new Error(`RTMsend closed the connection before replying: ${method}`)) }))
 
-    sock.connect(port, '127.0.0.1', () => { sock.write(request) })
+    sock.connect(port, '127.0.0.1', () => { sock.write(payload) })
   })
 }
 
@@ -305,7 +327,7 @@ async function doResolveInstance (): Promise<RtmSendInstanceMeta | null> {
       // host.ping is a 1-line round-trip; 1.5s is plenty. RpcServer's
       // listener thread is single-client so a contended instance might
       // queue us briefly, but ping doesn't touch the message thread.
-      await rpcOn<unknown>(meta.port, 'host.ping', undefined, 1500)
+      await rpcOn<unknown>(meta.port, 'host.ping', undefined, 1500, meta.auth_token)
       cachedResolved = { meta, last_ok_at: Date.now() }
       return meta
     } catch (e: any) {
@@ -326,7 +348,7 @@ async function doResolveInstance (): Promise<RtmSendInstanceMeta | null> {
   const legacy = readLegacyPortFile()
   if (legacy) {
     try {
-      await rpcOn<unknown>(legacy.port, 'host.ping', undefined, 1500)
+      await rpcOn<unknown>(legacy.port, 'host.ping', undefined, 1500, legacy.auth_token)
       cachedResolved = { meta: legacy, last_ok_at: Date.now() }
       return legacy
     } catch (e: any) {
@@ -351,7 +373,7 @@ async function rpc<T = unknown> (method: string, params?: unknown, timeoutMs = 4
   const meta = await resolveInstance()
   if (meta == null) throw new RtmSendUnavailableError()
   try {
-    const result = await rpcOn<T>(meta.port, method, params, timeoutMs)
+    const result = await rpcOn<T>(meta.port, method, params, timeoutMs, meta.auth_token)
     if (cachedResolved) cachedResolved.last_ok_at = Date.now()
     return result
   } catch (e: any) {
@@ -587,7 +609,7 @@ export async function probeConnection(): Promise<ConnectionStatus> {
   // shape rather than hitting host.ping twice.
   let pong: unknown
   try {
-    pong = await rpcOn<unknown>(meta.port, 'host.ping', undefined, 1500)
+    pong = await rpcOn<unknown>(meta.port, 'host.ping', undefined, 1500, meta.auth_token)
   } catch (e: any) {
     // The cache might be stale — drop it so the next probe re-discovers.
     cachedResolved = null
@@ -603,7 +625,7 @@ export async function probeConnection(): Promise<ConnectionStatus> {
   // fatal (the user just sees "RTMsend · legacy · plugin unknown").
   if (typeof pong === 'string') {
     try {
-      const loaded = await rpcOn<LoadedPlugin | null>(meta.port, 'host.get_loaded_plugin', undefined, 1500)
+      const loaded = await rpcOn<LoadedPlugin | null>(meta.port, 'host.get_loaded_plugin', undefined, 1500, meta.auth_token)
       if (!loaded) return { state: 'no_plugin' }
       return {
         state: 'connected_legacy',
@@ -639,7 +661,7 @@ export async function probeConnection(): Promise<ConnectionStatus> {
     }
   }
   try {
-    const loaded = await rpcOn<LoadedPlugin | null>(meta.port, 'host.get_loaded_plugin', undefined, 1500)
+    const loaded = await rpcOn<LoadedPlugin | null>(meta.port, 'host.get_loaded_plugin', undefined, 1500, meta.auth_token)
     if (!loaded) return { state: 'no_plugin' }
     return {
       state: 'connected',
