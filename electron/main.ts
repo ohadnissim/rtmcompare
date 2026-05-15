@@ -298,7 +298,8 @@ function createWindow() {
   })
 
   // Load from Vite dev server in development, built files in production
-  if (!app.isPackaged) {
+  const forceFile = process.env.RTM_FORCE_PROD_BUILD === '1'
+  if (!app.isPackaged && !forceFile) {
     mainWindow.loadURL('http://localhost:5173').catch(() => {
       // Vite may not be ready yet — retry after a delay
       setTimeout(() => mainWindow?.loadURL('http://localhost:5173'), 2000)
