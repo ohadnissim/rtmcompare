@@ -446,8 +446,7 @@ export default function App() {
       </div>
 
       {/* ── Chain analysis mixes (optional) — multi-pair ── */}
-      {true && (
-        <div style={{ marginBottom: 4 }}>
+      <div style={{ marginBottom: 4 }}>
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <div style={{ fontSize: 10, color: V.sand500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
@@ -570,8 +569,7 @@ export default function App() {
           <div style={{ fontSize: 11, color: V.sand500, marginBottom: 14, lineHeight: 1.5 }}>
             <strong style={{ color: V.sand300 }}>What this does:</strong> drop your pre-master mixes here. RTMprofile matches each mix to its master by song title (e.g. <em>TOO HIGH MIX3</em> ↔ <em>01 TOO HIGH M1</em>), computes the spectral delta per pair, then aggregates across all pairs. More pairs = more accurate delta signature.
           </div>
-        </div>
-      )}
+      </div>
 
       {/* ── Build / Cancel buttons ────────────────────────────────── */}
       {/* Sticky so the button stays visible even when the result panel grows. */}

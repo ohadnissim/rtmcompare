@@ -83,26 +83,30 @@ them inside a patch release was riskier than the bugs they fix.
 
 ---
 
-## Deferred to 5.8.0 — RTMsend protocol upgrades (Tier 3)
+## Applied in 5.8.0 — RTMsend protocol upgrades (all 5 Tier-3 items)
 
-These require breaking changes to the JSON-RPC schema. The pre-5.8.0
-RTMcompare/RTMsend pair will continue to interoperate; the 5.8.0 schema
-adds optional fields and rejection codes that older clients won't recognise.
+All items landed in the same session that produced the 5.8.0 codebase. The
+audit doc was written before the implementation sprint; the "deferred" label
+is now historical. RTMcompare–RTMsend interop is backwards-compatible: a
+pre-5.8.0 RTMcompare bridge treats new fields (`target_fingerprint`,
+`min_version`, `max_version`) as informational and ignores unknown ping-response
+fields.
 
-| # | Finding | Schema impact |
+| # | Finding | Implementation location |
 |---|---|---|
-| T3-1 | **Per-instance port files** — `~/.rtm/rtmsend-<pid>-<uuid>.port` instead of one shared file. Resolves multiple-DAW races where two open Wavelabs each spawn an RTMsend on the same machine. | Filename change; bridge needs to enumerate matching files and pick the freshest by mtime. |
-| T3-2 | **`target_fingerprint` rejection** — recommendation payload includes plugin format+UID+version+param-count hash; RTMsend rejects with `E_TARGET_MISMATCH` if hosted plugin doesn't match. Resolves "user switched plugins between Compare's read-back and Send" silent miswrite. | New `target_fingerprint` field in `recommend.eq` payload; new `E_TARGET_MISMATCH` error code. |
-| T3-3 | **Plugin-version mismatch detection** — profile carries `min_version`/`max_version` and `param_count_signature`; bridge refuses to send if signature drifts vs. the loaded plugin. | New profile schema fields (backwards-compatible — pre-5.8.0 bridges treat them as informational). |
-| T3-4 | **`host.ping` keepalive + 1.5 s handshake timeout** — distinguishes "not running" from "running but busy" so the connection indicator isn't a guess. | New `host.ping` RPC method. Pre-5.8.0 bridges return method-not-found and the indicator falls back to TCP-connect-only. |
-| T3-5 | **Per-connection 30 s read deadline on the RpcServer side** — prevents one stuck client wedging the listener. | Server-side only, no schema change. |
+| T3-1 | **Per-instance port files** — `~/.rtm/rtmsend-<pid>-<uuid8>.port` alongside the legacy single-port file. Both written on `start()`; bridge enumerates and picks the freshest by mtime. | `RpcServer.cpp:~190-295` (instanceUuid8 + ipf write path) |
+| T3-2 | **`target_fingerprint` rejection** — `recommend.eq` validates caller's fingerprint against the currently-loaded plugin; returns `E_TARGET_MISMATCH` (-32010) on mismatch. | `RpcServer.cpp:768-830` |
+| T3-3 | **Plugin-version mismatch detection** — `min_version`/`max_version` semver bounds checked via `compareNatural`; returns `E_VERSION_MISMATCH` (-32011) on out-of-range. | `RpcServer.cpp:786-820` |
+| T3-4 | **`host.ping` keepalive + 1.5 s handshake timeout** — `host.ping` returns build tag, hosted-plugin name, and connection status. Bridge-side 1.5 s timeout distinguishes "not running" from "busy". | `RpcServer.cpp:480, 533+` |
+| T3-5 | **Per-connection 30 s read deadline** — `readLine()` polls `waitUntilReady(250ms)` and drops the socket after `kConnectionInactivityMs = 30'000` ms with no data. | `RpcServer.cpp:44-50, 92-120` |
 
 ---
 
 ## Status
 
-**Total: 32 applied (5.7.0 + 5.7.1 across 3 apps) + 5 deferred (5.8.0 protocol).**
+**Total: 37 applied (5.7.0 + 5.7.1 + 5.8.0 across 3 apps). All findings closed.**
 
 Build artefacts:
 - 5.7.0 bundle DMG (initial ship): SHA-256 `a35640dc38ba01c616d28caf5a2a0171da6ddeace9a901bd46f5cfc2690ef998` — May 7 22:43, signed + notarized + stapled, gatekeeper accepted.
-- 5.7.1 patch DMG: pending rebuild (this session, post-audit-grind).
+- 5.7.1 patch DMG: pending rebuild.
+- 5.8.0: pending DMG build (T3 items + chain analysis + ARA markers session).
