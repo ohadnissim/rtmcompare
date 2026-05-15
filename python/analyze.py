@@ -510,8 +510,13 @@ def main():
             # Keep top-level duration_sec aligned with file A when comparing
             # (so legacy time-axis components stay consistent), or set it from
             # whichever side we have.
-            if "duration_sec" not in result or not result.get("duration_sec"):
-                result["duration_sec"] = result.get("duration_sec_a") or result.get("duration_sec_b")
+            if "duration_sec" not in result or result.get("duration_sec") is None:
+                # Explicit None-check: duration_sec_a can legitimately be 0.0 for
+                # very short files; `or` would falsely skip it and use duration_sec_b.
+                for _dur in (result.get("duration_sec_a"), result.get("duration_sec_b")):
+                    if _dur is not None:
+                        result["duration_sec"] = _dur
+                        break
         except Exception as e:
             _warn_optional("duration_sec", e)
 

@@ -493,7 +493,7 @@ def check_reference(path: str, sr: int = None) -> dict:
     # median is MORE reliable than the single-pass estimate. We now ALWAYS prefer
     # the drift median when it's available (fixes the half-time hip-hop case
     # where single-pass reports 140 but the true tempo is 70).
-    if tempo_drift and tempo_drift.get("median_bpm", 0) and 40 < tempo_drift["median_bpm"] < 250:
+    if tempo_drift and tempo_drift.get("median_bpm") is not None and 40 < tempo_drift["median_bpm"] < 250:
         drift_bpm = tempo_drift["median_bpm"]
         # If the single-pass is exactly ~2× or ~0.5× the drift median, prefer drift.
         # Otherwise if they disagree by > 2 BPM, also prefer drift.

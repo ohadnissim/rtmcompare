@@ -295,7 +295,8 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  let maxVal = 0.001
  let minVal = Infinity
  for (let i = 0; i < dataA.length; i++) {
- const a = dataA[i], b = dataB[i] ?? 0
+ const a = isFinite(dataA[i]) ? dataA[i] : 0
+ const b = isFinite(dataB[i] ?? 0) ? (dataB[i] ?? 0) : 0
  if (a > maxVal) maxVal = a; if (b > maxVal) maxVal = b
  if (a < minVal) minVal = a; if (b < minVal) minVal = b
  }
@@ -304,9 +305,11 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  const nB: number[] = new Array(dataA.length)
  const diff: number[] = new Array(dataA.length)
  for (let i = 0; i < dataA.length; i++) {
- nA[i] = (dataA[i] - minVal) / range
- nB[i] = ((dataB[i] ?? 0) - minVal) / range
- diff[i] = (dataB[i] ?? 0) - dataA[i]
+ const a = isFinite(dataA[i]) ? dataA[i] : 0
+ const b = isFinite(dataB[i] ?? 0) ? (dataB[i] ?? 0) : 0
+ nA[i] = (a - minVal) / range
+ nB[i] = (b - minVal) / range
+ diff[i] = b - a
  }
  return { normA: nA, normB: nB, diffBands: diff }
  }, [dataA, dataB])
@@ -499,9 +502,9 @@ function SpectrumGraph({ dataA, dataB, colorB }: { dataA: number[]; dataB: numbe
  <tr key={i}>
  <td>{i + 1}</td>
  <td>{FREQ_LABELS[i] || '—'} Hz</td>
- <td>{a.toFixed(1)}</td>
- <td>{(dataB[i] ?? 0).toFixed(1)}</td>
- <td>{((dataB[i] ?? 0) - a).toFixed(1)}</td>
+ <td>{isFinite(a) ? a.toFixed(1) : '—'}</td>
+ <td>{isFinite(dataB[i] ?? 0) ? (dataB[i] ?? 0).toFixed(1) : '—'}</td>
+ <td>{isFinite((dataB[i] ?? 0) - a) ? ((dataB[i] ?? 0) - a).toFixed(1) : '—'}</td>
  </tr>
  ))}
  </tbody>

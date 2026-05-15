@@ -76,7 +76,7 @@ export default function LoudnessOverTime({ result, side = 'b', durationSec }: Pr
  const padTop = 10
  const padBottom = 20
 
- const toX = (i: number) => padX + (i / (data.length - 1)) * (w - padX * 2)
+ const toX = (i: number) => padX + (i / Math.max(1, data.length - 1)) * (w - padX * 2)
  const toY = (v: number) => {
  if (!isFinite(v) || v < minY) return h - padBottom
  const clamped = Math.max(minY, Math.min(maxY, v))

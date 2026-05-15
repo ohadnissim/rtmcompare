@@ -41,8 +41,8 @@ export default function LoudnessTimeline({
  ...(showMomentary ? (lufsMomentaryA || []) : []),
  ...(showMomentary ? (lufsMomentaryB || []) : []),
  ].filter(v => v > -60)
- const minLufs = Math.floor(Math.min(...allVals) / 2) * 2 - 2
- const maxLufs = Math.ceil(Math.max(...allVals) / 2) * 2 + 2
+ const minLufs = allVals.length > 0 ? Math.floor(Math.min(...allVals) / 2) * 2 - 2 : -60
+ const maxLufs = allVals.length > 0 ? Math.ceil(Math.max(...allVals) / 2) * 2 + 2 : -6
 
  const makePath = (data: number[]): string => {
  const points = data.map((v, i) => ({

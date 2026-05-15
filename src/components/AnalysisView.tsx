@@ -1985,7 +1985,7 @@ function RefStatusDot({ check, labelA }: { check: any; labelA: string }) {
  const lines: string[] = []
  lines.push(`${labelA} — reference quality: ${status.toUpperCase()}`)
  if (check?.summary) lines.push(check.summary)
- if (bpm) lines.push(`BPM ${bpm}${key ? ` · Key ${key}` : ''}`)
+ if (bpm != null) lines.push(`BPM ${bpm}${key ? ` · Key ${key}` : ''}`)
  if (clipCount > 0) lines.push(`${clipCount} clipped sample${clipCount === 1 ? '' : 's'}`)
  if (tonalIssueCount > 0) lines.push(`${tonalIssueCount} tonal issue${tonalIssueCount === 1 ? '' : 's'}`)
  if (status === 'good' && clipCount === 0 && tonalIssueCount === 0) {
