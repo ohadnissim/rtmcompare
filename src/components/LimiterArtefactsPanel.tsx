@@ -120,13 +120,13 @@ export default function LimiterArtefactsPanel({ artefacts, compact }: Props) {
       <div className="grid grid-cols-3 gap-2">
         <MetricCell
           label="Pump"
-          value={pump.toFixed(2)}
+          value={isFinite(pump) ? pump.toFixed(2) : '—'}
           colour={pumpColour(pump)}
           tooltip="Limiter pumping score - 0 is invisible, 1 is obvious at any listen."
         />
         <MetricCell
           label="ISO"
-          value={`${iso.toFixed(1)} /min`}
+          value={isFinite(iso) ? `${iso.toFixed(1)} /min` : '—'}
           colour={isoColour(iso)}
           tooltip="Inter-sample overs per minute. Non-zero values will clip on D/A conversion."
         />
