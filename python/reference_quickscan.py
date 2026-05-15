@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from datetime import datetime, timezone
@@ -162,14 +163,16 @@ def quickscan(path: str) -> dict:
             lufs_input = data[:, None]
         else:
             lufs_input = data[:, :2] if data.shape[1] > 2 else data
-        out["lufs_i"] = round(float(meter.integrated_loudness(lufs_input)), 2)
+        _lufs = float(meter.integrated_loudness(lufs_input))
+        out["lufs_i"] = round(_lufs, 2) if math.isfinite(_lufs) else None
     except Exception:
         out["lufs_i"] = None
     try:
         # LRA: pyloudnorm 0.1.1+ has a `loudness_range` helper; if not,
         # skip.  Not a blocker for library inclusion.
         if hasattr(meter, "loudness_range"):
-            out["lra"] = round(float(meter.loudness_range(lufs_input)), 2)
+            _lra = float(meter.loudness_range(lufs_input))
+            out["lra"] = round(_lra, 2) if math.isfinite(_lra) else None
     except Exception:
         pass
 
