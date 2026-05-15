@@ -224,7 +224,7 @@ def compute_phase_timeline(y_stereo: np.ndarray, sr: int, window_sec: float = 0.
     hop = window // 2
     corr = []
 
-    for i in range(0, len(left) - window, hop):
+    for i in range(0, len(left) - window + 1, hop):
         l_chunk = left[i:i + window]
         r_chunk = right[i:i + window]
 

@@ -150,8 +150,8 @@ def render_translation(src_path: str, out_path: str, env_id: str,
         "env_label": ENV_DESCRIPTIONS.get(env_id, env_id),
         "lost_lf_db": lost_lf_db,
         "presence_change_db": presence_change_db,
-        "window_start_sec": int(start / sr),
-        "window_duration_sec": int(window_sec),
+        "window_start_sec": round(start / sr, 3),
+        "window_duration_sec": window_sec,
         # 5.3.1: surface chain headroom + saturator state so the UI
         # can warn the user if the simulation pushed signal hard.
         "headroom_db_applied": env_info.get("headroom_db_applied"),
