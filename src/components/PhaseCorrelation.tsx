@@ -48,8 +48,8 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
  return zones
  }, [phaseOverTimeB])
 
- const avgA = phaseOverTimeA.reduce((a, b) => a + b, 0) / phaseOverTimeA.length
- const avgB = phaseOverTimeB.reduce((a, b) => a + b, 0) / phaseOverTimeB.length
+ const avgA = phaseOverTimeA.length > 0 ? phaseOverTimeA.reduce((a, b) => a + b, 0) / phaseOverTimeA.length : 0
+ const avgB = phaseOverTimeB.length > 0 ? phaseOverTimeB.reduce((a, b) => a + b, 0) / phaseOverTimeB.length : 0
 
  return (
  <div className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
@@ -79,7 +79,7 @@ export default function PhaseCorrelation({ phaseOverTimeA, phaseOverTimeB, label
     opacity: 0.85,
    }}
   >
-   Δ {correlationDelta >= 0 ? '+' : ''}{correlationDelta.toFixed(2)}
+   Δ {correlationDelta >= 0 ? '+' : ''}{isFinite(correlationDelta) ? correlationDelta.toFixed(2) : '—'}
   </button>
  )}
  </div>

@@ -509,7 +509,7 @@ export function computeAdmReadiness(args: {
  key: 'true_peak',
  label: 'True peak',
  pass: true,
- value: truePeakDbtp != null ? `${truePeakDbtp.toFixed(1)} dBTP` : 'unknown',
+ value: truePeakDbtp != null && isFinite(truePeakDbtp) ? `${truePeakDbtp.toFixed(1)} dBTP` : 'unknown',
  detail: undefined,
  })
 

@@ -1322,8 +1322,8 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  const enabled = bandEnabled[i]
  const isBoost = f.gain_db > 0
  const scaledGain = f.gain_db * (eqAmount / 100)
- const scaledDisplay = (scaledGain > 0 ? '+' : '') + scaledGain.toFixed(1)
- const fullDisplay = (f.gain_db > 0 ? '+' : '') + f.gain_db.toFixed(1)
+ const scaledDisplay = (scaledGain > 0 ? '+' : '') + (isFinite(scaledGain) ? scaledGain.toFixed(1) : '—')
+ const fullDisplay = (f.gain_db > 0 ? '+' : '') + (isFinite(f.gain_db) ? f.gain_db.toFixed(1) : '—')
  const isSoloed = soloBand === i
  const isMuted = soloBand != null && soloBand !== i
  return (
@@ -1365,9 +1365,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  {f.region}
  </div>
  <div className="text-[10px] font-mono" style={{ color: enabled ? 'var(--color-text-muted)' : 'var(--color-text-muted)' }}>
- {f.freq >= 1000 ? `${(f.freq/1000).toFixed(f.freq >= 10000 ? 0 : 1)}k Hz` : `${f.freq} Hz`}
+ {isFinite(f.freq) ? (f.freq >= 1000 ? `${(f.freq/1000).toFixed(f.freq >= 10000 ? 0 : 1)}k Hz` : `${f.freq} Hz`) : '— Hz'}
  <span className="mx-1 opacity-50">·</span>
- Q {f.q.toFixed(1)}
+ Q {isFinite(f.q) ? f.q.toFixed(1) : '—'}
  </div>
  </div>
  {/* Solo-in-place — mutes other bands' gain to 0 dB but keeps
