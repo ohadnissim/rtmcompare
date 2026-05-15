@@ -141,6 +141,14 @@ function createWindow() {
 app.whenReady().then(() => createWindow())
 app.on('window-all-closed', () => app.quit())
 app.on('activate', () => { if (mainWindow === null) createWindow() })
+// Kill any in-progress build on quit so the Python subprocess doesn't
+// outlive the app as an orphan (macOS doesn't auto-kill child procs).
+app.on('before-quit', () => {
+  if (activeBuild !== null) {
+    activeBuild.kill()
+    activeBuild = null
+  }
+})
 
 
 // ── IPC ──────────────────────────────────────────────────────────────
