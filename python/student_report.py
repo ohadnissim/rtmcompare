@@ -65,8 +65,13 @@ def get_actual(metric, result):
             return headroom
         true_peaks = result.get('true_peaks', {})
         if isinstance(true_peaks, dict):
-            return true_peaks.get('b') or true_peaks.get('a')
-        return overall.get('true_peak_b') or overall.get('true_peak')
+            for v in (true_peaks.get('b'), true_peaks.get('a')):
+                if v is not None:
+                    return v
+        for v in (overall.get('true_peak_b'), overall.get('true_peak')):
+            if v is not None:
+                return v
+        return None
     if metric in ('mono_compat', 'mono_compat_pct'):
         # BUG-04 fix: rubric uses 'mono_compat_pct' key; also accept 'mono_compat'
         # Use explicit None-check so 0.0% (fully incompatible) is not skipped.
@@ -77,7 +82,10 @@ def get_actual(metric, result):
                 return v
         return None
     if metric == 'stereo_width':
-        return overall.get('width_b') or overall.get('width')
+        for v in (overall.get('width_b'), overall.get('width')):
+            if v is not None:
+                return v
+        return None
 
     if metric == 'plr':
         # PLR = true_peak_dBTP - LUFS_I  (both negative; e.g. -1 - (-14) = 13 LU)
@@ -98,12 +106,16 @@ def get_actual(metric, result):
 
     if metric == 'tonal_deviation':
         tonal = result.get('tonal', {}) if result else {}
-        return tonal.get('deviation_b') or tonal.get('rms_deviation_b') or tonal.get('deviation')
+        for v in (tonal.get('deviation_b'), tonal.get('rms_deviation_b'), tonal.get('deviation')):
+            if v is not None:
+                return v
+        return None
 
     if metric == 'distortion':
         distortion = result.get('distortion', {}) if result else {}
         # Try distortion_severity as a 0-1 float or as named levels
-        val = distortion.get('severity_b') or distortion.get('severity') or distortion.get('distortion_severity_b')
+        val = next((v for v in (distortion.get('severity_b'), distortion.get('severity'),
+                                distortion.get('distortion_severity_b')) if v is not None), None)
         if val is not None:
             return val
         # Fall back to a boolean-style field
@@ -116,11 +128,15 @@ def get_actual(metric, result):
 
     if metric == 'masking_overlap':
         masking = result.get('masking', {}) if result else {}
-        return masking.get('overlap_pct') or masking.get('masking_pct') or masking.get('masking_overlap_b')
+        for v in (masking.get('overlap_pct'), masking.get('masking_pct'), masking.get('masking_overlap_b')):
+            if v is not None:
+                return v
+        return None
 
     if metric == 'click_count':
         clicks = result.get('clicks', {}) if result else {}
-        count = clicks.get('count_b') or clicks.get('click_count_b') or clicks.get('count')
+        count = next((v for v in (clicks.get('count_b'), clicks.get('click_count_b'),
+                                  clicks.get('count')) if v is not None), None)
         if count is not None:
             return count
         # Some payloads have click_events as an array

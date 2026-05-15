@@ -110,17 +110,21 @@ async function probeScaling (
   const orig = (await findParameters(paramName))[0]?.current ?? 0.5
 
   const parsed: number[] = []
-  for (const norm of [0.0, 0.5, 1.0]) {
-    await setParameters([{ index: paramIndex, value: norm }])
-    const after = (await findParameters(paramName))[0]
-    const n = after ? parseNumber(after.text) : null
-    if (n == null || !Number.isFinite(n)) {
-      await setParameters([{ index: paramIndex, value: orig }])
-      return null
+  try {
+    for (const norm of [0.0, 0.5, 1.0]) {
+      await setParameters([{ index: paramIndex, value: norm }])
+      const after = (await findParameters(paramName))[0]
+      const n = after ? parseNumber(after.text) : null
+      if (n == null || !Number.isFinite(n)) {
+        return null  // restored in finally
+      }
+      parsed.push(n)
     }
-    parsed.push(n)
+  } finally {
+    // Always restore — even if an RPC throws mid-loop, the param is not left
+    // at 0.0/0.5/1.0 (which would cause a jarring audio/visual glitch).
+    try { await setParameters([{ index: paramIndex, value: orig }]) } catch { /* best-effort */ }
   }
-  await setParameters([{ index: paramIndex, value: orig }])
 
   const [a, m, b] = parsed
   if (a === b) return null  // pinned param, nothing to scale

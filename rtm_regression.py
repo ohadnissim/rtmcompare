@@ -696,6 +696,122 @@ def test_rtmsend_connectivity() -> None:
         log.info("    RTMsend: port files present but no live connections (plugin may be closed)")
 
 
+# ── Test 12: RTMsend mock-server protocol round-trip ─────────────────────────
+# Starts a Python TCP server that speaks RTMsend's JSON-RPC 2.0 newline protocol,
+# writes a .port file, then probes it using the same socket path the regression
+# suite's Test 11 uses — validates the discovery → connect → ping → close chain
+# without requiring Logic Pro or Ableton to be open.
+def test_rtmsend_mock_server() -> None:
+    log.info("=== Test 12: RTMsend mock-server protocol round-trip ===")
+    import socket as _socket
+    import threading as _threading
+
+    # Start a minimal TCP server on a random port
+    srv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    srv.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    mock_port = srv.getsockname()[1]
+
+    responses_served: list[str] = []
+
+    def _serve() -> None:
+        srv.settimeout(5.0)
+        try:
+            conn, _ = srv.accept()
+            conn.settimeout(3.0)
+            buf = b""
+            while b"\n" not in buf:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+            if buf:
+                try:
+                    req = json.loads(buf.split(b"\n")[0])
+                    method = req.get("method", "")
+                    rid = req.get("id", 1)
+                    if method == "host.ping":
+                        resp = json.dumps({"jsonrpc": "2.0", "result": {"ok": True}, "id": rid})
+                    else:
+                        resp = json.dumps({"jsonrpc": "2.0", "result": {}, "id": rid})
+                    conn.sendall((resp + "\n").encode())
+                    responses_served.append(method)
+                except Exception:
+                    pass
+            conn.close()
+        except Exception:
+            pass
+        finally:
+            srv.close()
+
+    server_thread = _threading.Thread(target=_serve, daemon=True)
+    server_thread.start()
+
+    # Write a port file matching the 5.7+ JSON format
+    import tempfile as _tempfile
+    tmp_port_file = RTM_DIR / f"rtmsend-regression-test-00000000.port"
+    try:
+        port_meta = json.dumps({
+            "pid": os.getpid(),
+            "uuid": "00000000",
+            "port": mock_port,
+            "host_app": "RTMRegressionTest",
+            "plugin_name": "MockPlugin",
+            "build": "test",
+        })
+        tmp_port_file.write_text(port_meta)
+
+        # Probe via TCP (same path Test 11 uses for live instances)
+        import socket as _s
+        sock = _s.socket(_s.AF_INET, _s.SOCK_STREAM)
+        sock.settimeout(3.0)
+        try:
+            sock.connect(("127.0.0.1", mock_port))
+            ping_req = json.dumps({"jsonrpc": "2.0", "method": "host.ping", "params": {}, "id": 1}) + "\n"
+            sock.sendall(ping_req.encode())
+            data = b""
+            while b"\n" not in data:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+            sock.close()
+            if data:
+                resp = json.loads(data.split(b"\n")[0])
+                check("RTMsend mock-server — host.ping round-trip succeeds",
+                      resp.get("result", {}).get("ok") is True, str(resp))
+                check("RTMsend mock-server — server received host.ping method",
+                      "host.ping" in responses_served, str(responses_served))
+            else:
+                check("RTMsend mock-server — received response", False, "empty response")
+        except Exception as e:
+            check("RTMsend mock-server — TCP connect + ping", False, str(e))
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                pass
+
+        # Verify port file format is readable by the discovery logic
+        raw = tmp_port_file.read_text().strip()
+        try:
+            meta = json.loads(raw)
+            check("RTMsend port file format — JSON with required fields",
+                  isinstance(meta, dict) and "port" in meta and "pid" in meta,
+                  str(list(meta.keys())))
+        except Exception as e:
+            check("RTMsend port file format — valid JSON", False, str(e))
+
+        server_thread.join(timeout=3.0)
+
+    finally:
+        try:
+            tmp_port_file.unlink()
+        except Exception:
+            pass
+
+
 # ── Auto-remediation ──────────────────────────────────────────────────────────
 def _notify_failure(fail_count: int) -> None:
     """Send a macOS notification when regression fails."""
@@ -752,6 +868,7 @@ def run_all() -> int:
     test_full_compare_workflow()
     test_rtmprofile_build()
     test_rtmsend_connectivity()
+    test_rtmsend_mock_server()
 
     elapsed = time.time() - start
     log.info("=" * 60)

@@ -156,8 +156,13 @@ export function knowledgePathFor (pluginName: string): string {
 export function saveReference (entry: ReferenceProfile): void {
   const p = knowledgePathFor(entry.name)
   const tmp = p + '.tmp'
-  fs.writeFileSync(tmp, JSON.stringify(entry, null, 2), 'utf8')
-  fs.renameSync(tmp, p)
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(entry, null, 2), 'utf8')
+    fs.renameSync(tmp, p)
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch { /* best-effort cleanup */ }
+    throw e
+  }
 }
 
 export function loadReference (pluginName: string): ReferenceProfile | null {
@@ -184,11 +189,14 @@ let referencesCache: { dirMtime: number; entries: ReferenceProfile[] } | null = 
 export function listAllReferences (): ReferenceProfile[] {
   const dir = getKnowledgeDir()
   let dirMtime = 0
-  try { dirMtime = fs.statSync(dir).mtimeMs } catch { /* dir missing */ }
+  try { dirMtime = fs.statSync(dir).mtimeMs } catch { /* dir missing — treat as empty */ }
   if (referencesCache && referencesCache.dirMtime === dirMtime) {
     return referencesCache.entries
   }
-  const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'))
+  let files: string[] = []
+  try {
+    files = fs.readdirSync(dir).filter(f => f.endsWith('.json'))
+  } catch { /* dir doesn't exist yet — return empty list */ }
   const out: ReferenceProfile[] = []
   for (const f of files) {
     try {
