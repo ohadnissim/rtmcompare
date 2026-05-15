@@ -417,7 +417,7 @@ export default function MatchReferenceEQPanel({ recommendations, categories, spe
  }}
  title={bandEnabledForRec ? 'EQ band active — click to bypass' : 'Apply this move to the EQ chain below'}
  >
- {(band.gain_db > 0 ? '+' : '')}{band.gain_db} dB · {band.freq >= 1000 ? `${(band.freq / 1000).toFixed(1)}k` : band.freq} Hz
+ {(band.gain_db > 0 ? '+' : '')}{isFinite(band.gain_db) ? band.gain_db.toFixed(1) : '0.0'} dB · {band.freq >= 1000 ? `${(band.freq / 1000).toFixed(1)}k` : band.freq} Hz
  </button>
  </div>
  )
