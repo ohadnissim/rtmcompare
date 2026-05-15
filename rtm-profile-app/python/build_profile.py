@@ -1032,7 +1032,7 @@ def aggregate(per_file: list[dict[str, Any]],
     # Cohort distinctiveness: ratio of spread to signal. Low values mean
     # the cohort is "average" — doesn't represent a distinctive engineer style.
     curve_arr = np.array(profile.get("curve", [0] * 31))
-    curve_mad_arr = np.array(profile.get("curve_mad", [1] * 31))
+    curve_mad_arr = np.array(profile.get("curve_mad", [0] * 31))
     finite_mask = np.isfinite(curve_arr) & np.isfinite(curve_mad_arr) & (np.abs(curve_arr) > 0.01)
     if np.sum(finite_mask) > 0:
         distinctiveness = float(
