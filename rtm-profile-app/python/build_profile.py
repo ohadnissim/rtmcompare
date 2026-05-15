@@ -49,6 +49,7 @@ import math
 import os as _os
 import sys
 import unicodedata as _ucd
+import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from pathlib import Path
@@ -798,7 +799,9 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     # now mark out-of-Nyquist bands with NaN (mixed-sr corpus) — so a
     # 16/20 kHz band median across 4×96k + 1×44.1k previously skewed
     # toward -90 dB; nanmedian skips the 44.1 k file's missing bands.
-    curve_median = np.nanmedian(curves, axis=0)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered", category=RuntimeWarning)
+        curve_median = np.nanmedian(curves, axis=0)
     # 5.7.x audit fix: gate curve_mad on cohort size. With a single
     # track, MAD collapses to all zeros, defeating RTMcompare's
     # variance-aware EQ dead-zone (engineer_profile.py:_compute_eq_filters).
@@ -806,7 +809,9 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
     # the field entirely (the consumer already handles missing curve_mad
     # by falling back to the legacy 1 dB threshold).
     if len(valid) >= 3:
-        curve_mad = np.nanmedian(np.abs(curves - curve_median), axis=0)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="All-NaN slice encountered", category=RuntimeWarning)
+            curve_mad = np.nanmedian(np.abs(curves - curve_median), axis=0)
         # Identical cohort (all curves equal) -> MAD all zeros which is
         # legitimate; round and ship. NaN can leak in only if a band is
         # NaN in *every* track, in which case 0.0 is the safe fallback.
@@ -892,7 +897,9 @@ def _aggregate_scalar_block(valid: list[dict[str, Any]]) -> dict[str, Any]:
         out["curve_mad"] = curve_mad_field
     # Per-band M/S width curve: nanmedian across tracks
     width_curves = np.array([m.get("width_curve", [float('nan')] * len(THIRD_OCTAVE_HZ)) for m in valid])
-    width_curve_median = np.nanmedian(width_curves, axis=0)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="All-NaN slice encountered", category=RuntimeWarning)
+        width_curve_median = np.nanmedian(width_curves, axis=0)
     out["width_curve"] = [round(float(v), 3) if np.isfinite(v) else None for v in width_curve_median]
     return out
 
