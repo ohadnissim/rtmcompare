@@ -24,8 +24,8 @@ Implementation plan:
 Usage:
     python3 encoded_preview.py <input.wav> <output.m4a> <dsp=apple|spotify|amazon|tidal|youtube>
 
-The renderer calls this via a new Electron IPC (`encoded-preview-
-render`) — see electron/main.ts and electron/preload.ts (TODO).
+The renderer calls this via the `encoded-preview-render` Electron IPC
+(wired in electron/main.ts and electron/preload.ts).
 """
 from __future__ import annotations
 

@@ -198,30 +198,25 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  if (!folder) return
  setRendering(true); setError(null); setRenderMsg(null)
  try {
- // The electron side doesn't currently list files — we ask the
- // user to name stems; for v1 we process four standard stems.
- // TODO: wire list-audio-files IPC to auto-discover.
- // Cross-platform path join — hard-coding '/' breaks on Windows.
- // Windows paths from pickFolder come back with backslashes; we
- // detect the separator from the folder itself instead of
- // assuming POSIX. Single source of truth per render call.
- const sep = folder.includes('\\') && !folder.includes('/') ? '\\' : '/'
- const join = (dir: string, name: string) => {
- const stripped = dir.endsWith('/') || dir.endsWith('\\') ? dir.slice(0, -1) : dir
- return stripped + sep + name
+ // Discover audio files in the folder via IPC; handles any stem layout.
+ const discovered = window.electronAPI?.listAudioFiles
+   ? await window.electronAPI.listAudioFiles(folder)
+   : []
+ if (discovered.length === 0) {
+   setError('No audio files found in the selected folder.')
+   setRendering(false)
+   return
  }
- const stemFileNames = ['vocals.wav', 'drums.wav', 'bass.wav', 'other.wav']
  const renderedOk: string[] = []
  const renderedErr: string[] = []
- for (const name of stemFileNames) {
- const src = join(folder, name)
+ for (const { path: src, name } of discovered) {
  // Turn off the limiter on the stem — we're NOT bouncing the
  // stem as a final delivery; we're conditioning it so the
  // summed mix downstream does the limiting.
  const cfg = buildCfg()
  if (!cfg) continue
  cfg.limit = { enabled: false, ceiling_db: chain.ceilingDbtp }
- const out = join(folder, name.replace(/\.wav$/i, '') + '_mastered.wav')
+ const out = src.replace(/(\.[^.]+)$/, '_mastered$1')
  const res = await window.electronAPI.masterChainRender(src, cfg, out)
  if (res?.ok) renderedOk.push(name)
  else renderedErr.push(`${name}: ${res?.error || 'failed'}`)
