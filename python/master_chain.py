@@ -501,9 +501,9 @@ def render_master_chain(in_path: str, out_path: str, config: dict) -> dict:
     return {
         "ok": True,
         "path": out_path,
-        "lufs_in": round(lufs_in, 2) if lufs_in is not None else None,
-        "lufs_out": round(lufs_out, 2) if lufs_out is not None else None,
-        "tp_out_dbtp": round(tp_out, 2),
+        "lufs_in": (round(lufs_in, 2) if math.isfinite(lufs_in) else None) if lufs_in is not None else None,
+        "lufs_out": (round(lufs_out, 2) if math.isfinite(lufs_out) else None) if lufs_out is not None else None,
+        "tp_out_dbtp": round(tp_out, 2) if math.isfinite(tp_out) else None,
         "makeup_db_actual": makeup_actual,
         "sample_rate": sr,
         "bit_depth": bit_depth,

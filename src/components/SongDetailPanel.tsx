@@ -752,9 +752,9 @@ export default function SongDetailPanel({
 
  {/* 4. Stat grid */}
  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
- <StatCard label="Integrated" value={m.lufs != null ? m.lufs.toFixed(1) : '—'} unit="LUFS" />
- <StatCard label="True Peak" value={m.true_peak != null ? m.true_peak.toFixed(1) : '—'} unit="dBTP" />
- <StatCard label="LRA" value={m.lra != null ? m.lra.toFixed(1) : '—'} unit="LU" />
+ <StatCard label="Integrated" value={m.lufs != null && isFinite(m.lufs) ? m.lufs.toFixed(1) : '—'} unit="LUFS" />
+ <StatCard label="True Peak" value={m.true_peak != null && isFinite(m.true_peak) ? m.true_peak.toFixed(1) : '—'} unit="dBTP" />
+ <StatCard label="LRA" value={m.lra != null && isFinite(m.lra) ? m.lra.toFixed(1) : '—'} unit="LU" />
  <StatCard label="Length" value={m.duration_sec != null ? formatDuration(m.duration_sec) : '—'} unit="" />
  <StatCard label="Mono loss" value={m.mono_compat_loss_pct != null ? `${m.mono_compat_loss_pct}` : '—'} unit="%" warn={m.mono_compat_loss_pct != null && m.mono_compat_loss_pct > 30} />
  </div>

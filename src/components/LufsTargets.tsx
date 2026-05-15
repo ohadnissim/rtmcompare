@@ -26,8 +26,8 @@ export default function LufsTargets({ lufsA, lufsB, labelA, labelB }: Props) {
 
  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
  {targets.map(t => {
-  const diffA = lufsA - t.lufs
-  const diffB = lufsB - t.lufs
+  const diffA = isFinite(lufsA) ? lufsA - t.lufs : NaN
+  const diffB = isFinite(lufsB) ? lufsB - t.lufs : NaN
   const statusA = getStatus(diffA)
   const statusB = getStatus(diffB)
 
@@ -62,7 +62,7 @@ export default function LufsTargets({ lufsA, lufsB, labelA, labelB }: Props) {
    <div
     className="absolute top-0 h-1.5 w-1.5"
     style={{
-    left: `${Math.max(5, Math.min(95, 50 + diffA * 3))}%`,
+    left: `${isFinite(diffA) ? Math.max(5, Math.min(95, 50 + diffA * 3)) : 50}%`,
     backgroundColor: 'var(--color-sand-400)',
     transform: 'translateX(-50%)',
     borderRadius: '2px',
@@ -72,7 +72,7 @@ export default function LufsTargets({ lufsA, lufsB, labelA, labelB }: Props) {
    <div
     className="absolute top-0 h-1.5 w-1.5"
     style={{
-    left: `${Math.max(5, Math.min(95, 50 + diffB * 3))}%`,
+    left: `${isFinite(diffB) ? Math.max(5, Math.min(95, 50 + diffB * 3)) : 50}%`,
     backgroundColor: 'var(--color-terra)',
     transform: 'translateX(-50%)',
     borderRadius: '2px',

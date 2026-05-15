@@ -85,7 +85,7 @@ export default function MasteringDelta({ delta, overall }: Props) {
  <Metric
  label="Limiter"
  value={fmtLimiter(delta.limiter_aggressiveness)}
- sub={delta.estimated_gain_reduction_db != null ? `${delta.estimated_gain_reduction_db.toFixed(1)} dB est. GR` : undefined}
+ sub={delta.estimated_gain_reduction_db != null && isFinite(delta.estimated_gain_reduction_db) ? `${delta.estimated_gain_reduction_db.toFixed(1)} dB est. GR` : undefined}
  tone={limiterColor(delta.limiter_aggressiveness)}
  tooltip="How hard the mastering limiter is working. 'Transparent' = barely touching peaks. 'Heavy' = significant gain reduction — may affect transients and punch."
  />

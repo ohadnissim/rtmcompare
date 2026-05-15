@@ -322,10 +322,10 @@ function PlatformCell({ row, file, side, audition, twin, integratedLufs, twinSta
  )}
  </button>
  )}
- <span className="font-mono text-dark-200">{row.played_lufs.toFixed(1)} LUFS</span>
+ <span className="font-mono text-dark-200">{isFinite(row.played_lufs) ? row.played_lufs.toFixed(1) : '—'} LUFS</span>
  {row.delta_db !== 0 && (
  <span className="font-mono text-[10px]" style={{ color: actionColor }}>
- {row.delta_db > 0 ? '+' : ''}{row.delta_db.toFixed(1)} dB
+ {row.delta_db > 0 ? '+' : ''}{isFinite(row.delta_db) ? row.delta_db.toFixed(1) : '—'} dB
  </span>
  )}
  {/* tp_breach badge removed in 5.3.0 — no warnings, just numbers. */}

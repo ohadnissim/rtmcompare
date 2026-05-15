@@ -133,7 +133,7 @@ export default function WaveformDiffHeatmap({ diff, labelA, labelB, onHotspotCli
  <g key={i}>
  <circle cx={cx} cy={cy} r={6} fill="none" stroke="var(--color-text-primary)" strokeWidth="1" />
  <text x={cx + 8} y={cy + 3} fontSize="8" fill="var(--color-text-primary)">
- {hs.diff_db > 0 ? '+' : ''}{hs.diff_db.toFixed(1)}dB
+ {hs.diff_db > 0 ? '+' : ''}{isFinite(hs.diff_db) ? hs.diff_db.toFixed(1) : '—'}dB
  </text>
  </g>
  )

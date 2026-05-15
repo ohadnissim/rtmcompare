@@ -28,6 +28,7 @@ can reuse the analyser without re-forking a subprocess.
 """
 
 import json
+import math
 import os
 import sys
 import time
@@ -227,7 +228,8 @@ def analyze_single_file(path: str) -> dict:
         meter = pyln.Meter(sr)
         lufs_input = data
         try:
-            out["lufs_i"] = round(float(meter.integrated_loudness(lufs_input)), 2)
+            _lufs = float(meter.integrated_loudness(lufs_input))
+            out["lufs_i"] = round(_lufs, 2) if math.isfinite(_lufs) else None
         except Exception:
             out["lufs_i"] = None
         # LRA per BS.1770-4 / EBU R128. pyloudnorm exposes
@@ -240,7 +242,8 @@ def analyze_single_file(path: str) -> dict:
         # mis-defined. Now we route through the proper LRA call and,
         # if that's unavailable, skip rather than emit a wrong number.
         try:
-            out["lra"] = round(float(meter.loudness_range(lufs_input)), 2)
+            _lra = float(meter.loudness_range(lufs_input))
+            out["lra"] = round(_lra, 2) if math.isfinite(_lra) else None
         except Exception:
             # Honest fallback: leave LRA missing rather than report a
             # wrong number. The UI shows "—" in that cell.
