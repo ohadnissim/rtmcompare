@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import sys
 import threading
@@ -80,9 +81,26 @@ _real_stdout = sys.stdout
 _analyze_lock = threading.Lock()
 
 
+def _sanitize(obj: Any) -> Any:
+    """Replace NaN/Infinity float values with None so json.dumps produces valid JSON.
+
+    Python's json.dumps(allow_nan=True) emits bare NaN/Infinity literals which are
+    not valid JSON — JSON.parse on the JS side silently drops the line, leaving the
+    pending request to hang until the 30-minute timeout fires.  Replacing with None
+    (→ JSON null) lets the UI handle missing values gracefully via its existing guards.
+    """
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
+
+
 def _write_line(obj: dict) -> None:
     """Write a JSON object as a single newline-terminated line to stdout."""
-    line = json.dumps(obj, separators=(",", ":"))
+    line = json.dumps(_sanitize(obj), separators=(",", ":"))
     with _stdout_lock:
         _real_stdout.write(line + "\n")
         _real_stdout.flush()
