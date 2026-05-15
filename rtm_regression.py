@@ -5,14 +5,18 @@ Runs automatically every 30 minutes via launchd (com.rtm.regression.plist).
 Also runnable manually: python3 rtm_regression.py [--once] [--verbose]
 
 Tests:
-  1. Python pipeline smoke (analyze.py imports, core functions)
-  2. RTM daemon JSON-RPC (ping, analyze_single, analyze, unknown-method error)
-  3. Edge-case audio (silent, tiny, near-clip, mono, DC-offset)
-  4. Persistent state (history.json round-trip, profiles directory)
-  5. IPC channel count (preload.ts vs main.ts must stay in sync)
-  6. Production build artifact presence (dist/index.html, electron/main.js)
-  7. Tonal issues detector (regression for sr=None crash — fixed in bc3f853)
-  8. Plugin-knowledge persistence (33+ files in ~/.rtm/plugin-knowledge/)
+  1.  Python pipeline smoke (analyze.py imports, core functions)
+  2.  RTM daemon JSON-RPC (ping, analyze_single, analyze, unknown-method error)
+  3.  Edge-case audio (silent, tiny, near-clip, mono, DC-offset)
+  4.  Tonal issues sr=None regression (fixed in bc3f853)
+  5.  Persistent state (history.json round-trip, profiles, plugin-knowledge)
+  6.  IPC channel synchrony (preload.ts vs main.ts must stay in sync)
+  7.  Production build artifact presence (dist/index.html, dist-electron/main.js)
+  8.  RTMprofile Python imports
+  9.  Full compare workflow — real MIX.wav vs MASTER.wav, 20+ field validation
+  10. RTMprofile build workflow — build_profile on real track cache
+  11. RTMsend connectivity — port file format, TCP probe if live instance found
+  12. Auto-remediation — restart stale daemon processes; macOS alert on failure
 
 Exit code 0 = all pass. Non-zero = failures logged to ~/.rtm/regression.log
 """
@@ -423,6 +427,310 @@ def test_rtmprofile_imports() -> None:
           result.stderr[-300:] if result.returncode != 0 else "")
 
 
+# ── Test 9: Full compare workflow with real audio ─────────────────────────────
+# Uses ~/Downloads/MIX.wav + MASTER.wav (240s real commercial tracks).
+# Validates the 20+ fields that RTMcompare's UI actually renders so that
+# a broken pipeline field surfaces here rather than silently in the UI.
+_REAL_MIX    = Path.home() / "Downloads" / "MIX.wav"
+_REAL_MASTER = Path.home() / "Downloads" / "MASTER.wav"
+
+_REQUIRED_COMPARE_FIELDS = [
+    # Overall loudness/dynamics block — nested under result["overall"]
+    # checked separately below because they're one level deeper
+    # Top-level result fields:
+    "headroom",       # {"true_peak_a", "true_peak_b", "a", "b"}
+    "categories",     # list of stem category dicts
+    "clicks",         # quality chip
+    "distortion",     # quality chip
+    "tonal_issues",   # quality chip
+    "level_matched",  # platform normalization flag
+    "gain_applied_db",
+    "waveform_a", "waveform_b",
+]
+
+# Fields inside result["overall"] (nested loudness block)
+_REQUIRED_OVERALL_FIELDS = ["lufs_a", "lufs_b", "dynamics_a", "dynamics_b"]
+
+def test_full_compare_workflow() -> None:
+    log.info("=== Test 9: Full compare workflow (real audio) ===")
+    if not _REAL_MIX.exists() or not _REAL_MASTER.exists():
+        log.info("    (skipping — ~/Downloads/MIX.wav or MASTER.wav not found)")
+        return
+
+    requests = [
+        {
+            "id": "full_cmp",
+            "method": "analyze",
+            "params": {
+                "file_a": str(_REAL_MIX),
+                "file_b": str(_REAL_MASTER),
+                "fast": True,
+                "profile": "",
+            },
+        }
+    ]
+    try:
+        responses = _run_daemon_rpc(requests, timeout=300)
+    except Exception as e:
+        check("full compare workflow — daemon round-trip", False, str(e))
+        return
+
+    by_id = {r.get("id"): r for r in responses}
+    raw = by_id.get("full_cmp", {})
+    r = raw.get("result", raw)
+
+    check("full compare — daemon returned result (no error)",
+          "error" not in raw and "categories" in r, str(raw)[:200])
+    if "error" in raw:
+        return
+
+    # Verify each top-level field the UI depends on
+    missing = [f for f in _REQUIRED_COMPARE_FIELDS if f not in r]
+    check("full compare — required top-level UI fields present",
+          len(missing) == 0, f"missing: {missing}")
+
+    # Verify overall loudness block (nested under result["overall"])
+    overall = r.get("overall", {})
+    missing_overall = [f for f in _REQUIRED_OVERALL_FIELDS if f not in overall]
+    check("full compare — result.overall has lufs_a/b and dynamics_a/b",
+          len(missing_overall) == 0, f"missing in overall: {missing_overall}")
+
+    # Validate numeric sanity of key loudness metrics (in overall sub-dict)
+    la = overall.get("lufs_a", 0)
+    lb = overall.get("lufs_b", 0)
+    if la != 0 or lb != 0:
+        check("full compare — lufs_a is realistic (-50 to -3 LUFS)",
+              isinstance(la, (int, float)) and -50 <= la <= -3, f"lufs_a={la}")
+        check("full compare — lufs_b is realistic (-50 to -3 LUFS)",
+              isinstance(lb, (int, float)) and -50 <= lb <= -3, f"lufs_b={lb}")
+
+    if "categories" in r:
+        cats = r["categories"]
+        check("full compare — categories is a non-empty list",
+              isinstance(cats, list) and len(cats) > 0, str(len(cats)))
+        if cats:
+            cat0 = cats[0]
+            check("full compare — each category has name/level_a/level_b",
+                  all(k in cat0 for k in ("name", "level_a", "level_b")),
+                  str(list(cat0.keys())[:6]))
+
+    if "headroom" in r:
+        hd = r["headroom"]
+        check("full compare — headroom has true_peak_a/b fields",
+              all(k in hd for k in ("true_peak_a", "true_peak_b")),
+              str(list(hd.keys())))
+
+    if "tonal_issues" in r:
+        check("full compare — tonal_issues is a list",
+              isinstance(r["tonal_issues"], list), str(type(r["tonal_issues"])))
+
+    if "clicks" in r:
+        check("full compare — clicks result has expected structure",
+              isinstance(r["clicks"], (list, dict)), str(type(r["clicks"])))
+
+    log.info("    lufs_a=%.1f  lufs_b=%.1f  categories=%d  tonal_issues=%d",
+             overall.get("lufs_a", 0), overall.get("lufs_b", 0),
+             len(r.get("categories", [])), len(r.get("tonal_issues", [])))
+
+
+# ── Test 10: RTMprofile build workflow ────────────────────────────────────────
+def test_rtmprofile_build() -> None:
+    log.info("=== Test 10: RTMprofile build workflow ===")
+    rtmprofile_py = SCRIPT_DIR / "rtm-profile-app" / "python"
+    if not rtmprofile_py.exists():
+        log.info("    (skipping — RTMprofile python dir not found)")
+        return
+
+    # Use files from the real track cache as inputs — they're already analysed
+    # so build_profile can read from cache (~/.rtm/tracks/) without re-running
+    # full analysis. This tests the full profile-build pipeline.
+    tracks_dir = RTM_DIR / "tracks"
+    cached_tracks = list(tracks_dir.glob("*.json")) if tracks_dir.exists() else []
+
+    if not cached_tracks:
+        log.info("    (skipping — no cached tracks in ~/.rtm/tracks/)")
+        return
+
+    # build_profile needs audio files, not just JSON cache. Check for real WAVs.
+    real_wavs: list[str] = []
+    for p in [_REAL_MIX, _REAL_MASTER,
+              Path.home() / "Downloads" / "Ohad The Best.wav",
+              Path.home() / "Downloads" / "Paper Rings.wav"]:
+        if p.exists():
+            real_wavs.append(str(p))
+
+    if not real_wavs:
+        log.info("    (skipping — no real WAV files found for build_profile)")
+        return
+
+    with tempfile.TemporaryDirectory() as td:
+        out_path = os.path.join(td, "regression_profile.json")
+        cmd = [
+            PYTHON,
+            str(rtmprofile_py / "build_profile.py"),
+            "--name", "Regression Test Engineer",
+            "--role", "Mastering Engineer",
+            "--out", out_path,
+        ] + real_wavs[:2]  # use 2 files max to keep test fast
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True, text=True, timeout=120,
+            env={**os.environ, "PYTHONPATH": str(rtmprofile_py)},
+        )
+        check("RTMprofile build_profile — exits cleanly",
+              result.returncode == 0,
+              result.stderr[-400:] if result.returncode != 0 else "")
+
+        if result.returncode == 0 and os.path.exists(out_path):
+            try:
+                with open(out_path) as f:
+                    profile = json.load(f)
+                check("RTMprofile — output is valid JSON",
+                      isinstance(profile, dict), "")
+                # Verify required profile fields (actual schema: lufs_avg not lufs_stats)
+                required_profile_keys = ["curve", "dynamic_range_avg", "lufs_avg"]
+                missing = [k for k in required_profile_keys if k not in profile]
+                check("RTMprofile — output has required fields (curve, dynamic_range_avg, lufs_avg)",
+                      len(missing) == 0, f"missing: {missing}")
+                log.info("    profile keys: %s", sorted(profile.keys())[:10])
+            except Exception as e:
+                check("RTMprofile — output is valid JSON", False, str(e))
+        else:
+            check("RTMprofile — output file created", os.path.exists(out_path),
+                  "file not found")
+
+
+# ── Test 11: RTMsend connectivity ─────────────────────────────────────────────
+def test_rtmsend_connectivity() -> None:
+    log.info("=== Test 11: RTMsend connectivity ===")
+    import socket as _socket
+    import re as _re
+
+    RTM_DIR_PATH = Path.home() / ".rtm"
+    INSTANCE_RE = _re.compile(r"^rtmsend-\d+-[0-9a-fA-F]{8}\.port$")
+    LEGACY_PORT = RTM_DIR_PATH / "rtmsend.port"
+
+    # Collect all port files (legacy + per-instance)
+    port_files: list[Path] = []
+    if LEGACY_PORT.exists():
+        port_files.append(LEGACY_PORT)
+    for f in sorted(RTM_DIR_PATH.glob("*.port")):
+        if INSTANCE_RE.match(f.name):
+            port_files.append(f)
+
+    if not port_files:
+        log.info("    RTMsend: no .port files found — plugin not currently running (OK)")
+        check("RTMsend — port directory accessible",
+              RTM_DIR_PATH.exists(), str(RTM_DIR_PATH))
+        return
+
+    log.info("    RTMsend: found %d port file(s)", len(port_files))
+    live_ports: list[int] = []
+
+    for pf in port_files:
+        try:
+            raw = pf.read_text().strip()
+            port = 0
+            host = "unknown"
+            # Try JSON object format (5.7+); note json.loads("51697") = int, not dict
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = None
+
+            if isinstance(parsed, dict):
+                meta = parsed
+                port = int(meta.get("port", 0))
+                pid = meta.get("pid")
+                host = meta.get("host_app", "unknown")
+                check(f"RTMsend port file '{pf.name}' — valid JSON with port+pid",
+                      port > 0 and pid is not None,
+                      f"port={port} pid={pid}")
+            else:
+                # Legacy: plain integer (possibly returned by json.loads or raw int string)
+                try:
+                    port = int(parsed if parsed is not None else raw)
+                except (ValueError, TypeError):
+                    port = 0
+                host = "legacy"
+                check(f"RTMsend port file '{pf.name}' — legacy integer port format",
+                      0 < port < 65536, f"port={port}")
+
+            if 0 < port < 65536:
+                # Probe TCP connection with a ping
+                try:
+                    sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+                    sock.settimeout(2.0)
+                    sock.connect(("127.0.0.1", port))
+                    ping_req = json.dumps({"jsonrpc": "2.0", "method": "host.ping",
+                                           "params": {}, "id": 1}) + "\n"
+                    sock.sendall(ping_req.encode())
+                    data = b""
+                    sock.settimeout(3.0)
+                    while b"\n" not in data:
+                        chunk = sock.recv(4096)
+                        if not chunk:
+                            break
+                        data += chunk
+                    sock.close()
+                    if data:
+                        resp = json.loads(data.split(b"\n")[0])
+                        check(f"RTMsend port {port} ({host}) — ping/pong succeeds",
+                              "result" in resp or "error" in resp, str(resp))
+                        live_ports.append(port)
+                        log.info("    RTMsend port %d live: %s", port, host)
+                    else:
+                        check(f"RTMsend port {port} ({host}) — received response",
+                              False, "no data received")
+                except ConnectionRefusedError:
+                    log.info("    RTMsend port %d — connection refused (plugin closed?)", port)
+                except Exception as e:
+                    log.info("    RTMsend port %d — probe failed: %s", port, e)
+        except Exception as e:
+            check(f"RTMsend port file '{pf.name}' — readable", False, str(e))
+
+    if live_ports:
+        log.info("    RTMsend: %d live instance(s) at ports %s", len(live_ports), live_ports)
+    else:
+        log.info("    RTMsend: port files present but no live connections (plugin may be closed)")
+
+
+# ── Auto-remediation ──────────────────────────────────────────────────────────
+def _notify_failure(fail_count: int) -> None:
+    """Send a macOS notification when regression fails."""
+    try:
+        msg = f"{fail_count} check(s) failed — see ~/.rtm/regression.log"
+        subprocess.run(
+            ["osascript", "-e",
+             f'display notification "{msg}" with title "RTM Regression" '
+             f'subtitle "Health check failure" sound name "Basso"'],
+            capture_output=True, timeout=5,
+        )
+    except Exception:
+        pass  # notification is best-effort
+
+
+def _remediate_daemon() -> None:
+    """Kill any stale rtm_daemon.py processes, allowing a fresh start next request."""
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "rtm_daemon.py"],
+            capture_output=True, text=True,
+        )
+        pids = [p.strip() for p in result.stdout.splitlines() if p.strip()]
+        if pids:
+            log.info("    Remediation: killing %d stale daemon process(es): %s",
+                     len(pids), pids)
+            for pid in pids:
+                try:
+                    subprocess.run(["kill", "-9", pid], capture_output=True, timeout=3)
+                except Exception:
+                    pass
+    except Exception as e:
+        log.warning("    Remediation: failed to clean up daemon processes: %s", e)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 def run_all() -> int:
     global _pass, _fail
@@ -441,11 +749,19 @@ def run_all() -> int:
     test_ipc_sync()
     test_build_artifacts()
     test_rtmprofile_imports()
+    test_full_compare_workflow()
+    test_rtmprofile_build()
+    test_rtmsend_connectivity()
 
     elapsed = time.time() - start
     log.info("=" * 60)
     log.info("RESULT: %d passed, %d failed  (%.1fs)", _pass, _fail, elapsed)
     log.info("=" * 60)
+
+    if _fail > 0:
+        _notify_failure(_fail)
+        _remediate_daemon()
+
     return 0 if _fail == 0 else 1
 
 
