@@ -574,7 +574,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {dg.confidence}
  </span>
  <span style={{ color: 'var(--color-text-muted)' }}>
- {`${dg.speech_pct.toFixed(0)}% speech`}
+ {`${isFinite(dg.speech_pct) ? dg.speech_pct.toFixed(0) : '—'}% speech`}
  </span>
  </div>
  {dg.note && (
@@ -1244,7 +1244,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.mono_compat.bands_a && data.mono_compat.bands_a.length > 0 ? (
  <div className="space-y-3">
  <div className="flex items-center justify-between text-xs">
- <span className="text-dark-300">Broadband correlation: <span className="font-mono">{data.mono_compat.correlation_a.toFixed(2)}</span></span>
+ <span className="text-dark-300">Broadband correlation: <span className="font-mono">{isFinite(data.mono_compat.correlation_a) ? data.mono_compat.correlation_a.toFixed(2) : '—'}</span></span>
  <span className="text-dark-300">Weighted risk: <span className="font-mono">{(data.mono_compat.risk_a ?? 0).toFixed(1)}</span></span>
  </div>
  <div className="bg-dark-800/40 p-3 space-y-1.5" style={{ borderRadius: '2px' }}>
@@ -1256,8 +1256,8 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <span className="font-medium text-dark-200">{band.name}</span>
  <span className="ml-2 text-[9px] text-dark-500 font-mono">{band.freq_range}</span>
  </div>
- <span className="w-20 text-center font-mono text-[10px] text-dark-400">{band.correlation.toFixed(2)}</span>
- <span className="w-20 text-center font-mono text-[10px]" style={{ color }}>{band.loss_pct.toFixed(1)}%</span>
+ <span className="w-20 text-center font-mono text-[10px] text-dark-400">{isFinite(band.correlation) ? band.correlation.toFixed(2) : '—'}</span>
+ <span className="w-20 text-center font-mono text-[10px]" style={{ color }}>{isFinite(band.loss_pct) ? band.loss_pct.toFixed(1) : '—'}%</span>
  </div>
  )
  })}
@@ -1266,7 +1266,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  </div>
  ) : (
  <div className="space-y-3 text-xs text-dark-300">
- Correlation <span className="font-mono">{data.mono_compat.correlation_a.toFixed(2)}</span> · Mono loss <span className="font-mono">{data.mono_compat.mono_loss_a_pct.toFixed(1)}%</span>
+ Correlation <span className="font-mono">{isFinite(data.mono_compat.correlation_a) ? data.mono_compat.correlation_a.toFixed(2) : '—'}</span> · Mono loss <span className="font-mono">{isFinite(data.mono_compat.mono_loss_a_pct) ? data.mono_compat.mono_loss_a_pct.toFixed(1) : '—'}%</span>
  </div>
  )}
  </CollapsibleSection>
