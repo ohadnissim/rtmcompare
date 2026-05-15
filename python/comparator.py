@@ -1322,6 +1322,8 @@ def run_full_analysis(stems_a: dict, stems_b: dict, sr: int = None) -> dict:
     # lengths, mix_b's slice could exceed an actual stem's length
     # and silently raise IndexError. Belt-and-braces: take the
     # global min across all stems on both sides.
+    if not loaded_a:
+        return {}
     min_len = min(
         s.shape[1]
         for d in (loaded_a, loaded_b)

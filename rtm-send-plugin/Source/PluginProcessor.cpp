@@ -691,7 +691,8 @@ bool RtmSendAudioProcessor::writeSidecar(const juce::File& out,
         const juce::ScopedLock sl (stringFieldsLock);
         araIdSnap = selectedAraRegionId;
     }
-    if (srcSnapshot == Source::AraRegion && araIdSnap.isNotEmpty())
+    if (srcSnapshot == Source::AraRegion && araIdSnap.isNotEmpty()
+        && araRegionsModel != nullptr)
     {
         if (auto region = araRegionsModel->findRegion(araIdSnap))
         {
