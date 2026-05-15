@@ -101,6 +101,7 @@ export function buildMetricCells(
 
 // ── helpers
 function fmt(n: number, digits: number): string {
+ if (!isFinite(n)) return '—'
  // Use a real Unicode minus for negative values so the Didone
  // serif renders the typographically correct glyph (the ASCII
  // hyphen-minus is too short and reads as "weak" at large sizes).
@@ -109,6 +110,7 @@ function fmt(n: number, digits: number): string {
 }
 
 function signed(n: number, digits: number): string {
+ if (!isFinite(n)) return '—'
  if (n === 0) return `±${n.toFixed(digits)}`
  if (n > 0) return `+${n.toFixed(digits)}`
  const abs = (-n).toFixed(digits)
