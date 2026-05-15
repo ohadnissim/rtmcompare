@@ -27,6 +27,7 @@ for the full DSP spec + reference literature.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import threading
@@ -546,7 +547,9 @@ if __name__ == "__main__":
         print(json.dumps({"error": "usage: generation_loss_detector.py <file>"}))
         sys.exit(1)
     r = analyse_generation_loss(sys.argv[1])
+    prob = r.probability if math.isfinite(r.probability) else 0.0
     print(json.dumps({
-        "probability": r.probability, "verdict": r.verdict,
-        "checks": [asdict(c) for c in r.checks], "summary": r.summary,
+        "probability": prob, "verdict": r.verdict,
+        "checks": [{"name": c.name, "score": c.score if math.isfinite(c.score) else 0.0, "note": c.note} for c in r.checks],
+        "summary": r.summary,
     }))

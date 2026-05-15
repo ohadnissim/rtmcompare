@@ -543,27 +543,27 @@ function buildComparisonTable(r: AnalysisResult, labelA: string, labelB: string,
  }
 
  const la = r.overall.lufs_a, lb = r.overall.lufs_b
- addRow('Integrated loudness', `${la.toFixed(1)} LUFS`, `${lb.toFixed(1)} LUFS`, fmtSigned(lb - la, 'dB'))
+ addRow('Integrated loudness', `${fmt(la, 1)} LUFS`, `${fmt(lb, 1)} LUFS`, fmtSigned(lb - la, 'dB'))
 
  if (r.overall.short_term_max_a != null && r.overall.short_term_max_b != null) {
- addRow('Short-term max (3 s)', `${r.overall.short_term_max_a.toFixed(1)} LUFS`,
- `${r.overall.short_term_max_b.toFixed(1)} LUFS`,
+ addRow('Short-term max (3 s)', `${fmt(r.overall.short_term_max_a, 1)} LUFS`,
+ `${fmt(r.overall.short_term_max_b, 1)} LUFS`,
  fmtSigned(r.overall.short_term_max_b - r.overall.short_term_max_a, 'dB'))
  }
 
  if (r.headroom) {
  const a = r.headroom.true_peak_a, b = r.headroom.true_peak_b
- addRow('True peak', `${a.toFixed(1)} dBTP`, `${b.toFixed(1)} dBTP`, fmtSigned(b - a, 'dB'),
+ addRow('True peak', `${fmt(a, 1)} dBTP`, `${fmt(b, 1)} dBTP`, fmtSigned(b - a, 'dB'),
  b > -1 ? 'worse' : b <= -1 ? 'better' : '')
  }
 
  addRow('Dynamic range (LRA)',
- `${r.overall.dynamics_a.toFixed(1)} LU`,
- `${r.overall.dynamics_b.toFixed(1)} LU`,
+ `${fmt(r.overall.dynamics_a, 1)} LU`,
+ `${fmt(r.overall.dynamics_b, 1)} LU`,
  fmtSigned(r.overall.dynamics_b - r.overall.dynamics_a, 'LU'))
 
  if (r.overall.plr_a != null && r.overall.plr_b != null) {
- addRow('Crest (PLR)', `${r.overall.plr_a.toFixed(1)} dB`, `${r.overall.plr_b.toFixed(1)} dB`,
+ addRow('Crest (PLR)', `${fmt(r.overall.plr_a, 1)} dB`, `${fmt(r.overall.plr_b, 1)} dB`,
  fmtSigned(r.overall.plr_b - r.overall.plr_a, 'dB'))
  }
 
@@ -776,7 +776,7 @@ function buildArtefactsBlock(r: AnalysisResult, mode: ReportMode): string {
     rows.push(rowHTML(
       `Mains hum: ${r.hum.mains} Hz`,
       mode === 'engineer'
-        ? `${r.hum.summary}. Notch preset: ${r.hum.notch_preset.map(p => `${p.freq.toFixed(1)} Hz Q${p.q.toFixed(1)} ${p.gain_db.toFixed(1)} dB`).join(', ')}.`
+        ? `${r.hum.summary}. Notch preset: ${r.hum.notch_preset.map(p => `${fmt(p.freq, 1)} Hz Q${fmt(p.q, 1)} ${fmt(p.gain_db, 1)} dB`).join(', ')}.`
         : `Audible mains hum at ${r.hum.mains} Hz. Likely a tracking-stage ground issue. ${r.hum.summary}.`,
       'AUDIBLE', 'bad',
     ))
@@ -794,7 +794,7 @@ function buildArtefactsBlock(r: AnalysisResult, mode: ReportMode): string {
     rows.push(rowHTML(
       'Limiter: pumping',
       mode === 'engineer'
-        ? `Pump score ${la.pump_score.toFixed(2)}. Review release / threshold.`
+        ? `Pump score ${fmt(la.pump_score, 2)}. Review release / threshold.`
         : 'The limiter is pumping audibly — ease the threshold or lengthen the release for more breath.',
       'PUMP', 'bad',
     ))
@@ -869,14 +869,14 @@ function buildEqRecommendations(bands: EQBand[], mode: ReportMode): string {
   return sorted.map(b => {
     const region = freqRegion(b.freq)
     const isBoost = b.gain_db > 0
-    const moveTxt = `${isBoost ? '+' : ''}${b.gain_db.toFixed(1)} dB`
+    const moveTxt = `${isBoost ? '+' : ''}${fmt(b.gain_db, 1)} dB`
     const moveCls = isBoost ? 'move-pos' : 'move-neg'
     const widthLabel = qWidth(b.q)
     const widthTxt = mode === 'engineer'
-      ? `Q ${b.q.toFixed(1)}`
-      : `${widthLabel} (Q ${b.q.toFixed(1)})`
+      ? `Q ${fmt(b.q, 1)}`
+      : `${widthLabel} (Q ${fmt(b.q, 1)})`
     const freqTxt = b.freq >= 1000
-      ? `${(b.freq / 1000).toFixed(b.freq >= 10000 ? 0 : 1)} kHz`
+      ? `${isFinite(b.freq) ? (b.freq / 1000).toFixed(b.freq >= 10000 ? 0 : 1) : '—'} kHz`
       : `${Math.round(b.freq)} Hz`
     const intent = INTENT[region]
     const what = mode === 'engineer'
@@ -1061,9 +1061,12 @@ function widthDelta(a: number, b: number): string {
  return 'Same'
 }
 function fmtSigned(v: number, unit: string): string {
- if (isNaN(v)) return '—'
+ if (!isFinite(v)) return '—'
  const sign = v > 0 ? '+' : ''
  return `${sign}${v.toFixed(1)}${unit ? ' ' + unit : ''}`
+}
+function fmt(v: number | null | undefined, dec: number, suffix = ''): string {
+ return v != null && isFinite(v) ? `${v.toFixed(dec)}${suffix}` : '—'
 }
 function fmtLen(sec: number): string {
  const m = Math.floor(sec / 60)
