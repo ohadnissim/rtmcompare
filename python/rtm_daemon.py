@@ -65,6 +65,12 @@ if not _log.handlers:
 _stdout_lock = threading.Lock()
 _stdin_lock = threading.Lock()
 
+# Capture the real stdout BEFORE any analysis handler redirects sys.stdout to a
+# StringIO buffer.  Concurrent threads calling _write_line during an analysis
+# would otherwise write into that buffer instead of the pipe — producing two
+# JSON objects in the buffer and causing a JSONDecodeError in the caller.
+_real_stdout = sys.stdout
+
 # ── per-analysis serialisation lock ──────────────────────────────────────────
 # analyze.main() mutates sys.stdout, sys.argv, and the analyze module's
 # progress callback — all global state.  Under ThreadPoolExecutor concurrent
@@ -78,8 +84,8 @@ def _write_line(obj: dict) -> None:
     """Write a JSON object as a single newline-terminated line to stdout."""
     line = json.dumps(obj, separators=(",", ":"))
     with _stdout_lock:
-        sys.stdout.write(line + "\n")
-        sys.stdout.flush()
+        _real_stdout.write(line + "\n")
+        _real_stdout.flush()
 
 
 def _progress(request_id: str, message: str) -> None:
