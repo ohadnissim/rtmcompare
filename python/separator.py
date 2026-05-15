@@ -108,6 +108,4 @@ def separate(audio_path: str, output_dir: str,
         return _legacy_separate(audio_path, output_dir, progress_cb)
     except Exception as err:  # noqa: BLE001
         sys.stderr.write(f"[separator] legacy fallback also failed: {err}\n")
-        if last_error is not None:
-            raise last_error
-        raise
+        raise  # raise the legacy error; UAI errors already logged above
