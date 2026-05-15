@@ -348,8 +348,8 @@ def main():
                 "true_peak_a": true_peak, "true_peak_b": true_peak,
             }
 
-            # Run quality checks on the downmix
-            downmix_path = result.get("atmos_downmix_path", file_atmos)
+            # Run quality checks on the downmix; fall back to stereo if downmix wasn't produced
+            downmix_path = result.get("atmos_downmix_path", file_stereo)
             progress("Scanning for digital clicks...")
             result["clicks"] = detect_clicks(file_stereo, downmix_path, sr=info_a.samplerate)
 
@@ -594,7 +594,10 @@ def main():
 
         # Engineer tips — "What would [Engineer] do?"
         progress("Generating engineer tips...")
-        result["engineer_tips"] = generate_tips(file_b, file_a, profile_id=profile_id)
+        try:
+            result["engineer_tips"] = generate_tips(file_b, file_a, profile_id=profile_id)
+        except Exception as e:
+            _warn_optional("engineer_tips", e)
 
         # Chain tips — uses the dedicated chain profile if provided, otherwise falls back to profile_id.
         _chain_id = chain_profile_id or profile_id
@@ -603,8 +606,8 @@ def main():
                 chain_result = generate_chain_tips(file_b, profile_id=_chain_id)
                 if chain_result:
                     result["chain_tips"] = chain_result
-            except Exception:
-                pass
+            except Exception as e:
+                _warn_optional("chain_tips", e)
 
         # Surface every optional-analyser failure into the result so
         # the UI can tell "masking disabled on purpose" from "masking

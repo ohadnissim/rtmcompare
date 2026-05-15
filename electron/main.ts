@@ -747,7 +747,9 @@ ipcMain.handle('analyze-batch', async (event, filePaths: string[], options?: { d
       try {
         const msg = JSON.parse(t)
         if (msg.type === 'progress' && msg.message) {
-          event.sender.send('batch-progress', msg)
+          // Guard: renderer window may be destroyed while analysis runs.
+          // event.sender.send() throws on a closed IPC channel in Electron 20+.
+          try { event.sender.send('batch-progress', msg) } catch { /* renderer gone */ }
         }
       } catch { /* not JSON */ }
     }
