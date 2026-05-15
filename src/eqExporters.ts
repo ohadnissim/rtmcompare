@@ -359,9 +359,9 @@ export function buildFabFilterProQJson(bands: EQBand[], title: string): string {
       emitted.push({
         index: i + 1,
         enabled: true,
-        freq: +Math.max(10, Math.min(30000, b.freq)).toFixed(3),
-        gain_db: +b.gain_db.toFixed(3),
-        q: +Math.max(0.1, Math.min(40, b.q)).toFixed(3),
+        freq: +Math.max(10, Math.min(30000, isFinite(b.freq) ? b.freq : 1000)).toFixed(3),
+        gain_db: +(isFinite(b.gain_db) ? b.gain_db : 0).toFixed(3),
+        q: +Math.max(0.1, Math.min(40, isFinite(b.q) ? b.q : 1.0)).toFixed(3),
         shape: proqShape(b),
         slope: null,
         channel: 'stereo',

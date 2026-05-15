@@ -58,7 +58,7 @@ export function specDriftSummary(stamped?: SpecVersions | null): string {
 
 function normaliseValue(value: unknown): string {
  if (value == null) return 'missing'
- if (typeof value === 'number') return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+ if (typeof value === 'number') return !isFinite(value) ? String(value) : Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
  if (typeof value === 'string') return value
  if (typeof value === 'boolean') return value ? 'true' : 'false'
  return JSON.stringify(value)
