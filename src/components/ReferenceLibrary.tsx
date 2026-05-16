@@ -165,7 +165,7 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  return (
  <div
  className="fixed inset-0 z-[100] flex items-center justify-center p-8"
- style={{ backgroundColor: 'rgba(14,13,11,0.75)' }}
+ style={{ backgroundColor: 'rgba(10,9,8,0.93)' }}
  onClick={onClose}
  >
  <div

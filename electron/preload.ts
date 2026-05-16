@@ -186,6 +186,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   rtmsendStatus: () => ipcRenderer.invoke('rtmsend-status'),
   rtmsendSendEq: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) =>
     ipcRenderer.invoke('rtmsend-send-eq', bands),
+  rtmsendDumpParams: (): Promise<{ plugin: string; params: { index: number; name: string; label: string; current: number; default: number; text: string }[] }> =>
+    ipcRenderer.invoke('rtmsend-dump-params'),
+  rtmsendSendChain: (payload: {
+    eq_bands?: { region: string; freq_hz: number; gain_db: number; q: number }[]
+    comp?: { threshold_db: number; ratio: number; attack_ms: number; release_ms: number }
+    limiter?: { threshold_db: number; margin_db: number; character: number }
+    imager?: { crossover_hz: number; band1_width_pct: number; band2_width_pct: number }
+  }) => ipcRenderer.invoke('rtmsend-send-chain', payload),
 
   // Plugin Knowledge Base — long-term store of every EQ plugin we've
   // probed, with archetype tags + recommendation engine. Powers

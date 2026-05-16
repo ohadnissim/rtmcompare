@@ -637,15 +637,25 @@ function ChainRecs({
  const [menuOpen, setMenuOpen] = useState(false)
  const [toast, setToast] = useState<string | null>(null)
  const [rtmsendOzone, setRtmsendOzone] = useState<boolean>(false)
+ const [rtmsendOzoneAdvanced, setRtmsendOzoneAdvanced] = useState<boolean>(false)
+ const [ozoneInstallations, setOzoneInstallations] = useState<{ name: string; version: string }[]>([])
 
- // Detect RTMsend + Ozone EQ on mount — if running and Ozone EQ is loaded,
- // offer the live push path instead of (or alongside) the preset file install.
+ // Detect Ozone installation + RTMsend status on mount.
  React.useEffect(() => {
   let cancelled = false
+  window.electronAPI?.ozoneDetect?.().then(res => {
+   if (cancelled) return
+   setOzoneInstallations(res.found ? (res.installations ?? []) : [])
+  }).catch(() => {})
   window.electronAPI?.rtmsendStatus?.().then(status => {
    if (cancelled) return
    const pluginName: string = status?.loaded?.name ?? ''
-   setRtmsendOzone(status?.running === true && pluginName.toLowerCase().includes('ozone') && pluginName.toLowerCase().includes('equalizer'))
+   const nameLo = pluginName.toLowerCase()
+   setRtmsendOzone(status?.running === true && nameLo.includes('ozone') && nameLo.includes('equalizer'))
+   // Ozone Advanced = running + "ozone" in name but NOT one of the individual modules
+   setRtmsendOzoneAdvanced(status?.running === true && nameLo.includes('ozone') &&
+     !nameLo.includes('equalizer') && !nameLo.includes('imager') &&
+     !nameLo.includes('dynamics') && !nameLo.includes('maximizer'))
   }).catch(() => {})
   return () => { cancelled = true }
  }, [])
@@ -662,7 +672,69 @@ function ChainRecs({
   setTimeout(() => setToast(null), 4500)
  }
 
- const buildXml = () => generateOzonePresetXml({ chain_recommendations: recs } as MasteringDeltaData)
+ // Include EQ bands so the generated preset has all four modules active.
+ const buildXml = () => generateOzonePresetXml({
+  chain_recommendations: recs,
+  eq_match: eqBands && eqBands.length > 0 ? { bands: eqBands } : undefined,
+ } as MasteringDeltaData)
+
+ // Push full mastering chain directly to Ozone Advanced via RTMsend (no preset file)
+ const pushChainViaRtmsend = async () => {
+  setSaving(true); setMenuOpen(false)
+  try {
+   const comp = recs.compression
+   const lim  = recs.limiter
+   const stereo = recs.stereo
+
+   const ratioMap: Record<string, number> = { '1.5:1–2:1': 1.75, '2:1 or less': 1.75, '2:1–3:1': 2.5, '3:1–4:1': 3.5 }
+   const attackMap: Record<string, number> = { '10–30 ms': 20, '20–50 ms': 35, '40–80 ms': 60 }
+   const releaseMap: Record<string, number> = { '100–200 ms': 150, '150–300 ms': 200, '200–400 ms': 300 }
+
+   const result = await window.electronAPI?.rtmsendSendChain?.({
+    eq_bands: eqBands?.map(b => ({ region: b.region ?? 'mid', freq_hz: b.freq, gain_db: b.gain_db, q: b.q })),
+    comp: comp && comp.severity !== 'none' ? {
+     threshold_db: -20,
+     ratio: Object.entries(ratioMap).find(([k]) => (comp.ratio_hint || '').includes(k))?.[1] ?? 2.0,
+     attack_ms: Object.entries(attackMap).find(([k]) => (comp.attack_hint || '').includes(k))?.[1] ?? 30.0,
+     release_ms: Object.entries(releaseMap).find(([k]) => (comp.release_hint || '').includes(k))?.[1] ?? 200.0,
+    } : undefined,
+    limiter: lim?.ozone ? {
+     threshold_db: lim.ozone.threshold,
+     margin_db: lim.ozone.margin,
+     character: lim.ozone.character,
+    } : undefined,
+    imager: stereo?.ozone ? {
+     crossover_hz: stereo.ozone.crossover_hz,
+     band1_width_pct: stereo.ozone.band1_width_pct,
+     band2_width_pct: stereo.ozone.band2_width_pct,
+    } : undefined,
+   })
+   if (!result) { flash('RTMsend bridge unavailable'); return }
+   flash(`Pushed ${result.applied} params to ${result.plugin} (${result.rejected} rejected)`)
+  } catch (err: any) {
+   flash(err?.message ?? 'Chain push failed')
+  } finally {
+   setSaving(false)
+  }
+ }
+
+ // Diagnostic: dump all parameters from the loaded plugin — used to verify Ozone Advanced
+ // parameter names match our mapping before trusting rtmsend-send-chain results.
+ const dumpParams = async () => {
+  setSaving(true); setMenuOpen(false)
+  try {
+   const res = await window.electronAPI?.rtmsendDumpParams?.()
+   if (!res) { flash('RTMsend bridge unavailable'); return }
+   const text = `Plugin: ${res.plugin}\nTotal params: ${res.params.length}\n\n` +
+    res.params.map(p => `[${p.index}] ${p.name} = ${p.current.toFixed(4)} (default ${p.default.toFixed(4)}) "${p.text}"`).join('\n')
+   await navigator.clipboard.writeText(text)
+   flash(`Copied ${res.params.length} params from "${res.plugin}" to clipboard`)
+  } catch (err: any) {
+   flash(err?.message ?? 'Dump failed')
+  } finally {
+   setSaving(false)
+  }
+ }
 
  // RTMsend path: push EQ match bands directly to Ozone EQ in the DAW (live, no file)
  const pushEqViaRtmsend = async () => {
@@ -793,23 +865,60 @@ function ChainRecs({
       <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
       <div className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[240px]"
        style={{ borderRadius: 2, backgroundColor: 'var(--color-bg-panel)', border: '1px solid rgba(168,161,150,0.15)' }}>
-       {/* RTMsend live path — only shown when Ozone EQ is the active plugin */}
+       {/* Full chain push — Ozone Advanced loaded in RTMsend */}
+       {rtmsendOzoneAdvanced && (
+        <button onClick={pushChainViaRtmsend}
+         className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 transition-colors">
+         <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: GREEN }}>⇉</span>
+         <div>
+          <div className="text-[11px]" style={{ color: GREEN }}>Push full chain live (RTMsend)</div>
+          <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>EQ + Comp + Limiter + Imager → Ozone Advanced directly, no preset file or reload</div>
+         </div>
+        </button>
+       )}
+       {/* EQ-only push — Ozone EQ module loaded in RTMsend */}
        {rtmsendOzone && eqBands && eqBands.length > 0 && (
         <button onClick={pushEqViaRtmsend}
          className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 transition-colors">
          <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: GREEN }}>↗</span>
          <div>
           <div className="text-[11px]" style={{ color: GREEN }}>Push EQ live (RTMsend)</div>
-          <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>Sends EQ bands directly to Ozone 12 EQ in your DAW — instant, no file</div>
+          <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>Sends EQ bands only to Ozone EQ module — instant, no file</div>
+         </div>
+        </button>
+       )}
+       {/* Diagnostic — dump parameter list from whatever plugin is loaded */}
+       {(rtmsendOzone || rtmsendOzoneAdvanced) && (
+        <button onClick={dumpParams}
+         className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 transition-colors">
+         <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: MUTED }}>⎘</span>
+         <div>
+          <div className="text-[11px]" style={{ color: CREAM }}>Copy param list to clipboard</div>
+          <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>Dumps all VST3 parameter names + indices from the loaded plugin</div>
          </div>
         </button>
        )}
        <button onClick={sendToOzone}
         className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 transition-colors">
-        <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: GOLD }}>⇢</span>
+        <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: ozoneInstallations.length > 0 ? GOLD : MUTED }}>⇢</span>
         <div>
-         <div className="text-[11px]" style={{ color: GOLD }}>Install full preset in Ozone</div>
-         <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>EQ + Comp + Limiter + Imager → ~/Documents/iZotope, appears in preset browser</div>
+         <div className="flex items-center gap-2">
+          <span className="text-[11px]" style={{ color: ozoneInstallations.length > 0 ? GOLD : CREAM }}>Install full preset in Ozone</span>
+          {ozoneInstallations.length > 0 ? (
+           <span className="text-[9px] px-1.5 py-px" style={{ color: GREEN, backgroundColor: 'rgba(110,197,119,0.10)', border: '1px solid rgba(110,197,119,0.25)', borderRadius: 2 }}>
+            {ozoneInstallations.map(i => i.name).join(', ')} detected
+           </span>
+          ) : (
+           <span className="text-[9px] px-1.5 py-px" style={{ color: MUTED, backgroundColor: 'rgba(168,161,150,0.08)', border: '1px solid rgba(168,161,150,0.15)', borderRadius: 2 }}>
+            Ozone not found
+           </span>
+          )}
+         </div>
+         <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>
+          {ozoneInstallations.length > 0
+           ? 'EQ + Comp + Limiter + Imager → ~/Documents/iZotope, appears in preset browser'
+           : 'Will still write the XML — place it in Ozone\'s User Presets folder manually'}
+         </div>
         </div>
        </button>
        <button onClick={saveXml}

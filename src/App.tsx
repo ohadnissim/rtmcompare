@@ -221,6 +221,13 @@ declare global {
    supported_plugins?: string[]
  }>
  rtmsendSendEq?: (bands: { region: string; freq_hz: number; gain_db: number; q: number }[]) => Promise<any>
+ rtmsendDumpParams?: () => Promise<{ plugin: string; params: { index: number; name: string; label: string; current: number; default: number; text: string }[] }>
+ rtmsendSendChain?: (payload: {
+   eq_bands?: { region: string; freq_hz: number; gain_db: number; q: number }[]
+   comp?: { threshold_db: number; ratio: number; attack_ms: number; release_ms: number }
+   limiter?: { threshold_db: number; margin_db: number; character: number }
+   imager?: { crossover_hz: number; band1_width_pct: number; band2_width_pct: number }
+ }) => Promise<{ plugin: string; applied: number; rejected: number; total_params: number; updates_attempted: number }>
  rtmsendKnowledgeList?: () => Promise<any[]>
  rtmsendKnowledgeCapture?: () => Promise<any>
  rtmsendKnowledgeRecapture?: () => Promise<any>

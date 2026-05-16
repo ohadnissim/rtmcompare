@@ -113,6 +113,28 @@ function fmtHz(hz: number): string {
   return hz >= 1000 ? `${(hz / 1000).toFixed(hz % 1000 === 0 ? 0 : 1)} kHz` : `${Math.round(hz)} Hz`
 }
 
+// A-weighting (IEC 61672-1) power weights at each 31-band centre — same table as spectrumLevel.ts
+const A_WEIGHT_DB = [
+  -50.4, -44.8, -39.5, -34.5, -30.3, -26.2, -22.4, -19.1, -16.2, -13.2,
+  -10.8,  -8.7,  -6.6,  -4.8,  -3.2,  -1.9,  -0.8,   0.0,   0.6,   1.0,
+    1.2,   1.3,   1.2,   1.0,   0.5,  -0.1,  -1.1,  -2.5,  -4.3,  -6.6, -9.3,
+]
+const A_WEIGHT_POWER = A_WEIGHT_DB.map(a => Math.pow(10, a / 10))
+
+/** Perceptually-weighted level alignment — centres a curve on its A-weighted mean. */
+function levelAlign(bands: number[]): number[] {
+  const n = Math.min(bands.length, A_WEIGHT_POWER.length)
+  let sumV = 0, sumW = 0
+  for (let i = 0; i < n; i++) {
+    const v = bands[i]
+    if (!Number.isFinite(v)) continue
+    sumV += A_WEIGHT_POWER[i] * v
+    sumW += A_WEIGHT_POWER[i]
+  }
+  const mean = sumW > 0 ? sumV / sumW : 0
+  return bands.map(v => Number.isFinite(v) ? v - mean : -60)
+}
+
 export function computeGenreAnalysis(
   spectrumRaw: number[],          // 31-band file spectrum (dBFS, from analysis result)
   profile: GenreProfile,
@@ -130,9 +152,12 @@ export function computeGenreAnalysis(
     }
   }
 
-  // Mean-center the file's spectrum so it's in the same space as the genre curve
-  const spectrumCentered = meanCenter(spectrumRaw.slice(0, 31))
-  const genreCurve = profile.curve.slice(0, 31)
+  // A-weighted level alignment — same as the Reference Match EQ path (spectrumLevel.ts).
+  // Centres both curves on their perceptual mean so the comparison is purely tonal shape,
+  // not level. Genre profiles are stored mean-centred; we re-align with A-weighting here
+  // for consistency with the rest of the app.
+  const spectrumCentered = levelAlign(spectrumRaw.slice(0, 31))
+  const genreCurve = levelAlign(profile.curve.slice(0, 31))
 
   // Per-band delta: positive = file is hotter than genre target
   const deltaPerBand = spectrumCentered.map((v, i) => v - genreCurve[i])

@@ -1681,6 +1681,113 @@ function activeProfileFilter (entries: ReturnType<typeof listAllReferences>) {
   return entries.filter(e => supported.has(e.name))
 }
 
+/** Dump all parameters exposed by the currently-loaded plugin in RTMsend.
+ *  Used to reverse-engineer VST3 parameter names for new plugin profiles. */
+ipcMain.handle('rtmsend-dump-params', async () => {
+  if (!rtmsend.isRunning()) throw new Error('RTMsend not running')
+  const loaded = await rtmsend.getLoadedPlugin()
+  if (!loaded) throw new Error('No plugin loaded in RTMsend')
+  const params = await rtmsend.listParameters()
+  return { plugin: loaded.name, params }
+})
+
+ipcMain.handle('rtmsend-send-chain', async (_e, payload: {
+  eq_bands?: { region: string; freq_hz: number; gain_db: number; q: number }[]
+  comp?: { threshold_db: number; ratio: number; attack_ms: number; release_ms: number }
+  limiter?: { threshold_db: number; margin_db: number; character: number }
+  imager?: { crossover_hz: number; band1_width_pct: number; band2_width_pct: number }
+}) => {
+  if (!rtmsend.isRunning()) throw new Error('RTMsend not running')
+  const loaded = await rtmsend.getLoadedPlugin()
+  if (!loaded) throw new Error('No plugin loaded in RTMsend')
+
+  const name = loaded.name.toLowerCase()
+  const isOzoneAdvanced = name.includes('ozone') && !name.includes('equalizer') &&
+    !name.includes('imager') && !name.includes('dynamics') && !name.includes('maximizer')
+  if (!isOzoneAdvanced)
+    throw new Error(`rtmsend-send-chain requires Ozone Advanced loaded in RTMsend. Found: "${loaded.name}"`)
+
+  const allParams = await rtmsend.listParameters()
+  const byName = new Map(allParams.map(p => [p.name, p] as const))
+  const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+
+  const updates: { index: number; value: number }[] = []
+  const set = (pname: string, normVal: number) => {
+    const p = byName.get(pname)
+    if (p) updates.push({ index: p.index, value: clamp01(normVal) })
+  }
+
+  // ── EQ bands ──────────────────────────────────────────────
+  // Parameter names verified from Ozone 12 VST3 dump (873 params):
+  //   "EQ: Stereo/Main Frequency N" — linear: (hz − 20) / 20000, range 20–20020 Hz
+  //   "EQ: Stereo/Main Gain N"      — (gain_db + 30) / 45, range −30 to +15 dB (0 dB → 0.6667)
+  //   "EQ: Stereo/Main Q N"         — log10 scale: (log10(Q) − log10(0.625)) / (log10(12) − log10(0.625))
+  //   "EQ: Stereo/Main Shape N"     — enum, 0.0 = Bell
+  //   "EQ: Stereo/Main Enable N"    — 1.0 = enabled
+  const LOG_Q_MIN   = Math.log10(0.625)
+  const LOG_Q_RANGE = Math.log10(12) - LOG_Q_MIN
+  if (payload.eq_bands && payload.eq_bands.length > 0) {
+    payload.eq_bands.slice(0, 8).forEach((band, i) => {
+      const n = i + 1
+      set(`EQ: Stereo/Main Enable ${n}`,    1.0)
+      set(`EQ: Stereo/Main Shape ${n}`,     0.0)  // Bell
+      set(`EQ: Stereo/Main Frequency ${n}`, (band.freq_hz - 20) / 20000)
+      set(`EQ: Stereo/Main Gain ${n}`,      (band.gain_db + 30) / 45)
+      const q = Math.max(0.625, Math.min(12, band.q))
+      set(`EQ: Stereo/Main Q ${n}`,         (Math.log10(q) - LOG_Q_MIN) / LOG_Q_RANGE)
+    })
+  }
+
+  // ── Dynamics (wideband compressor) ────────────────────────
+  // Parameter names verified from dump:
+  //   "DYN: Stereo/Main Band 1 Comp Threshold" — power law: ((60 + thresh_db) / 60)^0.433
+  //                                               data point: −12 dB → 0.9077
+  //   "DYN: Stereo/Main Band 1 Comp Ratio"     — (ratio − 1) × 0.0635  (2:1 → 0.0635)
+  //   "DYN: Stereo/Main Band 1 Comp Attack"    — attack_ms / 500
+  //   "DYN: Stereo/Main Band 1 Comp Release"   — release_ms / 5000
+  if (payload.comp) {
+    const { threshold_db, ratio, attack_ms, release_ms } = payload.comp
+    const thresh = Math.max(-60, Math.min(0, threshold_db))
+    set('DYN: Stereo/Main Band 1 Comp Threshold', Math.pow((60 + thresh) / 60, 0.433))
+    set('DYN: Stereo/Main Band 1 Comp Ratio',     (Math.max(1, ratio) - 1) * 0.0635)
+    set('DYN: Stereo/Main Band 1 Comp Attack',    attack_ms / 500)
+    set('DYN: Stereo/Main Band 1 Comp Release',   release_ms / 5000)
+  }
+
+  // ── Maximizer ─────────────────────────────────────────────
+  // Parameter names verified from dump (not "Threshold"/"Margin" — those don't exist):
+  //   "MAX: Output Level" — ceiling dBTP: (dBTP + 30) / 30
+  //   "MAX: Input Gain"   — pre-limiter drive in dB: gain_db / 30
+  //   "MAX: Character"    — 0–10: character / 10
+  // threshold_db → output ceiling; margin_db → input drive
+  if (payload.limiter) {
+    const { threshold_db, margin_db, character } = payload.limiter
+    set('MAX: Output Level', (threshold_db + 30) / 30)
+    set('MAX: Input Gain',   margin_db / 30)
+    set('MAX: Character',    character / 10)
+  }
+
+  // ── Imager ────────────────────────────────────────────────
+  // Ozone 12 VST3 does NOT expose crossover frequency — only per-band width.
+  //   "IMG: Stereo/Main Band 1 Width Percent" — (pct + 100) / 200  (0% → 0.5)
+  //   "IMG: Stereo/Main Band 2 Width Percent" — same
+  if (payload.imager) {
+    set('IMG: Stereo/Main Band 1 Width Percent', (payload.imager.band1_width_pct + 100) / 200)
+    set('IMG: Stereo/Main Band 2 Width Percent', (payload.imager.band2_width_pct + 100) / 200)
+  }
+
+  if (updates.length === 0) throw new Error('No matching parameters found — is Ozone Advanced loaded?')
+
+  const result = await rtmsend.setParameters(updates)
+  return {
+    plugin: loaded.name,
+    applied: result.applied.length,
+    rejected: result.rejected.length,
+    total_params: allParams.length,
+    updates_attempted: updates.length,
+  }
+})
+
 ipcMain.handle('rtmsend-best-plugin-for-move', async (_e, band: RtmBand) => {
   const all = activeProfileFilter(listAllReferences())
   const available = all.map(e => ({ name: e.name, archetype_tags: e.archetype_tags }))

@@ -282,6 +282,14 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultGenreId])
 
+  // Fetch profile data whenever selected genre changes and data isn't cached yet.
+  // Kept in useEffect (not render) to avoid side effects during React's render phase.
+  React.useEffect(() => {
+    if (selectedId && !profileData[selectedId] && onRequestProfile) {
+      onRequestProfile(selectedId)
+    }
+  }, [selectedId, profileData, onRequestProfile])
+
   const profile = profileData[selectedId] as GenreProfile | undefined
 
   const result = useMemo<GenreAnalysisResult | null>(() => {
@@ -302,11 +310,6 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
         No genre profiles available.
       </div>
     )
-  }
-
-  // Request missing profile data
-  if (!profile && selectedId && onRequestProfile) {
-    onRequestProfile(selectedId)
   }
 
   return (

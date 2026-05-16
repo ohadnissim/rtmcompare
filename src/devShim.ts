@@ -110,6 +110,10 @@ if (typeof window !== 'undefined' && !(window as any).electronAPI) {
  // ── Ozone preset bridge ──────────────────────────────────────────────
  ozoneDetect: () => ok({ found: false, installations: [] as { name: string; version: string }[] }),
  ozoneInstallPreset: () => ok({ ok: false, results: [], error: 'shim' } as any),
+
+ // ── RTMsend chain push ───────────────────────────────────────────────
+ rtmsendDumpParams: () => ok({ plugin: 'shim', params: [] as any[] }),
+ rtmsendSendChain: () => ok({ plugin: 'shim', applied: 0, rejected: 0, total_params: 0, updates_attempted: 0 }),
  }
 
  // ── Dev test hook ──────────────────────────────────────────────────────
