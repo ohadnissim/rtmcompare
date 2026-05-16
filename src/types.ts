@@ -174,6 +174,8 @@ export interface TonalIssue {
  description: string
  fix: string
  detail: string
+ /** Perceptual priority score — higher = fix this first. Pre-sorted by Python. */
+ priority?: number
 }
 
 export interface ReferenceCheck {
@@ -301,6 +303,103 @@ export interface MasteringDelta {
  measurement_inconsistency?: string
  // Polarity inversion
  polarity_inverted?: boolean
+ // Direct A→B EQ match: apply these bands to B to match A's tonal shape.
+ // Each band is 50% of the measured delta (start here, re-listen).
+ eq_match?: {
+  bands: { freq: number; gain_db: number; q: number; region: string }[]
+ }
+ // PSR advisory: emitted when PSR < 8 LU (audible dynamic squash threshold)
+ psr_advisory?: { value: number; flag: boolean; note: string }
+ // Extended mastering chain recommendations
+ chain_recommendations?: {
+  profile_context?: {
+   name?: string
+   is_chain_profile?: boolean
+   target_lufs?: number
+   loudness_style?: string
+   lufs_consistency?: string
+   lufs_range?: [number, number]
+   target_lra?: number
+   compression_character?: string
+   crest_factor_avg?: number
+   macro_dynamics_lu?: number
+   dynamics_consistency?: string
+   target_width?: number
+   width_consistency?: string
+   ceiling_dbtp?: number
+   plr_avg?: number
+   limiter_tightness?: string
+   // Chain-profile-specific delta fields
+   chain_lufs_delta?: number
+   chain_lra_delta?: number
+   chain_peak_delta?: number
+   chain_crest_delta?: number
+   chain_width_delta?: number
+   chain_plr_delta?: number
+   lufs_delta_mad?: number
+   lra_delta_mad?: number
+   peak_delta_mad?: number
+   width_delta_mad?: number
+  }
+  compression?: {
+   severity: 'heavy' | 'moderate' | 'light' | 'none'
+   summary: string
+   ratio_hint: string
+   attack_hint: string
+   release_hint: string
+   threshold_note: string
+   transients_preserved: boolean
+   lra_b: number
+   lra_delta: number
+  }
+  limiter?: {
+   character: 'transparent' | 'light' | 'moderate' | 'heavy'
+   char_note: string
+   gain_reduction_db: number
+   over_limited: boolean
+   ceiling_dbtp: number
+   ceiling_note: string
+   true_peak_b: number
+   summary: string
+   ozone: { threshold: number; margin: number; character: number; mode: number }
+  }
+  stereo?: {
+   notes: string[]
+   bass_too_wide: boolean
+   highs_too_narrow: boolean
+   mono_loss_pct: number
+   ms_needed: boolean
+   ozone: { num_bands: number; crossover_hz: number; band1_width_pct: number; band2_width_pct: number }
+  }
+  gain_staging?: {
+   reference_style: string
+   style_note: string
+   lufs_a: number
+   lufs_b: number
+   target_lufs: number
+   lufs_gap: number
+   broadband_gain_db: number
+   pre_limiter_note: string
+   pre_limiter_gain_db: number
+   true_peak_b: number
+   summary: string
+  }
+  clipping?: {
+   approach: 'clipper_then_limiter' | 'limiter_only' | 'evaluate'
+   safe_to_clip: boolean
+   summary: string
+   suggested_settings: string
+   clipper_ceiling_dbtp: number
+   limiter_ceiling_dbtp: number
+  }
+ }
+}
+
+export interface SpectrogramData {
+ /** (n_mels × n_time) mel-spectrogram in dB, 0 = loudest bin. */
+ data: number[][]
+ /** Mel center frequencies in Hz, length = n_mels. */
+ freqs: number[]
 }
 
 export interface AnalysisResult {
@@ -341,6 +440,8 @@ export interface AnalysisResult {
  mid_spectrum_b?: number[]
  side_spectrum_a?: number[]
  side_spectrum_b?: number[]
+ spectrogram_a?: SpectrogramData
+ spectrogram_b?: SpectrogramData
  mono_compat?: MonoCompatibility
  mastering_delta?: MasteringDelta
  /** Short-term LUFS (3-second window, ~10 Hz sample rate). The
@@ -428,7 +529,6 @@ export interface AnalysisResult {
  level_b: number
  tip: string
  }[]
- stem_based: boolean
  }
  metadata?: {
  a?: FileMetadata
@@ -439,10 +539,6 @@ export interface AnalysisResult {
  b: number
  true_peak_a: number
  true_peak_b: number
- }
- stems?: {
- a: Record<string, string>
- b: Record<string, string>
  }
  overall: {
  lufs_a: number
@@ -778,6 +874,7 @@ export interface LearnGuidedStep {
  tabId: string           // App tab to navigate to
  question: string        // question the student should answer
  hint?: string           // optional hint text
+ actionHint?: string     // imperative "now do this" bridge after observing — student-only
  targetTab?: string      // human-readable tab label shown as a navigate-to hint
  teacherQuestion?: string  // teacher-facing focus prompt (what to teach / look for)
  teacherHint?: string      // teacher-facing guidance on common mistakes + discussion

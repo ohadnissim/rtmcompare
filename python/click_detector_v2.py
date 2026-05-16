@@ -300,7 +300,7 @@ def _detect_isolated_pops(y, sr: int, sensitivity: float, existing_clicks,
             continue
         event_peak = float(np.max(np.abs(y[start:end + 1])))
         surrounding_peak = float(np.percentile(env[max(0, start - noise_window):min(n, end + noise_window + 1)], 95))
-        if surrounding_peak > 0 and event_peak < surrounding_peak * 3.0:
+        if surrounding_peak > 0 and event_peak < surrounding_peak * 5.0:
             continue
         if _broadband_score(y, sr, start, end) < 0.18:
             continue
@@ -449,6 +449,16 @@ def detect(y, sr: int, sensitivity: float = 1.5,
     # Power users who want "maximum recall" set sens=2+ and use the
     # review UI to dismiss drum-hit false positives.
     K = max(6.0, 12.0 / float(sensitivity))
+    # Section-energy gate: in loud passages (drums, full mix) the
+    # effective threshold is raised proportionally. A digital click CAN
+    # live anywhere — but hard-limited commercial music is loud everywhere
+    # whereas clicks mostly hide in quieter moments. In a loud section
+    # (-14 dBFS RMS) we need 4× higher ratio before flagging; in a quiet
+    # section (-30 dBFS RMS) the gate is transparent. This is the primary
+    # fix for drum-hit false positives without requiring a wider tonal window.
+    # Computed once per frame-center and applied in Stage 4.
+    SECTION_HALFWIDTH_SEC = 0.5
+    SECTION_ENERGY_SCALE = 4.0  # max multiplier at 0 dBFS
 
     frame = int(FRAME_MS * sr / 1000)
     hop = int(HOP_MS * sr / 1000)
@@ -521,7 +531,7 @@ def detect(y, sr: int, sensitivity: float = 1.5,
 
     # ─── Stage 3: duration gate (run-length filter) ───────────────────
     # Group contiguous candidate samples into runs.
-    D_MAX_SAMPLES = int(0.001 * sr)    # 1 ms — tightened from 3 ms; true clicks are sub-ms, 3 ms admitted pops
+    D_MAX_SAMPLES = int(0.0005 * sr)   # 0.5 ms — tightened; true clicks are sub-ms, 1 ms admitted compressed drum tails
     MERGE_GAP_SAMPLES = int(0.0005 * sr)  # 500 µs
 
     runs = []
@@ -559,7 +569,7 @@ def detect(y, sr: int, sensitivity: float = 1.5,
     # r4.1: additional peak-ratio gate. Even after the sample count,
     # require the MAX ratio in the run to exceed K × 1.5 — this
     # rejects weak runs that only barely scrape over the threshold.
-    peak_ratio_min = K * 1.5
+    peak_ratio_min = K * 2.0
     filtered = []
     for (s, e_end) in merged:
         length = e_end - s + 1
@@ -601,7 +611,7 @@ def detect(y, sr: int, sensitivity: float = 1.5,
     #   ratio one. This alone cleans up the "cluster around a drum hit"
     #   artifact from frame-boundary residual smear.
 
-    HALFWIDTH_CONTEXT = int(0.020 * sr)
+    HALFWIDTH_CONTEXT = int(0.080 * sr)
     # Tonal-scale: sensitivity-dependent. At strict defaults, the
     # scale is high (strongly suppresses candidates in tonal music —
     # erring on the side of 0 false positives). As the user dials
@@ -616,7 +626,7 @@ def detect(y, sr: int, sensitivity: float = 1.5,
     # 0.5-3 ms because compression makes their attack last several
     # samples at the residual level. True clicks are shorter.
     TONAL_DURATION_MAX_MS = 1.5
-    MIN_SEPARATION_SEC = 0.25
+    MIN_SEPARATION_SEC = 0.40
 
     pre_out = []
     for (s, e_end) in filtered:
@@ -628,9 +638,21 @@ def detect(y, sr: int, sensitivity: float = 1.5,
         peak_sigma = float(np.mean(sigma[s:e_end + 1]))
         energy_db = 20.0 * np.log10((peak_e / (peak_sigma + 1e-12)) + 1e-12)
 
+        # Section-energy gate: compute RMS over ±500 ms around the
+        # candidate. Loud passages (drums, brickwalled mix) raise the
+        # effective threshold proportionally so transients that are merely
+        # loud don't trigger the detector. Quiet passages are transparent.
+        hw_sec = int(SECTION_HALFWIDTH_SEC * sr)
+        seg_sec = y[max(0, center - hw_sec): min(n, center + hw_sec)]
+        section_rms = float(np.sqrt(np.mean(seg_sec ** 2))) if seg_sec.size > 0 else 0.0
+        # Normalise: 0 = silence, 1 = 0 dBFS. Clamp to avoid log of 0.
+        energy_fraction = min(1.0, section_rms / (10 ** (-3.0 / 20.0)))  # -3 dBFS ≈ 0.708
+
         tonal_score = _harmonic_context_score(y, sr, center, HALFWIDTH_CONTEXT)
-        # Guard A: effective threshold grows with tonal context.
-        eff_threshold = K * (1.0 + TONAL_RATIO_SCALE * tonal_score)
+        # Guard A: effective threshold grows with both tonal context and
+        # section loudness. Each contributes independently — a drum hit in
+        # a loud, tonal section must be FAR above baseline to pass.
+        eff_threshold = K * (1.0 + TONAL_RATIO_SCALE * tonal_score) * (1.0 + SECTION_ENERGY_SCALE * energy_fraction)
         if run_ratio < eff_threshold:
             continue
         # Guard A2: in strongly-tonal contexts, the one remaining way

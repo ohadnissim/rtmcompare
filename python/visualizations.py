@@ -5,6 +5,7 @@ Generate visualization data for the frontend:
 - Waveform data (for visual display)
 - Vectorscope points (L/R pairs)
 - Spectrum data (31-band, stereo/mid/side)
+- Mel-spectrogram (128-bin × 256-frame time-frequency heatmap)
 """
 
 import numpy as np
@@ -82,6 +83,9 @@ def generate_all_viz_data(path_a: str, path_b: str, sr: int | None = None, deep_
 
     # Mono compatibility
     result["mono_compat"] = compute_mono_compat(y_a, y_b, sr)
+
+    # Mel-spectrogram for time-frequency visualization
+    result.update(compute_spectrogram(mono_a, mono_b, sr))
 
     return result
 
@@ -357,6 +361,32 @@ def band_spectrum(y: np.ndarray, sr: int, center_freqs: list) -> list:
     finite_mean = float(np.nanmean(arr)) if np.any(np.isfinite(arr)) else 0.0
     centred = arr - finite_mean
     return [round(float(v), 1) if np.isfinite(v) else -90.0 for v in centred]
+
+
+def compute_spectrogram(mono_a: np.ndarray, mono_b: np.ndarray, sr: int,
+                        n_mels: int = 128, n_time: int = 256) -> dict:
+    """Mel-spectrogram for the frontend time-frequency heatmap.
+
+    Returns (n_mels × n_time) dB arrays, capped at 256 time frames so the
+    JSON stays under ~200 KB for a 5-minute track. The mel scale is already
+    log-frequency spaced, so linear Y indexing produces the familiar
+    'exponential' look of a classical spectrogram.
+    """
+    fmax = min(sr // 2, 20000)
+    hop = max(256, len(mono_a) // n_time)
+
+    def _mel(y: np.ndarray) -> list:
+        S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels, hop_length=hop, fmax=fmax)
+        S_db = librosa.power_to_db(S, ref=np.max)
+        n = min(S_db.shape[1], n_time)
+        return [[round(float(v), 1) for v in row[:n]] for row in S_db]
+
+    freqs = [round(float(f), 1) for f in librosa.mel_frequencies(n_mels=n_mels, fmin=20.0, fmax=fmax)]
+
+    return {
+        "spectrogram_a": {"data": _mel(mono_a), "freqs": freqs},
+        "spectrogram_b": {"data": _mel(mono_b), "freqs": freqs},
+    }
 
 
 # Bands ordered by perceptual impact when mono-collapsed.

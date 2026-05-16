@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => { ipcRenderer.removeListener('analysis-progress', handler) }
   },
   listProfiles: () => ipcRenderer.invoke('list-profiles'),
+  getProfileData: (profileId: string) => ipcRenderer.invoke('get-profile-data', profileId),
   onProfilesReady: (cb: (profiles: any[]) => void) => {
     const handler = (_: any, profiles: any[]) => cb(profiles)
     ipcRenderer.on('profiles-ready', handler)
@@ -46,6 +47,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openProfilesFolder: () => ipcRenderer.invoke('open-profiles-folder'),
   loadCustomProfile: () => ipcRenderer.invoke('load-custom-profile'),
   deleteCustomProfile: (id: string) => ipcRenderer.invoke('delete-custom-profile', id),
+  onProfileUrlOpened: (cb: (profile: any) => void) => {
+    const handler = (_: any, profile: any) => cb(profile)
+    ipcRenderer.on('profile-url-opened', handler)
+    return () => ipcRenderer.removeListener('profile-url-opened', handler)
+  },
   renderCorrectedEq: (srcPath: string, bands: any[], outPath?: string, truePeakLimit?: boolean, ceilingDbtp?: number, targetLufs?: number) =>
     ipcRenderer.invoke('render-corrected-eq', srcPath, bands, outPath, truePeakLimit, ceilingDbtp, targetLufs),
   pickSavePath: (suggestedName: string, filters: any[]) =>
@@ -225,4 +231,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
     error?: string
   }> => ipcRenderer.invoke('rtm-certify', fileA, fileB),
+
+  // Ozone preset bridge — detects installed Ozone versions and writes
+  // OzoneMS XML directly into the user's Ozone User Presets folder.
+  // ozoneDetect: check if Ozone is installed and which versions.
+  // ozoneInstallPreset: write XML, reveal in Finder. No admin required.
+  ozoneDetect: (): Promise<{ found: boolean; installations: { name: string; version: string }[] }> =>
+    ipcRenderer.invoke('ozone-detect'),
+  ozoneInstallPreset: (xml: string, fileName: string): Promise<{
+    ok: boolean
+    results: { version: string; path?: string; error?: string }[]
+    revealPath?: string
+    error?: string
+  }> => ipcRenderer.invoke('ozone-install-preset', xml, fileName),
 })

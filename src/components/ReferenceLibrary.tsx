@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { FileInfo, ReferenceRecord } from '../types'
 import { useReferenceLibrary } from '../referenceLibraryCache'
+import GenreAnalysisPanel from './GenreAnalysisPanel'
+import type { GenreProfile } from '../lib/genreAnalysis'
+import type { ProfileInfo } from './ProfileDropdown'
 
 /**
  * Reference Library — auto-analysed shelf of reference tracks the
@@ -33,9 +36,13 @@ interface Props {
  /** Optional title override so the same component can be used for
  * "pick a reference" and "manage library" contexts. */
  title?: string
+ /** 31-band spectrum of the current file — needed to render the Genre Curves tab. */
+ currentSpectrum?: number[] | null
+ /** Display name for the current file — shown in radar legend. */
+ currentLabel?: string
 }
 
-export default function ReferenceLibrary({ open, onClose, onPick, title = 'Reference Library' }: Props) {
+export default function ReferenceLibrary({ open, onClose, onPick, title = 'Reference Library', currentSpectrum, currentLabel }: Props) {
  // Module-level cache: the first open pays the IPC round-trip;
  // subsequent opens are instant. Add / delete / update paths call
  // refresh() so disk + memory stay in sync.
@@ -45,6 +52,41 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  const [activeTag, setActiveTag] = useState<string | null>(null)
  const [editingId, setEditingId] = useState<string | null>(null)
  const [error, setError] = useState<string | null>(null)
+ // Tab: 'my' = personal reference tracks, 'genre' = genre target curves
+ const [tab, setTab] = useState<'my' | 'genre'>('my')
+ // Default genre — persisted so it pre-selects on every open
+ const [defaultGenreId, setDefaultGenreId] = useState<string>(
+   () => localStorage.getItem('rtm-default-genre') ?? 'AllPurpose'
+ )
+ const handleDefaultChange = useCallback((id: string) => {
+   setDefaultGenreId(id)
+   localStorage.setItem('rtm-default-genre', id)
+ }, [])
+
+ // Genre target curves — loaded lazily via IPC
+ const [genreProfiles, setGenreProfiles] = useState<ProfileInfo[]>([])
+ const [genreProfileData, setGenreProfileData] = useState<Record<string, GenreProfile>>({})
+ useEffect(() => {
+   if (!open) return
+   const api = (window as any).electronAPI
+   if (!api?.listProfiles) return
+   api.listProfiles().then((all: ProfileInfo[]) => {
+     setGenreProfiles(all.filter((p: ProfileInfo) => p.profile_type === 'genre'))
+   })
+ }, [open])
+ const handleRequestProfile = useCallback((id: string) => {
+   const api = (window as any).electronAPI
+   if (!api?.getProfileData) return
+   api.getProfileData(id).then((data: GenreProfile | null) => {
+     if (data) setGenreProfileData(prev => ({ ...prev, [id]: data }))
+   })
+ }, [])
+ // Pre-fetch AllPurpose when switching to the genre tab
+ useEffect(() => {
+   if (tab === 'genre' && genreProfiles.length > 0 && !genreProfileData['AllPurpose']) {
+     handleRequestProfile('AllPurpose')
+   }
+ }, [tab, genreProfiles, genreProfileData, handleRequestProfile])
 
  // Kick a background refresh whenever the modal opens — the render is
  // instant from cache, and the list updates if anything changed.
@@ -136,11 +178,29 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  <div>
  <h2 className="text-lg" style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{title}</h2>
  <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
- {records.length} reference{records.length === 1 ? '' : 's'} ·
- auto-analysed (LUFS · TP · LRA · 31-band spectrum · BPM · key)
+ {tab === 'my'
+ ? `${records.length} reference${records.length === 1 ? '' : 's'} · auto-analysed (LUFS · TP · LRA · 31-band spectrum · BPM · key)`
+ : `${genreProfiles.length} genre curves from commercial masters · pick one to compare against your file`}
  </p>
  </div>
  <div className="flex items-center gap-2">
+ {/* Tab switcher */}
+ <div className="flex items-center rounded-sm overflow-hidden" style={{ border: '1px solid rgba(168,161,150,0.2)' }}>
+ {(['my', 'genre'] as const).map(t => (
+ <button
+ key={t}
+ onClick={() => setTab(t)}
+ className="text-[11px] px-3 py-1.5 transition-colors"
+ style={{
+ color: tab === t ? 'var(--color-bg-app)' : 'var(--color-text-muted)',
+ backgroundColor: tab === t ? 'var(--color-accent)' : 'transparent',
+ }}
+ >
+ {t === 'my' ? 'My References' : 'Genre Curves'}
+ </button>
+ ))}
+ </div>
+ {tab === 'my' && (
  <button
  onClick={handleAdd}
  disabled={adding}
@@ -150,6 +210,7 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  >
  {adding ? 'Scanning…' : '+ Add reference'}
  </button>
+ )}
  <button
  onClick={onClose}
  className="text-[11px] px-3 py-1.5"
@@ -160,8 +221,8 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  </div>
  </div>
 
- {/* Search + tag filter */}
- <div className="flex items-center gap-3 px-6 py-3" style={{ borderBottom: '1px solid rgba(168,161,150,0.08)' }}>
+ {/* Search + tag filter — only for My References tab */}
+ {tab === 'my' && <div className="flex items-center gap-3 px-6 py-3" style={{ borderBottom: '1px solid rgba(168,161,150,0.08)' }}>
  <input
  type="text"
  value={search}
@@ -194,10 +255,12 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  ))}
  </div>
  )}
- </div>
+ </div>}
 
  {/* Body */}
  <div className="flex-1 overflow-y-auto px-6 py-4">
+ {tab === 'my' ? (
+ <>
  {error && (
  <div className="mb-3 px-3 py-2 rounded text-[11px]" style={{ backgroundColor: 'rgba(224,90,90,0.08)', color: 'var(--color-danger)', border: '1px solid rgba(224,90,90,0.3)' }}>
  ⚠ {error}
@@ -245,6 +308,27 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  />
  ))}
  </div>
+ </>
+ ) : (
+ /* Genre Curves tab */
+ currentSpectrum && currentSpectrum.length >= 31 ? (
+ <GenreAnalysisPanel
+ spectrumB={currentSpectrum}
+ profiles={genreProfiles}
+ profileData={genreProfileData}
+ onRequestProfile={handleRequestProfile}
+ defaultGenreId={defaultGenreId}
+ onDefaultChange={handleDefaultChange}
+ />
+ ) : (
+ <div className="text-center py-16 space-y-2">
+ <p className="text-[12px]" style={{ color: 'var(--color-sand-300)' }}>No file loaded yet.</p>
+ <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+ Load a file in the compare or single-file view to see genre curve analysis.
+ </p>
+ </div>
+ )
+ )}
  </div>
  </div>
  </div>

@@ -226,5 +226,6 @@ private:
     // collapse. Field/method removed entirely so the broken
     // guillemet glyph ("Â«") goes away too.
 
+    JUCE_DECLARE_WEAK_REFERENCEABLE(RtmSendAudioProcessorEditor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RtmSendAudioProcessorEditor)
 };

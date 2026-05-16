@@ -811,10 +811,9 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
     # max(1.0, 1.5 * region_mad) before firing a recommendation.
     # Without it (legacy profiles, single-track Match) we fall back to
     # the original 1 dB threshold.
-    if target_curve_mad is not None:
-        mad = _smooth_log_spectrum(np.asarray(target_curve_mad), kernel_bands=3)
-    else:
-        mad = None
+    # target_curve_mad was previously used to widen the no-move dead-zone
+    # per-region but that caused EQ Preview bands to diverge from the prose
+    # recommendations. The ±4 dB gain cap handles the extreme-value case.
 
     for (start, end), (region_name, freq_range) in REGION_NAMES.items():
         if start >= len(arr) or start >= len(tgt):
@@ -831,11 +830,12 @@ def _compute_eq_filters(spec_file, spec_target, target_curve_mad=None):
         # perceptual reason. Austin's report (May 2026) was the canonical
         # case: 14 dB recommendations on a finished K-pop mix that already
         # sat inside a 15-track K-pop cohort.
-        if mad is not None and region_end > start:
-            region_mad = float(np.mean(mad[start:region_end]))
-            tol = max(1.0, 1.5 * region_mad)
-        else:
-            tol = 1.0
+        # NOTE: eq_filters uses a fixed 1.0 dB threshold (not MAD-adjusted)
+        # so it stays consistent with the prose recommendations — any band
+        # that appears in "Suggested Moves" also appears in the EQ Preview.
+        # The ±4 dB / ±3 dB gain cap below prevents the Austin extreme-value
+        # case regardless of the diff size.
+        tol = 1.0
         if abs(diff) < tol:
             continue
 

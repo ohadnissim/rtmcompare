@@ -845,6 +845,38 @@ export default function GuidedFlowBar({
               >
                 {stepQuestion}
               </p>
+              {/* actionHint: observation → action bridge, student-only */}
+              {effectiveRole === 'student' && currentStep.actionHint && (
+                <div style={{
+                  marginTop: 10,
+                  padding: '7px 10px',
+                  borderLeft: '2px solid rgba(208,176,102,0.5)',
+                  background: 'rgba(208,176,102,0.04)',
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 8,
+                }}>
+                  <span style={{
+                    fontSize: 8,
+                    letterSpacing: '0.18em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-accent)',
+                    fontFamily: 'var(--font-sans)',
+                    flexShrink: 0,
+                    marginTop: 1,
+                  }}>
+                    Do →
+                  </span>
+                  <span style={{
+                    fontSize: 12,
+                    color: 'var(--color-text-primary)',
+                    fontFamily: 'var(--font-sans)',
+                    lineHeight: 1.5,
+                  }}>
+                    {currentStep.actionHint}
+                  </span>
+                </div>
+              )}
               {/* MED-24 fix: Export Report was only mounted on the completion
                   banner. Students couldn't export from inside a step. Now it
                   also sits in the question card for student role, so the

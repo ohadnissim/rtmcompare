@@ -87,6 +87,7 @@ declare global {
  listProfiles?: () => Promise<ProfileInfo[]>
  openProfilesFolder?: () => void
  onProfilesReady?: (cb: (profiles: ProfileInfo[]) => void) => () => void
+ onProfileUrlOpened?: (cb: (profile: ProfileInfo) => void) => () => void
  loadCustomProfile?: () => Promise<ProfileInfo | null>
  deleteCustomProfile?: (id: string) => Promise<boolean>
  renderCorrectedEq?: (srcPath: string, bands: { freq: number; gain_db: number; q: number }[], outPath?: string, truePeakLimit?: boolean, ceilingDbtp?: number, targetLufs?: number) => Promise<string>
@@ -239,6 +240,14 @@ declare global {
  saveStudentFeedback?: (reportPath: string, feedback: string) => Promise<{ ok: boolean; error?: string }>
  scanClassFolder?: (folderPath: string) => Promise<{ ok: boolean; records?: any[]; count?: number; error?: string }>
  exportGradebookCsv?: (records: any[]) => Promise<{ ok: boolean; path?: string; error?: string }>
+ // Ozone preset bridge — detect installed versions and install directly
+ ozoneDetect?: () => Promise<{ found: boolean; installations: { name: string; version: string }[] }>
+ ozoneInstallPreset?: (xml: string, fileName: string) => Promise<{
+  ok: boolean
+  results: { version: string; path?: string; error?: string }[]
+  revealPath?: string
+  error?: string
+ }>
  }
  }
 }
@@ -311,10 +320,12 @@ interface CoverWiredEmptyStateProps {
  onProfileNameChange?: (name: string) => void
  controls?: React.ReactNode
  children?: React.ReactNode
+ onClearA?: () => void
+ onClearB?: () => void
 }
 function CoverWiredEmptyState({
  canBegin, onBegin, onBeginCompare, onBeginRefOnly, onBatch, recents, onOpenRecents, onClearRecents, onTour, error,
- fileA, fileB, setFileA, setFileB, history, profileName, onProfileNameChange, controls, children,
+ fileA, fileB, setFileA, setFileB, history, profileName, onProfileNameChange, controls, children, onClearA, onClearB,
 }: CoverWiredEmptyStateProps) {
  const learn = useLearnMode()
  const assignment = learn.assignment
@@ -387,6 +398,8 @@ function CoverWiredEmptyState({
    onDropB={adoptFile('B')}
    onBrowseA={browseFile('A')}
    onBrowseB={browseFile('B')}
+   onClearA={onClearA}
+   onClearB={onClearB}
    onSwap={() => { const a = fileA; setFileA(fileB); setFileB(a) }}
    v52Recents={v52Recents}
    onOpenRecent={onOpenRecent}
@@ -778,6 +791,20 @@ export default function App() {
    // Also subscribe to the push event from main process (fired on ready-to-show)
    const unsub = window.electronAPI?.onProfilesReady?.((list) => {
      if (Array.isArray(list) && list.length > 0) setProfiles(list)
+   })
+   return () => unsub?.()
+ }, [refreshProfiles])
+
+ // Handle rtmcompare://profile?path=... URL opens from RTMprofile.
+ // Main process installs the profile and sends this event; we refresh
+ // the list and switch to the new profile so the user lands on it.
+ useEffect(() => {
+   const unsub = window.electronAPI?.onProfileUrlOpened?.((profileInfo) => {
+     if (!profileInfo?.id) return
+     refreshProfiles().then(() => {
+       setProfile(profileInfo.id)
+       try { localStorage.setItem('rtm-profile', profileInfo.id) } catch {}
+     })
    })
    return () => unsub?.()
  }, [refreshProfiles])
@@ -1442,6 +1469,8 @@ export default function App() {
       setFileA={setFileA}
       setFileB={setFileB}
       history={history}
+      onClearA={() => setFileA(null)}
+      onClearB={() => setFileB(null)}
       profileName={engineerName || undefined}
       onProfileNameChange={handleEngineerNameChange}
       controls={<>

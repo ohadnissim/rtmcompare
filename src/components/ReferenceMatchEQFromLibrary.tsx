@@ -163,6 +163,8 @@ export default function ReferenceMatchEQFromLibrary({ currentSpectrum, currentLa
  <ReferenceLibrary
  open={libraryOpen}
  onClose={() => setLibraryOpen(false)}
+ currentSpectrum={currentSpectrum}
+ currentLabel={currentLabel}
  onPick={(info) => {
  // onPick only gives us FileInfo; re-resolve to the full record
  // via referencesList so we get the spectrum. Cheap: list is

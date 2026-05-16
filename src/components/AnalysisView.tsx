@@ -5,6 +5,7 @@ import { AnnotationLayer } from './learn/AnnotationLayer'
 import { useLearnMode } from '../context/LearnModeContext'
 import CategoryCard from './CategoryCard'
 import SpectrumOverlay from './SpectrumOverlay'
+import Spectrogram from './Spectrogram'
 import MonoCompat from './MonoCompat'
 import DistortionPanel from './DistortionPanel'
 import LimiterArtefactsPanel from './LimiterArtefactsPanel'
@@ -81,6 +82,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const [sharingStatus, setSharingStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
  const { setBlind, toggleBlind, surface } = useModes()
 
+
  // Refs for scroll targets.
  const playerRef = useRef<HTMLDivElement>(null) // set on the A/B player wrapper
  const tabTopRef = useRef<HTMLDivElement>(null) // sentinel AFTER the player — scroll here on tab change
@@ -128,7 +130,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  { id: 'overview', label: 'Overview', icon: '◉' },
  ]
  if (!isAtmos && !isAtmosSolo && results.mastering_delta) {
- t.push({ id: 'mastering', label: 'Mastering Delta', icon: 'M' })
+ t.push({ id: 'mastering', label: 'Mastering Delta', icon: '△' })
  }
  // Delivery — streaming-normalisation preview + file metadata. Hidden in
  // Atmos modes (platforms don't apply per-stream LUFS normalisation to
@@ -146,7 +148,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  // Unified Match tab — segmented Reference / Engineer / Hybrid inside.
  // Hidden only in Atmos-solo mode where there's no compare file.
  if (!isSolo) {
- t.push({ id: 'match', label: 'EQ Match', icon: '▸' })
+ t.push({ id: 'match', label: 'EQ Match', icon: '≋' })
  }
  if (!isSolo) {
  t.push({ id: 'breakdown', label: 'Breakdown', icon: '◫' })
@@ -158,7 +160,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  // top-level tabs; collapsing avoids an empty "Downmix" slot in
  // atmos-solo mode and keeps ADM sessions from fragmenting the tab row.
  if (isAtmos || isAtmosSolo) {
- t.push({ id: 'atmos', label: 'Atmos', icon: '' })
+ t.push({ id: 'atmos', label: 'Atmos', icon: '⬡' })
  }
  return t
  }, [isAtmos, isAtmosSolo, isSolo, results.engineer_tips, results.mastering_delta])
@@ -299,64 +301,31 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  </span>
  )}
  </div>
- <div className="flex items-center gap-3">
+ <div className="flex items-center gap-2">
  <SpecDriftBadge analysisVersion={results.spec_versions?.version} stampedSpecs={results.spec_versions} />
- <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>Press <kbd className="px-1 py-0.5 rounded text-[9px]" style={{ backgroundColor: '#272524', color: '#78716c' }}>?</kbd> for shortcuts</span>
- {/* ✦ Assistant — 1-click shortcut to the Match tab's Assistant panel.
-   Surfaces what was previously 3 clicks away (tab → mode picker → Assistant).
-   Dispatches 'rtm-match-mode' so MatchTab can switch its internal mode. */}
+ {/* ── Primary tools ── */}
  <button
  type="button"
  onClick={() => {
  setActiveTab('match')
  window.dispatchEvent(new CustomEvent('rtm-match-mode', { detail: { mode: 'assistant' } }))
  }}
- title="Open the Master Assistant — compose gain → EQ → TP limiter → dither in one click"
- style={{
- fontSize: 11,
- padding: '2px 8px',
- border: '1px solid rgba(208,176,102,0.3)',
- borderRadius: 2,
- color: 'rgba(208,176,102,0.7)',
- cursor: 'pointer',
- background: 'transparent',
- display: 'inline-flex',
- alignItems: 'center',
- gap: 4,
- }}
+ title="Open the Master Assistant — compose gain → EQ → TP limiter → dither in one click. Based on the comparison analysis and your chosen engineer profile."
+ style={{ fontSize: 10, padding: '2px 8px', border: '1px solid rgba(208,176,102,0.3)', borderRadius: 2, color: 'rgba(208,176,102,0.7)', cursor: 'pointer', background: 'transparent' }}
  >
  ✦ Assistant
- <span title="The Master Assistant builds a custom mastering chain for your file: gain trim, EQ moves, true-peak limiter, and dither — in one click. Based on the comparison analysis and your chosen engineer profile." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(208,176,102,0.5)', border: '1px solid rgba(208,176,102,0.3)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </button>
- {/* ✦ Certify — visible CTA for RTMcertify pre-delivery certificate.
-   Only shown when the Electron API is present (desktop only). Dispatches
-   'rtm-certify-trigger' which App.tsx handles to avoid threading certify
-   state through the component tree. */}
  {window.electronAPI?.rtmCertify && (
  <button
  type="button"
  onClick={() => window.dispatchEvent(new CustomEvent('rtm-certify-trigger'))}
- title="Generate a shareable PDF certifying this analysis"
- style={{
- fontSize: 11,
- padding: '2px 8px',
- border: '1px solid rgba(208,176,102,0.3)',
- borderRadius: 2,
- color: 'rgba(208,176,102,0.7)',
- cursor: 'pointer',
- background: 'transparent',
- display: 'inline-flex',
- alignItems: 'center',
- gap: 4,
- }}
+ title="Generate a tamper-proof compliance certificate — SHA-256 fingerprints, loudness measurements, unique certificate ID"
+ style={{ fontSize: 10, padding: '2px 8px', border: '1px solid rgba(168,161,150,0.2)', borderRadius: 2, color: 'rgba(168,161,150,0.6)', cursor: 'pointer', background: 'transparent' }}
  >
  ✦ Certify
- <span title="RTMcertify generates a tamper-proof compliance certificate for your master — a signed JSON document with SHA-256 fingerprints, loudness measurements, and a unique certificate ID. Use it to prove to a label, distributor, or client exactly what was delivered and when." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(208,176,102,0.5)', border: '1px solid rgba(208,176,102,0.3)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </button>
  )}
- {/* Share — saves a self-contained HTML report anyone can open in a browser.
-       CRIT-2: in-flight guard (sharingStatus) prevents double-click double-dialog.
-       Status chip gives user visible feedback on save / cancel / error. */}
+ {/* ── Secondary actions ── */}
  {window.electronAPI?.shareAsHtml && (
  <>
  <button
@@ -381,67 +350,22 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  sharingTimerRef.current = setTimeout(() => setSharingStatus('idle'), 4000)
  }
  }}
- title="Save a shareable HTML report — anyone can open it in a browser, no install needed"
- style={{
- fontSize: 10,
- padding: '2px 8px',
- border: '1px solid rgba(255,255,255,0.1)',
- borderRadius: 2,
- color: sharingStatus === 'saving' ? 'var(--color-text-disabled)' : 'var(--color-text-muted)',
- background: 'transparent',
- cursor: sharingStatus === 'saving' ? 'not-allowed' : 'pointer',
- opacity: sharingStatus === 'saving' ? 0.5 : 1,
- display: 'inline-flex',
- alignItems: 'center',
- gap: 4,
- }}
+ title="Save a self-contained HTML report anyone can open in a browser — no install needed"
+ style={{ fontSize: 10, padding: '2px 8px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 2, color: sharingStatus === 'saving' ? 'var(--color-text-dim)' : 'var(--color-text-muted)', background: 'transparent', cursor: sharingStatus === 'saving' ? 'not-allowed' : 'pointer', opacity: sharingStatus === 'saving' ? 0.5 : 1 }}
  >
  {sharingStatus === 'saving' ? 'Saving…' : 'Share ↗'}
- <span title="Exports the full analysis as a self-contained HTML file — charts, scores, and waveforms all included. The recipient just opens it in any browser. No RTMcompare install needed." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(168,161,150,0.4)', border: '1px solid rgba(168,161,150,0.25)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </button>
- {sharingStatus === 'saved' && (
- <span style={{ fontSize: 10, color: 'rgba(208,176,102,0.8)' }}>Saved ✓</span>
- )}
- {sharingStatus === 'error' && (
- <span style={{ fontSize: 10, color: 'var(--color-danger)' }}>Save failed</span>
- )}
+ {sharingStatus === 'saved' && <span style={{ fontSize: 10, color: 'rgba(208,176,102,0.8)' }}>Saved ✓</span>}
+ {sharingStatus === 'error' && <span style={{ fontSize: 10, color: 'var(--color-danger)' }}>Save failed</span>}
  </>
  )}
- {results?.overall?.visqol_mos != null ? (
- // ViSQOL score available — show coloured chip
+ {/* ── ViSQOL data chip — only shown when score is available ── */}
+ {results?.overall?.visqol_mos != null && (
  <div
- style={{
- fontSize: 10,
- padding: '2px 8px',
- border: `1px solid ${results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.4)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.4)' : 'rgba(220,80,60,0.4)'}`,
- borderRadius: 2,
- color: results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.8)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.8)' : 'var(--color-danger)',
- display: 'inline-flex',
- alignItems: 'center',
- gap: 4,
- }}
+ title="ViSQOL: perceptual audio quality score (1–5). 5.0 = identical, 4.0+ = transparent mastering, 3.0–4.0 = noticeable differences."
+ style={{ fontSize: 10, padding: '2px 8px', border: `1px solid ${results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.4)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.4)' : 'rgba(220,80,60,0.4)'}`, borderRadius: 2, color: results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.8)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.8)' : 'var(--color-danger)' }}
  >
  ViSQOL {isFinite(results.overall.visqol_mos) ? results.overall.visqol_mos.toFixed(2) : '—'}
- <span title="ViSQOL (Virtual Speech Quality Objective Listener) is a perceptual audio quality score from Google. Scale: 5.0 = files sound identical, 4.0+ = very similar (transparent mastering), 3.0–4.0 = noticeable differences, below 3.0 = significant sonic gap. High scores confirm your master is a faithful representation of the reference." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.5)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.5)' : 'rgba(220,80,60,0.5)', border: `1px solid ${results.overall.visqol_mos >= 4.0 ? 'rgba(208,176,102,0.3)' : results.overall.visqol_mos >= 3.0 ? 'rgba(242,201,76,0.3)' : 'rgba(220,80,60,0.3)'}`, lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
- </div>
- ) : results?.overall && (
- // LOW-3: ViSQOL unavailable — grayed chip so users know the feature
- // exists and how to enable it (install visqol Python package).
- <div
- style={{
- fontSize: 10,
- padding: '2px 8px',
- border: '1px solid rgba(255,255,255,0.07)',
- borderRadius: 2,
- color: 'rgba(168,161,150,0.3)',
- userSelect: 'none',
- display: 'inline-flex',
- alignItems: 'center',
- gap: 4,
- }}
- >
- ViSQOL —
- <span title="ViSQOL is a perceptual audio quality score (1–5). It's not available in this analysis because the visqol Python package isn't installed. When active, it gives you a number that reflects how similar the two files sound to a human listener — not just how different they measure." style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, borderRadius: '50%', fontSize: 7, fontWeight: 600, color: 'rgba(168,161,150,0.25)', border: '1px solid rgba(168,161,150,0.15)', lineHeight: 1, cursor: 'help', flexShrink: 0 }}>i</span>
  </div>
  )}
  <ClientReportButton results={results} fileA={fileA} fileB={fileB} />
@@ -516,7 +440,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  style={{ top: 'var(--app-sticky-top, 100px)' }}
  >
  <div className="flex" style={{ display: learnEnabled ? 'none' : 'flex' }}>
- {tabs.map(tab => (
+ {tabs.map((tab, idx) => (
  <button
  key={tab.id}
  onClick={() => {
@@ -528,7 +452,8 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  aria-selected={activeTab === tab.id}
  aria-label={tab.label}
  data-tour-tab={tab.id}
- className={`flex items-center gap-1.5 px-5 py-3 text-[11px] tracking-[0.14em] uppercase transition-all border-b-2 ${activeTab === tab.id ? 'text-sand-50 border-terra font-normal' : 'text-sand-400 border-transparent font-normal'}`}
+ title={`${tab.label} (${idx + 1})`}
+ className={`flex items-center gap-1.5 px-5 py-3 text-[11px] tracking-[0.14em] uppercase transition-colors border-b-2 ${activeTab === tab.id ? 'text-sand-50 border-terra' : 'text-sand-400 border-transparent hover:text-sand-300 hover:border-sand-600'}`}
  >
  <span className="hidden sm:inline">{tab.label}</span>
  <span className="sm:hidden" aria-hidden="true">{tab.icon}</span>
@@ -565,7 +490,6 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  fileA={isAtmosSolo && results.atmos_downmix_path ? { path: results.atmos_downmix_path, name: `${labelA} (Downmix)` } : fileA}
  fileB={isAtmosSolo && results.atmos_downmix_path ? { path: results.atmos_downmix_path, name: `${labelA} (Downmix)` } : (isAtmos && results.atmos_downmix_path ? { path: results.atmos_downmix_path, name: `${stripExt(fileB.name)} (Downmix)` } : fileB)}
  gainAppliedDb={results.gain_applied_db}
- stems={results.stems}
  />
  </div>
 
@@ -578,7 +502,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── OVERVIEW TAB ─── */}
  {activeTab === 'overview' && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  <TabVerdict tab="overview" results={results} isAtmos={isAtmos} />
  <CollapsibleSection
  title="Overall Summary"
@@ -940,6 +864,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  labelA={labelA}
  labelB={labelB}
  durationSec={results.duration_sec}
+ platformTargets={
+  results.streaming_preview?.b
+   ?.filter((r: { target_lufs?: number; name?: string }) => r.target_lufs != null && r.name)
+   .map((r: { target_lufs: number; name: string }) => ({ name: r.name, lufs: r.target_lufs }))
+ }
  />
  </CollapsibleSection>
  )}
@@ -954,7 +883,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── MASTERING DELTA TAB ─── */}
  {activeTab === 'mastering' && results.mastering_delta && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  <TabVerdict tab="mastering" results={results} isAtmos={isAtmos} />
  <MasteringDelta delta={results.mastering_delta} overall={results.overall} />
  </div>
@@ -962,7 +891,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── DELIVERY TAB ─── */}
  {activeTab === 'delivery' && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  <TabVerdict tab="delivery" results={results} isAtmos={isAtmos} />
  {/* Streaming Normalization Preview — the main attraction on this
  tab. Default-open because delivery is the whole reason anyone
@@ -1030,7 +959,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── BREAKDOWN TAB ─── */}
  {activeTab === 'breakdown' && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  <TabVerdict tab="breakdown" results={results} isAtmos={isAtmos} />
  {/* Genre classification is surfaced only on the Reference-only
  single-file view — on a 2-file comparison it adds clutter
@@ -1097,7 +1026,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.masking && results.masking.overlaps && results.masking.overlaps.length > 0 && (
  <CollapsibleSection
  title="Masking Overlap"
- tooltip="Where elements compete for the same frequency range. In Deep Scan this is per-stem (kick vs bass, vocal vs instruments, etc.). Otherwise shows full-mix density flags."
+ tooltip="Where elements compete for the same frequency range. Shows full-mix density flags."
  why="Masking is why mixes sound muddy, crowded, or 'never clear no matter how much I EQ'. Two elements fighting for the same frequency means neither wins; one has to move. Side-chain, cut, or LPF the interferer instead of adding more EQ to the victim."
  badge={
  <span className="text-[10px] px-2 py-0.5" style={{ borderRadius: '2px', color: 'var(--color-accent)', backgroundColor: 'rgba(208,176,102,0.1)' }}>
@@ -1157,7 +1086,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── ATMOS TAB (ADM comparisons + solo Atmos analysis) ─── */}
  {activeTab === 'atmos' && (isAtmos || isAtmosSolo) && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  {/* Sub-toggle — Immersive vs Downmix. Hidden in atmos-solo mode
  because there's no stereo reference to build a downmix view
  from. Same hairline-pill pattern as the EQ Match tab. */}
@@ -1437,7 +1366,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── STEREO & SPECTRUM TAB ─── */}
  {activeTab === 'stereo' && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  <TabVerdict tab="stereo" results={results} isAtmos={isAtmos} />
  {results.spectrum_a && results.spectrum_b && (
  <CollapsibleSection
@@ -1454,6 +1383,24 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  sideSpectrumB={results.side_spectrum_b}
  labelA={labelA}
  labelB={labelB}
+ />
+ </CollapsibleSection>
+ )}
+
+ {results.spectrogram_a && results.spectrogram_b && results.duration_sec && (
+ <CollapsibleSection
+ title="Spectrogram"
+ tooltip="Time-frequency heatmap showing how energy is distributed across the audible spectrum over time. Brighter = louder. Mel scale on the Y axis (perceptually spaced, close to log frequency)."
+ why="The 31-band static spectrum shows averages. The spectrogram shows time — whether that 3 kHz boost happens only during the chorus, whether sub energy cuts out in the bridge, or whether a rumble artifact appears at a specific timestamp."
+ defaultOpen={false}
+ >
+ <Spectrogram
+  spectrogramA={results.spectrogram_a}
+  spectrogramB={results.spectrogram_b}
+  labelA={labelA}
+  labelB={labelB}
+  durationSec={results.duration_sec}
+  clicks={results.clicks}
  />
  </CollapsibleSection>
  )}
@@ -1540,7 +1487,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── QUALITY TAB ─── */}
  {activeTab === 'quality' && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  <TabVerdict tab="quality" results={results} isAtmos={isAtmos} />
  {/* Polarity inversion alert */}
  {results.mastering_delta?.polarity_inverted && (
@@ -1665,7 +1612,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  {/* ─── MATCH TAB (unified Reference / Engineer / Hybrid) ─── */}
  {activeTab === 'match' && (
- <div className="space-y-6">
+ <div className="space-y-6 tab-panel">
  <TabVerdict tab="match" results={results} isAtmos={isAtmos} />
  <MatchTab
  results={results}
@@ -1857,8 +1804,8 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
 
  return (
  <div className="border-t border-dark-700/20">
- {/* Row 1 — filenames + durations (unchanged visual language). */}
- <div className="flex items-center justify-center gap-3 px-4 pt-1 text-[10px] text-sand-500 flex-wrap">
+ {/* Row 1 — filenames + durations. Left-aligned to match analysis content below. */}
+ <div className="flex items-center gap-3 px-4 pt-1 text-[10px] text-sand-500 flex-wrap">
  <span className="font-mono truncate max-w-[30ch]" style={{ color: '#6b8cbb' }} title={labelA}>{labelA}</span>
  <span className="font-mono opacity-70" style={{ color: '#6b8cbb' }}>
  {formatDuration(results.duration_sec_a ?? results.duration_sec)}
@@ -1871,7 +1818,7 @@ function CockpitStrip({ results, labelA, labelB, isAtmos }: {
  </div>
 
  {/* Row 2 — cockpit metrics. Each cell: label, big B value, Δ in gold. */}
- <div className="flex items-center justify-center gap-0 py-1.5 flex-wrap">
+ <div className="flex items-center gap-0 py-1.5 flex-wrap">
  <CockpitMetric
  label="LUFS-I"
  value={`${isFinite(lufsB) ? lufsB.toFixed(1) : '—'}`}

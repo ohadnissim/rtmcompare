@@ -22,6 +22,8 @@ TONAL_CHECKS = [
         "description": "Excess low-mid energy — sounds muddy and undefined on the low end",
         "fix": "Cut 2-3 dB around 150-250 Hz with a wide bell, or use a high-pass filter on non-bass instruments",
         "icon": "boom",
+        # Perceptual weight: high (masking of kick/bass fundamentals is immediately audible)
+        "perceptual_weight": 1.3,
     },
     {
         "name": "Muddiness",
@@ -31,6 +33,8 @@ TONAL_CHECKS = [
         "description": "Buildup in the low-mids — lacks clarity, instruments blend together",
         "fix": "Cut around 300-400 Hz on competing instruments, or boost clarity around 2-3 kHz",
         "icon": "mud",
+        # High weight — the 200-500 Hz soup is the most common mixing complaint
+        "perceptual_weight": 1.4,
     },
     {
         "name": "Boxiness",
@@ -40,6 +44,7 @@ TONAL_CHECKS = [
         "description": "Sounds like it's in a cardboard box — honky, nasal quality",
         "fix": "Narrow cut around 400-600 Hz, check room treatment if recording",
         "icon": "box",
+        "perceptual_weight": 1.2,
     },
     {
         "name": "Harshness",
@@ -49,6 +54,8 @@ TONAL_CHECKS = [
         "description": "Ear-fatiguing presence — makes you want to turn it down after a few minutes",
         "fix": "Dip 1-2 dB around 3-4 kHz, check if saturation or exciter is adding too much edge",
         "icon": "harsh",
+        # Highest weight — listener fatigue is the most commercially damaging tonal issue
+        "perceptual_weight": 1.6,
     },
     {
         "name": "Sibilance",
@@ -58,6 +65,8 @@ TONAL_CHECKS = [
         "description": "Sharp S, T, and F sounds — especially noticeable on vocals",
         "fix": "Use a de-esser on the vocal bus, or make a narrow cut around 6-8 kHz",
         "icon": "sibilance",
+        # High weight — immediately audible on any playback system with tweeters
+        "perceptual_weight": 1.5,
     },
     {
         "name": "Thinness",
@@ -66,6 +75,7 @@ TONAL_CHECKS = [
         "description": "Lacking body and warmth — sounds anemic, no weight",
         "fix": "Boost 1-2 dB with a low shelf around 100-150 Hz, check high-pass filter settings",
         "icon": "thin",
+        "perceptual_weight": 1.1,
     },
     {
         "name": "Brightness Fatigue",
@@ -75,6 +85,7 @@ TONAL_CHECKS = [
         "description": "Too much top-end energy — sparkly at first but fatiguing over a full listen",
         "fix": "Pull back the high shelf above 8 kHz by 1-2 dB, or reduce exciter/aural enhancer",
         "icon": "bright",
+        "perceptual_weight": 1.2,
     },
 ]
 
@@ -168,6 +179,10 @@ def detect_tonal_issues(path_a: str, path_b: str, sr: int = None) -> list:
                     severity = "warning"
 
         if detected:
+            weight = check.get("perceptual_weight", 1.0)
+            # severity_bonus: 'warning' issues got at least 2 extra weight points
+            severity_bonus = 2.0 if severity == "warning" else 0.0
+            priority = round(weight * abs(diff) + severity_bonus, 2)
             issues.append({
                 "name": check["name"],
                 "severity": severity,
@@ -178,6 +193,9 @@ def detect_tonal_issues(path_a: str, path_b: str, sr: int = None) -> list:
                 "description": check["description"],
                 "fix": check["fix"],
                 "detail": detail,
+                "priority": priority,
             })
 
+    # Sort highest priority first so the frontend doesn't need to
+    issues.sort(key=lambda x: x["priority"], reverse=True)
     return issues

@@ -5,6 +5,7 @@ import EQExportButton from './EQExportButton'
 import ApplyBounceButton from './ApplyBounceButton'
 import { onShortcut, emitShortcut, RTM_EVENTS } from '../shortcuts'
 import { useEQ } from '../EQContext'
+import { useSolo } from '../SoloContext'
 
 interface Props {
  tips: EngineerTips
@@ -60,18 +61,13 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  // we replace the filter set with chain-derived parametric bands.
  const [chainFilters, setChainFilters] = useState<typeof baseFilters | null>(null)
  const filters = chainFilters ?? baseFilters
- const [bandEnabled, setBandEnabled] = useState<boolean[]>(filters.map(() => false))
- // 5.7.x: reset bandEnabled when the filter set changes (new analysis,
- // new reference profile, new file). useState's initializer runs once
- // at mount, so without this effect the previous analysis's toggle
- // states would persist into the new one — and any NEW bands beyond
- // the old length would fall through `bandEnabled[i] ?? true` in the
- // send code below, getting auto-pushed to the hosted plugin even
- // though the user never enabled them. That's the "random curve"
- // bug Mike reported. We trigger on filter-array reference change,
- // which happens when `tips.eq_filters` is replaced by a new analysis.
+ const [bandEnabled, setBandEnabled] = useState<boolean[]>(filters.map(() => true))
+ // Reset bandEnabled when the filter set changes (new analysis, new reference
+ // profile, new file). All bands default to enabled so the EQ preview is
+ // immediately audible when the player's EQ toggle is switched on — before
+ // the fix bands started disabled and nothing was heard.
  useEffect(() => {
-  setBandEnabled(filters.map(() => false))
+  setBandEnabled(filters.map(() => true))
   // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [tips.eq_filters, chainFilters])
  // EQ amount lives at the panel level so the export / apply-and-bounce
@@ -83,18 +79,20 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  // ABPlayer's biquad bank updates in real time via the context.
  const eq = useEQ()
  useEffect(() => {
- eq.setBands(filters.map((f, i) => ({
- id: `tip-${i}-${f.freq}`,
- freq: f.freq,
- gain_db: f.gain_db,
- q: f.q,
- type: 'peaking',
- enabled: !!bandEnabled[i],
- label: f.q_note || f.region,
- })))
- // Amount is a single global scalar so moving the fader animates
- // gain across every band at once.
+ const newBands = filters.map((f, i) => ({
+   id: `tip-${i}-${f.freq}`,
+   freq: f.freq,
+   gain_db: f.gain_db,
+   q: f.q,
+   type: 'peaking' as const,
+   enabled: !!bandEnabled[i],
+   label: f.q_note || f.region,
+ }))
+ eq.setBands(newBands)
  eq.setAmount(eqAmount / 100)
+ // Auto-engage the player's EQ bank when any band is active so the
+ // user doesn't have to click a separate "EQ on" toggle.
+ if (newBands.some(b => b.enabled)) eq.setEnabled(true)
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [filters, bandEnabled, eqAmount])
  // Clear the context on unmount so a stale band set doesn't linger
@@ -104,7 +102,7 @@ export default function EngineerTipsPanel({ tips, fileB }: Props) {
  // apply-and-bounce render so the user's "safe delivery" choice carries
  // through both audition and final render. Starts bypassed (like the EQ
  // itself) so users hear the unlimited signal first.
- const [tpLimit, setTpLimit] = useState(false)
+ const [tpLimit, setTpLimit] = useState(true)
 
  // Bands scaled by the amount fader — these are what gets exported / bounced.
  const scaledFilters = useMemo(() => filters.map(f => ({
@@ -538,6 +536,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // listening-settings gear flips `eq.enabled`, which causes the main
  // ABPlayer to route its listen chain through the shared biquad bank.
  const eq = useEQ()
+ // Solo context — shared with ABPlayer so clicking solo on a band here
+ // also engages the bandpass audition filter in the main player.
+ const { setSolo: setSoloHz, clearSolo: clearSoloHz } = useSolo()
  const [playing, setPlaying] = useState(false)
  // Start bypassed by default — user hears the original mix first, then toggles EQ in.
  const [bypassed, setBypassed] = useState(true)
@@ -550,6 +551,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
  const biquadsRef = useRef<BiquadFilterNode[]>([])
  const limiterRef = useRef<DynamicsCompressorNode | null>(null)
+ // Bandpass filter node inserted after makeup — transparent (allpass) when
+ // no solo is active; switches to bandpass when the user solos a band.
+ const soloFiltRef = useRef<BiquadFilterNode | null>(null)
  // Analyser taps + makeup gain for real-time level-matching.
  const dryAnalyserRef = useRef<AnalyserNode | null>(null)
  const wetAnalyserRef = useRef<AnalyserNode | null>(null)
@@ -559,6 +563,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // values without having to re-subscribe on every toggle.
  const levelMatchRef = useRef(levelMatch)
  const bypassedRef = useRef(bypassed)
+ // Mirror soloBand in a ref so play() can read the current state from
+ // inside the async callback without stale closure issues.
+ const soloBandRef = useRef<number | null>(null)
  useEffect(() => { levelMatchRef.current = levelMatch }, [levelMatch])
  useEffect(() => { bypassedRef.current = bypassed }, [bypassed])
  const bufferRef = useRef<AudioBuffer | null>(null)
@@ -577,6 +584,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // length / phase stays identical, the band keeps its position — hence
  // "in place"). Esc clears.
  const [soloBand, setSoloBand] = useState<number | null>(null)
+ useEffect(() => { soloBandRef.current = soloBand }, [soloBand])
  // 5.6.0: "Send to plugin" pill. Talks to the localhost JSON-RPC
  // server inside RTMsend (1.1.0+) and pushes the current EQ moves
  // into whatever plugin the engineer has loaded in its slot.
@@ -655,6 +663,7 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  if (e.key === 'Escape' && soloBand != null) {
  e.preventDefault()
  setSoloBand(null)
+ clearSoloHz()
  }
  }
  window.addEventListener('keydown', onKey)
@@ -692,6 +701,8 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  biquadsRef.current = []
  try { limiterRef.current?.disconnect() } catch {}
  limiterRef.current = null
+ try { soloFiltRef.current?.disconnect() } catch {}
+ soloFiltRef.current = null
  try { dryAnalyserRef.current?.disconnect() } catch {}
  try { wetAnalyserRef.current?.disconnect() } catch {}
  try { makeupRef.current?.disconnect() } catch {}
@@ -805,6 +816,24 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  node.connect(makeup)
  makeupRef.current = makeup
  node = makeup
+
+ // Solo bandpass — sits between makeup and the output. When solo is off
+ // it's 'allpass' (transparent). When the user solos a band, it switches
+ // to 'bandpass' at that band's frequency so only that region is audible.
+ const soloFilt = ctx.createBiquadFilter()
+ const activeSoloBand = soloBandRef.current
+ if (activeSoloBand != null && filters[activeSoloBand]) {
+ soloFilt.type = 'bandpass'
+ soloFilt.frequency.value = filters[activeSoloBand].freq
+ soloFilt.Q.value = Math.max(1.0, filters[activeSoloBand].q)
+ } else {
+ soloFilt.type = 'allpass'
+ soloFilt.frequency.value = 1000
+ soloFilt.Q.value = 1.0
+ }
+ soloFiltRef.current = soloFilt
+ node.connect(soloFilt)
+ node = soloFilt
 
  // Optional true-peak safety limiter — Web Audio's DynamicsCompressor
  // is not 16× oversampled like the bounce render, but with a hard
@@ -928,8 +957,17 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  }, [filters, setBandEnabled, bypassed, eqAmount, soloBand])
 
  const toggleSolo = useCallback((idx: number) => {
- setSoloBand(prev => prev === idx ? null : idx)
- }, [])
+   setSoloBand(prev => {
+     const next = prev === idx ? null : idx
+     if (next == null) {
+       clearSoloHz()
+     } else {
+       // Engage the ABPlayer's bandpass on this band's centre frequency.
+       setSoloHz(filters[next].freq, filters[next].q)
+     }
+     return next
+   })
+ }, [filters, setSoloHz, clearSoloHz])
 
  // Live update when user drags the amount fader, toggles solo, or
  // changes any band-enable flag — single source of truth via gainForBand.
@@ -937,6 +975,21 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  if (bypassed) return
  biquadsRef.current.forEach((bq, i) => { bq.gain.value = gainForBand(i) })
  }, [eqAmount, bypassed, bandEnabled, filters, soloBand, gainForBand])
+
+ // Switch the inline solo bandpass filter when soloBand changes during
+ // playback. When null → allpass (transparent). When set → bandpass
+ // at that band's frequency so only that region reaches the speakers.
+ useEffect(() => {
+ const sf = soloFiltRef.current
+ if (!sf) return
+ if (soloBand == null) {
+   sf.type = 'allpass'
+ } else if (filters[soloBand]) {
+   sf.type = 'bandpass'
+   sf.frequency.value = filters[soloBand].freq
+   sf.Q.value = Math.max(1.0, filters[soloBand].q)
+ }
+ }, [soloBand, filters])
 
  // Live loop-region update during playback. Setting source.loopStart /
  // loopEnd mid-flight only helps when the playhead is still inside the
@@ -1326,6 +1379,9 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  const fullDisplay = (f.gain_db > 0 ? '+' : '') + (isFinite(f.gain_db) ? f.gain_db.toFixed(1) : '—')
  const isSoloed = soloBand === i
  const isMuted = soloBand != null && soloBand !== i
+ const absGain = Math.abs(f.gain_db)
+ const prio = absGain >= 2.5 ? 'high' : absGain >= 1.2 ? 'medium' : 'low'
+ const prioCfg = PRIORITY_CONFIG[prio]
  return (
  <div
  key={i}
@@ -1359,10 +1415,18 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  >
  {scaledDisplay}
  </span>
- {/* Frequency + region */}
+ {/* Frequency + region + priority label */}
  <div className="flex-1 min-w-0">
- <div className="text-[11px]" style={{ color: enabled ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+ <div className="flex items-center gap-1.5">
+ <span className="text-[11px]" style={{ color: enabled ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
  {f.region}
+ </span>
+ <span
+ className="text-[8px] tracking-[0.12em] uppercase font-mono px-1 rounded-sm flex-shrink-0"
+ style={{ color: prioCfg.color, backgroundColor: prioCfg.bg }}
+ >
+ {prioCfg.label}
+ </span>
  </div>
  <div className="text-[10px] font-mono" style={{ color: enabled ? 'var(--color-text-muted)' : 'var(--color-text-muted)' }}>
  {isFinite(f.freq) ? (f.freq >= 1000 ? `${(f.freq/1000).toFixed(f.freq >= 10000 ? 0 : 1)}k Hz` : `${f.freq} Hz`) : '— Hz'}

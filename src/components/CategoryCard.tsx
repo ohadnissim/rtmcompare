@@ -101,7 +101,8 @@ export default function CategoryCard({ category, labelA, labelB }: Props) {
      pre-5.3, audit P2-24). */}
  <div className="relative mb-3">
  <p
- className="text-xs leading-relaxed cursor-pointer transition-colors"
+ className="text-xs leading-relaxed transition-colors"
+ style={{ cursor: 'copy' }}
  onClick={async () => {
   try {
    await navigator.clipboard.writeText(category.insight)

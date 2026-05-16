@@ -79,6 +79,8 @@ interface Props {
  onTour?: () => void
  onBrowseA?: () => void
  onBrowseB?: () => void
+ onClearA?: () => void
+ onClearB?: () => void
  courseName?: string
  assignmentName?: string
  sessionCount?: number
@@ -114,6 +116,8 @@ export default function EmptyStateV2({
  onTour,
  onBrowseA,
  onBrowseB,
+ onClearA,
+ onClearB,
  courseName,
  assignmentName,
  sessionCount,
@@ -160,6 +164,8 @@ export default function EmptyStateV2({
     onTour={onTour}
     onBrowseA={onBrowseA}
     onBrowseB={onBrowseB}
+    onClearA={onClearA}
+    onClearB={onClearB}
     courseName={courseName}
     assignmentName={assignmentName}
     sessionCount={sessionCount ?? recents?.length}

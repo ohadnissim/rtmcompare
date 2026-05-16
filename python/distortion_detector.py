@@ -131,10 +131,13 @@ def detect_distortion_single(path: str, sr: int = None) -> dict:
     clip_count = _count_clip_regions(y, threshold=0.9995, min_consecutive=3)
     clip_pct = round(clip_count / max(len(y), 1) * 100, 4)
 
-    # True peak via scipy sinc oversampling (certification-grade); we
-    # also call rtm_fast.true_peak_dbtp for a fast cross-check.  When
-    # the two disagree by > 0.5 dB, we trust scipy but log the drift.
-    up = resample_poly(y, 4, 1)
+    # True peak via 4× oversampling per BS.1770-4 Annex 2. Use soxr when
+    # available (±0.02 dBTP); fall back to resample_poly.
+    try:
+        import soxr as _soxr_dd
+        up = _soxr_dd.resample(y.astype(np.float64), sr or 44100, (sr or 44100) * 4, quality='HQ')
+    except ImportError:
+        up = resample_poly(y, 4, 1)
     true_peak_db = round(float(20 * np.log10(max(np.max(np.abs(up)), 1e-10))), 1)
     over_count = int(np.sum(np.abs(up) > 1.0))
     try:

@@ -339,6 +339,12 @@ function createWindow() {
         }
         if (pushed.length > 0) mainWindow?.webContents.send('profiles-ready', pushed)
       } catch {}
+      // Process any URL that arrived before the window was ready.
+      if (_pendingProfileUrl) {
+        const url = _pendingProfileUrl
+        _pendingProfileUrl = null
+        handleRtmCompareUrl(url)
+      }
     }, 300)
   })
 
@@ -450,6 +456,80 @@ app.on('activate', () => {
   if (mainWindow === null) {
     createWindow()
   }
+})
+
+// ── rtmcompare:// URL scheme ────────────────────────────────────────
+// RTMprofile opens rtmcompare://profile?path=<json> to hand off a
+// freshly-built engineer profile. We register as the default handler
+// and process the URL whether the app was already running (open-url)
+// or was cold-launched by clicking the link (URL arrives in argv).
+
+app.setAsDefaultProtocolClient('rtmcompare')
+
+// Holds a URL received before mainWindow is ready to receive IPC.
+let _pendingProfileUrl: string | null = null
+
+function handleRtmCompareUrl(rawUrl: string) {
+  let parsed: URL
+  try { parsed = new URL(rawUrl) } catch { return }
+  if (parsed.hostname !== 'profile') return
+
+  const profilePath = parsed.searchParams.get('path')
+  if (!profilePath) return
+
+  // If window isn't ready yet, stash and retry after ready-to-show.
+  if (!mainWindow || !mainWindow.webContents) {
+    _pendingProfileUrl = rawUrl
+    return
+  }
+
+  try {
+    const raw = fs.readFileSync(profilePath, 'utf8')
+    const data = JSON.parse(raw)
+    if (!Array.isArray(data.curve) || data.curve.length !== 31) return
+    if (typeof data.lufs_avg !== 'number') data.lufs_avg = -10.0
+    if (typeof data.dynamic_range_avg !== 'number') data.dynamic_range_avg = 6.0
+    if (typeof data.width_avg !== 'number') data.width_avg = 0.12
+    if (!data.name) data.name = path.basename(profilePath, '.json')
+    data.curve_only = data.curve_only || (data.sample_count == null)
+
+    ensureUserProfilesDir()
+    const normalSource = path.resolve(profilePath)
+    const normalProfilesDir = path.resolve(USER_PROFILES_DIR)
+    let id: string
+    if (normalSource.startsWith(normalProfilesDir + path.sep)) {
+      id = path.basename(profilePath, '.json')
+    } else {
+      const baseName = path.basename(profilePath, '.json').toLowerCase().replace(/[^a-z0-9_-]/g, '_')
+      id = baseName
+      let n = 1
+      while (fs.existsSync(path.join(USER_PROFILES_DIR, `${id}.json`))) {
+        id = `${baseName}_${n++}`
+      }
+      atomicWriteFileSync(path.join(USER_PROFILES_DIR, `${id}.json`), JSON.stringify(data, null, 2))
+      invalidateProfilesCache()
+    }
+
+    const profileInfo = {
+      id,
+      name: data.name || id,
+      description: data.description || '',
+      sample_count: data.sample_count || 0,
+      user_created: true,
+      profile_type: (data.profile_type as string) || 'fingerprint',
+    }
+
+    mainWindow.focus()
+    mainWindow.webContents.send('profile-url-opened', profileInfo)
+  } catch (err: any) {
+    console.error('[rtmcompare://] profile install failed:', err.message)
+  }
+}
+
+// macOS: URL opened while the app is already running.
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleRtmCompareUrl(url)
 })
 
 // IPC Handlers
@@ -914,6 +994,32 @@ ipcMain.handle('open-profiles-folder', () => {
   shell.openPath(USER_PROFILES_DIR)
 })
 
+// Return the full JSON for a single profile (including curve, lufs_avg, etc.)
+// Used by GenreAnalysisPanel to load genre curves on demand.
+const _profileDataCache: Record<string, any> = {}
+ipcMain.handle('get-profile-data', async (_event, profileId: string) => {
+  if (_profileDataCache[profileId]) return _profileDataCache[profileId]
+  // Check user profiles first
+  const userPath = path.join(USER_PROFILES_DIR, `${profileId}.json`)
+  if (fs.existsSync(userPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(userPath, 'utf8'))
+      _profileDataCache[profileId] = data
+      return data
+    } catch {}
+  }
+  // Fall back to built-in profiles
+  const isPackaged = app.isPackaged
+  const basePath = isPackaged ? (process as any).resourcesPath : path.join(__dirname, '..')
+  const builtinPath = path.join(basePath, 'python', 'profiles', `${profileId}.json`)
+  try {
+    const data = JSON.parse(fs.readFileSync(builtinPath, 'utf8'))
+    _profileDataCache[profileId] = data
+    return data
+  } catch {}
+  return null
+})
+
 ipcMain.handle('load-custom-profile', async () => {
   ensureUserProfilesDir()
   if (!mainWindow) return null
@@ -1196,6 +1302,83 @@ ipcMain.handle('analyze-files', async (event, fileA: string, fileB: string, fast
   } catch (err: any) {
     throw new Error(err.message || 'Analysis failed')
   }
+})
+
+// ── Ozone Preset Install ──────────────────────────────────────────────
+// Writes an OzoneMS XML preset into the user's Ozone User Presets folder
+// (user-space, no admin required). Ozone scans ~/Documents/iZotope/ on
+// launch and when the preset browser is refreshed.
+//
+// Detection: reads /Library/Application Support/iZotope/ to find which
+// Ozone versions are installed, then derives the correct user-preset path.
+// Falls back to a generic Documents path when detection is ambiguous.
+ipcMain.handle('ozone-detect', async () => {
+  const iZotopeSysDir = '/Library/Application Support/iZotope'
+  const detected: { name: string; version: string }[] = []
+  try {
+    const entries = fs.readdirSync(iZotopeSysDir)
+    for (const entry of entries) {
+      const m = entry.match(/^Ozone (\d+)$/)
+      if (m) detected.push({ name: entry, version: m[1] })
+    }
+  } catch {}
+  return { found: detected.length > 0, installations: detected }
+})
+
+ipcMain.handle('ozone-install-preset', async (_, xml: string, fileName: string) => {
+  const homeDir = require('os').homedir()
+  const iZotopeSysDir = '/Library/Application Support/iZotope'
+
+  // Detect Ozone versions from the system Applications Support directory
+  let ozoneVersions: string[] = []
+  try {
+    const entries = fs.readdirSync(iZotopeSysDir)
+    for (const entry of entries) {
+      if (/^Ozone \d+$/.test(entry)) ozoneVersions.push(entry)
+    }
+  } catch {}
+  if (ozoneVersions.length === 0) ozoneVersions = ['Ozone 12']  // graceful default
+
+  const results: { version: string; path?: string; error?: string }[] = []
+
+  for (const ozName of ozoneVersions) {
+    const verNum = ozName.match(/\d+/)?.[0] ?? '12'
+    // iZotope stores user presets in ~/Documents/iZotope/<Product> Advanced/User Presets/
+    const candidateDirs = [
+      path.join(homeDir, 'Documents', 'iZotope', `${ozName} Advanced`, 'User Presets', 'RTMcompare'),
+      path.join(homeDir, 'Documents', 'iZotope', ozName, 'User Presets', 'RTMcompare'),
+      path.join(homeDir, 'Documents', 'iZotope', `Ozone ${verNum}`, 'Presets', 'RTMcompare'),
+      // Ozone 12 on macOS stores user presets under the unversioned "Ozone" folder
+      path.join(homeDir, 'Documents', 'iZotope', 'Ozone', 'User Presets', 'RTMcompare'),
+    ]
+    let installed = false
+    for (const dir of candidateDirs) {
+      try {
+        fs.mkdirSync(dir, { recursive: true })
+        const filePath = path.join(dir, fileName)
+        fs.writeFileSync(filePath, xml, 'utf8')
+        results.push({ version: ozName, path: filePath })
+        installed = true
+        break
+      } catch { /* try next candidate */ }
+    }
+    if (!installed) {
+      results.push({ version: ozName, error: 'Could not write to user presets folder' })
+    }
+  }
+
+  const successful = results.filter(r => r.path)
+  if (successful.length === 0) {
+    return { ok: false, error: 'Could not install preset — check ~/Documents/iZotope permissions', results }
+  }
+
+  // Reveal the first successfully written file in Finder
+  try {
+    const { shell } = require('electron')
+    if (successful[0].path) shell.showItemInFolder(successful[0].path)
+  } catch {}
+
+  return { ok: true, results, revealPath: successful[0].path }
 })
 
 // ── RTM De-click ─────────────────────────────────────────────────────

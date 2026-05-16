@@ -22,7 +22,7 @@ export interface ProfileInfo {
  description?: string
  sample_count?: number
  user_created?: boolean
- profile_type?: 'fingerprint' | 'chain'
+ profile_type?: 'fingerprint' | 'chain' | 'genre'
 }
 
 interface Props {
@@ -34,6 +34,34 @@ interface Props {
  errorMessage?: string | null
  label?: string
  alignRight?: boolean
+}
+
+function ProfileRow({ p, selected, onSelect }: { p: ProfileInfo; selected: string; onSelect: (id: string) => void }) {
+ return (
+   <button
+     onClick={() => onSelect(p.id)}
+     role="menuitemradio"
+     aria-checked={p.id === selected}
+     className="w-full flex items-center justify-between gap-3 px-3 py-1.5 transition-colors text-[11px]"
+     style={{
+       color: p.id === selected ? 'var(--color-accent)' : 'var(--color-text-primary)',
+       backgroundColor: p.id === selected ? 'rgba(208,176,102,0.10)' : 'transparent',
+     }}
+     onMouseEnter={e => { if (p.id !== selected) e.currentTarget.style.backgroundColor = 'rgba(168,161,150,0.08)' }}
+     onMouseLeave={e => { if (p.id !== selected) e.currentTarget.style.backgroundColor = 'transparent' }}
+     title={p.description || ''}
+   >
+     <span className="flex items-center gap-2 min-w-0 text-left">
+       <span aria-hidden="true" className="inline-flex w-2 justify-center" style={{ color: 'var(--color-accent)' }}>
+         {p.id === selected ? '•' : ''}
+       </span>
+       <span className="truncate">{p.name}</span>
+     </span>
+     {typeof p.sample_count === 'number' && p.sample_count > 0 && (
+       <span className="opacity-50 text-[10px] tabular-nums shrink-0">{p.sample_count} tracks</span>
+     )}
+   </button>
+ )
 }
 
 export default function ProfileDropdown({
@@ -65,7 +93,8 @@ export default function ProfileDropdown({
  }, [open])
 
  const current = profiles.find(p => p.id === selected) ?? profiles[0]
- const builtIn = profiles.filter(p => !p.user_created)
+ // Genre profiles live in the Library modal — exclude them from the engineer picker
+ const engineerProfiles = profiles.filter(p => !p.user_created && p.profile_type !== 'genre')
  const userMade = profiles.filter(p => p.user_created)
 
  return (
@@ -99,32 +128,10 @@ export default function ProfileDropdown({
            ...(alignRight ? { right: 0 } : { left: 0 }),
          }}
        >
-         {builtIn.length > 0 && (
+         {engineerProfiles.length > 0 && (
            <div className="py-1">
-             {builtIn.map(p => (
-               <button
-                 key={p.id}
-                 onClick={() => { onSelect(p.id); setOpen(false) }}
-                 role="menuitemradio"
-                 aria-checked={p.id === selected}
-                 className="w-full flex items-center justify-between gap-3 px-3 py-1.5 transition-colors text-[11px]"
-                 style={{
-                   color: p.id === selected ? 'var(--color-accent)' : 'var(--color-text-primary)',
-                   backgroundColor: p.id === selected ? 'rgba(208,176,102,0.10)' : 'transparent',
-                 }}
-                 onMouseEnter={e => { if (p.id !== selected) e.currentTarget.style.backgroundColor = 'rgba(168,161,150,0.08)' }}
-                 onMouseLeave={e => { if (p.id !== selected) e.currentTarget.style.backgroundColor = 'transparent' }}
-               >
-                 <span className="flex items-center gap-2 min-w-0 text-left">
-                   <span aria-hidden="true" className="inline-flex w-2 justify-center" style={{ color: 'var(--color-accent)' }}>
-                     {p.id === selected ? '•' : ''}
-                   </span>
-                   <span className="truncate">{p.name}</span>
-                 </span>
-                 {typeof p.sample_count === 'number' && p.sample_count > 0 && (
-                   <span className="opacity-50 text-[10px] tabular-nums shrink-0">{p.sample_count} tracks</span>
-                 )}
-               </button>
+             {engineerProfiles.map(p => (
+               <ProfileRow key={p.id} p={p} selected={selected} onSelect={id => { onSelect(id); setOpen(false) }} />
              ))}
            </div>
          )}

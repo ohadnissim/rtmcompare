@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the RTMcompare bundle DMG — apps + RTM Send plugin direct in window.
 #
-#   RTMcompare bundle 7.6.0/
+#   RTMcompare bundle 8.0.0/
 #   ├── RTMcompare.app        → drag to Applications
 #   ├── RTMprofile.app        → drag to Applications
 #   ├── RTM Send.vst3         → drag to VST3 Plugins
@@ -17,8 +17,8 @@
 #   ./build_bundle_dmg.sh intel      # x86_64
 #
 # Produces:
-#   release/RTMcompare-bundle-7.6.0-arm64.dmg  (+ .sha256)
-#   release/RTMcompare-bundle-7.6.0-intel.dmg  (+ .sha256)
+#   release/RTMcompare-bundle-8.0.0-arm64.dmg  (+ .sha256)
+#   release/RTMcompare-bundle-8.0.0-intel.dmg  (+ .sha256)
 #
 # Requires: hdiutil, codesign, xcrun notarytool, xcrun stapler.
 # Keychain profile "rtm-notary" must be configured:
@@ -27,7 +27,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="7.6.5"
+VERSION="8.1.0"
 DEV_ID_APP="Developer ID Application: Ohad Nissim (3RL52RHGT3)"
 NOTARY_PROFILE="rtm-notary"
 OUT_DIR="${PROJECT}/release"

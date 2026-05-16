@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(RtmSend VERSION 1.2.0)
+project(RtmSend VERSION 8.1.0)
 
 # ── JUCE ────────────────────────────────────────────────────────────
 # JUCE at ../JUCE, or override via JUCE_DIR env var so CI can pin.
@@ -158,9 +158,32 @@ target_link_libraries(RtmSend PRIVATE
     juce::juce_dsp
     juce::juce_cryptography  # SHA256 used in the .ready sidecar manifest
     juce::juce_recommended_config_flags
-    juce::juce_recommended_lto_flags
+    $<$<NOT:$<BOOL:${MINGW}>>:juce::juce_recommended_lto_flags>
     juce::juce_recommended_warning_flags
 )
+
+# MinGW ignores MSVC #pragma comment(lib, ...) — add Windows system libs explicitly
+if(MINGW)
+    target_link_libraries(RtmSend PRIVATE
+        winmm      # midiIn/Out*, timeBeginPeriod
+        wininet    # InternetCloseHandle
+        ksuser     # KSDATAFORMAT_SUBTYPE_* GUIDs
+        dxguid     # DirectX GUIDs (WASAPI path)
+        strmiids   # DirectShow stream interface IDs
+        mf mfplat mfuuid wmcodecdspuuid  # Media Foundation
+        ws2_32     # Winsock: socket, recv, send, etc.
+        dbghelp    # SymInitialize, SymFromAddr, SymGetModuleInfo64
+        shlwapi    # PathStripToRootW
+        version    # GetFileVersionInfo*, VerQueryValue
+        comctl32   # SetWindowSubclass, RemoveWindowSubclass
+        imm32      # ImmGetContext, ImmReleaseContext, ImmNotifyIME, etc.
+        d2d1       # D2D1CreateFactory
+        d3d11      # D3D11CreateDevice
+        dxgi       # CreateDXGIFactory2
+        dcomp      # DCompositionCreateDevice
+        dwmapi     # DwmExtendFrameIntoClientArea
+    )
+endif()
 
 if(RTM_ARA_ENABLED)
     # JUCE 8 enables ARA via IS_ARA_EFFECT TRUE (above). No extra

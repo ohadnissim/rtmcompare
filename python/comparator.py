@@ -37,9 +37,9 @@ BANDS = {
     "sub":        (20, 80),
     "kick":       (50, 150),
     "bass":       (80, 300),
-    "snare":      (150, 5000),    # analyzed from drums stem
-    "vocals":     (200, 6000),    # analyzed from vocals stem
-    "instruments": (200, 8000),   # analyzed from other stem
+    "snare":      (150, 5000),
+    "vocals":     (200, 6000),
+    "instruments": (200, 8000),
     "brightness": (3000, 10000),
     "air":        (10000, 20000),
 }
@@ -170,14 +170,17 @@ def compute_stereo_width(left: np.ndarray, right: np.ndarray) -> float:
     """Compute stereo width. 0=mono, 1=fully wide."""
     if len(left) == 0:
         return 0.0
-    mid = left + right
-    side = left - right
-    mid_energy = np.mean(mid ** 2)
-    side_energy = np.mean(side ** 2)
-    total = mid_energy + side_energy
-    if total < 1e-10:
+    # Use Pearson correlation-based formula consistent with compute_stereo_width_per_band.
+    # Energy ratio (side/total) has a ceiling of ~0.5 for typical stereo content
+    # (random decorrelated noise), making the 0–1 scale misleading. The correlation
+    # formula maps: r=1 (mono) → 0.0, r=0 (uncorrelated) → 0.5, r=-1 (anti-phase) → 1.0.
+    n = len(left)
+    if n < 2:
         return 0.0
-    return float(side_energy / total)
+    r = float(np.corrcoef(left, right)[0, 1])
+    if not np.isfinite(r):
+        return 0.0
+    return float(np.clip((1.0 - r) / 2.0, 0.0, 1.0))
 
 
 def compute_stereo_width_per_band(left: np.ndarray, right: np.ndarray, sr: int) -> list:
@@ -320,7 +323,10 @@ def compute_short_term_max(y: np.ndarray, sr: int) -> float:
     try:
         kw = _bs1770_k_weight(data, sr)
         block_samples = int(sr * 3.0)
-        hop = int(sr * 1.0)
+        # EBU Tech 3341 §3: offline analysis should be dense enough to find
+        # the true ST maximum. A 1 s hop can miss peaks in isolated loud
+        # passages by up to ~3 dB. 300 ms is a good trade-off.
+        hop = int(sr * 0.3)
         max_st = -70.0
 
         # BS.1770-4 channel weights: L=R=C=1.0, Ls=Rs=1.41, LFE=0.
@@ -409,13 +415,17 @@ def streaming_preview(lufs: float, true_peak: float) -> list:
             action = "as-is"
         # Flag: will the platform's true-peak limiter kick in after attenuation/boost?
         tp_breach = played_tp > true_peak_target
+        # When the platform limiter engages, the actual played TP is clamped to the ceiling.
+        # Report the post-limiter TP so users see the real delivery level, not the pre-limit value.
+        reported_tp = min(played_tp, true_peak_target) if tp_breach else played_tp
         out.append({
             "name": p["name"],
             "played_lufs": round(played_lufs, 1),
-            "played_tp": round(played_tp, 1),
+            "played_tp": round(reported_tp, 1),
             "delta_db": round(delta, 1),
             "action": action,
             "tp_breach": bool(tp_breach),
+            "tp_limited": bool(tp_breach),
             "target_lufs": lufs_target,
             "target_tp": true_peak_target,
         })
@@ -436,6 +446,61 @@ def _mastering_signature(spec_diff: list[float]) -> str:
     rounded = [round(v * 2) / 2 for v in spec_diff]
     payload = ",".join(f"{v:.1f}" for v in rounded).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()[:8]
+
+
+# Region boundaries (index into MASTERING_BAND_FREQS) for EQ match grouping
+_EQ_MATCH_REGIONS = [
+    (0,  4,  "Sub"),
+    (4,  8,  "Bass"),
+    (8,  14, "Low Mids"),
+    (14, 18, "Mids"),
+    (18, 22, "Upper Mids"),
+    (22, 27, "Highs"),
+    (27, 31, "Air"),
+]
+
+
+def _eq_bands_from_delta(per_band_b_minus_a: list[float]) -> list[dict]:
+    """Convert per-band delta (B minus A) to a compact PEQ band list.
+
+    Returns bands the engineer should apply to B to match A's tonal shape.
+    Positive delta[i] means B is already louder in band i — the suggested
+    move is a cut (negative gain_db). A 50% correction is applied so the
+    chip reads conservatively: "start here, then re-listen."
+
+    Q is set by how many bands in the region deviate significantly: a
+    narrow single-band deviation gets a tight Q (surgical), a broad
+    regional tilt gets a wide Q (shelf-like).
+    """
+    bands = []
+    for start, end, region in _EQ_MATCH_REGIONS:
+        end = min(end, len(per_band_b_minus_a))
+        if start >= end:
+            continue
+        region_delta = per_band_b_minus_a[start:end]
+        # Invert: we want to move B toward A, so cut what B has in excess
+        eq_gains = [-v for v in region_delta]
+
+        region_rms = (sum(g * g for g in eq_gains) / len(eq_gains)) ** 0.5
+        if region_rms < 0.8:
+            continue
+
+        # Peak at the most perceptually salient deviation
+        max_idx = max(range(len(eq_gains)), key=lambda i: abs(eq_gains[i]))
+        raw_gain = eq_gains[max_idx]
+        if abs(raw_gain) < 0.8:
+            continue
+
+        gain_db = round(max(-4.0, min(4.0, raw_gain * 0.5)), 1)
+        if abs(gain_db) < 0.5:
+            continue
+
+        freq = MASTERING_BAND_FREQS[min(start + max_idx, len(MASTERING_BAND_FREQS) - 1)]
+        n_sig = sum(1 for g in eq_gains if abs(g) > 0.5)
+        q = 3.0 if n_sig <= 1 else 2.0 if n_sig <= 2 else 1.4 if n_sig <= 4 else 0.7
+
+        bands.append({"freq": freq, "gain_db": gain_db, "q": q, "region": region})
+    return bands
 
 
 def _band_edges(center_freq: float, sr: int) -> tuple[float, float] | None:
@@ -469,9 +534,13 @@ def _third_octave_levels(y: np.ndarray, sr: int) -> list[float]:
     n = len(y)
     # nperseg: 8192 gives ~5 Hz resolution at 44.1 kHz (matches engineer_profile.py);
     # 4096 was coarser — mismatched resolution caused phantom band-level deltas.
-    nperseg = min(8192, n)
+    # Scale nperseg with SR to maintain constant Hz/bin resolution at all sample rates.
+    # At 96 kHz, 8192 gives ~11.7 Hz/bin — too coarse for the 20 Hz sub band (half-width ~14 Hz).
+    # Scaling by sr/44100 keeps sub-band resolution consistent regardless of SR.
+    # Flat-top window: ±0.01 dB amplitude accuracy vs ±1.5 dB for Hann.
+    nperseg = min(int(8192 * max(1, sr // 44100)), n)
     freqs, psd = _welch(y.astype(np.float64), fs=sr, nperseg=nperseg,
-                        noverlap=nperseg // 2, average='median')
+                        window='flattop', noverlap=nperseg // 2, average='median')
     freq_res = freqs[1] - freqs[0] if len(freqs) > 1 else 1.0
 
     result = []
@@ -506,12 +575,34 @@ def _third_octave_widths(y_stereo: np.ndarray, sr: int) -> list[float]:
     return widths
 
 
-def _true_peak_and_overs(y: np.ndarray) -> tuple[float, int]:
+try:
+    import soxr as _soxr_tp
+    _HAVE_SOXR_TP = True
+except ImportError:
+    _HAVE_SOXR_TP = False
+
+
+def _upsample_4x(segment: np.ndarray, sr: int) -> np.ndarray:
+    """4× oversample a mono channel for BS.1770-4 Annex 2 true-peak detection.
+
+    Uses soxr when available — its high-quality FIR interpolation meets the
+    BS.1770-4 Annex 2 filter specification (±0.02 dBTP tolerance).
+    scipy.signal.resample_poly produces Gibbs ringing artefacts near
+    intersample peaks, causing ±0.3-0.5 dBTP systematic overread on
+    sharp transients (kick drums, rim shots, plucked bass).  Same fix
+    as build_profile.py adopted in the reinvention-fix (2026-05).
+    """
+    if _HAVE_SOXR_TP:
+        return _soxr_tp.resample(segment.astype(np.float64), sr, sr * 4, quality='HQ')
     from scipy.signal import resample_poly
+    return resample_poly(segment, 4, 1)
+
+
+def _true_peak_and_overs(y: np.ndarray, sr: int = 44100) -> tuple[float, int]:
     # CRIT-19: process in 10-second chunks to avoid ~850 MB/channel allocation
     # for long tracks. A 10-min stereo file at 44.1 kHz × float64 × 4 would
     # need ~1.7 GB in one shot; chunked it peaks at ~14 MB/chunk.
-    CHUNK = 441_000  # 10 s at 44.1 kHz
+    CHUNK = int(sr * 10)  # 10 s at the file's actual sample rate
     if y.ndim == 1:
         channels = [y]
     else:
@@ -526,7 +617,7 @@ def _true_peak_and_overs(y: np.ndarray) -> tuple[float, int]:
         prev_last_over = np.int8(0)
         for start in range(0, n, CHUNK):
             segment = ch[start:start + CHUNK]
-            up = resample_poly(segment, 4, 1)
+            up = _upsample_4x(segment, sr)
             abs_up = np.abs(up)
             worst = max(worst, float(np.max(abs_up)))
             over = abs_up > 1.0
@@ -756,7 +847,8 @@ def _platform_key(name: str) -> str:
 
 def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
                             y_b: np.ndarray | None = None, sr: int = None,
-                            file_a: str | None = None, file_b: str | None = None) -> dict:
+                            file_a: str | None = None, file_b: str | None = None,
+                            profile: dict | None = None) -> dict:
     """Attach a mastering self-review delta to two-file compare results.
     Every field is best-effort so optional analyser failures do not break JSON."""
     try:
@@ -819,6 +911,12 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
         if per_band:
             delta["per_band_gain_db"] = per_band
             delta["signature_hash"] = _mastering_signature(per_band)
+            try:
+                eq_bands = _eq_bands_from_delta(per_band)
+                if eq_bands:
+                    delta["eq_match"] = {"bands": eq_bands}
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -839,8 +937,8 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
 
     try:
         if y_a is not None and y_b is not None:
-            tp_a, tp_overs_a = _true_peak_and_overs(y_a)
-            tp_b, tp_overs_b = _true_peak_and_overs(y_b)
+            tp_a, tp_overs_a = _true_peak_and_overs(y_a, sr=sr or 44100)
+            tp_b, tp_overs_b = _true_peak_and_overs(y_b, sr=sr or 44100)
             delta["tp_overs_a"] = int(tp_overs_a)
             delta["tp_overs_b"] = int(tp_overs_b)
             delta["tp_overs_pulled_back"] = int(max(0, tp_overs_a - tp_overs_b))
@@ -860,6 +958,18 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
                 psr_a = tp_a - float(st_a)
                 psr_b = tp_b - float(st_b)
                 delta["psr_delta"] = round(psr_b - psr_a, 1)
+                # PSR advisory: < 8 LU during loudest moments is audible dynamic squash
+                # (Ian Shepherd / MeterPlugs Dynameter standard).
+                if psr_b < 8.0:
+                    delta["psr_advisory"] = {
+                        "value": round(psr_b, 1),
+                        "flag": True,
+                        "note": (
+                            f"PSR {psr_b:.1f} LU — below 8 LU during loudest moments "
+                            "indicates audible dynamic squash on most playback systems. "
+                            "Target: ≥8 LU PSR."
+                        ),
+                    }
             elif overall.get("plr_a") is not None and overall.get("plr_b") is not None:
                 delta["psr_delta"] = round(float(overall["plr_b"]) - float(overall["plr_a"]), 1)
     except Exception:
@@ -979,18 +1089,645 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
         lufs_i = overall.get("lufs_b")
         if plr is not None and true_peak_dbtp is not None and lufs_i is not None:
             tp_minus_lufs = float(true_peak_dbtp) - float(lufs_i)
-            if abs(float(plr) - tp_minus_lufs) > 1.5:
+            # Tightened from 1.5 to 0.5 LU: PLR = TP − LUFS_I by definition, so
+            # any disagreement > 0.5 LU indicates a computation fork (e.g. soxr vs
+            # resample_poly on different code paths).
+            if abs(float(plr) - tp_minus_lufs) > 0.5:
                 delta["measurement_inconsistency"] = (
                     f"PLR/TP cross-validation: PLR={float(plr):.1f}, "
                     f"TP−LUFS_I={tp_minus_lufs:.1f}, "
-                    f"delta={abs(float(plr) - tp_minus_lufs):.1f} LU (threshold: 1.5)"
+                    f"delta={abs(float(plr) - tp_minus_lufs):.1f} LU (threshold: 0.5)"
                 )
+    except Exception:
+        pass
+
+    # ─── Extended chain recommendations ──────────────────────────────────────
+    try:
+        headroom = result.get("headroom") or {}
+        mono_compat = result.get("mono_compat") or {}
+        chain_recs = _chain_recommendations(delta, overall, headroom, mono_compat, profile=profile)
+        if chain_recs:
+            delta["chain_recommendations"] = chain_recs
     except Exception:
         pass
 
     if delta:
         result["mastering_delta"] = delta
     return result
+
+
+def _compression_rec(delta: dict, overall: dict, prof: dict | None = None) -> dict | None:
+    lra_delta = delta.get("lra_delta") or 0.0
+    crest_traj = delta.get("crest_trajectory") or {}
+    crest_variance = crest_traj.get("crest_variance_db2", 3.0)
+    crest_mean = crest_traj.get("crest_mean_db", 10.0)
+    transient_change = delta.get("transient_density_change_pct") or 0.0
+    lra_b = float(overall.get("dynamics_b") or 7)
+
+    # Profile bias: if the engineer targets a tight LRA, lower the severity thresholds
+    prof = prof or {}
+    target_lra = float(prof.get("target_lra") or 6.0)
+    comp_char = prof.get("compression_character", "moderate")
+    # crest_factor_avg from profile: if engineer typically delivers low crest masters,
+    # the current session's crest_mean being low is expected — don't over-flag it
+    prof_crest = prof.get("crest_factor_avg")
+    crest_is_normal = prof_crest is not None and crest_mean >= (float(prof_crest) - 2.0)
+
+    is_slammed = (crest_variance < 1.5 and crest_mean < 6.0) and not crest_is_normal
+    # Profile bias: "heavy" compression character lowers what we consider over-compressed
+    lra_too_low = target_lra + 2.0 if comp_char == "dynamic" else target_lra - 1.0
+    is_over_compressed = lra_b < lra_too_low or (lra_delta < -3.0 and crest_variance < 2.0)
+    transients_killed = transient_change < -25.0
+
+    if abs(lra_delta) < 0.5 and not is_slammed:
+        return None
+
+    profile_ctx = f" ({prof.get('name')}'s style)" if prof.get("name") else ""
+
+    if is_slammed:
+        severity = "heavy"
+        summary = f"Dynamics appear flattened — limiter or compressor is working very hard{profile_ctx}"
+        ratio_hint = "2:1 or less"
+        attack_hint = "40–80 ms (slow attack preserves punch)"
+        release_hint = "auto or 200–400 ms"
+        threshold_note = f"LRA of {lra_b:.1f} LU is below typical 4–8 LU range"
+    elif is_over_compressed:
+        severity = "moderate"
+        summary = f"LRA tightened by {abs(lra_delta):.1f} LU — noticeable compression{profile_ctx}"
+        ratio_hint = "2:1–3:1"
+        attack_hint = "20–50 ms" if not transients_killed else "40–80 ms (transients appear softened)"
+        release_hint = "150–300 ms"
+        threshold_note = (
+            f"Engineer targets {target_lra:.1f} LU LRA — aim for -18 to -20 dBFS threshold"
+            if prof.get("target_lra") else
+            "Try -18 to -20 dBFS threshold to control peaks without squashing"
+        )
+    elif lra_delta < -1.0:
+        severity = "light"
+        summary = f"Subtle compression: LRA reduced {abs(lra_delta):.1f} LU{profile_ctx}"
+        ratio_hint = "1.5:1–2:1"
+        attack_hint = "10–30 ms"
+        release_hint = "100–200 ms"
+        threshold_note = (
+            f"Target LRA ≈ {target_lra:.1f} LU (matching {prof['name']})"
+            if prof.get("name") else "Light glue compression"
+        )
+    elif lra_delta > 1.5:
+        severity = "none"
+        summary = f"B is more dynamic than A (LRA +{lra_delta:.1f} LU) — no compression applied{profile_ctx}"
+        ratio_hint = "—"
+        attack_hint = "—"
+        release_hint = "—"
+        threshold_note = (
+            f"Consider subtle glue compression targeting {target_lra:.1f} LU LRA"
+            if prof.get("target_lra") else
+            "Consider subtle glue compression (1.5:1, slow attack, auto release)"
+        )
+    else:
+        return None
+
+    return {
+        "severity": severity,
+        "summary": summary,
+        "ratio_hint": ratio_hint,
+        "attack_hint": attack_hint,
+        "release_hint": release_hint,
+        "threshold_note": threshold_note,
+        "transients_preserved": not transients_killed,
+        "lra_b": round(lra_b, 1),
+        "lra_delta": round(lra_delta, 1),
+    }
+
+
+def _limiter_rec(delta: dict, overall: dict, headroom: dict, prof: dict | None = None) -> dict | None:
+    gain_reduction = delta.get("estimated_gain_reduction_db") or 0.0
+    aggressiveness = delta.get("limiter_aggressiveness") or 0.0
+    psr_advisory = delta.get("psr_advisory")
+    tp_b = float(headroom.get("true_peak_b") or overall.get("true_peak_b") or -1.0)
+    lufs_b = float(overall.get("lufs_b") or -14.0)
+    prof = prof or {}
+
+    if gain_reduction <= 0.3 and not psr_advisory:
+        return None
+
+    if gain_reduction <= 1.5:
+        character = "transparent"
+        char_note = "barely engaged — limiter is catching only rare peaks"
+        ozone_character = 1.5
+    elif gain_reduction <= 3.5:
+        character = "light"
+        char_note = "typical for streaming-safe masters"
+        ozone_character = 3.0
+    elif gain_reduction <= 6.0:
+        character = "moderate"
+        char_note = "noticeable — check for pumping on percussive transients"
+        ozone_character = 5.0
+    else:
+        character = "heavy"
+        char_note = "likely audible distortion — consider a clipper before the limiter"
+        ozone_character = 7.0
+
+    # Profile-aware ceiling: use the engineer's typical peak_avg if available
+    prof_ceiling = prof.get("ceiling_dbtp")
+    eng_name = prof.get("name", "this engineer")
+    if prof_ceiling is not None:
+        ceiling_rec = float(prof_ceiling)
+        ceiling_note = f"{eng_name} typically limits to {ceiling_rec:.1f} dBTP"
+    elif lufs_b > -9.0:
+        ceiling_rec = -0.3
+        ceiling_note = "Loud master — recommended -0.3 dBTP (prevents ISP clipping across all streaming codecs)"
+    else:
+        ceiling_rec = -0.3
+        ceiling_note = "Recommended -0.3 dBTP for streaming headroom"
+
+    # Profile-aware target loudness affects the "loud master" classification
+    prof_target_lufs = prof.get("target_lufs")
+    if prof_target_lufs is not None and ceiling_rec == -0.3 and prof_target_lufs > -9.0:
+        ceiling_rec = -0.3
+        ceiling_note = f"Profile targets {prof_target_lufs:.1f} LUFS — recommended -0.3 dBTP for streaming headroom"
+
+    # PLR (peak−loudness ratio) from profile tells us how tight the limiter typically sits.
+    # Bias ozone_character: tight PLR engineers use more transparent character settings.
+    plr_avg = prof.get("plr_avg")
+    limiter_tightness = prof.get("limiter_tightness")
+    if plr_avg is not None:
+        # Tight PLR → engineer pushes the limiter hard but cleanly → use lower Character
+        if plr_avg < 6.0:
+            ozone_character = max(1.0, ozone_character - 1.5)
+            if limiter_tightness:
+                char_note += f" — {eng_name} works at PLR {plr_avg:.0f} LU ({limiter_tightness})"
+        elif plr_avg > 12.0:
+            ozone_character = min(8.0, ozone_character + 0.5)  # more spacious → can afford character
+
+    # Ozone threshold (Threshold in Ozone is input threshold, Margin is output ceiling)
+    ozone_threshold = ceiling_rec - gain_reduction  # Where the limiter starts engaging
+
+    over_limited = (psr_advisory is not None) or aggressiveness > 0.6
+
+    profile_ctx = f" (per {prof['name']})" if prof.get("name") else ""
+    return {
+        "character": character,
+        "char_note": char_note,
+        "gain_reduction_db": round(gain_reduction, 1),
+        "over_limited": over_limited,
+        "ceiling_dbtp": ceiling_rec,
+        "ceiling_note": ceiling_note,
+        "true_peak_b": round(tp_b, 1),
+        "summary": f"{character.capitalize()} limiting — est. {gain_reduction:.1f} dB GR{profile_ctx}",
+        # Ozone Maximizer parameters
+        "ozone": {
+            "threshold": round(ozone_threshold, 2),
+            "margin": round(ceiling_rec, 2),
+            "character": round(ozone_character, 2),
+            "mode": 3,  # IRC4 — most transparent
+        },
+    }
+
+
+def _stereo_rec(delta: dict, mono_compat: dict, prof: dict | None = None) -> dict | None:
+    width_b = delta.get("width_per_band_b") or []
+    width_delta = delta.get("stereo_width_change_per_band") or []
+    mono_loss = float(mono_compat.get("mono_loss_b_pct") or 0.0)
+    prof = prof or {}
+    # Band center freqs: [63, 125, 250, 500, 1k, 2k, 4k, 8k Hz]
+    if not width_b or len(width_b) < 4:
+        if mono_loss < 8.0:
+            return None
+
+    notes = []
+    bass_too_wide = False
+    highs_too_narrow = False
+
+    # Profile-aware width targets — use engineer's average width if available
+    prof_width = prof.get("target_width")
+    # Width scale: 0=mono, 0.5=uncorrelated, 1=anti-phase
+    # For music: bass (63-250 Hz) should be < 0.2 (narrower is safer)
+    #            mids (500-2k) typically 0.2-0.4
+    #            highs (4k-8k) often 0.3-0.6
+    # Profile bias: if engineer prefers narrower/wider overall, shift thresholds
+    bass_thresh = 0.35
+    highs_narrow_thresh = 0.12
+    if prof_width is not None:
+        if prof_width < 0.08:  # very narrow engineer
+            bass_thresh = 0.25  # flag bass as wide sooner
+            highs_narrow_thresh = 0.08
+        elif prof_width > 0.20:  # wide engineer
+            bass_thresh = 0.45
+            highs_narrow_thresh = 0.18
+
+    if len(width_b) >= 3:
+        bass_w = (width_b[0] + width_b[1]) / 2  # 63 + 125 Hz average
+        if bass_w > bass_thresh:
+            bass_too_wide = True
+            notes.append(f"Bass frequencies are wide ({bass_w:.0%} correlation spread) — mono below 120 Hz recommended")
+
+    if len(width_b) >= 7:
+        high_w = (width_b[5] + width_b[6] + width_b[7]) / 3  # 2k-8k Hz
+        if high_w < highs_narrow_thresh:
+            highs_too_narrow = True
+            notes.append("High-frequency image is narrow — can widen highs above 2 kHz without mono risk")
+        elif high_w > 0.55:
+            notes.append("High-frequency image is very wide — verify on headphones")
+
+    if mono_loss > 20.0:
+        notes.append(f"High mono loss ({mono_loss:.0f}%) — significant phase cancellation in mono playback")
+    elif mono_loss > 10.0:
+        notes.append(f"Moderate mono loss ({mono_loss:.0f}%) — check sub-bass stereo content")
+
+    # Width changes from mastering
+    if len(width_delta) >= 4:
+        avg_low_delta = sum(width_delta[:2]) / 2
+        if avg_low_delta > 0.06:
+            notes.append("Mastering widened the low end — unusual, verify no phase issues below 200 Hz")
+        if len(width_delta) >= 7:
+            avg_high_delta = sum(width_delta[5:]) / len(width_delta[5:])
+            if avg_high_delta < -0.06:
+                notes.append("Mastering narrowed the high-frequency image slightly")
+
+    if not notes:
+        return None
+
+    # Profile note
+    if prof.get("name") and prof_width is not None:
+        notes.append(f"Reference: {prof['name']} targets ~{prof_width:.0%} overall stereo width")
+
+    # Ozone Imager parameters
+    # Width Percent: -100 = full mono, 0 = no change, +100 = wider
+    # We convert from our 0-1 correlation scale to Ozone's -100 to +100 percent
+    # r=0.5 (uncorrelated) ≈ "100%" normal stereo = 0% Ozone change
+    # r=0.35 (wide bass) ≈ needs narrowing → negative Width Percent
+    ozone_imager = {
+        "num_bands": 2,
+        "crossover_hz": 120.0,
+        "band1_width_pct": round(-14.0 if bass_too_wide else 0.0, 1),  # Narrow bass
+        "band2_width_pct": round(12.0 if highs_too_narrow else 0.0, 1),  # Optional high widen
+    }
+
+    return {
+        "notes": notes,
+        "bass_too_wide": bass_too_wide,
+        "highs_too_narrow": highs_too_narrow,
+        "mono_loss_pct": round(mono_loss, 1),
+        "ms_needed": bass_too_wide or mono_loss > 15.0,
+        "ozone": ozone_imager,
+    }
+
+
+def _gain_staging_rec(delta: dict, overall: dict, headroom: dict, prof: dict | None = None) -> dict | None:
+    broadband = delta.get("broadband_gain_db") or 0.0
+    lufs_a = float(overall.get("lufs_a") or -14.0)
+    lufs_b = float(overall.get("lufs_b") or -14.0)
+    tp_b = float(headroom.get("true_peak_b") or -1.0)
+    plr_b = float(overall.get("plr_b") or 10.0)
+    prof = prof or {}
+
+    # Profile-aware target LUFS: prefer the engineer's own average when available
+    prof_target = prof.get("target_lufs")
+    prof_name = prof.get("name", "")
+
+    # Style classification from reference (file A), used to name style even when profile overrides target
+    if lufs_a > -9.0:
+        ref_style = "hot"
+        style_note = "Reference is mastered aggressively — streaming platforms will attenuate 5+ dB"
+        target_lufs = -8.0
+    elif lufs_a > -12.0:
+        ref_style = "commercial"
+        style_note = "Reference is commercially mastered — target depends on style and production (typically -10 to -7 LUFS, recommend no more than -8)"
+        target_lufs = -9.0
+    elif lufs_a > -15.0:
+        ref_style = "streaming"
+        style_note = "Reference is streaming-aligned — minimal normalization expected"
+        target_lufs = -14.0
+    elif lufs_a > -19.0:
+        ref_style = "balanced"
+        style_note = "Reference has good dynamic range — suitable for most contexts"
+        target_lufs = -16.0
+    else:
+        ref_style = "dynamic"
+        style_note = "Reference is dynamically mastered — audiophile / classical style"
+        target_lufs = -20.0
+
+    # Override target with profile average when available
+    if prof_target is not None:
+        target_lufs = float(prof_target)
+        style_note = (
+            f"{prof_name} targets {target_lufs:.1f} LUFS on average"
+            if prof_name else
+            f"Engineer profile target: {target_lufs:.1f} LUFS"
+        )
+
+    # Pre-limiter gain advice
+    if plr_b < 5.0:
+        pre_limiter_note = f"PLR {plr_b:.1f} dB is low — reduce input by 2–4 dB before the limiter to regain headroom"
+        pre_limiter_gain = -3.0
+    elif plr_b < 8.0:
+        pre_limiter_note = f"PLR {plr_b:.1f} dB — borderline. Reduce input 1–2 dB for a more transparent limiter sound"
+        pre_limiter_gain = -1.5
+    elif plr_b > 14.0 and lufs_b < target_lufs - 1.0:
+        pre_limiter_note = f"PLR {plr_b:.1f} dB — room for up to {min(plr_b - 8.0, target_lufs - lufs_b):.1f} dB more gain before hitting the ceiling"
+        pre_limiter_gain = round(min(plr_b - 8.0, target_lufs - lufs_b), 1)
+    else:
+        pre_limiter_note = f"PLR {plr_b:.1f} dB — headroom is appropriate for the target loudness"
+        pre_limiter_gain = 0.0
+
+    lufs_gap = round(target_lufs - lufs_b, 1)
+
+    return {
+        "reference_style": ref_style,
+        "style_note": style_note,
+        "lufs_a": round(lufs_a, 1),
+        "lufs_b": round(lufs_b, 1),
+        "target_lufs": round(target_lufs, 1),
+        "lufs_gap": lufs_gap,
+        "broadband_gain_db": round(broadband, 1),
+        "pre_limiter_note": pre_limiter_note,
+        "pre_limiter_gain_db": pre_limiter_gain,
+        "true_peak_b": round(tp_b, 1),
+        "summary": f"Master at {lufs_b:.1f} LUFS-I (target {target_lufs:.1f} for {ref_style} style)",
+    }
+
+
+def _clipping_rec(delta: dict, overall: dict) -> dict | None:
+    aggressiveness = delta.get("limiter_aggressiveness") or 0.0
+    gain_reduction = delta.get("estimated_gain_reduction_db") or 0.0
+    lufs_b = float(overall.get("lufs_b") or -14.0)
+    crest_traj = delta.get("crest_trajectory") or {}
+    crest_mean = crest_traj.get("crest_mean_db") or 10.0
+
+    # Only relevant when limiting is significant
+    if aggressiveness < 0.25 and gain_reduction < 2.0:
+        return None
+
+    is_transient_heavy = crest_mean > 11.0
+    is_loud_target = lufs_b > -12.0
+    heavy_limiting = aggressiveness > 0.5 or gain_reduction > 4.0
+
+    if heavy_limiting and is_transient_heavy and is_loud_target:
+        approach = "clipper_then_limiter"
+        safe = True
+        summary = "Transient-heavy content with heavy limiting — soft clipper stage recommended"
+        settings = (
+            "Insert a soft clipper (threshold −3 dBTP) before the limiter. "
+            "This rounds sharp peaks before they reach the limiter, reducing GR and adding "
+            "character. Then limit to −0.3 dBTP. Typical gain: +2–4 dB perceived loudness "
+            "with less distortion than equivalent limiter-only GR."
+        )
+    elif heavy_limiting and not is_transient_heavy:
+        approach = "limiter_only"
+        safe = False
+        summary = "Heavy limiting on non-transient content — optimise limiter settings"
+        settings = (
+            "Clipping may add harshness on this material. Try a longer lookahead (3–5 ms) "
+            "and a softer knee in the limiter instead. If using IRC4, raise Character toward "
+            "the softer end."
+        )
+    else:
+        approach = "evaluate"
+        safe = True
+        summary = "Moderate limiting — optional soft clipping for extra headroom"
+        settings = (
+            "A/B test: insert a soft clipper at −3 dBTP before your limiter. "
+            "If the transients sound cleaner, keep it. Not all material benefits."
+        )
+
+    return {
+        "approach": approach,
+        "safe_to_clip": safe,
+        "summary": summary,
+        "suggested_settings": settings,
+        "clipper_ceiling_dbtp": -3.0,
+        "limiter_ceiling_dbtp": -0.3,
+    }
+
+
+def _extract_chain_deltas(profile: dict) -> dict:
+    """Convert a chain-type profile's chain_analysis scalar deltas into a
+    character dict compatible with the sub-recommendation functions.
+
+    Chain profiles capture HOW the chain moves the signal (deltas), not
+    absolute targets. We derive approximate targets by anchoring the deltas
+    against typical mix starting points, then flag each field as
+    chain-derived so the sub-rec functions can adjust messaging.
+    """
+    ca = profile.get("chain_analysis", {})
+    if not ca:
+        return {}
+
+    char: dict = {"name": profile.get("name", ""), "is_chain_profile": True}
+
+    lufs_delta = ca.get("lufs_delta_avg")
+    lra_delta  = ca.get("lra_delta_avg")
+    peak_delta = ca.get("peak_delta_avg")
+    crest_delta= ca.get("crest_delta_avg")
+    width_delta= ca.get("width_delta_avg")
+    plr_delta  = ca.get("plr_delta_avg")
+
+    # LUFS — the chain typically applies `lufs_delta` LU of gain.
+    # A negative lufs_delta means the chain makes things louder.
+    if lufs_delta is not None:
+        char["chain_lufs_delta"] = float(lufs_delta)
+        # Typical mastered output LUFS inferred from delta + typical mix level (-18 LKFS)
+        inferred_output_lufs = -18.0 + float(lufs_delta)
+        char["target_lufs"] = round(inferred_output_lufs, 1)
+        char["lufs_delta_mad"] = ca.get("lufs_delta_mad")
+        if inferred_output_lufs > -9.0:
+            char["loudness_style"] = "hot"
+        elif inferred_output_lufs > -12.0:
+            char["loudness_style"] = "commercial"
+        elif inferred_output_lufs > -15.0:
+            char["loudness_style"] = "streaming"
+        elif inferred_output_lufs > -19.0:
+            char["loudness_style"] = "balanced"
+        else:
+            char["loudness_style"] = "dynamic"
+
+    # LRA — typical LRA compression applied by the chain.
+    if lra_delta is not None:
+        char["chain_lra_delta"] = float(lra_delta)
+        # Infer compression character from how much LRA is removed.
+        # A chain that removes >3 LU is heavily compressive.
+        removed_lra = -float(lra_delta)  # positive = compression
+        char["compression_character"] = (
+            "heavy"   if removed_lra > 4.0 else
+            "moderate" if removed_lra > 2.0 else
+            "light"   if removed_lra > 0.5 else
+            "dynamic"
+        )
+        char["lra_delta_mad"] = ca.get("lra_delta_mad")
+
+    # Crest — corroborates compression character.
+    if crest_delta is not None:
+        char["crest_factor_avg"] = None  # no absolute baseline from chain profile
+        char["chain_crest_delta"] = float(crest_delta)
+
+    # Peak / limiter ceiling.
+    if peak_delta is not None:
+        char["chain_peak_delta"] = float(peak_delta)
+        # Infer typical master ceiling: -18 dBFS mix → +peak_delta → ceiling
+        inferred_ceiling = -0.3 + float(peak_delta)  # assume tight-limited mixes
+        char["ceiling_dbtp"] = round(max(-3.0, inferred_ceiling), 1)
+        char["peak_delta_mad"] = ca.get("peak_delta_mad")
+
+    # PLR — how tight the limiter sits on the programme.
+    if plr_delta is not None:
+        char["chain_plr_delta"] = float(plr_delta)
+
+    # Stereo width.
+    if width_delta is not None:
+        char["chain_width_delta"] = float(width_delta)
+        # Infer typical master width: typical mix width ~0.25 + delta
+        inferred_width = 0.25 + float(width_delta)
+        char["target_width"] = round(max(0.0, min(1.0, inferred_width)), 3)
+        char["width_delta_mad"] = ca.get("width_delta_mad")
+
+    return char
+
+
+def _chain_recommendations(delta: dict, overall: dict, headroom: dict, mono_compat: dict,
+                           profile: dict | None = None) -> dict:
+    """Derive actionable mastering chain recommendations from already-computed delta metrics.
+    Each section is omitted when the analysis doesn't support a meaningful recommendation.
+
+    profile: optional fingerprint profile dict (keys: lufs_avg, lufs_range, dynamic_range_avg,
+             width_avg, peak_avg, name). When provided, recommendations are biased toward that
+             engineer's characteristic targets instead of generic genre defaults.
+    """
+    recs: dict = {}
+
+    # Extract profile character — fingerprint or chain profile
+    if profile and profile.get("profile_type") == "chain":
+        prof = _extract_chain_deltas(profile)
+    else:
+        prof = _extract_profile_character(profile)
+    if prof.get("name"):
+        recs["profile_context"] = prof
+
+    comp = _compression_rec(delta, overall, prof)
+    if comp:
+        recs["compression"] = comp
+
+    lim = _limiter_rec(delta, overall, headroom, prof)
+    if lim:
+        recs["limiter"] = lim
+
+    stereo = _stereo_rec(delta, mono_compat, prof)
+    if stereo:
+        recs["stereo"] = stereo
+
+    gain = _gain_staging_rec(delta, overall, headroom, prof)
+    if gain:
+        recs["gain_staging"] = gain
+
+    clip = _clipping_rec(delta, overall)
+    if clip:
+        recs["clipping"] = clip
+
+    return recs
+
+
+def _extract_profile_character(profile: dict | None) -> dict:
+    """Convert a raw fingerprint profile into a normalised character dict used to bias recs.
+
+    Reads all fields RTMprofile's build_profile.py produces so that the chain
+    recommendations are as specific to the engineer as possible.
+    """
+    if not profile:
+        return {}
+
+    lufs_avg   = profile.get("lufs_avg")
+    dr_avg     = profile.get("dynamic_range_avg")
+    width_avg  = profile.get("width_avg")
+    peak_avg   = profile.get("peak_avg")
+    name       = profile.get("name", "")
+    lufs_range = profile.get("lufs_range")           # [min, max]
+
+    # Fields captured by build_profile but previously unused in chain recs:
+    crest_avg       = profile.get("crest_factor_avg")   # peak/RMS dB — low = hard limiting
+    plr_avg         = profile.get("plr_avg")             # TruePeak − LUFS_I — limiter headroom
+    lufs_m_swing    = profile.get("lufs_m_swing_avg")   # short-term LUFS arc — macro dynamics
+    width_std       = profile.get("width_std")
+    lufs_std        = profile.get("lufs_std")
+    dr_std          = profile.get("dynamic_range_std")
+
+    char: dict = {}
+    if name:
+        char["name"] = name
+
+    # ── Loudness ──────────────────────────────────────────────────────
+    if lufs_avg is not None:
+        char["target_lufs"] = float(lufs_avg)
+        if lufs_avg > -9.0:
+            char["loudness_style"] = "hot"
+        elif lufs_avg > -12.0:
+            char["loudness_style"] = "commercial"
+        elif lufs_avg > -15.0:
+            char["loudness_style"] = "streaming"
+        elif lufs_avg > -19.0:
+            char["loudness_style"] = "balanced"
+        else:
+            char["loudness_style"] = "dynamic"
+    if lufs_std is not None:
+        char["lufs_consistency"] = "consistent" if float(lufs_std) < 1.5 else "variable"
+    if lufs_range and len(lufs_range) >= 2:
+        char["lufs_range"] = [float(lufs_range[0]), float(lufs_range[1])]
+
+    # ── Dynamics / compression ────────────────────────────────────────
+    if dr_avg is not None:
+        char["target_lra"] = float(dr_avg)
+        # LRA-based compression character (primary signal)
+        char["compression_character"] = (
+            "heavy" if dr_avg < 4.0 else
+            "moderate" if dr_avg < 6.5 else
+            "light" if dr_avg < 9.0 else
+            "dynamic"
+        )
+    if crest_avg is not None:
+        # Crest factor corroborates compression character.
+        # Typical values: 8–10 dB = heavily limited, 12–15 = moderate, 16+ = dynamic.
+        # When both dr_avg and crest_avg point the same way, increase confidence.
+        char["crest_factor_avg"] = float(crest_avg)
+        crest_char = (
+            "heavy" if crest_avg < 9.0 else
+            "moderate" if crest_avg < 12.0 else
+            "light" if crest_avg < 15.0 else
+            "dynamic"
+        )
+        # Prefer LRA when available; use crest as a tiebreaker / fallback
+        if "compression_character" not in char:
+            char["compression_character"] = crest_char
+        elif char["compression_character"] != crest_char:
+            # Disagreement → report both, bias toward the more conservative estimate
+            order = ["heavy", "moderate", "light", "dynamic"]
+            char["compression_character"] = order[
+                min(order.index(char["compression_character"]), order.index(crest_char))
+            ]
+    if lufs_m_swing is not None:
+        # LUFS-M swing: how much the master breathes over time (macro dynamics)
+        char["macro_dynamics_lu"] = float(lufs_m_swing)
+
+    # ── Limiter ───────────────────────────────────────────────────────
+    if peak_avg is not None:
+        char["ceiling_dbtp"] = float(peak_avg)
+    if plr_avg is not None:
+        # PLR = TruePeak − LUFS_I; tells us how tight the limiter sits on the programme.
+        # < 6 LU = very tight (modern pop), 8–12 = typical, >14 = spacious/dynamic
+        char["plr_avg"] = float(plr_avg)
+        char["limiter_tightness"] = (
+            "very tight" if plr_avg < 6.0 else
+            "tight" if plr_avg < 9.0 else
+            "moderate" if plr_avg < 12.0 else
+            "spacious"
+        )
+
+    # ── Stereo ────────────────────────────────────────────────────────
+    if width_avg is not None:
+        char["target_width"] = float(width_avg)
+    if width_std is not None:
+        char["width_consistency"] = "consistent" if float(width_std) < 0.04 else "variable"
+    if dr_std is not None:
+        char["dynamics_consistency"] = "consistent" if float(dr_std) < 1.5 else "variable"
+
+    return char
 
 
 def compute_momentary_max(y: np.ndarray, sr: int) -> float:
@@ -1074,16 +1811,16 @@ def compute_plr(y: np.ndarray, sr: int) -> tuple[float | None, float | None]:
         # CRIT-19: chunked resample to avoid OOM on long tracks (same fix as
         # _true_peak_and_overs). PLR is called on the full track; chunked
         # peak-finding is correct because we only need max(abs(up)).
-        _PLR_CHUNK = 441_000  # 10 s at 44.1 kHz
+        # SR-aware chunk: 10 s at any sample rate (matches _true_peak_and_overs).
+        _plr_chunk = int(sr * 10)
         per_channel_tp = []
         for ch in channels:
             try:
-                from scipy.signal import resample_poly
                 ch_peak = 0.0
                 n = len(ch)
-                for _start in range(0, n, _PLR_CHUNK):
-                    _seg = ch[_start:_start + _PLR_CHUNK]
-                    _up = resample_poly(_seg, 4, 1)
+                for _start in range(0, n, _plr_chunk):
+                    _seg = ch[_start:_start + _plr_chunk]
+                    _up = _upsample_4x(_seg, sr)
                     ch_peak = max(ch_peak, float(np.max(np.abs(_up))))
                 per_channel_tp.append(float(20 * np.log10(max(ch_peak, 1e-10))))
             except Exception:
@@ -1164,6 +1901,14 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
         data = y
     else:
         data = y.reshape(-1, 1)
+
+    # EBU Tech 3342 §3: LRA is undefined for content shorter than 60 s.
+    # For content < 3 s there are zero complete 3-second windows — pyloudnorm
+    # returns NaN or 0.0, which looks like a brick-wall master. Return 0.0
+    # (callers treat 0.0 as "undefined") so the UI doesn't mislead.
+    duration_s = data.shape[0] / sr
+    if duration_s < 3.0:
+        return 0.0
 
     try:
         meter = pyln.Meter(sr)
@@ -1291,187 +2036,6 @@ def analyze_category(name: str, mono_a: np.ndarray, mono_b: np.ndarray,
         "centroid_b": round(cent_b, 0),
         "insight": insight,
     }
-
-
-def run_full_analysis(stems_a: dict, stems_b: dict, sr: int = None) -> dict:
-    """
-    Run the full granular analysis pipeline.
-    1. Load all stems
-    2. Level-match the full mix
-    3. Apply same gain to individual stems
-    4. Extract granular categories from stems + frequency bands
-    """
-    # Load all stems
-    loaded_a = {}
-    loaded_b = {}
-    for stem_name in ["vocals", "drums", "bass", "other"]:
-        if stem_name in stems_a and stem_name in stems_b:
-            ya, _ = librosa.load(stems_a[stem_name], sr=sr, mono=False)
-            yb, _ = librosa.load(stems_b[stem_name], sr=sr, mono=False)
-            if ya.ndim == 1:
-                ya = np.stack([ya, ya])
-            if yb.ndim == 1:
-                yb = np.stack([yb, yb])
-            # Trim to same length
-            min_len = min(ya.shape[1], yb.shape[1])
-            loaded_a[stem_name] = ya[:, :min_len]
-            loaded_b[stem_name] = yb[:, :min_len]
-
-    # Reconstruct full mix.
-    # 5.7.x audit fix: trim across BOTH stem dicts. Pre-fix, min_len
-    # was computed only over loaded_a, then loaded_b was sliced to
-    # the same length. That works today because per-pair trim above
-    # already aligned A and B per stem, but if a future caller ever
-    # populated loaded_a/loaded_b independently with mismatched
-    # lengths, mix_b's slice could exceed an actual stem's length
-    # and silently raise IndexError. Belt-and-braces: take the
-    # global min across all stems on both sides.
-    if not loaded_a:
-        return {}
-    min_len = min(
-        s.shape[1]
-        for d in (loaded_a, loaded_b)
-        for s in d.values()
-    )
-    mix_a = sum(s[:, :min_len] for s in loaded_a.values())
-    mix_b = sum(s[:, :min_len] for s in loaded_b.values())
-
-    # Level match using the full mix
-    _, mix_b_matched, gain_applied = level_match(mix_a, mix_b, sr)
-    gain_linear = 10 ** (gain_applied / 20) if gain_applied != 0 else 1.0
-
-    # Apply same gain to all B stems
-    matched_b = {}
-    for name, stem in loaded_b.items():
-        matched_b[name] = stem * gain_linear
-
-    # ─── Extract granular categories ──────────────────────────────────────
-
-    mono_a = {k: librosa.to_mono(v) for k, v in loaded_a.items()}
-    mono_b = {k: librosa.to_mono(v) for k, v in matched_b.items()}
-
-    categories = []
-
-    # Kick — low end of drums stem
-    if "drums" in mono_a:
-        kick_a = bandpass(mono_a["drums"], sr, 50, 150)
-        kick_b = bandpass(mono_b["drums"], sr, 50, 150)
-        categories.append(analyze_category(
-            "Kick", kick_a, kick_b,
-            loaded_a["drums"], matched_b["drums"], sr
-        ))
-
-    # Snare — mid frequencies of drums stem
-    if "drums" in mono_a:
-        snare_a = bandpass(mono_a["drums"], sr, 150, 5000)
-        snare_b = bandpass(mono_b["drums"], sr, 150, 5000)
-        categories.append(analyze_category(
-            "Snare", snare_a, snare_b,
-            loaded_a["drums"], matched_b["drums"], sr
-        ))
-
-    # Sub — sub bass from bass stem
-    if "bass" in mono_a:
-        sub_a = bandpass(mono_a["bass"], sr, 20, 80)
-        sub_b = bandpass(mono_b["bass"], sr, 20, 80)
-        categories.append(analyze_category(
-            "Sub", sub_a, sub_b,
-            loaded_a["bass"], matched_b["bass"], sr
-        ))
-
-    # Bass — upper bass from bass stem
-    if "bass" in mono_a:
-        bass_a = bandpass(mono_a["bass"], sr, 80, 300)
-        bass_b = bandpass(mono_b["bass"], sr, 80, 300)
-        categories.append(analyze_category(
-            "Bass", bass_a, bass_b,
-            loaded_a["bass"], matched_b["bass"], sr
-        ))
-
-    # Vocals — full vocals stem
-    if "vocals" in mono_a:
-        categories.append(analyze_category(
-            "Vocals", mono_a["vocals"], mono_b["vocals"],
-            loaded_a["vocals"], matched_b["vocals"], sr
-        ))
-
-    # Instruments — other stem
-    if "other" in mono_a:
-        categories.append(analyze_category(
-            "Instruments", mono_a["other"], mono_b["other"],
-            loaded_a["other"], matched_b["other"], sr
-        ))
-
-    # Brightness — 3-10kHz of full mix
-    mix_mono_a = librosa.to_mono(mix_a)
-    mix_mono_b = librosa.to_mono(mix_b_matched)
-    bright_a = bandpass(mix_mono_a, sr, 3000, 10000)
-    bright_b = bandpass(mix_mono_b, sr, 3000, 10000)
-    categories.append(analyze_category(
-        "Brightness", bright_a, bright_b,
-        mix_a, mix_b_matched, sr
-    ))
-
-    # Air — 10-20kHz of full mix
-    air_a = bandpass(mix_mono_a, sr, 10000, 20000)
-    air_b = bandpass(mix_mono_b, sr, 10000, 20000)
-    categories.append(analyze_category(
-        "Air", air_a, air_b,
-        mix_a, mix_b_matched, sr
-    ))
-
-    # Wideness — stereo analysis of full mix
-    width_a = compute_stereo_width(mix_a[0], mix_a[1])
-    width_b = compute_stereo_width(mix_b_matched[0], mix_b_matched[1])
-    categories.append(analyze_category(
-        "Wideness", mix_mono_a, mix_mono_b,
-        mix_a, mix_b_matched, sr
-    ))
-
-    # Punch — transient analysis on drums
-    if "drums" in mono_a:
-        categories.append(analyze_category(
-            "Punch", mono_a["drums"], mono_b["drums"],
-            loaded_a["drums"], matched_b["drums"], sr
-        ))
-
-    # ─── Overall summary ──────────────────────────────────────────────────
-    overall_lufs_a = compute_lufs(mix_a, sr)
-    overall_lufs_b_original = compute_lufs(mix_b, sr)
-    overall_width_a = compute_stereo_width(mix_a[0], mix_a[1])
-    overall_width_b = compute_stereo_width(mix_b[0], mix_b[1])
-    overall_dr_a = compute_dynamic_range(mix_mono_a, sr)
-    overall_dr_b = compute_dynamic_range(librosa.to_mono(mix_b), sr)
-
-    overall_insights = generate_overall_insights(
-        overall_lufs_a, overall_lufs_b_original, gain_applied,
-        overall_width_a, overall_width_b,
-        overall_dr_a, overall_dr_b,
-        categories
-    )
-
-    # ─── Recommendations ────────────────────────────────────────────────
-    recommendations = generate_recommendations(categories, gain_applied,
-        overall_width_a, overall_width_b, overall_dr_a, overall_dr_b)
-
-    result = {
-        "level_matched": True,
-        "gain_applied_db": gain_applied,
-        "categories": [c for c in categories],
-        "recommendations": recommendations,
-        "overall": {
-            "lufs_a": round(overall_lufs_a, 1),
-            "lufs_b": round(overall_lufs_b_original, 1),
-            "loudness_diff": round(overall_lufs_b_original - overall_lufs_a, 1),
-            "width_a": round(overall_width_a, 3),
-            "width_b": round(overall_width_b, 3),
-            "dynamics_a": round(overall_dr_a, 1),
-            "dynamics_b": round(overall_dr_b, 1),
-            "insights": overall_insights,
-        }
-    }
-    _attach_mastering_delta(result, mix_a, mix_b, sr=sr)
-    return _stamp_spec_versions(result)
 
 
 # ─── Insight generation ──────────────────────────────────────────────────────
@@ -1886,7 +2450,7 @@ def generate_recommendations(categories, gain_applied,
 
 # ─── Fast analysis (no Demucs) ────────────────────────────────────────────────
 
-def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
+def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None, profile: dict | None = None) -> dict:
     """
     Run analysis using frequency-band isolation instead of Demucs.
     Much faster (~10 seconds), same 10 categories.
@@ -2013,188 +2577,5 @@ def run_fast_analysis(file_a: str, file_b: str, sr: int | None = None) -> dict:
             "insights": overall_insights,
         },
     }
-    _attach_mastering_delta(result, y_a, y_b, sr=sr, file_a=file_a, file_b=file_b)
+    _attach_mastering_delta(result, y_a, y_b, sr=sr, file_a=file_a, file_b=file_b, profile=profile)
     return _stamp_spec_versions(result)
-
-
-# ─── Hybrid analysis (AI chunk + fast) ───────────────────────────────────────
-
-def run_hybrid_analysis(file_a: str, file_b: str, tmp_dir: str,
-                        sr: int = None, chunk_sec: float = 30.0,
-                        progress_cb=None) -> dict:
-    """
-    Hybrid mode:
-    1. Find the loudest 30-second chunk (usually chorus)
-    2. Run Demucs AI separation on JUST that chunk — get accurate kick/bass/drums
-    3. Run frequency-band analysis on the full song for everything else
-    4. Merge: use AI results for Kick, Snare, Sub, Bass; fast results for the rest
-
-    ~30-60 seconds instead of 10+ minutes.
-    """
-    if progress_cb:
-        progress_cb("Loading audio...")
-
-    # Load full files at native rate; resample B to match A if they differ
-    y_a_full, sr_a = librosa.load(file_a, sr=sr, mono=False)
-    y_b_full, sr_b = librosa.load(file_b, sr=sr, mono=False)
-    # Resolve working sr (use file A's native rate as reference)
-    sr = sr_a
-    if sr_b != sr_a:
-        y_b_full = librosa.resample(y_b_full, orig_sr=sr_b, target_sr=sr_a)
-
-    if y_a_full.ndim == 1:
-        y_a_full = np.stack([y_a_full, y_a_full])
-    if y_b_full.ndim == 1:
-        y_b_full = np.stack([y_b_full, y_b_full])
-
-    min_len = min(y_a_full.shape[1], y_b_full.shape[1])
-    y_a_full = y_a_full[:, :min_len]
-    y_b_full = y_b_full[:, :min_len]
-
-    # Find loudest 30s chunk
-    if progress_cb:
-        progress_cb("Finding loudest section...")
-
-    chunk_samples = int(sr * chunk_sec)
-    mono_a = librosa.to_mono(y_a_full)
-
-    if len(mono_a) <= chunk_samples:
-        # Song is shorter than chunk — just use the whole thing
-        start = 0
-    else:
-        # Sliding window RMS to find loudest section
-        hop = sr * 5  # check every 5 seconds
-        best_rms = 0
-        start = 0
-        for i in range(0, len(mono_a) - chunk_samples, hop):
-            rms = np.sqrt(np.mean(mono_a[i:i + chunk_samples] ** 2))
-            if rms > best_rms:
-                best_rms = rms
-                start = i
-
-    end = min(start + chunk_samples, min_len)
-
-    if progress_cb:
-        time_start = start / sr
-        time_end = end / sr
-        progress_cb(f"Analyzing loudest section ({time_start:.0f}s - {time_end:.0f}s)...")
-
-    # Extract chunks and save as temp WAVs
-    chunk_a = y_a_full[:, start:end]
-    chunk_b = y_b_full[:, start:end]
-
-    # BS-RoFormer and htdemucs models are trained at 44.1 kHz.  At higher
-    # native rates (48 / 88.2 / 96 kHz) the model sees the signal as if it
-    # were pitch-shifted up, which shifts all frequency-band decisions by the
-    # same ratio — kick gets misclassified as bass, high-mids bleed into
-    # bass stem, SDR drops 2–4 dB.  Resample to 44100 Hz for separation,
-    # then resample stems back to native sr for downstream analysis so that
-    # no frequency information is lost in the non-separation analysis paths.
-    _SEP_SR = 44100
-    if sr != _SEP_SR:
-        chunk_a_sep = librosa.resample(chunk_a, orig_sr=sr, target_sr=_SEP_SR)
-        chunk_b_sep = librosa.resample(chunk_b, orig_sr=sr, target_sr=_SEP_SR)
-    else:
-        chunk_a_sep = chunk_a
-        chunk_b_sep = chunk_b
-
-    chunk_a_path = os.path.join(tmp_dir, "chunk_a.wav")
-    chunk_b_path = os.path.join(tmp_dir, "chunk_b.wav")
-    sf.write(chunk_a_path, chunk_a_sep.T, _SEP_SR)
-    sf.write(chunk_b_path, chunk_b_sep.T, _SEP_SR)
-
-    # Run separator on the short chunks. CRITICAL: route into per-file
-    # output subdirectories. The default BS-RoFormer backend writes
-    # stems flat (vocals.wav / drums.wav / bass.wav / other.wav), so
-    # back-to-back calls with the same out_dir silently overwrite the
-    # first file's stems with the second's — Deep Scan then compares
-    # file-B-stems-vs-file-B-stems and reports "perfect match" on
-    # tracks that aren't. Per the audit's CRITICAL #1 finding.
-    from separator import separate
-
-    stems_a_dir = os.path.join(tmp_dir, "stems_a")
-    stems_b_dir = os.path.join(tmp_dir, "stems_b")
-    os.makedirs(stems_a_dir, exist_ok=True)
-    os.makedirs(stems_b_dir, exist_ok=True)
-
-    if progress_cb:
-        progress_cb("AI separating chunk (File A)...")
-    stems_a = separate(chunk_a_path, stems_a_dir, progress_cb=progress_cb)
-
-    if progress_cb:
-        progress_cb("AI separating chunk (File B)...")
-    stems_b = separate(chunk_b_path, stems_b_dir, progress_cb=progress_cb)
-
-    # Analyze AI-separated stems for low-end categories
-    if progress_cb:
-        progress_cb("Analyzing AI stems...")
-
-    # Level match the chunks
-    _, chunk_b_matched, gain_applied = level_match(chunk_a, chunk_b, sr)
-    gain_linear = 10 ** (gain_applied / 20) if gain_applied != 0 else 1.0
-
-    ai_categories = {}
-    for stem_name in ["drums", "bass"]:
-        if stem_name in stems_a and stem_name in stems_b:
-            ya, _ = librosa.load(stems_a[stem_name], sr=sr, mono=False)
-            yb, _ = librosa.load(stems_b[stem_name], sr=sr, mono=False)
-            if ya.ndim == 1:
-                ya = np.stack([ya, ya])
-            if yb.ndim == 1:
-                yb = np.stack([yb, yb])
-            ml = min(ya.shape[1], yb.shape[1])
-            ya = ya[:, :ml]
-            yb = yb[:, :ml] * gain_linear
-
-            mono_sa = librosa.to_mono(ya)
-            mono_sb = librosa.to_mono(yb)
-
-            if stem_name == "drums":
-                # Kick from drums
-                kick_a = bandpass(mono_sa, sr, 50, 150)
-                kick_b = bandpass(mono_sb, sr, 50, 150)
-                ai_categories["Kick"] = analyze_category("Kick", kick_a, kick_b, ya, yb, sr)
-
-                # Snare from drums
-                snare_a = bandpass(mono_sa, sr, 150, 5000)
-                snare_b = bandpass(mono_sb, sr, 150, 5000)
-                ai_categories["Snare"] = analyze_category("Snare", snare_a, snare_b, ya, yb, sr)
-
-            elif stem_name == "bass":
-                # Sub from bass
-                sub_a = bandpass(mono_sa, sr, 20, 80)
-                sub_b = bandpass(mono_sb, sr, 20, 80)
-                ai_categories["Sub"] = analyze_category("Sub", sub_a, sub_b, ya, yb, sr)
-
-                # Bass body from bass
-                bass_a = bandpass(mono_sa, sr, 80, 300)
-                bass_b = bandpass(mono_sb, sr, 80, 300)
-                ai_categories["Bass"] = analyze_category("Bass", bass_a, bass_b, ya, yb, sr)
-
-    # Now run fast analysis on the full song for the remaining categories
-    if progress_cb:
-        progress_cb("Running frequency analysis on full song...")
-    fast_result = run_fast_analysis(file_a, file_b, sr=sr)
-
-    # Merge: replace Kick, Snare, Sub, Bass with AI versions
-    merged_categories = []
-    for cat in fast_result["categories"]:
-        if cat["name"] in ai_categories:
-            merged_categories.append(ai_categories[cat["name"]])
-        else:
-            merged_categories.append(cat)
-
-    fast_result["categories"] = merged_categories
-
-    # Update insights to note hybrid mode
-    fast_result["overall"]["insights"].insert(0,
-        "Hybrid analysis: AI stem separation for kick/snare/bass/sub, frequency bands for the rest"
-    )
-
-    # Include stem paths for the A/B player stem listening feature
-    fast_result["stems"] = {
-        "a": {name: path for name, path in stems_a.items()},
-        "b": {name: path for name, path in stems_b.items()},
-    }
-
-    return _stamp_spec_versions(fast_result)

@@ -24,6 +24,7 @@ export interface CoverSurfaceProps {
   fileADuration?: string
   onDropA: (file: File) => void
   onBrowseA?: () => void   // click-to-open Finder for slot A
+  onClearA?: () => void    // clear slot A
   isDraggingA?: boolean
 
   // File B
@@ -32,6 +33,7 @@ export interface CoverSurfaceProps {
   fileBDuration?: string
   onDropB: (file: File) => void
   onBrowseB?: () => void   // click-to-open Finder for slot B
+  onClearB?: () => void    // clear slot B
   isDraggingB?: boolean
 
   // Swap
@@ -97,11 +99,12 @@ interface SlotProps {
   duration?: string
   onDrop: (file: File) => void
   onBrowse?: () => void
+  onClear?: () => void
   isDragging?: boolean
   bothLoaded: boolean
 }
 
-function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrowse, isDragging, bothLoaded }: SlotProps) {
+function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrowse, onClear, isDragging, bothLoaded }: SlotProps) {
   const [hover, setHover] = useState(false)
   const dragging = isDragging || hover
   const inputRef = useRef<HTMLInputElement>(null)
@@ -150,19 +153,63 @@ function FileSlot({ eyebrow, name, emptyLabel, format, duration, onDrop, onBrows
       <div style={trackedCaps(10, SAND_400)}>{eyebrow}</div>
 
       {name ? (
-        <div
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontStyle: 'italic',
-            fontWeight: 400,
-            fontSize: 28,
-            lineHeight: 1.15,
-            color: CREAM,
-            wordBreak: 'break-word',
-          }}
-        >
-          {name}
-        </div>
+        <>
+          <div
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontStyle: 'italic',
+              fontWeight: 400,
+              fontSize: 28,
+              lineHeight: 1.15,
+              color: CREAM,
+              wordBreak: 'break-word',
+            }}
+          >
+            {name}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={handleBrowse}
+              style={{
+                alignSelf: 'flex-start',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 11,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: SAND_300,
+                background: 'transparent',
+                border: `1px solid ${SAND_700}`,
+                borderRadius: 2,
+                padding: '6px 14px',
+                cursor: 'pointer',
+              }}
+            >
+              Browse…
+            </button>
+            {onClear && (
+              <button
+                type="button"
+                onClick={onClear}
+                style={{
+                  alignSelf: 'flex-start',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 11,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: SAND_400,
+                  background: 'transparent',
+                  border: `1px solid ${SAND_700}`,
+                  borderRadius: 2,
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={trackedCaps(13, SAND_500)}>{emptyLabel}</div>
@@ -217,12 +264,14 @@ export function CoverSurface({
   fileADuration,
   onDropA,
   onBrowseA,
+  onClearA,
   isDraggingA,
   fileBName,
   fileBFormat,
   fileBDuration,
   onDropB,
   onBrowseB,
+  onClearB,
   isDraggingB,
   onSwap,
   onBeginCompare,
@@ -463,6 +512,7 @@ export function CoverSurface({
           duration={fileADuration}
           onDrop={onDropA}
           onBrowse={onBrowseA}
+          onClear={onClearA}
           isDragging={isDraggingA}
           bothLoaded={bothLoaded}
         />
@@ -475,6 +525,7 @@ export function CoverSurface({
           duration={fileBDuration}
           onDrop={onDropB}
           onBrowse={onBrowseB}
+          onClear={onClearB}
           isDragging={isDraggingB}
           bothLoaded={bothLoaded}
         />

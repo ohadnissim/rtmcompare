@@ -118,7 +118,7 @@ function generateReport(results: AnalysisResult, labelA: string, labelB: string)
 
  const maskingHtml = results.masking && results.masking.overlaps.length > 0 ? `
  <div class="section">
- <h2>Masking Overlap${results.masking.stem_based ? ' (per-stem)' : ''}</h2>
+ <h2>Masking Overlap</h2>
  <table>
  <tr><th>Pair</th><th>Band</th><th>Severity</th><th>Issue</th></tr>
  ${results.masking.overlaps.map(o => `<tr>

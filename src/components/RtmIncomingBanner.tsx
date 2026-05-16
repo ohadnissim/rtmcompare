@@ -135,19 +135,19 @@ export default function RtmIncomingBanner({ onLoadInto, onSingleFileAnalysis, on
  if (liveDrop && ar && route === 'compareB') {
  routedRef.current.add(drop.audioPath)
  onLoadIntoRef.current('B', info, drop)
- showAutoToast('Plug-in drop routed to Compare (File B) - click Compare to analyse.')
+ showAutoToast('Loaded into Compare B — press Analyze to start.')
  return
  }
  if (liveDrop && ar && route === 'single' && onSingleRef.current) {
  routedRef.current.add(drop.audioPath)
  onSingleRef.current(info, drop)
- showAutoToast('Plug-in drop loaded as Reference - click Analyze Reference Only to start.')
+ showAutoToast('Loaded as Reference — press Analyze to start.')
  return
  }
  if (liveDrop && ar && route === 'batch' && onBatchRef.current) {
  routedRef.current.add(drop.audioPath)
  onBatchRef.current(info, drop)
- showAutoToast('Plug-in drop loaded as the seed for a new album batch — click "Analyze Album" to start the batch with this track as track 1.')
+ showAutoToast('Loaded into batch — press Analyze Album to start.')
  return
  }
  // No auto-route (either pre-existing drop, no routing hint, or
@@ -292,7 +292,7 @@ function DropChip({ drop, onLoad, onDismiss }: {
  <button
  onClick={() => onLoad('A')}
  className="text-[10px] px-2 py-0.5"
- style={{ borderRadius: '2px', color: '#d0b066', border: '1px solid rgba(208,176,102,0.4)' }}
+ style={{ borderRadius: '2px', color: 'rgba(168,161,150,0.7)', border: '1px solid rgba(168,161,150,0.25)' }}
  >
  → Reference
  </button>

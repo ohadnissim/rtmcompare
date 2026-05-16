@@ -30,6 +30,7 @@ interface Props {
 export default function MetricExplainer({ metricKey, children, value, violation }: Props) {
   const { enabled } = useLearnMode()
   const [visible, setVisible] = useState(false)
+  const [pinned, setPinned] = useState(false)
 
   // When learn mode is off, or no content exists for this key, render children bare.
   if (!enabled) return <>{children}</>
@@ -39,11 +40,12 @@ export default function MetricExplainer({ metricKey, children, value, violation 
 
   return (
     <div
-      style={{ position: 'relative', display: 'inline-block' }}
+      style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }}
       onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
+      onMouseLeave={() => { if (!pinned) setVisible(false) }}
       onFocus={() => setVisible(true)}
-      onBlur={() => setVisible(false)}
+      onBlur={() => { if (!pinned) setVisible(false) }}
+      onClick={(e) => { e.stopPropagation(); setPinned(v => { const next = !v; setVisible(next); return next }) }}
     >
       {children}
 
@@ -84,7 +86,7 @@ export default function MetricExplainer({ metricKey, children, value, violation 
             border: '1px solid rgba(208,176,102,0.18)',
             borderRadius: '2px',
             padding: '14px 16px',
-            pointerEvents: 'none',
+            pointerEvents: pinned ? 'auto' : 'none',
           }}
         >
           {/* ── Header row: metric name + current value ── */}

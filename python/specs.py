@@ -248,6 +248,23 @@ SPECS: dict[str, Spec] = {
             "https://aes.org/resources/audio-topics/loudness-project/loudness-normalization/",
         ],
     ),
+    "youtube_music": Spec(
+        id="youtube_music",
+        name="YouTube Music",
+        version="YouTube Music loudness normalization target",
+        published="2026-05-16",
+        revised=None,
+        targets={
+            "lufs_i": -7.0,
+            "tp_dbtp": -1.0,
+            "source_note": "YouTube Music uses a -7 LUFS threshold and does NOT normalize tracks quieter than -7 LUFS (attenuate-only, no boost). Distinct from the YouTube video platform (-14 LUFS).",
+        },
+        references=[
+            "https://productionadvice.co.uk/youtube-music/",
+            "https://apu.software/youtube-music-loudness/",
+        ],
+        provisional=True,
+    ),
     "tiktok": Spec(
         id="tiktok",
         name="TikTok",

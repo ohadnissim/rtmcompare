@@ -449,7 +449,8 @@ export default function App() {
       <div style={{ marginBottom: 4 }}>
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <div style={{ fontSize: 10, color: V.sand500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: 10, color: V.sand500, letterSpacing: '0.14em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}
+              title="Optional. Drop the pre-master mixes that correspond to your master tracks above. RTMprofile matches each mix to its master by song title, measures the processing delta per pair, and embeds a chain-delta fingerprint in the profile. RTMcompare uses this to show how much compression, EQ, and limiting your chain applies — not just what the final master sounds like.">
               Mix Files for Delta Analysis
               {chainMixFiles.length > 0 && (
                 <span style={{
@@ -507,7 +508,7 @@ export default function App() {
             }}
           >
             {chainMixFiles.length === 0 ? (
-              <div style={{ textAlign: 'center', color: V.sand500, fontSize: 11 }}>
+              <div style={{ color: V.sand500, fontSize: 11 }}>
                 Drop mix files here, or click to browse
               </div>
             ) : (() => {
@@ -672,7 +673,7 @@ export default function App() {
                 </div>
                 {result.chain_path && (
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 10, color: V.gold, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>Delta ⛓</span>
+                    <span style={{ fontSize: 10, color: V.gold, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>Delta</span>
                     <span className="mono" style={{ color: V.sand300, fontSize: 11, userSelect: 'text', wordBreak: 'break-all' }}>
                       {result.chain_path}
                     </span>
@@ -686,12 +687,12 @@ export default function App() {
               )}
               {chainMixFiles.length > 0 && !result.chain_path && (
                 <div style={{ color: V.sand400, fontSize: 12, marginTop: 4 }}>
-                  ⚠ No mix/master pairs could be matched — check that song titles overlap
+                  No mix/master pairs matched — check that song titles overlap
                 </div>
               )}
               {(result.partialCount ?? 0) > 0 && (
                 <div style={{ color: V.sand400, fontSize: 12, marginTop: 6 }}>
-                  ⚠ {result.partialCount} track{result.partialCount === 1 ? '' : 's'} analyzed partially (short or low-signal sections skipped)
+                  {result.partialCount} track{result.partialCount === 1 ? '' : 's'} analyzed partially (short or low-signal sections skipped)
                 </div>
               )}
               {result.python_resolution && (
@@ -728,7 +729,7 @@ export default function App() {
                       setShowCompareHint(true)
                     }
                   }}
-                  style={{ ...btnSecondary, borderColor: 'rgba(123,79,255,0.5)', color: 'var(--role-mastering)' }}
+                  style={btnSecondary}
                   className="no-drag"
                 >
                   Compare a Mix →
@@ -774,6 +775,11 @@ export default function App() {
                   Detail: {result.python_resolution}
                 </div>
               )}
+              <div style={{ marginTop: 10 }}>
+                <button onClick={onBuildAnother} style={btnSecondary} className="no-drag">
+                  Try again
+                </button>
+              </div>
             </>
           )}
         </div>

@@ -1216,15 +1216,27 @@ def _compute_chain_analysis_multi(
     """
     For each mix file, find its matching master in `master_paths`, compute the
     per-band spectral delta (master − mix), then aggregate across all pairs:
-      - eq_curve  : nanmedian of per-pair deltas (robust centre estimate)
-      - eq_mad    : per-band median absolute deviation (confidence measure;
-                    low = consistent chain, high = material-dependent)
-      - pairs     : list of {"mix", "master", "delta"} for transparency
-      - pair_count: number of successfully matched + measured pairs
+      - eq_curve        : nanmedian of per-pair deltas (robust centre estimate)
+      - eq_mad          : per-band median absolute deviation (low = consistent chain)
+      - lufs_delta_avg  : median LUFS lift the chain applies (negative = louder)
+      - lra_delta_avg   : median LRA compression in LU (negative = more compressed)
+      - peak_delta_avg  : median true-peak shift in dBTP
+      - crest_delta_avg : median crest-factor change in dB
+      - width_delta_avg : median stereo width change (0..1 scale)
+      - plr_delta_avg   : median PLR change in LU
+      - pairs           : list of {"mix", "master"} for transparency
+      - pair_count      : number of successfully matched + measured pairs
 
     Returns None if no pairs could be computed.
     """
     pairs_data: list[dict[str, Any]] = []
+    # Scalar delta collectors (master − mix) across all valid pairs
+    _lufs_deltas:  list[float] = []
+    _lra_deltas:   list[float] = []
+    _peak_deltas:  list[float] = []
+    _crest_deltas: list[float] = []
+    _width_deltas: list[float] = []
+    _plr_deltas:   list[float] = []
 
     for mix_p in mix_paths:
         matched_master = _match_mix_to_master(mix_p, master_paths)
@@ -1268,6 +1280,28 @@ def _compute_chain_analysis_multi(
                     "master": Path(matched_master).name,
                     "delta":  delta,
                 })
+                # Scalar chain-delta measurements (master − mix)
+                mix_lufs  = _lufs_integrated(mix_data, mix_sr)
+                mas_lufs  = _lufs_integrated(mas_data, mas_sr)
+                mix_lra   = _loudness_range(mix_data, mix_sr)
+                mas_lra   = _loudness_range(mas_data, mas_sr)
+                mix_peak  = _peak_dbtp(mix_data)
+                mas_peak  = _peak_dbtp(mas_data)
+                mix_crest = _crest_db(mix_data)
+                mas_crest = _crest_db(mas_data)
+                mix_width = _stereo_width(mix_data)
+                mas_width = _stereo_width(mas_data)
+                if math.isfinite(mix_lufs) and math.isfinite(mas_lufs):
+                    _lufs_deltas.append(mas_lufs - mix_lufs)
+                    if math.isfinite(mix_peak) and math.isfinite(mas_peak):
+                        _plr_deltas.append((mas_peak - mas_lufs) - (mix_peak - mix_lufs))
+                if math.isfinite(mix_lra) and math.isfinite(mas_lra) and mix_lra > 0:
+                    _lra_deltas.append(mas_lra - mix_lra)
+                if math.isfinite(mix_peak) and math.isfinite(mas_peak):
+                    _peak_deltas.append(mas_peak - mix_peak)
+                if math.isfinite(mix_crest) and math.isfinite(mas_crest):
+                    _crest_deltas.append(mas_crest - mix_crest)
+                _width_deltas.append(mas_width - mix_width)
         except Exception as e:
             sys.stderr.write(f"[chain] Error measuring pair for '{Path(mix_p).name}': {e}\n")
 
@@ -1294,7 +1328,23 @@ def _compute_chain_analysis_multi(
             eq_curve.append(None)
             eq_mad.append(None)
 
-    return {
+    # Aggregate scalar deltas: median + MAD across pairs.
+    def _scalar_agg(vals: list[float]) -> tuple[float | None, float | None]:
+        if not vals:
+            return None, None
+        arr = np.array(vals, dtype=float)
+        med = float(np.nanmedian(arr))
+        mad = float(np.nanmedian(np.abs(arr - med)))
+        return round(med, 2), round(mad, 2)
+
+    lra_med,   lra_mad   = _scalar_agg(_lra_deltas)
+    lufs_med,  lufs_mad  = _scalar_agg(_lufs_deltas)
+    peak_med,  peak_mad  = _scalar_agg(_peak_deltas)
+    crest_med, crest_mad = _scalar_agg(_crest_deltas)
+    width_med, width_mad = _scalar_agg(_width_deltas)
+    plr_med,   plr_mad   = _scalar_agg(_plr_deltas)
+
+    result: dict[str, Any] = {
         "type":       "multi_pair_spectral_diff",
         "label":      "Chain Analysis",
         "eq_curve":   eq_curve,
@@ -1307,6 +1357,28 @@ def _compute_chain_analysis_multi(
             "eq_mad = spread (low = consistent chain, high = material-dependent)."
         ),
     }
+
+    # Scalar chain-character fields — present only when at least one pair contributed.
+    if lufs_med is not None:
+        result["lufs_delta_avg"] = lufs_med
+        result["lufs_delta_mad"] = lufs_mad
+    if lra_med is not None:
+        result["lra_delta_avg"] = lra_med
+        result["lra_delta_mad"] = lra_mad
+    if peak_med is not None:
+        result["peak_delta_avg"] = peak_med
+        result["peak_delta_mad"] = peak_mad
+    if crest_med is not None:
+        result["crest_delta_avg"] = crest_med
+        result["crest_delta_mad"] = crest_mad
+    if width_med is not None:
+        result["width_delta_avg"] = width_med
+        result["width_delta_mad"] = width_mad
+    if plr_med is not None:
+        result["plr_delta_avg"] = plr_med
+        result["plr_delta_mad"] = plr_mad
+
+    return result
 
 
 def main() -> int:

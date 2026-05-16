@@ -339,6 +339,36 @@
 }
 
 @layer components {
+  /* ─── Tab panel fade-in ─────────────────────────────────────────
+     Triggered whenever a tab's root div mounts (React key-based remount
+     via ErrorBoundary key={activeTab}). 180 ms is long enough to feel
+     intentional, short enough to stay out of the way. TranslateY 4px →
+     0 gives a subtle lift that reads as "new content arriving", not a
+     page reload. Reduced-motion block below kills both. */
+  @keyframes tab-panel-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .tab-panel {
+    animation: tab-panel-in 180ms var(--easing-shell, cubic-bezier(0.32,0.72,0,1)) both;
+  }
+
+  /* ─── Global focus-visible ring ─────────────────────────────────
+     Extends the existing scoped ring to all interactive elements so
+     keyboard navigation is always visible without relying on the
+     browser default outline (which renders inconsistently across
+     macOS/Windows Electron). */
+  button:focus-visible,
+  a:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    outline-offset: 2px;
+    border-radius: var(--radius-card);
+  }
+
   /* ─── v5.2 shell focus ring ─────────────────────────────────────
      Per `.rtm-design/v5.2-shell-brief.md`: 2px outline using
      --color-accent at 50% opacity, offset 2px, only on :focus-visible.

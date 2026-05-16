@@ -19,9 +19,15 @@ Key specs checked:
 
 import numpy as np
 import soundfile as sf
-from scipy.signal import resample_poly
 
 from comparator import compute_lufs, bandpass
+
+try:
+    import soxr as _soxr_atmos
+    _ATMOS_HAVE_SOXR = True
+except ImportError:
+    from scipy.signal import resample_poly as _atmos_resample_poly
+    _ATMOS_HAVE_SOXR = False
 from adm_parser import get_channel_index, get_group_indices, CHANNEL_GROUPS
 
 ATMOS_REQUIRED_SR = 48000
@@ -51,12 +57,15 @@ SPECS = {
 
 # ─── Measurement helpers ─────────────────────────────────────────────────────
 
-def _true_peak_db(signal, oversample=4):
-    """Compute true peak in dBTP using oversampling."""
+def _true_peak_db(signal, sr: int = ATMOS_REQUIRED_SR, oversample=4):
+    """Compute true peak in dBTP using 4× oversampling per BS.1770-4 Annex 2.
+    Uses soxr HQ when available (±0.02 dBTP); falls back to resample_poly."""
     if len(signal) == 0:
         return -200.0
-    # Oversample for inter-sample peak detection
-    up = resample_poly(signal, oversample, 1)
+    if _ATMOS_HAVE_SOXR:
+        up = _soxr_atmos.resample(signal.astype(np.float64), sr, sr * oversample, quality='HQ')
+    else:
+        up = _atmos_resample_poly(signal, oversample, 1)
     peak = float(np.max(np.abs(up)))
     if peak < 1e-10:
         return -200.0

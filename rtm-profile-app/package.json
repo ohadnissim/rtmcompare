@@ -1,6 +1,6 @@
 {
   "name": "rtmprofile",
-  "version": "1.5.0",
+  "version": "8.1.0",
   "description": "Build a custom engineer profile from a corpus of audio. Loads into RTMcompare's Match tab.",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -19,8 +19,18 @@
       "category": "public.app-category.music",
       "icon": "build/icon.icns",
       "target": [
-        { "target": "dmg", "arch": ["arm64"] },
-        { "target": "dmg", "arch": ["x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,

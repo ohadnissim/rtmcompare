@@ -31,10 +31,6 @@ interface Props {
  fileA: FileInfo
  fileB: FileInfo
  gainAppliedDb: number
- stems?: {
- a: Record<string, string>
- b: Record<string, string>
- }
  /** Optional 31-band 1/3-octave spectrum of the currently-selected
  * reference (from Reference Match / library). Rendered as a gold
  * curve above the waveform so the engineer can scrub the master
@@ -46,7 +42,7 @@ interface Props {
  referenceLabel?: string
 }
 
-export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, referenceCurve, currentCurve, referenceLabel }: Props) {
+export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, currentCurve, referenceLabel }: Props) {
  // Blind test state lives in the player itself, not in the data view.
  const { blind: blindMode } = useModes()
  // Live EQ. Bands land here from EngineerTipsPanel / ReferenceMatchEQPanel
@@ -92,11 +88,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  const [waveformA, setWaveformA] = useState<number[]>([])
  const [waveformB, setWaveformB] = useState<number[]>([])
 
- // Stems, Mono & Loop state
- const [playerMode, setPlayerMode] = useState<'mix' | 'stems'>('mix')
- const [activeStem, setActiveStem] = useState<string>('vocals')
- const [stemsLoaded, setStemsLoaded] = useState(false)
- const [stemsLoading, setStemsLoading] = useState(false)
+ // Mono & Loop state
  const [monoMode, setMonoMode] = useState(false)
 
  // Unified LISTEN MODE — stereo / mono / mid / side / phone.
@@ -122,40 +114,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // that frequency. See SoloContext.tsx for the design rationale.
  const soloFilterRef = useRef<BiquadFilterNode | null>(null)
  const soloEngagedRef = useRef<boolean>(false)
+ // Brick-wall limiter (DynamicsCompressor: threshold -0.3 dBFS, ratio 20:1)
+ // placed between eqOut and tpAnalyser so EQ boosts can't clip the output.
+ // Transparent during bypass (unity gain at normal levels). Solo re-routes
+ // through this node too so the chain length stays consistent.
+ const eqLimiterRef = useRef<DynamicsCompressorNode | null>(null)
  const { soloBand, soloQ } = useSolo()
 
- // Use refs for stem buffers to avoid stale closure issues
- const stemBuffersARef = useRef<Record<string, AudioBuffer>>({})
- const stemBuffersBRef = useRef<Record<string, AudioBuffer>>({})
- // Drag-and-drop stems — " We
- // accept files named like vocals.wav / drums.wav / bass.wav /
- // other.wav (case-insensitive) and route them into the active side
- // (A or B based on activeFile). A decoded stem stays in the ref
- // dictionary the normal playback path reads from.
- const [stemDragging, setStemDragging] = useState<'A' | 'B' | null>(null)
- const [stemDropMsg, setStemDropMsg] = useState<string | null>(null)
- // Auto-dismiss stem-drop confirmations after 6 s so the green "✓ Loaded
- // N stems" line doesn't pin the transport area open after the user has
- // already moved on to actually listening to them.
- useEffect(() => {
- if (!stemDropMsg) return
- const t = setTimeout(() => setStemDropMsg(null), 6000)
- return () => clearTimeout(t)
- }, [stemDropMsg])
- const [stemWaveformsA, setStemWaveformsA] = useState<Record<string, number[]>>({})
- /**
- * Per-stem TP + loudness telemetry. 
- *
- * Both metrics computed client-side from the decoded AudioBuffer —
- * zero backend dependency, runs in O(n) over the buffer at stem-load
- * time. TP is 4× linearly-upsampled; loudness is an RMS-based
- * approximation (not full BS.1770 K-weighting) so we label it
- * honestly as "Loud" rather than "LUFS".
- */
- const [stemMetrics, setStemMetrics] = useState<Record<string, { tpA: number; tpB: number; loudA: number; loudB: number }>>({})
- const [stemWaveformsB, setStemWaveformsB] = useState<Record<string, number[]>>({})
- const playerModeRef = useRef<'mix' | 'stems'>('mix')
- const activeStemRef = useRef<string>('vocals')
  const effectiveDurationRef = useRef<number>(0)
  const loopEnabledRef = useRef(false)
  const loopStartRef = useRef<number | null>(null)
@@ -300,7 +265,19 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  soloFilter.Q.value = 8
  soloFilterRef.current = soloFilter
  soloEngagedRef.current = false
- eqOut.connect(tpAnalyser)
+ // Limiter sits permanently between eqOut and tpAnalyser so EQ boosts
+ // can't push the signal into digital clipping. Threshold at -0.3 dBFS,
+ // ratio 20:1 = brick-wall for practical purposes. Transparent at normal
+ // levels. Solo re-wires eqOut → soloFilter → limiter (keeping limiter).
+ const eqLimiter = ctx.createDynamicsCompressor()
+ eqLimiter.threshold.value = -0.3
+ eqLimiter.knee.value = 0
+ eqLimiter.ratio.value = 20
+ eqLimiter.attack.value = 0.001
+ eqLimiter.release.value = 0.1
+ eqLimiterRef.current = eqLimiter
+ eqOut.connect(eqLimiter)
+ eqLimiter.connect(tpAnalyser)
  tpAnalyser.connect(ctx.destination)
  tpAnalyserRef.current = tpAnalyser
  // Allocate over a plain ArrayBuffer explicitly so the Float32Array
@@ -335,62 +312,6 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  setIsLoading(false)
  }
  }, [fileA, fileB, gainAppliedDb])
-
- // Load stem audio files
- const loadStems = useCallback(async () => {
- if (!stems || !audioCtxRef.current || !window.electronAPI?.readAudioFile) return
- setStemsLoading(true)
- try {
- const ctx = audioCtxRef.current
- const stemNames = Object.keys(stems.a)
-
- // Load all stems in parallel — previously serial awaits per stem meant
- // 8 sequential IPC round-trips. Promise.all fires all reads at once so
- // the total wait is bounded by the slowest single stem, not their sum.
- const [arraysA, arraysB] = await Promise.all([
- Promise.all(stemNames.map(name => window.electronAPI!.readAudioFile(stems.a[name]))),
- Promise.all(stemNames.map(name => window.electronAPI!.readAudioFile(stems.b[name]))),
- ])
- const [decodedA, decodedB] = await Promise.all([
- Promise.all(arraysA.map(arr => ctx.decodeAudioData(arr.slice(0)))),
- Promise.all(arraysB.map(arr => ctx.decodeAudioData(arr.slice(0)))),
- ])
-
- const bufsA: Record<string, AudioBuffer> = {}
- const bufsB: Record<string, AudioBuffer> = {}
- for (let i = 0; i < stemNames.length; i++) {
- bufsA[stemNames[i]] = decodedA[i]
- bufsB[stemNames[i]] = decodedB[i]
- }
-
- stemBuffersARef.current = bufsA
- stemBuffersBRef.current = bufsB
-
- // Generate waveforms + per-stem TP / loudness for each stem.
- // Computed in the same pass as waveform extraction so the stem
- // selector renders with full telemetry on first paint.
- const wfA: Record<string, number[]> = {}
- const wfB: Record<string, number[]> = {}
- const metrics: Record<string, { tpA: number; tpB: number; loudA: number; loudB: number }> = {}
- for (const name of Object.keys(bufsA)) {
- wfA[name] = extractWaveform(bufsA[name], 200)
- wfB[name] = extractWaveform(bufsB[name], 200)
- metrics[name] = {
- tpA: computeTruePeakDbtp(bufsA[name]),
- tpB: computeTruePeakDbtp(bufsB[name]),
- loudA: computeLoudnessDb(bufsA[name]),
- loudB: computeLoudnessDb(bufsB[name]),
- }
- }
- setStemWaveformsA(wfA)
- setStemWaveformsB(wfB)
- setStemMetrics(metrics)
- setStemsLoaded(true)
- } catch (err) {
- console.error('Failed to load stems:', err)
- }
- setStemsLoading(false)
- }, [stems])
 
  // ── Unified listen-mode processing chain ──────────────────────────────
  // stereo: pass-through
@@ -524,25 +445,26 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // built; the initial routing in the ctx-build path always starts
  // bypassed so coming back out of solo is fine.
  useEffect(() => {
+   const ctx = audioCtxRef.current
    const eqOut = eqOutputRef.current
-   const tpA = tpAnalyserRef.current
+   const lim = eqLimiterRef.current
    const filt = soloFilterRef.current
-   if (!eqOut || !tpA || !filt) return
+   if (!eqOut || !lim || !filt) return
 
    if (soloBand != null) {
-     // Update params first so we don't pop on re-engage.
-     filt.frequency.setTargetAtTime(soloBand, 0, 0.005)
-     filt.Q.setTargetAtTime(soloQ, 0, 0.005)
+     const t = ctx?.currentTime ?? 0
+     filt.frequency.setTargetAtTime(soloBand, t, 0.005)
+     filt.Q.setTargetAtTime(soloQ, t, 0.005)
      if (!soloEngagedRef.current) {
-       try { eqOut.disconnect(tpA) } catch {}
+       try { eqOut.disconnect(lim) } catch {}
        eqOut.connect(filt)
-       filt.connect(tpA)
+       filt.connect(lim)
        soloEngagedRef.current = true
      }
    } else if (soloEngagedRef.current) {
      try { eqOut.disconnect(filt) } catch {}
-     try { filt.disconnect(tpA) } catch {}
-     eqOut.connect(tpA)
+     try { filt.disconnect(lim) } catch {}
+     eqOut.connect(lim)
      soloEngagedRef.current = false
    }
  }, [soloBand, soloQ, isLoaded])
@@ -587,17 +509,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // Get the correct buffer — uses refs, no stale closures.
  // In blind mode the mapping is shuffled so the UI "A" button may play the
  // audio that lives in bufferBRef, and vice versa.
- const getBuffer = (file: 'A' | 'B', mode: 'mix' | 'stems', stem: string): AudioBuffer | null => {
+ const getBuffer = (file: 'A' | 'B'): AudioBuffer | null => {
  const physical = resolveBlindFile(file)
- if (mode === 'stems') {
- const stemBufs = physical === 'A' ? stemBuffersARef.current : stemBuffersBRef.current
- if (stemBufs[stem]) return stemBufs[stem]
- }
  return physical === 'A' ? bufferARef.current : bufferBRef.current
  }
 
  // Start playback from a given time
- const startPlayback = useCallback((fromTime: number, overrideMode?: 'mix' | 'stems', overrideStem?: string) => {
+ const startPlayback = useCallback((fromTime: number) => {
  if (!audioCtxRef.current || !bufferARef.current || !bufferBRef.current) return
 
  const ctx = audioCtxRef.current
@@ -605,9 +523,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
 
  sourceRef.current?.stop()
 
- const mode = overrideMode || playerModeRef.current
- const stem = overrideStem || activeStemRef.current
- const buffer = getBuffer(activeFile, mode, stem)
+ const buffer = getBuffer(activeFile)
  if (!buffer) return
 
  const source = ctx.createBufferSource()
@@ -742,8 +658,7 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
 
  sourceRef.current?.stop()
 
- // Use correct buffer (stem or mix) for the new file
- const buffer = getBuffer(file, playerModeRef.current, activeStemRef.current)
+ const buffer = getBuffer(file)
  if (!buffer) return
 
  const source = ctx.createBufferSource()
@@ -834,24 +749,6 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  loadFiles()
  }
  }, [loadFiles]) // eslint-disable-line react-hooks/exhaustive-deps
-
- // Reset stems mode when the loaded files change — prevents solo/stem state
- // from bleeding into a different track after batch navigation.
- useEffect(() => {
- setPlayerMode('mix')
- playerModeRef.current = 'mix'
- setStemsLoaded(false)
- setStemsLoading(false)
- // Clear stale stem buffers and waveforms so the previous track's audio
- // can't bleed into the new one if the user re-engages stems mode quickly.
- stemBuffersARef.current = {}
- stemBuffersBRef.current = {}
- setStemWaveformsA({})
- setStemWaveformsB({})
- setStemMetrics({})
- // Keep activeStem so the user's last stem choice is remembered for the
- // new track once they re-engage stems mode, but exit stems mode itself.
- }, [fileA.path, fileB.path]) // eslint-disable-line react-hooks/exhaustive-deps
 
  // Keyboard shortcuts
  useEffect(() => {
@@ -1011,28 +908,16 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
  // In blind mode we hide the actual filenames and show neutral labels.
  const labelA = blindMode ? '?' : realLabelA
  const labelB = blindMode ? '?' : realLabelB
- // Effective duration — stems are shorter than full mix
- const effectiveDuration = (() => {
- if (playerMode === 'stems' && stemsLoaded) {
- const buf = getBuffer(activeFile, 'stems', activeStem)
- return buf ? buf.duration : duration
- }
- return duration
- })()
+ const effectiveDuration = duration
 
  effectiveDurationRef.current = effectiveDuration
  const progress = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0
  const loopStartPct = loopStart !== null && effectiveDuration > 0 ? (loopStart / effectiveDuration) * 100 : null
  const loopEndPct = loopEnd !== null && effectiveDuration > 0 ? (loopEnd / effectiveDuration) * 100 : null
 
- // Current waveform and color based on mode
- const isStems = playerMode === 'stems' && stemsLoaded
- const currentWaveform = isStems
- ? ((activeFile === 'A' ? stemWaveformsA : stemWaveformsB)[activeStem] || (activeFile === 'A' ? waveformA : waveformB))
- : (activeFile === 'A' ? waveformA : waveformB)
- const currentBarColor = isStems
- ? (activeStem === 'drums' ? 'var(--color-danger)' : activeStem === 'bass' ? 'var(--color-data-a)' : activeStem === 'vocals' ? 'var(--color-data-warn)' : 'var(--color-slate-blue)')
- : (activeFile === 'A' ? 'var(--color-data-a)' : 'var(--color-data-warn)')
+ // Current waveform and color based on active file
+ const currentWaveform = activeFile === 'A' ? waveformA : waveformB
+ const currentBarColor = activeFile === 'A' ? 'var(--color-data-a)' : 'var(--color-data-warn)'
 
  return (
  <div ref={playerRef} className="bg-dark-900 p-6 border border-dark-700/50 space-y-4" style={{ borderRadius: '2px' }}>
@@ -1096,175 +981,6 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, stems, reference
 
  {isLoaded && (
  <>
- {/* Mix / Stems tabs */}
- {stems && (
- <div className="flex gap-1 p-0.5" style={{ borderRadius: '2px', backgroundColor: 'rgba(51,48,44,0.3)' }}>
- <button
- onClick={() => {
- setPlayerMode('mix')
- playerModeRef.current = 'mix'
- if (isPlaying && audioCtxRef.current) {
- const pos = audioCtxRef.current.currentTime - startTimeRef.current
- startPlayback(pos, 'mix', activeStemRef.current)
- }
- }}
- className="px-4 py-1.5 text-xs transition-all"
- style={{
-  borderRadius: '2px',
- backgroundColor: playerMode === 'mix' ? 'rgba(224,122,79,0.15)' : 'transparent',
- color: playerMode === 'mix' ? 'var(--color-data-warn)' : 'var(--color-text-muted)',
- fontWeight: playerMode === 'mix' ? 500 : 400,
- }}
- >
- Full Mix
- </button>
- <button
- onClick={() => {
- setPlayerMode('stems')
- playerModeRef.current = 'stems'
- if (!stemsLoaded && !stemsLoading) loadStems()
- else if (isPlaying && audioCtxRef.current && stemsLoaded) {
- const pos = audioCtxRef.current.currentTime - startTimeRef.current
- startPlayback(pos, 'stems', activeStemRef.current)
- }
- }}
- className="px-4 py-1.5 text-xs transition-all"
- style={{
-  borderRadius: '2px',
- backgroundColor: playerMode === 'stems' ? 'rgba(224,122,79,0.15)' : 'transparent',
- color: playerMode === 'stems' ? 'var(--color-data-warn)' : 'var(--color-text-muted)',
- fontWeight: playerMode === 'stems' ? 500 : 400,
- }}
- >
- Stems {stemsLoading ? '...' : ''}
- </button>
- </div>
- )}
-
- {/* Stem selector + ad-hoc drop target */}
- {playerMode === 'stems' && (
- <div className="space-y-2">
- {stemsLoaded && (
- <div className="flex gap-1.5 flex-wrap">
- {Object.keys(stemBuffersARef.current).map(name => {
- const m = stemMetrics[name]
- // Per-stem TP + Loud readout. Highest-TP stem is flagged
- // so the TP offender on a summed master is findable at a glance.
- const tp = m ? (activeFile === 'A' ? m.tpA : m.tpB) : null
- const loud = m ? (activeFile === 'A' ? m.loudA : m.loudB) : null
- const allTps = Object.values(stemMetrics).map(x => activeFile === 'A' ? x.tpA : x.tpB).filter(v => Number.isFinite(v))
- const maxTp = allTps.length ? Math.max(...allTps) : null
- const isTpOffender = m != null && maxTp != null && (activeFile === 'A' ? m.tpA : m.tpB) === maxTp && maxTp > -3
- // TP "over" warning disabled by user direction — show numbers only.
- const tpOver = false
- void (tp != null && tp > -1.0)
- return (
- <button
- key={name}
- onClick={() => {
- setActiveStem(name)
- activeStemRef.current = name
- if (isPlaying && audioCtxRef.current) {
- const pos = audioCtxRef.current.currentTime - startTimeRef.current
- startPlayback(pos, 'stems', name)
- }
- }}
- className="px-3 py-1.5 text-[11px] capitalize transition-all flex flex-col items-start gap-0.5"
- style={{
- borderRadius: '2px',
- backgroundColor: activeStem === name ? stemColor(name, 0.2) : 'rgba(51,48,44,0.3)',
- color: activeStem === name ? stemColor(name, 1) : 'var(--color-text-muted)',
- border: activeStem === name ? `1px solid ${stemColor(name, 0.4)}` : '1px solid transparent',
- fontWeight: activeStem === name ? 500 : 400,
- }}
- title={m && tp != null && loud != null && isFinite(tp) && isFinite(loud)
- ? `${name} · ${activeFile}: TP ${tp.toFixed(1)} dBTP · Loud ${loud.toFixed(1)} dBFS${isTpOffender ? ' · highest TP of the loaded stems' : ''}. TP is 4× oversampled (~0.5 dB accurate); Loud is broadband RMS, not strict LUFS.`
- : name}
- >
- <span>{name}</span>
- {m && tp != null && loud != null && (
- <span
- className="font-mono text-[8px] tracking-tight"
- style={{
- color: tpOver ? 'var(--color-danger)' : isTpOffender ? 'var(--color-accent)' : 'var(--color-text-muted)',
- opacity: 0.9,
- }}
- >
- {/* ≈ prefix flags Loud as an approximation (broadband RMS). */}
- {tp.toFixed(1)} · ≈{loud.toFixed(1)}
- </span>
- )}
- </button>
- )
- })}
- </div>
- )}
- {/* Ad-hoc stem drop rail — drop 1-4 WAVs named
- vocals/drums/bass/other.wav into A or B without any
- folder-pattern gymnastics. */}
- <div className="grid grid-cols-2 gap-2">
- {(['A', 'B'] as const).map(side => (
- <div
- key={side}
- onDragOver={e => { e.preventDefault(); setStemDragging(side) }}
- onDragLeave={() => setStemDragging(null)}
- onDrop={async e => {
- e.preventDefault()
- setStemDragging(null)
- const files = Array.from(e.dataTransfer.files || [])
- if (files.length === 0) return
- const ctx = audioCtxRef.current
- if (!ctx || !window.electronAPI?.readAudioFile) {
- setStemDropMsg('Player not ready — wait for audio load.')
- return
- }
- const target = side === 'A' ? stemBuffersARef.current : stemBuffersBRef.current
- const wfTarget: Record<string, number[]> = side === 'A' ? { ...stemWaveformsA } : { ...stemWaveformsB }
- let loaded = 0
- for (const f of files) {
- const nameLower = f.name.toLowerCase()
- let stemName = 'other'
- if (nameLower.includes('vocal') || nameLower.includes('vox')) stemName = 'vocals'
- else if (nameLower.includes('drum') || nameLower.includes('beat')) stemName = 'drums'
- else if (nameLower.includes('bass')) stemName = 'bass'
- else if (nameLower.includes('other') || nameLower.includes('melody') || nameLower.includes('synth')) stemName = 'other'
- // Electron 32+: File.path is undefined; use webUtils.getPathForFile()
- // to resolve the path. Works on macOS (forward-slash) and Windows (backslash).
- const path = window.electronAPI?.getPathForFile?.(f) || (f as any).path
- if (!path) continue
- try {
- const ab = await window.electronAPI.readAudioFile(path)
- const buf = await ctx.decodeAudioData(ab.slice(0))
- target[stemName] = buf
- wfTarget[stemName] = extractWaveform(buf, 200)
- loaded++
- } catch (err) {
- console.error('stem decode failed:', err)
- }
- }
- if (side === 'A') setStemWaveformsA(wfTarget)
- else setStemWaveformsB(wfTarget)
- setStemsLoaded(true)
- setStemDropMsg(`Loaded ${loaded} stem${loaded === 1 ? '' : 's'} into ${side}.`)
- }}
- className="px-3 py-2 text-[10px] text-center transition-colors"
- style={{
- borderRadius: '2px',
- border: `1px dashed ${stemDragging === side ? 'rgba(208,176,102,0.5)' : 'rgba(168,161,150,0.2)'}`,
- backgroundColor: stemDragging === side ? 'rgba(208,176,102,0.08)' : 'rgba(30,28,24,0.3)',
- color: stemDragging === side ? 'var(--color-accent)' : 'var(--color-text-muted)',
- }}
- >
- Drop stems into {side}: vocals / drums / bass / other
- </div>
- ))}
- </div>
- {stemDropMsg && (
- <p className="text-[10px] text-center" style={{ color: 'var(--color-data-pass)' }}>✓ {stemDropMsg}</p>
- )}
- </div>
- )}
-
  {/* Blind-test control bar — shuffle, guess, score */}
  {blindMode && (
  <div className="p-3 space-y-2" style={{ borderRadius: '2px', backgroundColor: 'rgba(208,176,102,0.08)', border: '1px solid rgba(208,176,102,0.25)' }}>
@@ -1674,16 +1390,6 @@ function InlineRefCurve({ referenceCurve, currentCurve, referenceLabel }: {
  )
 }
 
-function stemColor(name: string, alpha: number): string {
- const colors: Record<string, string> = {
- vocals: `rgba(224,122,79,${alpha})`,
- drums: `rgba(224,90,90,${alpha})`,
- bass: `rgba(107,140,187,${alpha})`,
- other: `rgba(168,85,247,${alpha})`,
- }
- return colors[name] || `rgba(168,162,158,${alpha})`
-}
-
 function extractWaveform(buffer: AudioBuffer, bars: number): number[] {
  const data = buffer.getChannelData(0)
  const blockSize = Math.max(1, Math.floor(data.length / bars))
@@ -1700,75 +1406,6 @@ function extractWaveform(buffer: AudioBuffer, bars: number): number[] {
 
  const max = Math.max(...waveform, 0.01)
  return waveform.map(v => v / max)
-}
-
-/**
- * Approximate true-peak in dBTP via 4× linear-interpolation oversampling.
- *
- * This is the "naive oversample" method — accurate to roughly 0.5 dB
- * against a proper sinc-interpolated TP meter, which is plenty for
- * per-stem triage ("which stem is responsible for the master's TP
- * over?"). For certification-grade TP measurement the Python backend's
- * BS.1770 implementation remains authoritative; this client-side helper
- * exists purely to surface a fast per-stem read in the ABPlayer UI.
- *
- * Inputs: a decoded AudioBuffer (mono or multi-channel). Examines all
- * channels and returns the highest peak.
- */
-function computeTruePeakDbtp(buffer: AudioBuffer): number {
- let maxPeak = 0
- for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
- const data = buffer.getChannelData(ch)
- // Scan raw samples for the initial peak (most masters peak here)
- for (let i = 0; i < data.length; i++) {
- const a = Math.abs(data[i])
- if (a > maxPeak) maxPeak = a
- }
- // 4× linear-interpolated oversample pass to catch inter-sample
- // peaks that lie between two adjacent samples.
- for (let i = 0; i < data.length - 1; i++) {
- const s0 = data[i], s1 = data[i + 1]
- for (let k = 1; k < 4; k++) {
- const t = k / 4
- const s = s0 * (1 - t) + s1 * t
- const a = Math.abs(s)
- if (a > maxPeak) maxPeak = a
- }
- }
- }
- if (maxPeak <= 1e-7) return -Infinity
- return 20 * Math.log10(maxPeak)
-}
-
-/**
- * Approximate integrated loudness in dBFS (not strict LUFS).
- *
- * We compute RMS over the whole buffer and express it in dBFS. This
- * is NOT BS.1770 K-weighted (no pre-filter, no gating), so we
- * intentionally label the UI column "Loud" rather than "LUFS" to
- * avoid mis-selling precision we don't have. For stem-level triage
- * (relative comparison: "vocals are 3 dB hotter than drums") this
- * tracks within ~1 dB of true LUFS for typical material.
- *
- * The backend provides real K-weighted LUFS on the summed master —
- * that's the certification read. This helper exists only to make the
- * ABPlayer stem selector informative in real time.
- */
-function computeLoudnessDb(buffer: AudioBuffer): number {
- let sumSq = 0
- let n = 0
- for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
- const data = buffer.getChannelData(ch)
- for (let i = 0; i < data.length; i++) {
- const v = data[i]
- sumSq += v * v
- }
- n += data.length
- }
- if (n === 0) return -Infinity
- const rms = Math.sqrt(sumSq / n)
- if (rms <= 1e-7) return -Infinity
- return 20 * Math.log10(rms)
 }
 
 // Legacy second-precision formatter kept for any internal call sites that

@@ -119,101 +119,19 @@ export default function SongDetailPanel({
  song, displayName, playingPath, progress, onPlayToggle, onSeek, onPlayAt, note, onNoteChange, onAnalysisChange, onPrev, onNext, indexInList, totalInList, compareTargets, compareTargetPath: compareTargetPathProp, onCompareTargetChange, onAddReference, uploadingReference, addReferenceError, onClearAddReferenceError, isReferenceFavorited, onToggleFavorite, onExternalStop, onClose,
 }: Props) {
  const [full, setFull] = useState<AnalysisResult | null>(null)
- const [loading, setLoading] = useState(false)
- const [error, setError] = useState<string | null>(null)
- // Elapsed-time driven progress %. Backend doesn't emit a numeric
- // progress for analyzeFiles, so we estimate — typical single-song
- // deep-analysis lands in ~15–25 s. Capped at 95 so 100 % only shows at
- // actual completion. 1 Hz tick via state so the bar animates.
- const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null)
- const [analysisMsg, setAnalysisMsg] = useState<string>('Queued…')
- const [tick, setTick] = useState(0)
- useEffect(() => {
- if (!loading) return
- const id = setInterval(() => setTick(t => t + 1), 1000)
- return () => clearInterval(id)
- }, [loading])
- const expectedSec = 20
- const elapsedSec = analysisStartedAt ? Math.round((Date.now() - analysisStartedAt) / 1000) : 0
- const progressPct = loading ? Math.min(95, Math.round((elapsedSec / expectedSec) * 100)) : 100
- // `tick` is read here so React re-renders every second while loading.
- void tick
 
- // Lazy-load the deep single-file analysis when the panel mounts (i.e.
- // when the user opens this song's tab). Cached by path on the window
- // so re-opening is instant within a session.
  // On mount (or song-path change): hydrate `full` from the shared
- // cache if we've already analysed this song. We do NOT kick off an
- // analysis automatically anymore — users asked for an explicit
- // button to control when the expensive deep pass runs. Instead, we
- // render a "Run deep analysis" CTA where the progress bar used to
- // live; the user clicks it when they want the full panel suite.
+ // cache if we've already analysed this song.
  useEffect(() => {
  const cache: Map<string, AnalysisResult> = (window as any).__rtmSongCache ||= new Map()
  if (cache.has(song.path)) {
  setFull(cache.get(song.path)!)
  onAnalysisChange?.({ state: 'done' })
  } else {
- setFull(null) // fresh tab or cache miss — wait for the user
+ setFull(null)
  }
- // Clean stale-panel state when the song changes.
- setError(null)
- setLoading(false)
- setAnalysisStartedAt(null)
- setAnalysisMsg('')
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [song.path])
-
- // Explicit user trigger — called by the "Run deep analysis" button.
- // Safe to call multiple times: if already loading or already cached,
- // it short-circuits.
- const runDeepAnalysis = useCallback(async () => {
- if (loading) return
- if (!window.electronAPI?.analyzeFiles) return
- const cache: Map<string, AnalysisResult> = (window as any).__rtmSongCache ||= new Map()
- if (cache.has(song.path)) {
- setFull(cache.get(song.path)!)
- onAnalysisChange?.({ state: 'done' })
- return
- }
- setLoading(true)
- setError(null)
- const startedAt = Date.now()
- setAnalysisStartedAt(startedAt)
- setAnalysisMsg('Starting deep analysis…')
- onAnalysisChange?.({ state: 'running', startedAt, message: 'Starting deep analysis…' })
- // Progress stream — phase messages ("Detecting clicks", etc).
- // onProgress returns an unsubscribe function; without calling it, every
- // deep-analysis run from a SongDetailPanel would leave a dead listener
- // on ipcRenderer, stacking up as the user clicks through songs.
- let cancelled = false
- let unsubProgress: (() => void) | void = undefined
- if (window.electronAPI?.onProgress) {
- try {
- unsubProgress = window.electronAPI.onProgress((msg: string) => {
- if (cancelled) return
- setAnalysisMsg(msg)
- onAnalysisChange?.({ state: 'running', startedAt, message: msg })
- }) || undefined
- } catch {}
- }
- try {
- const result = await window.electronAPI.analyzeFiles(song.path, song.path, true, '')
- // Cache + report regardless of mount state so re-opening is instant.
- cache.set(song.path, result)
- onAnalysisChange?.({ state: 'done' })
- setFull(result)
- } catch (err: any) {
- onAnalysisChange?.({ state: 'error', message: err?.message })
- setError(err?.message || 'Deep analysis failed')
- } finally {
- cancelled = true
- try { unsubProgress?.() } catch {}
- setLoading(false)
- }
- // onAnalysisChange intentionally omitted — parent closure churns.
- // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [song.path, loading])
 
  // ClickTimeline dispatches `rtm-seek` CustomEvent when a row is clicked.
  // ABPlayer already handles this in A/B compare mode; in batch mode the
@@ -460,86 +378,6 @@ export default function SongDetailPanel({
  Close
  </button>
  </div>
-
- {/* Deep-analysis gate.
- • Not yet run → a "Run deep analysis" CTA. Users asked to
- control this explicitly — auto-running on every tab open
- ate time when they only wanted to glance at the metrics.
- • Running → amber progress strip with elapsed seconds
- + latest phase message from the backend (onProgress).
- • Done → hidden (the panels below render instead). */}
- {!full && !loading && !error && (
- <div
- className="px-4 py-4 flex items-center justify-between gap-4 flex-wrap"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(30,28,24,0.5)', border: '1px solid rgba(168,161,150,0.15)' }}
- >
- <div className="flex-1 min-w-[16rem]">
- <div className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>
- Deep analysis
- </div>
- <div className="text-[12px] mt-1" style={{ color: 'var(--color-sand-300)' }}>
- Adds clicks · distortion · hum · phase bands · key / BPM / harmonics · streaming normalisation preview · loudness-over-time. ~15–25 s per track.
- </div>
- </div>
- <button
- onClick={runDeepAnalysis}
- className="text-[11px] px-4 py-2 transition-colors hover:bg-white/[0.03]"
- style={{ borderRadius: '2px', color: 'var(--color-accent)', border: '1px solid rgba(208,176,102,0.4)' }}
- title="Run the full single-file deep analysis for this song. Result is cached for the rest of the session."
- >
- Run deep analysis
- </button>
- </div>
- )}
-
- {loading && (
- <div
- className="px-4 py-3"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(197,165,90,0.08)', border: '1px solid rgba(197,165,90,0.25)' }}
- role="progressbar"
- aria-valuenow={progressPct}
- aria-valuemin={0}
- aria-valuemax={100}
- aria-label="Deep analysis progress"
- >
- <div className="flex items-center justify-between mb-2">
- <div className="flex items-center gap-2">
- <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--color-accent)' }} />
- <span className="text-[10px] uppercase tracking-[0.16em]" style={{ color: 'var(--color-accent)' }}>
- Deep analysis running
- </span>
- </div>
- <span className="font-mono text-[11px]" style={{ color: 'var(--color-accent)' }}>
- {progressPct}% · {elapsedSec}s
- </span>
- </div>
- <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(197,165,90,0.15)' }}>
- <div
- className="h-full transition-[width] duration-1000 ease-linear"
- style={{ width: `${progressPct}%`, backgroundColor: 'var(--color-accent)' }}
- />
- </div>
- <div className="mt-2 text-[10px] font-display italic" style={{ color: 'var(--color-sand-300)' }}>
- {analysisMsg || 'Working…'}
- </div>
- </div>
- )}
-
- {error && !loading && (
- <div
- className="px-4 py-3 flex items-center justify-between gap-3"
- style={{ borderRadius: '2px', backgroundColor: 'rgba(224,90,90,0.08)', border: '1px solid rgba(224,90,90,0.25)' }}
- >
- <span className="text-[11px]" style={{ color: 'var(--color-danger)' }}>⚠ Deep analysis failed — {error}</span>
- <button
- onClick={runDeepAnalysis}
- className="text-[10px] px-3 py-1"
- style={{ borderRadius: '2px', color: 'var(--color-danger)', border: '1px solid rgba(224,90,90,0.4)' }}
- >
- Try again
- </button>
- </div>
- )}
 
  {/* Triage Mode toggle + DSP profile picker. QC / label-ops users
  flip on triage, optionally pick a platform (Apple / Spotify /
@@ -940,11 +778,6 @@ export default function SongDetailPanel({
  </CollapsibleSection>
  )}
 
- {error && (
- <div className="text-[11px] font-display italic" style={{ color: 'var(--color-danger)' }}>
- Deep analysis failed — {error}. Basic metrics shown above.
- </div>
- )}
  </div>
  )
 }

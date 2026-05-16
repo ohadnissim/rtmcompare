@@ -106,6 +106,10 @@ if (typeof window !== 'undefined' && !(window as any).electronAPI) {
 
  // ── Share as HTML ────────────────────────────────────────────────────
  shareAsHtml: () => ok({ success: false }),
+
+ // ── Ozone preset bridge ──────────────────────────────────────────────
+ ozoneDetect: () => ok({ found: false, installations: [] as { name: string; version: string }[] }),
+ ozoneInstallPreset: () => ok({ ok: false, results: [], error: 'shim' } as any),
  }
 
  // ── Dev test hook ──────────────────────────────────────────────────────

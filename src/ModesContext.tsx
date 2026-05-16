@@ -49,15 +49,8 @@ export function ModesProvider({ children }: { children: React.ReactNode }) {
  const [blind, setBlind] = useState<boolean>(() => {
  try { return localStorage.getItem('rtm-blind') === '1' } catch { return false }
  })
- const [surface, setSurfaceState] = useState<UserSurface>(() => {
- try {
- const v = localStorage.getItem('rtm-surface')
- return (v === 'streaming' || v === 'full' || v === 'broadcast' || v === 'post' || v === 'netflix') ? v : 'full'
- } catch { return 'full' }
- })
- const setSurface = useCallback((next: UserSurface) => {
- setSurfaceState(next)
- }, [])
+ const [surface] = useState<UserSurface>('full')
+ const setSurface = useCallback((_next: UserSurface) => {}, [])
 
  useEffect(() => {
  try { localStorage.setItem('rtm-educator', educator ? '1' : '0') } catch {}
@@ -70,7 +63,6 @@ export function ModesProvider({ children }: { children: React.ReactNode }) {
  }, [blind])
 
  useEffect(() => {
- try { localStorage.setItem('rtm-surface', surface) } catch {}
  document.documentElement.dataset.surface = surface
  }, [surface])
 

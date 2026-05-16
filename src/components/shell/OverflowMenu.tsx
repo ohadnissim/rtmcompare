@@ -192,7 +192,7 @@ export default function OverflowMenu({ canShowBlind = false, zoom, onOpenShortcu
      }
    />
  )}
- <Row label="Learn mode" control={<Toggle checked={educator} onChange={toggleEducator} ariaLabel="Learn mode" />} />
+ <Row label="Educator explainers" control={<Toggle checked={educator} onChange={toggleEducator} ariaLabel="Educator explainers" />} />
  {canShowBlind && (
  <Row label="Blind A/B" control={<Toggle checked={blind} onChange={toggleBlind} ariaLabel="Blind A/B" />} />
  )}

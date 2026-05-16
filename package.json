@@ -1,6 +1,6 @@
 {
   "name": "rtm",
-  "version": "7.6.5",
+  "version": "8.1.0",
   "description": "RTMcompare — Industry-standard A/B compare · Single-file QC · Album batch · Atmos",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -35,6 +35,12 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "notarize": true,
+      "protocols": [
+        {
+          "name": "RTMcompare",
+          "schemes": ["rtmcompare"]
+        }
+      ],
       "extraResources": [
         {
           "from": "python-bundle",

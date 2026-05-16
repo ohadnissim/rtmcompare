@@ -214,6 +214,42 @@ export default function MasteringDelta({ delta, overall }: Props) {
  )}
  </div>
 
+ {delta.eq_match?.bands?.length ? (
+ <div className="border p-3 space-y-2" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
+  <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>
+   EQ match (B → A)
+   <InfoDot text="Suggested parametric EQ moves to apply to B to match A's tonal shape. Each band is 50% of the measured difference — a conservative starting point. Q = filter width (low Q = broad shelf, high Q = surgical cut/boost)." />
+  </div>
+  <div className="flex flex-wrap gap-2">
+   {delta.eq_match.bands.map((b, i) => {
+    const sign = b.gain_db >= 0 ? '+' : ''
+    const freqLabel = b.freq >= 1000 ? `${(b.freq / 1000).toFixed(b.freq % 1000 === 0 ? 0 : 1)} kHz` : `${b.freq} Hz`
+    return (
+     <div key={i} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      border: `1px solid ${b.gain_db >= 0 ? 'rgba(208,176,102,0.35)' : 'rgba(99,140,188,0.35)'}`,
+      borderRadius: 2, padding: '3px 8px',
+      backgroundColor: b.gain_db >= 0 ? 'rgba(208,176,102,0.06)' : 'rgba(99,140,188,0.06)',
+     }}>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, color: MUTED, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+       {b.region}
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 11, color: b.gain_db >= 0 ? GOLD : 'var(--color-data-a)' }}>
+       {freqLabel} {sign}{b.gain_db.toFixed(1)} dB Q{b.q.toFixed(1)}
+      </span>
+     </div>
+    )
+   })}
+  </div>
+  <div className="text-[10px]" style={{ color: MUTED }}>Start at 50% then re-listen. Negative = cut, positive = boost.</div>
+ </div>
+ ) : null}
+
+ {/* Extended chain recommendations */}
+ {delta.chain_recommendations && (
+  <ChainRecs recs={delta.chain_recommendations} eqBands={delta.eq_match?.bands} />
+ )}
+
  {(delta.width_per_band_a?.length || delta.width_per_band_b?.length) ? (
  <div className="border p-3" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
  <WidthPerBandChart
@@ -414,4 +450,541 @@ function fmtTpOvers(delta: MasteringDeltaData): string {
  return `${delta.tp_overs_pulled_back} pulled back`
  }
  return '--'
+}
+
+// ── Ozone XML generator (TypeScript port of ozone_export.py) ─────────────────
+
+function generateOzonePresetXml(delta: MasteringDeltaData, trackName = ''): string {
+ const chain = delta.chain_recommendations
+ const eqBands = delta.eq_match?.bands ?? []
+ const ts = Math.floor(Date.now() / 1000)
+ const comment = trackName ? `RTMcompare — ${trackName}` : 'RTMcompare generated preset'
+
+ const p = (eid: string, pid: string, val: number | string) => {
+  const v = typeof val === 'number' ? val.toFixed(8) : String(val)
+  return `        <Param ElementID="${eid}" ParamID="${pid}" Value="${v}" />`
+ }
+ const extra = (eid: string, data = '') =>
+  `        <ExtraBytes ElementID="${eid}" Data="${data}" />`
+ const disabled = (tag: string, eid: string) =>
+  `    <${tag} Enabled="0">\n${extra(eid)}\n    </${tag}>`
+
+ const lines: string[] = []
+ lines.push(`<?xml version="1.0" standalone="yes" ?>`)
+ lines.push(`<OzoneMS PresetVer="4" PluginVer="120000" PluginBuild="0" Comments="${comment}" LastModified="${ts}">`)
+
+ lines.push(disabled('Clarity', 'Clarity'))
+ lines.push(disabled('DynamicEQ', 'Dynamic EQ'))
+
+ // Dynamics (compression)
+ const comp = chain?.compression
+ if (comp && comp.severity !== 'none') {
+  const ratioMap: Record<string, number> = {
+   '1.5:1–2:1': 1.75, '2:1 or less': 1.75, '2:1–3:1': 2.5, '3:1–4:1': 3.5,
+  }
+  const attackMap: Record<string, number> = { '10–30 ms': 20, '20–50 ms': 35, '40–80 ms': 60 }
+  const releaseMap: Record<string, number> = { '100–200 ms': 150, '150–300 ms': 200, '200–400 ms': 300 }
+  const ratio = Object.entries(ratioMap).find(([k]) => (comp.ratio_hint || '').includes(k))?.[1] ?? 2.0
+  const attack = Object.entries(attackMap).find(([k]) => (comp.attack_hint || '').includes(k))?.[1] ?? 30.0
+  const release = Object.entries(releaseMap).find(([k]) => (comp.release_hint || '').includes(k))?.[1] ?? 200.0
+  lines.push(`    <Dynamics Enabled="1">`)
+  lines.push(p('Dynamics', 'Num Bands', 1))
+  lines.push(p('Dynamics', 'Detection Method', 2))
+  lines.push(p('Dynamics', 'Auto Gain Compensation', 1))
+  lines.push(p('Dynamics', 'Lookahead', 0.0))
+  lines.push(p('Dynamics', 'Band 1 Comp Threshold', -20.0))
+  lines.push(p('Dynamics', 'Band 1 Comp Ratio', ratio))
+  lines.push(p('Dynamics', 'Band 1 Comp Attack', attack))
+  lines.push(p('Dynamics', 'Band 1 Comp Release', release))
+  lines.push(p('Dynamics', 'Band 1 Comp Soft Knee', 4.0))
+  lines.push(p('Dynamics', 'Band 1 Gain', 0.5))
+  lines.push(p('Dynamics', 'Band 1 Mix', 100.0))
+  lines.push(extra('Dynamics'))
+  lines.push(`    </Dynamics>`)
+ } else {
+  lines.push(disabled('Dynamics', 'Dynamics'))
+ }
+
+ // EQ
+ if (eqBands.length > 0) {
+  lines.push(`    <EQ Enabled="1">`)
+  eqBands.slice(0, 8).forEach((band: { freq: number; gain_db: number; q: number }, idx: number) => {
+   const i = idx + 1
+   lines.push(p('Equalizer', `Band ${i} Enable`, 1))
+   lines.push(p('Equalizer', `Band ${i} Visible`, 1))
+   lines.push(p('Equalizer', `Band ${i} Shape`, 2))
+   lines.push(p('Equalizer', `Band ${i} Frequency`, band.freq))
+   lines.push(p('Equalizer', `Band ${i} Gain`, band.gain_db))
+   lines.push(p('Equalizer', `Band ${i} Q`, band.q ?? 1.4))
+  })
+  lines.push(extra('Equalizer'))
+  lines.push(`    </EQ>`)
+ } else {
+  lines.push(disabled('EQ', 'Equalizer'))
+ }
+
+ lines.push(disabled('EQ2', 'Post Equalizer'))
+ lines.push(disabled('Exciter', 'Exciter'))
+
+ lines.push(`    <Global Enabled="0">`)
+ lines.push(`        <ExtraBytes ElementID="ElementChain" Data="" />`)
+ lines.push(`        <ExtraBytes ElementID="Global" Data="" />`)
+ lines.push(`    </Global>`)
+
+ // Imager
+ const stereo = chain?.stereo
+ if (stereo) {
+  const oz = stereo.ozone
+  lines.push(`    <Imager Enabled="1">`)
+  lines.push(p('Stereo Imager', 'Num Bands', oz.num_bands))
+  lines.push(p('Stereo Imager', 'Crossover Cutoff 1', oz.crossover_hz))
+  lines.push(p('Stereo Imager', 'Crossover Cutoff 2', 4000.0))
+  lines.push(p('Stereo Imager', 'Crossover Cutoff 3', 12000.0))
+  const widths = [oz.band1_width_pct, oz.band2_width_pct]
+  widths.forEach((w, idx) => {
+   const i = idx + 1
+   lines.push(p('Stereo Imager', `Band ${i} Width Percent`, w))
+   lines.push(p('Stereo Imager', `Band ${i} Active`, 1))
+  })
+  for (let i = 3; i <= 4; i++) {
+   lines.push(p('Stereo Imager', `Band ${i} Width Percent`, 0.0))
+   lines.push(p('Stereo Imager', `Band ${i} Active`, 0))
+  }
+  lines.push(extra('Stereo Imager'))
+  lines.push(`    </Imager>`)
+ } else {
+  lines.push(disabled('Imager', 'Stereo Imager'))
+ }
+
+ lines.push(disabled('Impact', 'Impact'))
+ lines.push(disabled('LowEndFocus', 'Low End Focus'))
+ lines.push(disabled('MasterRebalance', 'Master Rebalance'))
+
+ lines.push(`    <MatchEQ Enabled="0">`)
+ lines.push(extra('Match Equalizer'))
+ lines.push(extra('Snapshot'))
+ lines.push(`    </MatchEQ>`)
+
+ // Maximizer
+ const lim = chain?.limiter
+ if (lim) {
+  const oz = lim.ozone
+  lines.push(`    <Maximizer Enabled="1">`)
+  lines.push(p('Maximizer', 'Mode', oz.mode))
+  lines.push(p('Maximizer', 'Threshold', oz.threshold))
+  lines.push(p('Maximizer', 'Margin', oz.margin))
+  lines.push(p('Maximizer', 'Character', oz.character))
+  lines.push(p('Maximizer', 'Spectral Shaping Style', 2))
+  lines.push(extra('Maximizer'))
+  lines.push(`    </Maximizer>`)
+ } else {
+  lines.push(disabled('Maximizer', 'Maximizer'))
+ }
+
+ lines.push(`    <Meters Enabled="0" />`)
+ lines.push(disabled('SpectralShaper', 'Spectral Shaper'))
+ lines.push(disabled('Stabilizer', 'Stabilizer'))
+ lines.push(disabled('VintageCompressor', 'Vintage Compressor'))
+ lines.push(disabled('VintageEQ', 'Vintage EQ'))
+ lines.push(disabled('VintageLimiter', 'Vintage Limiter'))
+ lines.push(disabled('VintageTape', 'Vintage Tape'))
+
+ lines.push(`</OzoneMS>`)
+ return lines.join('\n')
+}
+
+// ── ChainRecs ────────────────────────────────────────────────────────────────
+
+function SeverityBadge({ label, color }: { label: string; color: string }) {
+ return (
+  <span style={{
+   display: 'inline-block', padding: '1px 6px', borderRadius: 2,
+   fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase',
+   border: `1px solid ${color}33`, color, backgroundColor: `${color}11`,
+  }}>{label}</span>
+ )
+}
+
+function RecCard({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) {
+ return (
+  <div style={{ borderTop: '1px solid rgba(168,161,150,0.1)', paddingTop: 10 }}>
+   <div className="flex items-center gap-2 mb-2">
+    <span style={{ fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase', color: MUTED }}>{title}</span>
+    {badge}
+   </div>
+   <div className="space-y-1">{children}</div>
+  </div>
+ )
+}
+
+function RecLine({ label, value, tone }: { label: string; value: string; tone?: string }) {
+ return (
+  <div className="flex items-start justify-between gap-4 text-xs">
+   <span style={{ color: MUTED, flexShrink: 0 }}>{label}</span>
+   <span className="font-mono text-right" style={{ color: tone || CREAM }}>{value}</span>
+  </div>
+ )
+}
+
+function ChainRecs({
+ recs,
+ eqBands,
+}: {
+ recs: NonNullable<MasteringDeltaData['chain_recommendations']>
+ eqBands?: { freq: number; gain_db: number; q: number; region?: string }[]
+}) {
+ const [saving, setSaving] = useState(false)
+ const [menuOpen, setMenuOpen] = useState(false)
+ const [toast, setToast] = useState<string | null>(null)
+ const [rtmsendOzone, setRtmsendOzone] = useState<boolean>(false)
+
+ // Detect RTMsend + Ozone EQ on mount — if running and Ozone EQ is loaded,
+ // offer the live push path instead of (or alongside) the preset file install.
+ React.useEffect(() => {
+  let cancelled = false
+  window.electronAPI?.rtmsendStatus?.().then(status => {
+   if (cancelled) return
+   const pluginName: string = status?.loaded?.name ?? ''
+   setRtmsendOzone(status?.running === true && pluginName.toLowerCase().includes('ozone') && pluginName.toLowerCase().includes('equalizer'))
+  }).catch(() => {})
+  return () => { cancelled = true }
+ }, [])
+
+ React.useEffect(() => {
+  if (!menuOpen) return
+  const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+  window.addEventListener('keydown', onKey)
+  return () => window.removeEventListener('keydown', onKey)
+ }, [menuOpen])
+
+ const flash = (msg: string) => {
+  setToast(msg)
+  setTimeout(() => setToast(null), 4500)
+ }
+
+ const buildXml = () => generateOzonePresetXml({ chain_recommendations: recs } as MasteringDeltaData)
+
+ // RTMsend path: push EQ match bands directly to Ozone EQ in the DAW (live, no file)
+ const pushEqViaRtmsend = async () => {
+  setSaving(true); setMenuOpen(false)
+  try {
+   if (!eqBands || eqBands.length === 0) {
+    flash('No EQ match bands — run analysis first')
+    return
+   }
+   const bands = eqBands.map(b => ({
+    region: b.region ?? 'mid',
+    freq_hz: b.freq,
+    gain_db: b.gain_db,
+    q: b.q,
+   }))
+   const result = await window.electronAPI?.rtmsendSendEq?.(bands)
+   if (result?.ok === false) {
+    flash(result.error ?? 'RTMsend: push failed')
+   } else {
+    flash('EQ pushed to Ozone 12 Equalizer via RTMsend')
+   }
+  } catch (err: any) {
+   flash(err?.message ?? 'RTMsend error')
+  } finally {
+   setSaving(false)
+  }
+ }
+
+ // Primary path: write directly into ~/Documents/iZotope/Ozone N Advanced/User Presets/RTMcompare/
+ const sendToOzone = async () => {
+  setSaving(true); setMenuOpen(false)
+  try {
+   const xml = buildXml()
+   const profName = recs.profile_context?.name
+   const fileName = profName
+    ? `rtmcompare-${profName.toLowerCase().replace(/\s+/g, '-')}.xml`
+    : 'rtmcompare-master.xml'
+   if (window.electronAPI?.ozoneInstallPreset) {
+    const res = await window.electronAPI.ozoneInstallPreset(xml, fileName)
+    if (res.ok) {
+     const installed = res.results.filter((r: any) => r.path)
+     const versions = installed.map((r: any) => r.version).join(', ')
+     flash(`Installed in ${versions} — reload presets or restart Ozone to see "RTMcompare" category`)
+    } else {
+     flash(res.error || 'Install failed — try "Save XML…" instead')
+    }
+   } else {
+    flash('Ozone bridge unavailable — use "Save XML…"')
+   }
+  } catch (err: any) {
+   flash(err?.message || 'Install failed')
+  } finally {
+   setSaving(false)
+  }
+ }
+
+ // Fallback: save dialog (user picks location)
+ const saveXml = async () => {
+  setSaving(true); setMenuOpen(false)
+  try {
+   const xml = buildXml()
+   if (window.electronAPI?.saveFileDialog) {
+    const saved = await window.electronAPI.saveFileDialog(
+     'rtmcompare-master.xml', xml,
+     [{ name: 'Ozone Preset', extensions: ['xml'] }],
+    )
+    if (saved) flash(`Preset saved — place it in Ozone's User Presets folder and reload presets`)
+   } else {
+    const blob = new Blob([xml], { type: 'text/xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'rtmcompare-master.xml'; a.click()
+    URL.revokeObjectURL(url)
+    flash('Preset downloaded')
+   }
+  } catch (err: any) {
+   flash(err?.message || 'Save failed')
+  } finally {
+   setSaving(false)
+  }
+ }
+
+ const comp = recs.compression
+ const lim = recs.limiter
+ const stereo = recs.stereo
+ const gs = recs.gain_staging
+ const clip = recs.clipping
+ const profCtx = recs.profile_context
+
+ const hasContent = (comp && comp.severity !== 'none') || lim || stereo || gs || clip
+
+ return (
+  <div className="border p-3 space-y-0" style={{ borderColor: 'rgba(168,161,150,0.14)', backgroundColor: 'rgba(31,27,23,0.35)' }}>
+   <div className="flex items-center justify-between mb-3">
+    <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em]" style={{ color: MUTED }}>
+     Chain Recommendations
+     <InfoDot text="Suggested processing chain derived from comparing mix (A) to master (B). Compression, limiting, stereo, gain staging, and clipping settings extrapolated from the measured differences. Exports directly to Ozone 9–12." />
+     {profCtx?.name && (
+      <span style={{
+       fontSize: 9, letterSpacing: '0.1em', padding: '1px 6px',
+       border: `1px solid rgba(208,176,102,0.3)`, borderRadius: 2,
+       color: GOLD, backgroundColor: 'rgba(208,176,102,0.08)',
+       textTransform: 'uppercase',
+      }}>
+       {profCtx.name}
+      </span>
+     )}
+    </div>
+    <div className="relative">
+     <button
+      onClick={() => setMenuOpen(v => !v)}
+      disabled={saving}
+      className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-medium transition-opacity disabled:opacity-50"
+      style={{
+       borderRadius: 2, border: `1px solid rgba(208,176,102,0.4)`,
+       color: GOLD, backgroundColor: 'rgba(208,176,102,0.08)',
+       letterSpacing: '0.1em', textTransform: 'uppercase',
+      }}
+      title="Send recommendations to Ozone or save as XML preset file."
+     >
+      {saving ? '…' : 'Send to Ozone'}
+      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      </svg>
+     </button>
+     {menuOpen && (
+      <>
+      <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+      <div className="absolute right-0 top-full mt-1 z-50 py-1 min-w-[240px]"
+       style={{ borderRadius: 2, backgroundColor: 'var(--color-bg-panel)', border: '1px solid rgba(168,161,150,0.15)' }}>
+       {/* RTMsend live path — only shown when Ozone EQ is the active plugin */}
+       {rtmsendOzone && eqBands && eqBands.length > 0 && (
+        <button onClick={pushEqViaRtmsend}
+         className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 transition-colors">
+         <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: GREEN }}>↗</span>
+         <div>
+          <div className="text-[11px]" style={{ color: GREEN }}>Push EQ live (RTMsend)</div>
+          <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>Sends EQ bands directly to Ozone 12 EQ in your DAW — instant, no file</div>
+         </div>
+        </button>
+       )}
+       <button onClick={sendToOzone}
+        className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 transition-colors">
+        <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: GOLD }}>⇢</span>
+        <div>
+         <div className="text-[11px]" style={{ color: GOLD }}>Install full preset in Ozone</div>
+         <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>EQ + Comp + Limiter + Imager → ~/Documents/iZotope, appears in preset browser</div>
+        </div>
+       </button>
+       <button onClick={saveXml}
+        className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-dark-800/80 transition-colors">
+        <span className="w-5 flex-shrink-0 text-center text-[11px]" style={{ color: MUTED }}>⬇</span>
+        <div>
+         <div className="text-[11px]" style={{ color: CREAM }}>Save XML…</div>
+         <div className="text-[9px] mt-0.5" style={{ color: MUTED }}>Save dialog — place file in Ozone's User Presets folder manually</div>
+        </div>
+       </button>
+      </div>
+      </>
+     )}
+    </div>
+   </div>
+
+   {!hasContent && (
+    <div className="text-xs" style={{ color: MUTED }}>No chain recommendations — analysis data insufficient.</div>
+   )}
+
+   {/* Profile context summary — shows which fields are driving the recs */}
+   {profCtx && (profCtx.compression_character || profCtx.limiter_tightness || profCtx.loudness_style || profCtx.chain_lufs_delta != null) && (
+    <div style={{ borderTop: '1px solid rgba(168,161,150,0.1)', paddingTop: 8, marginTop: 4 }}>
+     <div className="flex flex-wrap gap-x-4 gap-y-1">
+      {profCtx.is_chain_profile ? (
+       /* Chain profile: show measured deltas */
+       <>
+        {profCtx.chain_lufs_delta != null && (
+         <RecLine label="Chain LUFS shift"
+          value={`${profCtx.chain_lufs_delta > 0 ? '+' : ''}${profCtx.chain_lufs_delta.toFixed(1)} LU${profCtx.lufs_delta_mad != null ? ` ±${profCtx.lufs_delta_mad.toFixed(1)}` : ''}`} />
+        )}
+        {profCtx.chain_lra_delta != null && (
+         <RecLine label="Chain LRA change"
+          value={`${profCtx.chain_lra_delta > 0 ? '+' : ''}${profCtx.chain_lra_delta.toFixed(1)} LU · ${profCtx.compression_character ?? ''}`} />
+        )}
+        {profCtx.chain_peak_delta != null && (
+         <RecLine label="Chain peak shift"
+          value={`${profCtx.chain_peak_delta > 0 ? '+' : ''}${profCtx.chain_peak_delta.toFixed(1)} dBTP`} />
+        )}
+        {profCtx.chain_width_delta != null && (
+         <RecLine label="Chain width change"
+          value={`${profCtx.chain_width_delta > 0 ? '+' : ''}${(profCtx.chain_width_delta * 100).toFixed(0)}%`} />
+        )}
+       </>
+      ) : (
+       /* Fingerprint profile: show absolute targets */
+       <>
+        {profCtx.compression_character && (
+         <RecLine label="Profile compression" value={`${profCtx.compression_character}${profCtx.crest_factor_avg != null ? ` · crest ${profCtx.crest_factor_avg.toFixed(0)} dB` : ''}`} />
+        )}
+        {profCtx.limiter_tightness && (
+         <RecLine label="Profile limiter" value={`${profCtx.limiter_tightness}${profCtx.plr_avg != null ? ` · PLR ${profCtx.plr_avg.toFixed(0)} LU` : ''}`} />
+        )}
+        {profCtx.loudness_style && (
+         <RecLine label="Profile loudness" value={`${profCtx.loudness_style}${profCtx.target_lufs != null ? ` · ${profCtx.target_lufs.toFixed(1)} LUFS avg` : ''}`} />
+        )}
+        {profCtx.macro_dynamics_lu != null && (
+         <RecLine label="Profile macro dynamics" value={`${profCtx.macro_dynamics_lu.toFixed(1)} LU swing`} />
+        )}
+       </>
+      )}
+     </div>
+    </div>
+   )}
+
+   {/* Compression */}
+   {comp && comp.severity !== 'none' && (
+    <RecCard
+     title="Compression"
+     badge={<SeverityBadge label={comp.severity} color={comp.severity === 'heavy' ? RED : comp.severity === 'moderate' ? GOLD : CREAM} />}
+    >
+     <div className="text-xs mb-1" style={{ color: CREAM }}>{comp.summary}</div>
+     <RecLine label="Ratio" value={comp.ratio_hint} />
+     <RecLine label="Attack" value={comp.attack_hint} />
+     <RecLine label="Release" value={comp.release_hint} />
+     <RecLine label="Threshold" value={comp.threshold_note} />
+     <RecLine
+      label="Transients"
+      value={comp.transients_preserved ? 'preserved' : 'softened'}
+      tone={comp.transients_preserved ? GREEN : GOLD}
+     />
+     <RecLine label="LRA before → after" value={`${comp.lra_b.toFixed(1)} LU (Δ ${comp.lra_delta > 0 ? '+' : ''}${comp.lra_delta.toFixed(1)})`} />
+    </RecCard>
+   )}
+
+   {/* Limiter */}
+   {lim && (
+    <RecCard
+     title="Limiter / Maximizer"
+     badge={<SeverityBadge label={lim.character} color={lim.over_limited ? RED : lim.character === 'heavy' ? GOLD : CREAM} />}
+    >
+     <div className="text-xs mb-1" style={{ color: CREAM }}>{lim.summary}</div>
+     <RecLine label="Est. gain reduction" value={`${lim.gain_reduction_db.toFixed(1)} dB`} tone={lim.gain_reduction_db > 3 ? RED : GOLD} />
+     <RecLine label="Output ceiling" value={`${lim.ceiling_dbtp.toFixed(1)} dBTP`} />
+     <RecLine label="Ceiling note" value={lim.ceiling_note} />
+     {lim.over_limited && <RecLine label="Warning" value="Over-limited — transients may be damaged" tone={RED} />}
+     <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+      <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: MUTED }}>Ozone Maximizer settings</div>
+      <RecLine label="Threshold" value={`${lim.ozone.threshold.toFixed(1)} dBTP`} />
+      <RecLine label="Margin (ceiling)" value={`${lim.ozone.margin.toFixed(1)} dBTP`} />
+      <RecLine label="Mode" value={lim.ozone.mode === 3 ? 'IRC4 (transparent)' : `IRC${lim.ozone.mode}`} />
+      <RecLine label="Character" value={`${lim.ozone.character.toFixed(0)} / 10`} />
+     </div>
+    </RecCard>
+   )}
+
+   {/* Stereo */}
+   {stereo && (
+    <RecCard title="Stereo / M-S">
+     {stereo.notes.map((note, i) => (
+      <div key={i} className="text-xs" style={{ color: i === 0 ? CREAM : MUTED }}>{note}</div>
+     ))}
+     {stereo.ms_needed && <RecLine label="M-S processing" value="recommended" tone={GOLD} />}
+     {stereo.bass_too_wide && <RecLine label="Sub bass" value="too wide — mono below ~120 Hz" tone={RED} />}
+     {stereo.highs_too_narrow && <RecLine label="High end" value="narrower than reference" tone={BLUE} />}
+     {stereo.mono_loss_pct > 5 && (
+      <RecLine label="Mono compatibility" value={`${stereo.mono_loss_pct.toFixed(0)}% of content lost in mono`} tone={stereo.mono_loss_pct > 15 ? RED : GOLD} />
+     )}
+     <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(168,161,150,0.08)' }}>
+      <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: MUTED }}>Ozone Imager settings</div>
+      <RecLine label="Crossover" value={`${stereo.ozone.crossover_hz} Hz`} />
+      <RecLine label="Low band width" value={`${stereo.ozone.band1_width_pct > 0 ? '+' : ''}${stereo.ozone.band1_width_pct.toFixed(0)}%`} tone={stereo.ozone.band1_width_pct < -10 ? BLUE : GOLD} />
+      <RecLine label="High band width" value={`${stereo.ozone.band2_width_pct > 0 ? '+' : ''}${stereo.ozone.band2_width_pct.toFixed(0)}%`} />
+     </div>
+    </RecCard>
+   )}
+
+   {/* Gain Staging */}
+   {gs && (
+    <RecCard title="Gain Staging">
+     <div className="text-xs mb-1" style={{ color: CREAM }}>{gs.summary}</div>
+     <RecLine label="Reference style" value={gs.reference_style} />
+     <RecLine label="Mix LUFS" value={`${gs.lufs_a.toFixed(1)} LUFS`} />
+     <RecLine label="Master LUFS" value={`${gs.lufs_b.toFixed(1)} LUFS`} />
+     <RecLine label="Target" value={`${gs.target_lufs.toFixed(1)} LUFS`} />
+     <RecLine label="Gap to target" value={`${gs.lufs_gap > 0 ? '+' : ''}${gs.lufs_gap.toFixed(1)} LU`} tone={Math.abs(gs.lufs_gap) > 2 ? GOLD : GREEN} />
+     {Math.abs(gs.broadband_gain_db) > 0.1 && (
+      <RecLine label="Pre-limiter gain" value={`${gs.broadband_gain_db > 0 ? '+' : ''}${gs.broadband_gain_db.toFixed(1)} dB`} />
+     )}
+     {gs.pre_limiter_note && (
+      <div className="text-[10px] mt-1" style={{ color: MUTED }}>{gs.pre_limiter_note}</div>
+     )}
+    </RecCard>
+   )}
+
+   {/* Clipping */}
+   {clip && (
+    <RecCard
+     title="Clipping"
+     badge={<SeverityBadge label={clip.safe_to_clip ? 'safe to clip' : 'no clipping'} color={clip.safe_to_clip ? GREEN : MUTED} />}
+    >
+     <div className="text-xs mb-1" style={{ color: CREAM }}>{clip.summary}</div>
+     <RecLine label="Approach" value={
+      clip.approach === 'clipper_then_limiter' ? 'Clipper → Limiter'
+       : clip.approach === 'limiter_only' ? 'Limiter only'
+       : 'Evaluate'
+     } />
+     {clip.safe_to_clip && (
+      <>
+       <RecLine label="Clipper ceiling" value={`${clip.clipper_ceiling_dbtp.toFixed(1)} dBTP`} />
+       <RecLine label="Limiter ceiling" value={`${clip.limiter_ceiling_dbtp.toFixed(1)} dBTP`} />
+       {clip.suggested_settings && (
+        <div className="text-[10px] mt-1 font-mono" style={{ color: MUTED }}>{clip.suggested_settings}</div>
+       )}
+      </>
+     )}
+    </RecCard>
+   )}
+
+   {toast && (
+    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 text-xs"
+     style={{ borderRadius: 2, backgroundColor: 'rgba(14,13,11,0.96)', color: GOLD, border: '1px solid rgba(208,176,102,0.35)' }}>
+     {toast}
+    </div>
+   )}
+  </div>
+ )
 }

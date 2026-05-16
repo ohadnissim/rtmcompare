@@ -56,7 +56,7 @@ interface Props {
  duration_sec?: number
  waveform_a?: number[]
  engineer_tips?: EngineerTips
- masking?: { overlaps: any[]; stem_based: boolean }
+ masking?: { overlaps: any[] }
  hum?: any
  transient_density?: any
  streaming_preview?: AnalysisResult['streaming_preview']

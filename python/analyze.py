@@ -2,11 +2,7 @@
 """
 RTM Audio Comparison — Main entry point.
 
-Usage: python analyze.py <file_a> <file_b> [--fast]
-
---fast: Frequency-band analysis only (~10 seconds)
-Default: Hybrid mode — AI stems on a 30s chunk for kick/bass accuracy,
-         frequency bands for everything else (~30-60 seconds)
+Usage: python analyze.py <file_a> <file_b>
 """
 
 import sys
@@ -16,8 +12,6 @@ import logging
 import tempfile
 import shutil
 import threading
-import time
-import uuid
 from datetime import datetime, timezone
 
 # Windows: the bundled embeddable Python uses a `_pth` file that does NOT
@@ -117,7 +111,6 @@ def _true_peak_db(file_path: str) -> tuple:
     Returns (true_peak_dbTP, headroom_dBTP_below_0) as a pair of rounded floats.
     Measures per-channel and returns the worst case across L/R.
     """
-    from scipy.signal import resample_poly
     import soundfile as sf
     try:
         data, file_sr = sf.read(file_path, dtype='float32')
@@ -125,10 +118,17 @@ def _true_peak_db(file_path: str) -> tuple:
             channels = [data]
         else:
             channels = [data[:, c] for c in range(min(2, data.shape[1]))]
-        # 4× upsample and take max |sample|
+        # 4× upsample for BS.1770-4 Annex 2 true-peak detection.
+        # Use soxr when available (±0.02 dBTP); fall back to resample_poly.
+        try:
+            import soxr as _soxr
+            def _up4x(seg): return _soxr.resample(seg.astype(np.float64), file_sr, file_sr * 4, quality='HQ')
+        except ImportError:
+            from scipy.signal import resample_poly
+            def _up4x(seg): return resample_poly(seg, 4, 1)
         worst = 0.0
         for ch in channels:
-            up = resample_poly(ch, 4, 1)
+            up = _up4x(ch)
             worst = max(worst, float(np.max(np.abs(up))))
         tp_db = float(20 * np.log10(max(worst, 1e-10)))
         headroom = max(0.0, -tp_db)
@@ -151,7 +151,7 @@ from tonal_issues import detect_tonal_issues
 from reference_check import check_reference
 from adm_parser import detect_format, validate_adm
 from atmos_comparator import run_atmos_comparison, run_atmos_solo
-from engineer_profile import generate_tips, generate_chain_tips, list_profiles
+from engineer_profile import generate_tips, generate_chain_tips, list_profiles, load_profile
 from metadata_reader import read_metadata
 from hum_detector import detect_hum
 from transient_density import analyse as analyse_transient_density
@@ -165,12 +165,6 @@ try:
         return _analyse_generation_loss(path)
 except ImportError:
     analyse_generation_loss = None  # type: ignore[assignment]
-
-# AI origin probability (13-sample detector, deployment_ready: false in
-# ai_detector_calibration_v4_1.json) is intentionally NOT surfaced in the
-# UI for v7.5.5. The field is excluded from the result dict until the
-# ArtifactNet-based replacement (Decision 5-B) ships. See DECISIONS.md §5.
-
 
 def progress(msg: str):
     print(json.dumps({"type": "progress", "message": msg}), file=sys.stderr, flush=True)
@@ -192,7 +186,6 @@ def main():
 
     file_a = sys.argv[1]
     file_b = sys.argv[2]
-    fast_mode = "--fast" in sys.argv
 
     # Parse profile
     profile_id = ""
@@ -377,44 +370,24 @@ def main():
 
     tmp_dir = tempfile.mkdtemp(prefix="rtm_")
 
-    # CRIT-16: use a per-analysis subdirectory so concurrent analyses don't
-    # stomp each other's stems. Each run gets a unique ID; old runs (>2 h)
-    # are pruned rather than deleting everything at startup.
-    _stems_root = os.path.join(os.path.expanduser("~"), ".rtm", "stems")
-    os.makedirs(_stems_root, exist_ok=True)
-    stems_dir = os.path.join(_stems_root, f"run_{uuid.uuid4().hex[:8]}")
-    os.makedirs(stems_dir, exist_ok=True)
-    # Prune stale runs older than 2 h; also cap at 10 dirs to bound disk use
-    # in rapid-succession deep-scan scenarios.
-    _prune_cutoff = time.time() - 7200
-    _existing = sorted(
-        [_p for _entry in os.listdir(_stems_root)
-         if os.path.isdir(_p := os.path.join(_stems_root, _entry)) and _p != stems_dir],
-        key=lambda _p: os.path.getmtime(_p)
-    )
-    # CRIT iter-5: iterate a copy so removing from _existing doesn't skip entries
-    for _p in list(_existing):
-        try:
-            if os.path.getmtime(_p) < _prune_cutoff or len(_existing) > 10:
-                shutil.rmtree(_p, ignore_errors=True)
-                _existing.remove(_p)
-        except OSError:
-            pass
-
     try:
         # Check reference quality first
         progress("Checking reference quality...")
         result_ref_check = check_reference(file_a)
 
-        if fast_mode:
-            progress("Analyzing (fast mode)...")
-            result = run_fast_analysis(file_a, file_b)
-        else:
-            # Hybrid: AI on a 30s chunk for kick/bass, fast for everything else
-            # Use persistent stems_dir so stems survive for playback
-            from comparator import run_hybrid_analysis
-            progress("Running hybrid analysis...")
-            result = run_hybrid_analysis(file_a, file_b, stems_dir, progress_cb=progress)
+        progress("Analyzing...")
+        # Load fingerprint profile for profile-aware chain recommendations
+        _chain_profile_data: dict | None = None
+        _chain_pid = chain_profile_id or profile_id
+        if _chain_pid:
+            try:
+                _chain_profile_data = load_profile(_chain_pid)
+                # Only use fingerprint profiles (not chain profiles) for chain recs
+                if _chain_profile_data and _chain_profile_data.get("profile_type", "fingerprint") != "fingerprint":
+                    _chain_profile_data = None
+            except Exception:
+                pass
+        result = run_fast_analysis(file_a, file_b, profile=_chain_profile_data)
 
         result["reference_check"] = result_ref_check
         # Genre for both files — pulled out of reference_check so the UI can
@@ -452,22 +425,11 @@ def main():
         result["tonal_issues"] = detect_tonal_issues(file_a, file_b, sr=_native_sr)
 
         progress("Generating visualizations...")
-        result.update(generate_all_viz_data(file_a, file_b, deep_scan=not fast_mode))
+        result.update(generate_all_viz_data(file_a, file_b, deep_scan=False))
 
-        # Masking (deep scan uses stems; fast mode falls back to full-mix
-        # density). AI detection was removed in 5.5.0 — the bundle would
-        # have shipped 1.1 GB of model weights for it.
         try:
             from masking import analyze_masking
-            if not fast_mode:
-                progress("Analysing masking between stems...")
-                # MED-11: pass stems_b explicitly so masking never relies on
-                # mtime ordering to pick between stems_a and stems_b.
-                stems_b_for_masking = os.path.join(stems_dir, "stems_b")
-                _msk_dir = stems_b_for_masking if os.path.isdir(stems_b_for_masking) else stems_dir
-                result["masking"] = analyze_masking(stems_dir=_msk_dir, file_path=file_b, sr=_native_sr)
-            else:
-                result["masking"] = analyze_masking(file_path=file_b, sr=_native_sr)
+            result["masking"] = analyze_masking(file_path=file_b, sr=_native_sr)
         except Exception as e:
             _warn_optional("masking", e)
 

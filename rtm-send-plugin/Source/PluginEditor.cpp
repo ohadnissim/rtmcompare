@@ -690,11 +690,17 @@ void RtmSendAudioProcessorEditor::refreshPluginSlotUi()
 void RtmSendAudioProcessorEditor::openPluginPicker()
 {
     auto& known = processor.getKnownPluginList();
-    const auto types = known.getTypes();
+    // AudioUnit entries from old scan cache can crash on createPluginInstance
+    // (faulty AUs bypass Apple's sandbox before our try/catch has a chance).
+    // VST3-only avoids the problem entirely at the menu level.
+    juce::Array<juce::PluginDescription> types;
+    for (const auto& d : known.getTypes())
+        if (d.pluginFormatName != "AudioUnit" && d.pluginFormatName != "AudioUnitv3")
+            types.add(d);
 
     if (types.isEmpty())
     {
-        pluginStatusLabel.setText("No scanned plugins yet - click Scan to populate.",
+        pluginStatusLabel.setText("No scanned VST3 plugins yet - click Scan to populate.",
                                   juce::dontSendNotification);
         return;
     }
@@ -712,9 +718,14 @@ void RtmSendAudioProcessorEditor::openPluginPicker()
     // jumps. With withTargetScreenArea(rect), the menu position is
     // fixed once and ignores parent-window movement.
     const auto screenRect = pluginPickButton.getScreenBounds();
+    // Use WeakReference so the callback is a no-op if the editor is destroyed
+    // while the menu is open (e.g. host tears down the plugin window on focus loss).
+    juce::WeakReference<RtmSendAudioProcessorEditor> weakSelf (this);
     menu.showMenuAsync(juce::PopupMenu::Options{}.withTargetScreenArea(screenRect),
-        [this, types](int result)
+        [weakSelf, types](int result)
         {
+            auto* self = weakSelf.get();
+            if (self == nullptr) return;
             if (result <= 0) return;
             const int idx = juce::KnownPluginList::getIndexChosenByMenu(types, result);
             if (idx < 0 || idx >= types.size()) return;
@@ -725,10 +736,10 @@ void RtmSendAudioProcessorEditor::openPluginPicker()
             // open, the new plugin's window auto-opens — matches
             // the user's expectation of "I had Pro-Q open, switched
             // to Kirchhoff, Kirchhoff opens."
-            const auto err = processor.loadHostedPlugin(types.getReference(idx));
+            const auto err = self->processor.loadHostedPlugin(types.getReference(idx));
             if (err.isNotEmpty())
-                pluginStatusLabel.setText("Load failed: " + err, juce::dontSendNotification);
-            refreshPluginSlotUi();
+                self->pluginStatusLabel.setText("Load failed: " + err, juce::dontSendNotification);
+            self->refreshPluginSlotUi();
         });
 }
 

@@ -1,7 +1,6 @@
 import React from 'react'
 import type { AppState } from '../../types'
 import Wordmark from './Wordmark'
-import SurfaceChips from './SurfaceChips'
 import OverflowMenu from './OverflowMenu'
 import MetricStrip, { type MetricStripCell } from './MetricStrip'
 
@@ -87,12 +86,7 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  {learnToggle}
  </div>
 
- {/* Centre: surface chips. justify-self center anchors them
-   independent of the wordmark's width (which can drift across
-   theme + OS-font fallbacks). */}
- <div style={{ justifySelf: 'center' }}>
- <SurfaceChips />
- </div>
+ <div />
 
  {/* Right: Search · Shortcuts · New analysis · Overflow.
    Search jumps you to the ⌘K palette (compare-tabs) or Song
@@ -143,15 +137,17 @@ export default function HeaderV2({ state, metricCells, canShowBlind, zoom, onOpe
  onClick={onNewSearch}
  className="text-[10px] uppercase tracking-[0.16em] px-3 py-1.5 transition-colors"
  style={{
- color: 'var(--color-text-primary)',
- border: '1px solid var(--color-accent)',
+ color: 'var(--color-text-muted)',
+ border: '1px solid rgba(168,161,150,0.2)',
  borderRadius: 'var(--radius-card)',
  backgroundColor: 'transparent',
  }}
  title="Drop new files. Current analysis stays in Recent Analyses. (⌘N)"
  aria-label="Start a new analysis"
+ onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-text-primary)'; e.currentTarget.style.borderColor = 'rgba(168,161,150,0.4)' }}
+ onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-muted)'; e.currentTarget.style.borderColor = 'rgba(168,161,150,0.2)' }}
  >
- + New analysis
+ + New
  </button>
  )}
  <OverflowMenu canShowBlind={canShowBlind} zoom={zoom} onOpenShortcuts={onOpenShortcuts} engineerName={engineerName} onEngineerNameChange={onEngineerNameChange} />

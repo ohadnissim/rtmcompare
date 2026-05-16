@@ -1,5 +1,10 @@
 import React, { useMemo, useState } from 'react'
 
+interface PlatformTarget {
+ name: string
+ lufs: number
+}
+
 interface Props {
  lufsOverTimeA: number[]
  lufsOverTimeB: number[]
@@ -11,6 +16,10 @@ interface Props {
  labelA: string
  labelB: string
  durationSec: number
+ /** Platform normalization targets to render as reference ceiling lines.
+ * Deduped by LUFS value — identical targets (e.g. Spotify + Tidal both at −14)
+ * are merged into one line with a combined label. */
+ platformTargets?: PlatformTarget[]
 }
 
 export default function LoudnessTimeline({
@@ -21,6 +30,7 @@ export default function LoudnessTimeline({
  labelA,
  labelB,
  durationSec,
+ platformTargets,
 }: Props) {
  const w = 800
  const h = 180
@@ -59,6 +69,20 @@ export default function LoudnessTimeline({
  }
  return d
  }
+
+ // Deduplicate platform targets by LUFS value — merge names for the label.
+ const dedupedTargets = useMemo(() => {
+  if (!platformTargets?.length) return []
+  const byLufs = new Map<number, string[]>()
+  for (const t of platformTargets) {
+   const existing = byLufs.get(t.lufs) ?? []
+   existing.push(t.name)
+   byLufs.set(t.lufs, existing)
+  }
+  return Array.from(byLufs.entries())
+   .map(([lufs, names]) => ({ lufs, label: names.slice(0, 2).join(' / ') }))
+   .filter(t => t.lufs >= minLufs && t.lufs <= maxLufs)
+ }, [platformTargets, minLufs, maxLufs])
 
  // Y-axis grid lines
  const yGridLines = useMemo(() => {
@@ -146,6 +170,26 @@ export default function LoudnessTimeline({
  {showMomentary && lufsMomentaryB && lufsMomentaryB.length > 1 && (
  <path d={makePath(lufsMomentaryB)} fill="none" stroke="var(--color-data-warn)" strokeWidth="1" opacity="0.45" strokeDasharray="2 2" />
  )}
+ {/* Platform ceiling reference lines — rendered behind main curves so they don't
+  occlude the data, but visible enough to answer "will Spotify clip this?" at
+  a glance. Lines are deduped (Spotify + Tidal both at −14 → one line). */}
+ {dedupedTargets.map(({ lufs, label }) => {
+  const lineY = padY + ((maxLufs - lufs) / (maxLufs - minLufs)) * (h - padY * 2)
+  return (
+   <g key={lufs}>
+    <line
+     x1={padX} y1={lineY} x2={w - padX} y2={lineY}
+     stroke="rgba(208,176,102,0.35)" strokeWidth="1" strokeDasharray="5 3"
+    />
+    <text
+     x={w - padX - 4} y={lineY - 3}
+     textAnchor="end" fontSize="7" fill="rgba(208,176,102,0.55)"
+    >
+     {label} {lufs} LUFS
+    </text>
+   </g>
+  )
+ })}
  {/* File A (short-term) */}
  <path d={makePath(lufsOverTimeA)} fill="none" stroke="var(--color-data-a)" strokeWidth="2" opacity="0.8" />
  {/* File B (short-term) */}

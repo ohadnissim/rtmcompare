@@ -1398,16 +1398,39 @@ juce::String RtmSendAudioProcessor::loadHostedPlugin(const juce::PluginDescripti
     // from a worker thread that already holds the lock would deadlock.
 
     juce::String error;
-    auto instance = pluginFormatManager.createPluginInstance(
-        desc,
-        sampleRateHz,
-        /*estimatedBlockSize*/ 1024,
-        error);
+    std::unique_ptr<juce::AudioPluginInstance> instance;
+    try
+    {
+        instance = pluginFormatManager.createPluginInstance(
+            desc,
+            sampleRateHz,
+            /*estimatedBlockSize*/ 1024,
+            error);
+    }
+    catch (const std::exception& e)
+    {
+        return juce::String ("Plugin threw during instantiation: ") + e.what();
+    }
+    catch (...)
+    {
+        return juce::String ("Plugin threw an unknown exception during instantiation");
+    }
     if (! instance)
         return error.isEmpty() ? juce::String("createPluginInstance returned null") : error;
 
-    instance->setPlayConfigDetails(numChannels, numChannels, sampleRateHz, 1024);
-    instance->prepareToPlay(sampleRateHz, 1024);
+    try
+    {
+        instance->setPlayConfigDetails(numChannels, numChannels, sampleRateHz, 1024);
+        instance->prepareToPlay(sampleRateHz, 1024);
+    }
+    catch (const std::exception& e)
+    {
+        return juce::String ("Plugin threw during prepare: ") + e.what();
+    }
+    catch (...)
+    {
+        return juce::String ("Plugin threw an unknown exception during prepare");
+    }
 
     // 5.7.x audit fix: hold getCallbackLock() across the unique_ptr
     // swap. Pre-fix the audio thread could read the unique_ptr's

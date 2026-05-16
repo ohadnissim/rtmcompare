@@ -11,7 +11,7 @@ interface Overlap {
 }
 
 interface Props {
- masking: { overlaps: Overlap[]; stem_based: boolean }
+ masking: { overlaps: Overlap[] }
 }
 
 const SEVERITY: Record<string, { color: string; bg: string; label: string }> = {
@@ -37,16 +37,9 @@ export default function MaskingPanel({ masking }: Props) {
  <div className="space-y-1">
  <h2 className="text-lg">Masking Analysis</h2>
  <p className="text-xs text-dark-400">
- {masking.stem_based
- ? 'Per-stem frequency overlap — where elements fight for the same band.'
- : 'Full-mix density — no stems available; running coarse band-balance check.'}
+ Full-mix density — coarse band-balance check.
  </p>
  </div>
- {!masking.stem_based && (
- <span className="text-[10px] px-2 py-1 rounded-full" style={{ color: 'var(--color-text-muted)', border: '1px solid rgba(141,134,123,0.3)' }}>
- Run Deep Scan for per-stem analysis
- </span>
- )}
  </div>
 
  <div className="space-y-2">

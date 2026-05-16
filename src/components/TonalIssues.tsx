@@ -77,14 +77,24 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  )
  }
 
+ // Issues arrive pre-sorted by priority from Python. Assign rank badges 1-3.
  return (
  <div className="space-y-3">
  {issues.map((issue, i) => {
  const color = issueColors[issue.name] || '#e07a4f'
  const icon = issueIcons[issue.name] || '?'
+ const rank = i + 1
 
  const soloFreq = parseFreqRange(issue.freq_range)
  const isSoloed = soloFreq != null && soloBand != null && Math.abs(soloBand - soloFreq) < 0.5
+
+ // Priority badge config — rank 1 = most urgent
+ const badgeCfg =
+   rank === 1 ? { label: 'Fix first', color: '#e05a5a', bg: 'rgba(224,90,90,0.12)' } :
+   rank === 2 ? { label: 'Advisory', color: '#e07a4f', bg: 'rgba(224,122,79,0.10)' } :
+   rank === 3 ? { label: 'Advisory', color: '#e07a4f', bg: 'rgba(224,122,79,0.10)' } :
+   { label: 'Fine',    color: '#78716c',  bg: 'rgba(120,113,108,0.10)' }
+
  return (
  <div
  key={i}
@@ -94,6 +104,14 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  {/* Header */}
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-2.5">
+ {/* Rank badge */}
+ <span
+   className="text-[9px] font-bold tabular-nums min-w-[18px] h-[18px] flex items-center justify-center"
+   style={{ borderRadius: '2px', backgroundColor: badgeCfg.bg, color: badgeCfg.color }}
+   title={`Priority #${rank} — ${badgeCfg.label}`}
+ >
+   #{rank}
+ </span>
  <span
  className="w-7 h-7 flex items-center justify-center text-[9px] font-bold"
  style={{ borderRadius: '2px', backgroundColor: `${color}20`, color }}
@@ -103,6 +121,12 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  <div>
  <span className="text-sm font-medium" style={{ color: '#e7e5e4' }}>{issue.name}</span>
  <span className="text-[10px] ml-2" style={{ color: '#78716c' }}>{issue.freq_range}</span>
+ <span
+   className="text-[9px] ml-2 px-1.5 py-0.5 font-medium"
+   style={{ borderRadius: '2px', backgroundColor: badgeCfg.bg, color: badgeCfg.color }}
+ >
+   {badgeCfg.label}
+ </span>
  </div>
  </div>
  <div className="flex items-center gap-2">
