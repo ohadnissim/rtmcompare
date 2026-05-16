@@ -65,6 +65,8 @@ export interface GenreAnalysisResult {
   eqTips: GenreEqTip[]
   coaching: string[]
   deltaPerBand: number[]     // signed dB deltas (positive = file is hotter than genre)
+  spectrumCentered: number[] // mean-centered file spectrum (for spectrum overlay)
+  genreCurve: number[]       // mean-centered genre target curve (for spectrum overlay)
 }
 
 // 31-band ISO 1/3-octave centers (Hz) — same as MASTERING_BAND_FREQS in comparator.py
@@ -74,28 +76,61 @@ export const BAND_FREQS = [
   2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000,
 ]
 
-// 7 spectral radar regions (same boundaries as _EQ_MATCH_REGIONS in comparator.py)
-// plus a 8th synthetic Dynamics axis derived from lufs/LRA
+// 7 spectral radar regions.
+// Sub starts at band 2 (31.5 Hz) — bands 0–1 (20–25 Hz) are excluded because
+// mean-centring on bass-heavy genres pushes 20 Hz to −25 dB, which creates
+// 15–20 dB artificial deltas even when the actual sub-bass balance is fine.
 const RADAR_REGIONS: { label: string; start: number; end: number; centerHz: number }[] = [
-  { label: 'Sub',        start: 0,  end: 4,  centerHz: 31.5  },
-  { label: 'Bass',       start: 4,  end: 8,  centerHz: 80    },
-  { label: 'Low Mids',   start: 8,  end: 14, centerHz: 250   },
+  { label: 'Sub',        start: 2,  end: 5,  centerHz: 40    },
+  { label: 'Bass',       start: 5,  end: 9,  centerHz: 80    },
+  { label: 'Low Mids',   start: 9,  end: 14, centerHz: 250   },
   { label: 'Mids',       start: 14, end: 18, centerHz: 630   },
   { label: 'Upper Mids', start: 18, end: 22, centerHz: 1600  },
   { label: 'Highs',      start: 22, end: 27, centerHz: 5000  },
-  { label: 'Air',        start: 27, end: 31, centerHz: 14000 },
+  { label: 'Air',        start: 27, end: 30, centerHz: 12500 },
 ]
 
-/** Compute mean of a slice of an array. */
+/** Compute mean of a slice, ignoring −90 sentinel bands. */
 function sliceMean(arr: number[], start: number, end: number): number {
-  const s = arr.slice(start, end)
-  return s.reduce((a, b) => a + b, 0) / s.length
+  const s = arr.slice(start, end).filter(v => Number.isFinite(v) && v > -89)
+  return s.length > 0 ? s.reduce((a, b) => a + b, 0) / s.length : 0
 }
 
-/** Mean-center an array (subtract mean). */
+/**
+ * 3-tap Hann smooth a 31-band spectrum in log-frequency space.
+ * Kernel = np.hanning(5)[1:-1] normalised = [0.25, 0.5, 0.25].
+ * Same operation as engineer_profile._smooth_log_spectrum(kernel_bands=3)
+ * so genre comparison matches the Engineer Tips methodology — single-note
+ * resonances (kick fundamentals, tuned bass) are suppressed without
+ * destroying broad-band tonal imbalances.
+ * Sentinel bands (−90 = out-of-Nyquist) are replaced with the nearest
+ * valid neighbour before smoothing and restored afterwards.
+ */
+function smoothLogSpectrum(spec: number[]): number[] {
+  const n = spec.length
+  // Fill sentinels with nearest valid neighbour so they don't bleed into adjacent bands
+  const clean = [...spec]
+  for (let i = 0; i < n; i++) {
+    if (clean[i] <= -89) {
+      for (let d = 1; d < n; d++) {
+        if (i - d >= 0 && clean[i - d] > -89) { clean[i] = clean[i - d]; break }
+        if (i + d < n && clean[i + d] > -89) { clean[i] = clean[i + d]; break }
+      }
+    }
+  }
+  // Reflective padding (1 band each side, mirroring Python's np.pad mode='reflect')
+  const padded = [clean[Math.min(1, n - 1)], ...clean, clean[Math.max(n - 2, 0)]]
+  // Convolve with [0.25, 0.5, 0.25]
+  const result = clean.map((_, i) => padded[i] * 0.25 + padded[i + 1] * 0.5 + padded[i + 2] * 0.25)
+  // Restore original sentinel positions
+  return result.map((v, i) => spec[i] <= -89 ? spec[i] : v)
+}
+
+/** Mean-center an array, ignoring −90 sentinel bands (out-of-Nyquist placeholders set by Python). */
 function meanCenter(arr: number[]): number[] {
-  const m = arr.reduce((a, b) => a + b, 0) / arr.length
-  return arr.map(v => v - m)
+  const valid = arr.filter(v => Number.isFinite(v) && v > -89)
+  const m = valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : 0
+  return arr.map(v => (v <= -89 ? v : v - m))
 }
 
 /** Clamp a value between min and max. */
@@ -149,40 +184,63 @@ export function computeGenreAnalysis(
       eqTips: [],
       coaching: ['Insufficient data for genre analysis.'],
       deltaPerBand: [],
+      spectrumCentered: [],
+      genreCurve: [],
     }
   }
 
-  // A-weighted level alignment — same as the Reference Match EQ path (spectrumLevel.ts).
-  // Centres both curves on their perceptual mean so the comparison is purely tonal shape,
-  // not level. Genre profiles are stored mean-centred; we re-align with A-weighting here
-  // for consistency with the rest of the app.
-  const spectrumCentered = levelAlign(spectrumRaw.slice(0, 31))
-  const genreCurve = levelAlign(profile.curve.slice(0, 31))
+  // Both spectrum_b (from visualizations.py band_spectrum) and the genre curve
+  // (from build_profile) are stored as simple arithmetic mean-centred dB values.
+  // Re-centre each with the same method so any residual offset cancels cleanly.
+  const spectrumCentered = meanCenter(spectrumRaw.slice(0, 31))
+  const genreCurve = meanCenter(profile.curve.slice(0, 31))
 
-  // Per-band delta: positive = file is hotter than genre target
-  const deltaPerBand = spectrumCentered.map((v, i) => v - genreCurve[i])
+  // Apply the same log-frequency Hann smoothing as Engineer Tips
+  // (engineer_profile._smooth_log_spectrum, kernel=3). Smoothing both curves
+  // cancels single-note resonances (kick fundamentals, tuned 808 subs) that
+  // would otherwise show up as spurious 5–10 dB deltas in specific bands.
+  const spectrumSmoothed = smoothLogSpectrum(spectrumCentered)
+  const genreCurveSmoothed = smoothLogSpectrum(genreCurve)
 
-  // Match score: RMS of per-band deltas. When TBC3 spread is available,
-  // clamp each delta to zero if it falls within the tolerance band —
-  // those regions are genuinely inside the genre's natural variation.
+  // Per-band delta: positive = file is hotter than genre target.
+  // Uses smoothed spectra so individual resonances don't skew tips/score.
+  // Sentinel bands (−90 = out-of-Nyquist) produce 0 delta — no valid data.
+  const deltaPerBand = spectrumSmoothed.map((v, i) => {
+    if (v <= -89 || genreCurveSmoothed[i] <= -89) return 0
+    return v - genreCurveSmoothed[i]
+  })
+
+  // Match score: RMS of per-band deltas, excluding bands 0–1 (20–25 Hz) and 30 (20 kHz).
+  // Those bands are excluded because mean-centring on bass-heavy genres pushes 20–25 Hz
+  // to −9…−25 dB, creating 10–20 dB artificial deltas even when the audible bass is fine.
+  // Band 30 (20 kHz) is a sentinel at 44.1 kHz and already contributes 0 delta.
+  // When TBC3 spread is available, clamp each delta to zero inside the tolerance.
+  const SCORE_BAND_MASK = [
+    0, 0,  // bands 0-1 (20–25 Hz) — excluded
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  // bands 2-11
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  // bands 12-21
+    1, 1, 1, 1, 1, 1, 1, 1,        // bands 22-29
+    0,                               // band 30 (20 kHz) — excluded
+  ]
   const spreadPerBand = profile.tbc_spread
   const effectiveDeltas = deltaPerBand.map((d, i) => {
     if (!spreadPerBand) return d
     const halfSpread = spreadPerBand[i] / 2
     return Math.abs(d) <= halfSpread ? 0 : d - Math.sign(d) * halfSpread
   })
-  const rmsDelta = Math.sqrt(effectiveDeltas.reduce((s, d) => s + d * d, 0) / effectiveDeltas.length)
+  const scoreBands = effectiveDeltas.filter((_, i) => SCORE_BAND_MASK[i])
+  const rmsDelta = Math.sqrt(scoreBands.reduce((s, d) => s + d * d, 0) / scoreBands.length)
   const matchScore = Math.round(clamp(100 - rmsDelta * 6, 0, 100))
   const matchLabel: GenreAnalysisResult['matchLabel'] =
     matchScore >= 85 ? 'Excellent' :
     matchScore >= 70 ? 'Good' :
     matchScore >= 50 ? 'Fair' : 'Needs work'
 
-  // Radar axes — include TBC3 confidence spread when available
+  // Radar axes — use smoothed spectra for the same reason as deltaPerBand
   const spread = profile.tbc_spread   // 31-band spread in dB, or undefined
   const radar: RadarAxis[] = RADAR_REGIONS.map(r => {
-    const fileRegionMean  = sliceMean(spectrumCentered, r.start, r.end)
-    const genreRegionMean = sliceMean(genreCurve, r.start, r.end)
+    const fileRegionMean  = sliceMean(spectrumSmoothed, r.start, r.end)
+    const genreRegionMean = sliceMean(genreCurveSmoothed, r.start, r.end)
     const deltaDb = Math.round((fileRegionMean - genreRegionMean) * 10) / 10
 
     let spreadDb: number | undefined
@@ -204,18 +262,20 @@ export function computeGenreAnalysis(
     }
   })
 
-  // EQ tips: find the 5 regions with the largest |delta|, skip tiny ones
+  // EQ tips: find the 5 regions with the largest |delta|, skip tiny ones.
+  // Sub starts at band 2 (31.5 Hz) for the same reason as RADAR_REGIONS above.
+  // Air ends at band 30 (16 kHz) — band 30 (20 kHz) is often a sentinel at 44.1 kHz.
   const EQ_REGIONS = [
-    { label: 'Sub',        start: 0,  end: 4,  centerHz: 31.5  },
-    { label: 'Low Bass',   start: 4,  end: 6,  centerHz: 50    },
-    { label: 'Bass',       start: 6,  end: 8,  centerHz: 100   },
-    { label: 'Low Mids',   start: 8,  end: 12, centerHz: 250   },
-    { label: 'Mid-Low',    start: 12, end: 14, centerHz: 400   },
-    { label: 'Mids',       start: 14, end: 17, centerHz: 630   },
-    { label: 'Upper Mids', start: 17, end: 20, centerHz: 1600  },
-    { label: 'Presence',   start: 20, end: 23, centerHz: 3150  },
-    { label: 'Highs',      start: 23, end: 27, centerHz: 6300  },
-    { label: 'Air',        start: 27, end: 31, centerHz: 14000 },
+    { label: 'Sub',        start: 2,  end: 5,  centerHz: 40    },
+    { label: 'Low Bass',   start: 5,  end: 7,  centerHz: 63    },
+    { label: 'Bass',       start: 7,  end: 9,  centerHz: 100   },
+    { label: 'Low Mids',   start: 9,  end: 13, centerHz: 250   },
+    { label: 'Mid-Low',    start: 13, end: 15, centerHz: 400   },
+    { label: 'Mids',       start: 15, end: 18, centerHz: 630   },
+    { label: 'Upper Mids', start: 18, end: 21, centerHz: 1600  },
+    { label: 'Presence',   start: 21, end: 24, centerHz: 3150  },
+    { label: 'Highs',      start: 24, end: 27, centerHz: 6300  },
+    { label: 'Air',        start: 27, end: 30, centerHz: 12500 },
   ]
 
   const regionDeltas = EQ_REGIONS.map(r => ({
@@ -275,5 +335,7 @@ export function computeGenreAnalysis(
     eqTips,
     coaching,
     deltaPerBand,
+    spectrumCentered: spectrumSmoothed,
+    genreCurve: genreCurveSmoothed,
   }
 }

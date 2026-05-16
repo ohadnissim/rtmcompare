@@ -1917,6 +1917,42 @@ ipcMain.handle('references-update', async (_e, id: string, patch: Partial<RefRec
   writeRefs(list)
   return list[idx]
 })
+// Upsert a reference record from pre-computed analysis data — no Python
+// subprocess needed. Used to auto-populate the library whenever the user
+// runs a compare or single-file analysis.
+// Only inserts if the path is new; never overwrites an existing record so
+// user-added tags / notes are preserved.
+ipcMain.handle('references-upsert', async (_e, partial: {
+  path: string
+  filename?: string
+  spectrum?: number[]
+  lufs_i?: number | null
+  lra?: number
+  true_peak_dbtp?: number
+  duration_sec?: number
+  sample_rate?: number
+  channels?: number
+  bpm?: number
+  key?: string
+}) => {
+  try {
+    if (!partial?.path) return null
+    const list = readRefs()
+    if (list.find(r => r.path === partial.path)) return null  // keep existing record intact
+    const record: RefRecord = {
+      id: `ref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      path: partial.path,
+      filename: partial.filename || path.basename(partial.path),
+      added_at: new Date().toISOString(),
+      tags: [],
+      notes: '',
+      ...partial,
+    }
+    list.unshift(record)
+    writeRefs(list)
+    return record
+  } catch { return null }
+})
 ipcMain.handle('references-add', async (_e, srcPath: string) => {
   try { assertSafeAudioPath(srcPath, 'references-add') }
   catch (err: any) { return { error: err?.message || 'file not found' } }

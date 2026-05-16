@@ -14,6 +14,7 @@ import EmptyStateV2 from './components/shell/EmptyStateV2'
 import { buildMetricCells } from './lib/buildMetricCells'
 import FileDropZone from './components/FileDropZone'
 import ReferenceLibrary from './components/ReferenceLibrary'
+import { invalidateReferenceLibraryCache } from './referenceLibraryCache'
 import ReferenceDropdown from './components/ReferenceDropdown'
 import RtmIncomingBanner from './components/RtmIncomingBanner'
 import { usePluginDrop } from './PluginDropContext'
@@ -170,6 +171,8 @@ declare global {
  referencesAdd?: (srcPath: string) => Promise<import('./types').ReferenceRecord | { error: string }>
  referencesDelete?: (id: string) => Promise<boolean>
  referencesUpdate?: (id: string, patch: { tags?: string[]; notes?: string }) =>
+ Promise<import('./types').ReferenceRecord | null>
+ referencesUpsert?: (data: { path: string; filename?: string; spectrum?: number[]; lufs_i?: number | null; lra?: number; true_peak_dbtp?: number; duration_sec?: number; sample_rate?: number; channels?: number; bpm?: number; key?: string }) =>
  Promise<import('./types').ReferenceRecord | null>
  // RTM De-click — thin IPC bridge to python/declick.py. See python for
  // the full parameter contract; types.ts for the result shape.
@@ -1019,6 +1022,11 @@ export default function App() {
  setState('ref-only')
  focusResults()
  appendHistory(fileA, result, 'ref-only')
+ if (window.electronAPI?.referencesUpsert) {
+  const r = result as any
+  window.electronAPI.referencesUpsert({ path: fileA.path, filename: fileA.name, spectrum: result.spectrum_a ?? undefined, lufs_i: result.overall?.lufs_a, true_peak_dbtp: r.headroom?.true_peak_a, duration_sec: result.duration_sec_a, bpm: r.reference_check?.song_info?.bpm, key: r.reference_check?.song_info?.key })
+   .then(saved => { if (saved) invalidateReferenceLibraryCache() }).catch(() => {})
+ }
  }
  } catch (err: any) {
  if (/timed out/i.test(err?.message || '')) {
@@ -1065,6 +1073,17 @@ export default function App() {
  focusResults()
  // Log the reference (A) to local history — fires in the background.
  appendHistory(fileA, result, 'compare', fileB.name)
+ // Auto-populate the reference library with both files using the
+ // already-computed analysis data — no re-scan needed.
+ // Fire-and-forget; errors are silent so they never block the UI.
+ if (window.electronAPI?.referencesUpsert) {
+  const upsert = window.electronAPI.referencesUpsert!
+  const r = result as any
+  Promise.all([
+   upsert({ path: fileB.path, filename: fileB.name, spectrum: result.spectrum_b ?? undefined, lufs_i: result.overall?.lufs_b, true_peak_dbtp: r.headroom?.true_peak_b, duration_sec: result.duration_sec_b, bpm: r.reference_check?.song_info?.bpm, key: r.reference_check?.song_info?.key }),
+   upsert({ path: fileA.path, filename: fileA.name, spectrum: result.spectrum_a ?? undefined, lufs_i: result.overall?.lufs_a, true_peak_dbtp: r.headroom?.true_peak_a, duration_sec: result.duration_sec_a }),
+  ]).then(results => { if (results.some(Boolean)) invalidateReferenceLibraryCache() }).catch(() => {})
+ }
  } else {
  throw new Error('Run this app via Electron (npm run dev) to analyze real audio files.')
  }

@@ -148,6 +148,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   referencesDelete: (id: string) => ipcRenderer.invoke('references-delete', id),
   referencesUpdate: (id: string, patch: { tags?: string[]; notes?: string }) =>
     ipcRenderer.invoke('references-update', id, patch),
+  referencesUpsert: (data: { path: string; filename?: string; spectrum?: number[]; lufs_i?: number | null; lra?: number; true_peak_dbtp?: number; duration_sec?: number; sample_rate?: number; channels?: number; bpm?: number; key?: string }) =>
+    ipcRenderer.invoke('references-upsert', data),
 
   // RTM De-click — RX-style click/pop removal via python/declick.py.
   // `declickProcess` runs the full file; `declickPreview` slices the

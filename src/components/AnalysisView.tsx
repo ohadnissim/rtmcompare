@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { AnalysisResult, FileInfo } from '../types'
 import ABPlayer from './ABPlayer'
 import { AnnotationLayer } from './learn/AnnotationLayer'
@@ -12,6 +12,8 @@ import LimiterArtefactsPanel from './LimiterArtefactsPanel'
 import ClickTimeline from './ClickTimeline'
 import Recommendations from './Recommendations'
 import MatchTab from './MatchTab'
+import type { GenreProfile } from '../lib/genreAnalysis'
+import type { ProfileInfo } from './ProfileDropdown'
 import CommandPalette from './CommandPalette'
 import { emitShortcut, isEditableTarget, RTM_EVENTS } from '../shortcuts'
 import { useModes } from '../ModesContext'
@@ -72,6 +74,37 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  const { enabled: learnEnabled } = useLearnMode()
 
  const [activeTab, setActiveTab] = useState<Tab>('overview')
+
+ // Genre tab state — lazy-loaded when the tab is first activated
+ const [genreProfiles, setGenreProfiles] = useState<ProfileInfo[]>([])
+ const [genreProfileData, setGenreProfileData] = useState<Record<string, GenreProfile>>({})
+ const [defaultGenreId, setDefaultGenreId] = useState<string>(
+   () => localStorage.getItem('rtm-default-genre') ?? 'AllPurpose'
+ )
+ const handleRequestProfile = useCallback((id: string) => {
+   const api = (window as any).electronAPI
+   if (!api?.getProfileData) return
+   api.getProfileData(id).then((data: GenreProfile | null) => {
+     if (data) setGenreProfileData(prev => ({ ...prev, [id]: data }))
+   })
+ }, [])
+ const handleDefaultChange = useCallback((id: string) => {
+   setDefaultGenreId(id)
+   localStorage.setItem('rtm-default-genre', id)
+ }, [])
+ useEffect(() => {
+   if (activeTab !== 'match' || genreProfiles.length > 0) return
+   const api = (window as any).electronAPI
+   if (!api?.listProfiles) return
+   api.listProfiles().then((all: ProfileInfo[]) => {
+     const genres = all.filter((p: ProfileInfo) => p.profile_type === 'genre')
+     setGenreProfiles(genres)
+     // Pre-load the default profile
+     const defId = localStorage.getItem('rtm-default-genre') ?? 'AllPurpose'
+     if (defId && !genreProfileData[defId]) handleRequestProfile(defId)
+   })
+ }, [activeTab, genreProfiles.length, genreProfileData, handleRequestProfile])
+
  // Atmos tab has a sub-toggle (Immersive / Downmix) so ADM sessions don't
  // need two separate top-level tabs. Defaults to Immersive — the
  // Atmos-specific view — because that's why the user opened the tab.
@@ -1619,6 +1652,11 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  fileB={fileB}
  labelA={labelA}
  labelB={labelB}
+ genreProfiles={genreProfiles}
+ genreProfileData={genreProfileData}
+ onRequestProfile={handleRequestProfile}
+ defaultGenreId={defaultGenreId}
+ onDefaultGenreChange={handleDefaultChange}
  />
  </div>
  )}

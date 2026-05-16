@@ -640,15 +640,15 @@ function ChainRecs({
  const [rtmsendOzoneAdvanced, setRtmsendOzoneAdvanced] = useState<boolean>(false)
  const [ozoneInstallations, setOzoneInstallations] = useState<{ name: string; version: string }[]>([])
 
- // Detect Ozone installation + RTMsend status on mount.
+ // Detect Ozone installation on mount; re-check RTMsend status every time the menu opens.
  React.useEffect(() => {
-  let cancelled = false
   window.electronAPI?.ozoneDetect?.().then(res => {
-   if (cancelled) return
    setOzoneInstallations(res.found ? (res.installations ?? []) : [])
   }).catch(() => {})
+ }, [])
+
+ const checkRtmsendStatus = React.useCallback(() => {
   window.electronAPI?.rtmsendStatus?.().then(status => {
-   if (cancelled) return
    const pluginName: string = status?.loaded?.name ?? ''
    const nameLo = pluginName.toLowerCase()
    setRtmsendOzone(status?.running === true && nameLo.includes('ozone') && nameLo.includes('equalizer'))
@@ -657,8 +657,11 @@ function ChainRecs({
      !nameLo.includes('equalizer') && !nameLo.includes('imager') &&
      !nameLo.includes('dynamics') && !nameLo.includes('maximizer'))
   }).catch(() => {})
-  return () => { cancelled = true }
  }, [])
+
+ React.useEffect(() => {
+  if (menuOpen) checkRtmsendStatus()
+ }, [menuOpen, checkRtmsendStatus])
 
  React.useEffect(() => {
   if (!menuOpen) return

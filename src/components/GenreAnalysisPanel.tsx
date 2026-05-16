@@ -1,6 +1,9 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import { ProfileInfo } from './ProfileDropdown'
 import { GenreProfile, GenreAnalysisResult, computeGenreAnalysis, RadarAxis, BAND_FREQS } from '../lib/genreAnalysis'
+import { useEQ } from '../EQContext'
+import { EQPreviewPlayer } from './EngineerTipsPanel'
+import type { FileInfo } from '../types'
 
 interface Props {
   spectrumB: number[]     // 31-band file spectrum from analysis result
@@ -12,6 +15,12 @@ interface Props {
   defaultGenreId?: string
   /** Called when the user marks a genre as their default. */
   onDefaultChange?: (id: string) => void
+  /** Called when a genre is picked (e.g. to close the library modal). */
+  onPickGenre?: () => void
+  /** When true, push EQ tips into EQContext for live A/B player preview. */
+  liveEQ?: boolean
+  /** File being previewed — required for EQPreviewPlayer when liveEQ=true. */
+  fileB?: FileInfo
 }
 
 // ── Radar chart (SVG spider) ──────────────────────────────────────────────────
@@ -213,6 +222,61 @@ function DeltaBars({ deltaPerBand, spreadPerBand }: { deltaPerBand: number[]; sp
   )
 }
 
+// ── Spectrum overlay (file vs genre target) ───────────────────────────────────
+
+const SPEC_LABELS = ['20','25','32','40','50','63','80','100','125','160','200','250','315','400','500','630','800','1k','1.25k','1.6k','2k','2.5k','3.15k','4k','5k','6.3k','8k','10k','12.5k','16k','20k']
+
+function SpectrumOverlayChart({ spectrumCentered, genreCurve }: { spectrumCentered: number[]; genreCurve: number[] }) {
+  const w = 700, h = 160
+  const pad = { top: 8, bottom: 22, left: 4, right: 4 }
+  const gw = w - pad.left - pad.right
+  const gh = h - pad.top - pad.bottom
+
+  const allVals = [...spectrumCentered, ...genreCurve].filter(v => Number.isFinite(v) && v > -89)
+  if (allVals.length === 0) return null
+  const maxDb = Math.max(...allVals, 6) + 1
+  const minDb = Math.min(...allVals, -6) - 1
+
+  const toX = (i: number) => pad.left + (i / 30) * gw
+  const toY = (v: number) => pad.top + (1 - (v - minDb) / (maxDb - minDb)) * gh
+
+  const makePath = (data: number[]) =>
+    data.map((v, i) =>
+      !Number.isFinite(v) || v <= -89 ? null : `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(v).toFixed(1)}`
+    ).filter(Boolean).join(' ')
+
+  const gridDbs = [-10, -5, 0, 5, 10].filter(d => d >= minDb && d <= maxDb)
+  const labelIdxs = [0, 4, 8, 12, 16, 20, 24, 28, 30]
+
+  return (
+    <div>
+      <div className="text-[10px] mb-1.5 flex items-center gap-3" style={{ color: 'rgba(168,161,150,0.55)' }}>
+        <span>Spectrum overlay vs genre target</span>
+        <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 10, height: 2, backgroundColor: '#6ec577', borderRadius: 1 }} /> Your file</span>
+        <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 10, height: 2, backgroundColor: '#d0b066', borderRadius: 1 }} /> Genre target</span>
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 140 }} preserveAspectRatio="none">
+        {gridDbs.map(db => (
+          <g key={db}>
+            <line x1={pad.left} y1={toY(db)} x2={w - pad.right} y2={toY(db)} stroke="rgba(168,161,150,0.08)" strokeWidth={db === 0 ? 1 : 0.5} />
+            <text x={pad.left + 2} y={toY(db) - 2} fontSize={7} fill="rgba(168,161,150,0.30)">{db > 0 ? `+${db}` : db} dB</text>
+          </g>
+        ))}
+        {/* Genre target */}
+        <path d={makePath(genreCurve)} fill="none" stroke="#d0b066" strokeWidth={1.5} opacity={0.70} />
+        {/* File spectrum */}
+        <path d={makePath(spectrumCentered)} fill="none" stroke="#6ec577" strokeWidth={2} />
+        {/* Freq labels */}
+        {labelIdxs.map(i => (
+          i < SPEC_LABELS.length && (
+            <text key={i} x={toX(i)} y={h - 3} textAnchor="middle" fontSize={7} fill="rgba(168,161,150,0.35)">{SPEC_LABELS[i]}</text>
+          )
+        ))}
+      </svg>
+    </div>
+  )
+}
+
 // ── Match score gauge ─────────────────────────────────────────────────────────
 
 const SCORE_COLORS: Record<string, string> = {
@@ -270,11 +334,15 @@ const GENRE_GROUPS: { label: string; ids: string[] }[] = [
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, onRequestProfile, defaultGenreId, onDefaultChange }: Props) {
+export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, onRequestProfile, defaultGenreId, onDefaultChange, onPickGenre, liveEQ, fileB }: Props) {
   const genreProfiles = profiles.filter(p => p.profile_type === 'genre')
   const fallbackId = genreProfiles.find(p => p.id === 'AllPurpose')?.id ?? genreProfiles[0]?.id ?? ''
   const [selectedId, setSelectedId] = useState<string>(defaultGenreId ?? fallbackId)
   const [groupFilter, setGroupFilter] = useState<string>('All')
+  const [bandEnabled, setBandEnabled] = useState<boolean[]>([])
+  const [eqAmount, setEqAmount] = useState(100)
+  const [tpLimit, setTpLimit] = useState(true)
+  const eq = useEQ()
 
   // When defaultGenreId prop changes (e.g. library opens with a saved default), sync selection
   React.useEffect(() => {
@@ -296,6 +364,42 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
     if (!profile || !spectrumB || spectrumB.length < 31) return null
     return computeGenreAnalysis(spectrumB, profile)
   }, [spectrumB, profile])
+
+  // Keep last valid result to prevent flicker while a new genre's profile loads
+  const lastResultRef = useRef<GenreAnalysisResult | null>(null)
+  const [cachedResult, setCachedResult] = useState<GenreAnalysisResult | null>(null)
+  useEffect(() => {
+    if (result) {
+      lastResultRef.current = result
+      setCachedResult(result)
+    }
+  }, [result])
+  const displayResult = result ?? cachedResult
+
+  // Reset band toggles when tips change (new genre selected)
+  useEffect(() => {
+    if (result) setBandEnabled(result.eqTips.map(() => true))
+  }, [result?.genreId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Push EQ tips into EQContext for live A/B player preview
+  useEffect(() => {
+    if (!liveEQ || !displayResult) return
+    const newBands = displayResult.eqTips.map((tip, i) => ({
+      id: `genre-${i}-${tip.freq}`,
+      freq: tip.freq,
+      gain_db: -(tip.deltaDb / 2),  // half-delta, sign flipped
+      q: 0.85,
+      type: 'peaking' as const,
+      enabled: !!bandEnabled[i],
+      label: tip.region,
+    }))
+    eq.setBands(newBands)
+    eq.setAmount(eqAmount / 100)
+    if (newBands.some(b => b.enabled)) eq.setEnabled(true)
+  }, [displayResult, bandEnabled, eqAmount, liveEQ]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear EQ context on unmount
+  useEffect(() => () => { if (liveEQ) eq.clear() }, [liveEQ]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filtered genre list for the picker
   const visibleIds = groupFilter === 'All'
@@ -352,6 +456,8 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
             onClick={() => {
               setSelectedId(p.id)
               if (!profileData[p.id]) onRequestProfile?.(p.id)
+              onDefaultChange?.(p.id)
+              onPickGenre?.()
             }}
             className="text-[11px] px-2.5 py-1 transition-all"
             style={{
@@ -366,30 +472,20 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
         ))}
       </div>
 
-      {!result ? (
+      {!displayResult && !profile && (
         <div className="text-[11px] py-4 text-center" style={{ color: 'rgba(168,161,150,0.5)' }}>
-          {profile ? 'Computing…' : 'Loading profile data…'}
+          Loading profile data…
         </div>
-      ) : (
+      )}
+
+      {displayResult && (
         <>
           {/* Header row: gauge + description */}
           <div className="flex items-start gap-5">
-            <MatchGauge score={result.matchScore} label={result.matchLabel} />
+            <MatchGauge score={displayResult.matchScore} label={displayResult.matchLabel} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                  {result.genreName}
-                </span>
-                {onDefaultChange && (
-                  <button
-                    onClick={() => onDefaultChange(selectedId)}
-                    title={selectedId === defaultGenreId ? 'This is your default genre' : 'Set as default genre (remembers across sessions)'}
-                    className="text-[11px] transition-opacity"
-                    style={{ color: selectedId === defaultGenreId ? 'var(--color-accent)' : 'rgba(168,161,150,0.35)' }}
-                  >
-                    {selectedId === defaultGenreId ? '★' : '☆'}
-                  </button>
-                )}
+              <div className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                {displayResult.genreName}
               </div>
               {profile?.role && (
                 <div className="text-[10px] mt-0.5" style={{ color: 'rgba(168,161,150,0.55)' }}>
@@ -410,8 +506,7 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
           {/* Two-column: radar + coaching */}
           <div className="flex gap-5 items-start">
             <div className="shrink-0">
-              <RadarChart axes={result.radar} />
-              {/* Legend */}
+              <RadarChart axes={displayResult.radar} />
               <div className="flex flex-wrap gap-3 mt-1 justify-center">
                 <span className="flex items-center gap-1 text-[9px]" style={{ color: 'rgba(110,197,119,0.80)' }}>
                   <span style={{ display: 'inline-block', width: 10, height: 2, backgroundColor: '#6ec577', borderRadius: 1 }} />
@@ -419,15 +514,15 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
                 </span>
                 <span className="flex items-center gap-1 text-[9px]" style={{ color: 'rgba(208,176,102,0.80)' }}>
                   <span style={{ display: 'inline-block', width: 10, height: 2, backgroundColor: '#d0b066', borderRadius: 1 }} />
-                  {result.genreName}
+                  {displayResult.genreName}
                 </span>
-                {result.radar.some(a => a.spreadDb != null) && (
+                {displayResult.radar.some(a => a.spreadDb != null) && (
                   <span className="flex items-center gap-1 text-[9px]" style={{ color: 'rgba(208,176,102,0.45)' }}>
                     <span style={{ display: 'inline-block', width: 10, height: 6, backgroundColor: 'rgba(208,176,102,0.18)', border: '1px dashed rgba(208,176,102,0.35)', borderRadius: 1 }} />
                     tolerance band
                   </span>
                 )}
-                {result.radar.some(a => a.withinTolerance === false) && (
+                {displayResult.radar.some(a => a.withinTolerance === false) && (
                   <span className="flex items-center gap-1 text-[9px]" style={{ color: 'rgba(224,122,79,0.80)' }}>
                     <span style={{ display: 'inline-block', width: 6, height: 6, backgroundColor: '#e07a4f', borderRadius: '50%' }} />
                     outside tolerance
@@ -438,7 +533,7 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
 
             {/* Coaching text */}
             <div className="flex-1 min-w-0 space-y-2">
-              {result.coaching.map((c, i) => (
+              {displayResult.coaching.map((c, i) => (
                 <p key={i} className="text-[11px] leading-relaxed" style={{ color: i === 0 ? 'rgba(168,161,150,0.85)' : 'rgba(168,161,150,0.65)' }}>
                   {c}
                 </p>
@@ -447,7 +542,7 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
           </div>
 
           {/* Delta bars */}
-          {result.deltaPerBand.length > 0 && (
+          {displayResult.deltaPerBand.length > 0 && (
             <div>
               <div className="text-[10px] mb-2 flex items-center gap-2" style={{ color: 'rgba(168,161,150,0.55)' }}>
                 <span>Per-band delta vs genre target</span>
@@ -460,23 +555,37 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
                   <span>low</span>
                 </span>
               </div>
-              <DeltaBars deltaPerBand={result.deltaPerBand} spreadPerBand={profile?.tbc_spread} />
+              <DeltaBars deltaPerBand={displayResult.deltaPerBand} spreadPerBand={profile?.tbc_spread} />
             </div>
           )}
 
+          {/* Spectrum overlay */}
+          {liveEQ && displayResult.spectrumCentered.length > 0 && (
+            <SpectrumOverlayChart
+              spectrumCentered={displayResult.spectrumCentered}
+              genreCurve={displayResult.genreCurve}
+            />
+          )}
+
           {/* EQ tips */}
-          {result.eqTips.length > 0 && (
+          {displayResult.eqTips.length > 0 && (
             <div className="space-y-2">
               <div className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(168,161,150,0.45)' }}>EQ moves to match genre</div>
-              {result.eqTips.map((tip, i) => (
+              {displayResult.eqTips.map((tip, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-3 px-3 py-2.5"
+                  className="flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-opacity"
                   style={{
                     borderRadius: '2px',
                     backgroundColor: tip.action === 'cut' ? 'rgba(224,122,79,0.06)' : 'rgba(110,197,119,0.06)',
                     borderLeft: `2px solid ${tip.action === 'cut' ? 'rgba(224,122,79,0.35)' : 'rgba(110,197,119,0.35)'}`,
+                    opacity: liveEQ && bandEnabled[i] === false ? 0.40 : 1,
                   }}
+                  onClick={() => liveEQ && setBandEnabled(prev => {
+                    const next = [...prev]
+                    next[i] = !next[i]
+                    return next
+                  })}
                 >
                   <span
                     className="text-[9px] font-bold shrink-0 mt-0.5 px-1 py-0.5"
@@ -488,9 +597,26 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
                   >
                     {tip.action === 'cut' ? '▼ CUT' : '▲ BOOST'}
                   </span>
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      {tip.region}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                        {tip.region}
+                      </div>
+                      {liveEQ && (
+                        <span
+                          className="text-[9px] px-1.5 py-0.5 transition-colors"
+                          style={{
+                            borderRadius: '2px',
+                            color: bandEnabled[i] !== false ? '#0e0d0b' : 'rgba(168,161,150,0.50)',
+                            backgroundColor: bandEnabled[i] !== false
+                              ? (tip.action === 'cut' ? '#e07a4f' : '#6ec577')
+                              : 'rgba(168,161,150,0.10)',
+                            border: `1px solid ${bandEnabled[i] !== false ? 'transparent' : 'rgba(168,161,150,0.20)'}`,
+                          }}
+                        >
+                          {bandEnabled[i] !== false ? 'ON' : 'OFF'}
+                        </span>
+                      )}
                     </div>
                     <div className="text-[11px] mt-0.5 leading-relaxed" style={{ color: 'rgba(168,161,150,0.70)' }}>
                       {tip.note}
@@ -499,6 +625,26 @@ export default function GenreAnalysisPanel({ spectrumB, profiles, profileData, o
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Full EQ preview player — identical to Engineer Tips (includes send-to-plugin) */}
+          {liveEQ && fileB && displayResult.eqTips.length > 0 && (
+            <EQPreviewPlayer
+              fileB={fileB}
+              filters={displayResult.eqTips.map(tip => ({
+                freq: tip.freq,
+                gain_db: -(tip.deltaDb / 2),
+                q: 0.85,
+                region: tip.region,
+              }))}
+              engineer={displayResult.genreName}
+              bandEnabled={bandEnabled}
+              setBandEnabled={setBandEnabled}
+              eqAmount={eqAmount}
+              setEqAmount={setEqAmount}
+              tpLimit={tpLimit}
+              setTpLimit={setTpLimit}
+            />
           )}
         </>
       )}

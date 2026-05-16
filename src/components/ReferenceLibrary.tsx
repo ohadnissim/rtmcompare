@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import ReactDOM from 'react-dom'
 import { FileInfo, ReferenceRecord } from '../types'
 import { useReferenceLibrary } from '../referenceLibraryCache'
 import GenreAnalysisPanel from './GenreAnalysisPanel'
@@ -162,10 +163,10 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
 
  if (!open) return null
 
- return (
+ return ReactDOM.createPortal(
  <div
  className="fixed inset-0 z-[100] flex items-center justify-center p-8"
- style={{ backgroundColor: 'rgba(10,9,8,0.93)' }}
+ style={{ backgroundColor: 'rgba(10,9,8,0.95)' }}
  onClick={onClose}
  >
  <div
@@ -319,6 +320,7 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  onRequestProfile={handleRequestProfile}
  defaultGenreId={defaultGenreId}
  onDefaultChange={handleDefaultChange}
+ onPickGenre={onClose}
  />
  ) : (
  <div className="text-center py-16 space-y-2">
@@ -331,7 +333,8 @@ export default function ReferenceLibrary({ open, onClose, onPick, title = 'Refer
  )}
  </div>
  </div>
- </div>
+ </div>,
+ document.body
  )
 }
 

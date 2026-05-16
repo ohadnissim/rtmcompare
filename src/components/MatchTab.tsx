@@ -4,14 +4,22 @@ import MatchReferenceEQPanel, { Band } from './MatchReferenceEQPanel'
 import EngineerTipsPanel from './EngineerTipsPanel'
 import ReferenceMatchEQFromLibrary from './ReferenceMatchEQFromLibrary'
 import MasterAssistantPanel from './MasterAssistantPanel'
+import GenreAnalysisPanel from './GenreAnalysisPanel'
+import type { GenreProfile } from '../lib/genreAnalysis'
+import type { ProfileInfo } from './ProfileDropdown'
 
-type Mode = 'reference' | 'engineer' | 'hybrid' | 'library' | 'assistant' | 'chain'
+type Mode = 'reference' | 'engineer' | 'hybrid' | 'library' | 'assistant' | 'chain' | 'genre'
 
 interface Props {
  results: AnalysisResult
  fileB?: FileInfo
  labelA: string
  labelB: string
+ genreProfiles?: ProfileInfo[]
+ genreProfileData?: Record<string, GenreProfile>
+ onRequestProfile?: (id: string) => void
+ defaultGenreId?: string
+ onDefaultGenreChange?: (id: string) => void
 }
 
 /**
@@ -32,7 +40,7 @@ interface Props {
  * mode is hidden entirely when no profile tips came back from the backend
  * (e.g. profile was "off" at scan time).
  */
-export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
+export default function MatchTab({ results, fileB, labelA, labelB, genreProfiles, genreProfileData, onRequestProfile, defaultGenreId, onDefaultGenreChange }: Props) {
  const hasEngineer = !!results.engineer_tips
  const hasChain = !!results.chain_tips
  const [mode, setMode] = useState<Mode>('reference')
@@ -119,6 +127,14 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
  ? `Preview where this mix lands after ${results.chain_tips?.engineer || 'the loaded engineer'}'s mastering chain`
  : "Select a Delta profile before analysis to see chain prediction"}
  />
+ {results.spectrum_b && results.spectrum_b.length >= 31 && (
+ <ModePill
+   active={mode === 'genre'}
+   onClick={() => setMode('genre')}
+   label="◎ Genre"
+   hint="Compare your file's tonal balance against a genre target curve with live EQ preview"
+ />
+ )}
  </div>
  </div>
  )
@@ -222,6 +238,27 @@ export default function MatchTab({ results, fileB, labelA, labelB }: Props) {
        )}
      </div>
    )
+ )}
+
+ {mode === 'genre' && results.spectrum_b && (
+   genreProfiles && genreProfiles.length > 0
+     ? (
+       <GenreAnalysisPanel
+         spectrumB={results.spectrum_b}
+         profiles={genreProfiles}
+         profileData={genreProfileData ?? {}}
+         onRequestProfile={onRequestProfile}
+         defaultGenreId={defaultGenreId}
+         onDefaultChange={onDefaultGenreChange}
+         liveEQ
+         fileB={fileB}
+       />
+     ) : (
+       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+         <div className="text-2xl opacity-30">◎</div>
+         <div className="text-sm font-medium" style={{ color: 'var(--color-text-dim)' }}>Loading genre profiles…</div>
+       </div>
+     )
  )}
  </div>
  )
