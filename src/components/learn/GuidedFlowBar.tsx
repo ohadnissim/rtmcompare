@@ -50,6 +50,7 @@ export default function GuidedFlowBar({
   const [showGradeBook, setShowGradeBook] = React.useState(false)
   const [blindTestOpen, setBlindTestOpen] = React.useState(false)
   const [earTrainingOpen, setEarTrainingOpen] = React.useState(false)
+  const [preSelectBandId, setPreSelectBandId] = React.useState<string | null>(null)
 
   // MED-12: first-run role prompt. The role pill in the header is too subtle —
   // teachers opening Learn Mode for the first time get dropped into the
@@ -115,6 +116,20 @@ export default function GuidedFlowBar({
     window.addEventListener('rtm-tab-changed', onTabChanged)
     return () => window.removeEventListener('rtm-tab-changed', onTabChanged)
   }, [enabled, setStep])
+
+  // Deep-link from TonalIssues "Train This →" button — opens ear training panel
+  // and pre-selects the frequency band closest to the tonal issue.
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ bandId: string; freq: number }>).detail
+      if (detail?.bandId) {
+        setPreSelectBandId(detail.bandId)
+        setEarTrainingOpen(true)
+      }
+    }
+    window.addEventListener('rtm-ear-training-freq', handler)
+    return () => window.removeEventListener('rtm-ear-training-freq', handler)
+  }, [])
 
   // Count correct measurable blind test predictions for completion screen
   const blindTestSummary = React.useMemo(() => {
@@ -246,9 +261,10 @@ export default function GuidedFlowBar({
       {/* Ear Training overlay */}
       {earTrainingOpen && (
         <EarTrainingPanel
-          onClose={() => setEarTrainingOpen(false)}
+          onClose={() => { setEarTrainingOpen(false); setPreSelectBandId(null) }}
           fileAPath={fileAPath ?? null}
           fileAName={fileAName}
+          preSelectBandId={preSelectBandId}
         />
       )}
 

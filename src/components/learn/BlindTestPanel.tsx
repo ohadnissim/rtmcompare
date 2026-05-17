@@ -181,6 +181,44 @@ function ChoiceRow({ dimension, labelA, labelB, value, onChange }: ChoiceRowProp
 export default function BlindTestPanel({ onClose, analysisResult, fileAName, fileBName, fileAPath, fileBPath }: Props) {
   const { blindTest, submitBlindTest, revealBlindTest, resetBlindTest } = useLearnMode()
 
+  // ─── Platform Normalization Drill state ────────────────────────────────────
+  const [platformMode, setPlatformMode] = React.useState(false)
+  const [platformShuffled, setPlatformShuffled] = React.useState<{ a: number; b: number } | null>(null)
+  const [platformAnswers, setPlatformAnswers] = React.useState<{ a: string | null; b: string | null }>({ a: null, b: null })
+  const [platformRevealed, setPlatformRevealed] = React.useState(false)
+  const [platformListenIdx, setPlatformListenIdx] = React.useState(0)
+
+  function startPlatformDrill() {
+    const platforms = analysisResult?.streaming_preview?.b
+    if (!platforms || platforms.length < 2) return
+    const shuffled = [...platforms.keys()].sort(() => Math.random() - 0.5)
+    setPlatformShuffled({ a: shuffled[0], b: shuffled[1] })
+    setPlatformAnswers({ a: null, b: null })
+    setPlatformRevealed(false)
+    setPlatformListenIdx(shuffled[0])
+    setPlatformMode(true)
+  }
+
+  // Build an anonymized 2-item streamingPreview for ABPlayer so the dropdown
+  // shows "Mystery A / Mystery B" rather than the real platform names.
+  const platformDrillPreview: Array<{ name: string; delta_db: number; played_lufs: number; target_lufs: number }> | undefined =
+    platformMode && platformShuffled !== null && analysisResult?.streaming_preview?.b
+      ? [
+          {
+            name: 'Mystery A',
+            delta_db: (analysisResult.streaming_preview.b[platformShuffled.a] as any).delta_db,
+            played_lufs: (analysisResult.streaming_preview.b[platformShuffled.a] as any).played_lufs,
+            target_lufs: (analysisResult.streaming_preview.b[platformShuffled.a] as any).target_lufs,
+          },
+          {
+            name: 'Mystery B',
+            delta_db: (analysisResult.streaming_preview.b[platformShuffled.b] as any).delta_db,
+            played_lufs: (analysisResult.streaming_preview.b[platformShuffled.b] as any).played_lufs,
+            target_lufs: (analysisResult.streaming_preview.b[platformShuffled.b] as any).target_lufs,
+          },
+        ]
+      : undefined
+
   const [answers, setAnswers] = React.useState<Partial<Record<Dimension, BlindTestAnswer>>>(() => {
     if (!blindTest) return {}
     const map: Partial<Record<Dimension, BlindTestAnswer>> = {}
@@ -435,21 +473,40 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
               Submit your predictions, then reveal the measurements to see how well your ears calibrated.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: '1px solid rgba(168,161,150,0.2)',
-              borderRadius: '2px',
-              color: 'rgba(168,161,150,0.6)',
-              fontSize: 16,
-              padding: '4px 10px',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            ×
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+            {analysisResult?.streaming_preview?.b && analysisResult.streaming_preview.b.length >= 2 && (
+              <button
+                onClick={platformMode ? () => setPlatformMode(false) : startPlatformDrill}
+                style={{
+                  fontSize: 10,
+                  padding: '3px 10px',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  backgroundColor: platformMode ? 'rgba(208,176,102,0.12)' : 'transparent',
+                  color: platformMode ? 'var(--color-accent)' : 'var(--color-sand-400)',
+                  border: `1px solid ${platformMode ? 'rgba(208,176,102,0.35)' : 'rgba(168,161,150,0.2)'}`,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                }}
+              >
+                ◎ Platform Norm
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(168,161,150,0.2)',
+                borderRadius: '2px',
+                color: 'rgba(168,161,150,0.6)',
+                fontSize: 16,
+                padding: '4px 10px',
+                cursor: 'pointer',
+              }}
+            >
+              ×
+            </button>
+          </div>
         </div>
       </div>
 
@@ -465,8 +522,150 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
                 fileA={playerFileA}
                 fileB={playerFileB}
                 gainAppliedDb={analysisResult?.gain_applied_db ?? 0}
+                streamingPreview={platformDrillPreview}
               />
             )}
+
+            {/* ── Platform Normalization Drill ───────────────────────────── */}
+            {platformMode && platformShuffled !== null && (() => {
+              const platforms = analysisResult!.streaming_preview!.b as Array<{
+                name: string; played_lufs: number; played_tp: number; delta_db: number;
+                action: string; tp_breach: boolean; target_lufs: number; target_tp: number
+              }>
+              const platformA = platforms[platformShuffled.a]
+              const platformB = platforms[platformShuffled.b]
+              const allNames = platforms.map((p: { name: string }) => p.name)
+
+              return (
+                <div style={{ padding: '16px 0' }}>
+                  {/* Header */}
+                  <div style={{ marginBottom: 12 }}>
+                    <p style={{ fontSize: 11, color: 'var(--color-sand-300)', lineHeight: 1.5, margin: 0 }}>
+                      Listen to File B normalized to two mystery platforms. Use the PLT mode in the player above and select "Mystery A" or "Mystery B" in the dropdown to hear each one. For each, guess which streaming platform's loudness target you're hearing.
+                    </p>
+                  </div>
+
+                  {/* Mystery platform toggle — visual indicator of active mystery */}
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                    {(['a', 'b'] as const).map(side => (
+                      <button
+                        key={side}
+                        onClick={() => setPlatformListenIdx(platformShuffled[side])}
+                        style={{
+                          flex: 1, padding: '8px 0', fontSize: 11, textTransform: 'uppercase',
+                          letterSpacing: '0.14em', cursor: 'pointer',
+                          backgroundColor: platformListenIdx === platformShuffled[side]
+                            ? 'rgba(208,176,102,0.15)' : 'rgba(48,44,39,0.5)',
+                          border: `1px solid ${platformListenIdx === platformShuffled[side] ? 'rgba(208,176,102,0.4)' : 'rgba(168,161,150,0.2)'}`,
+                          color: platformListenIdx === platformShuffled[side] ? 'var(--color-accent)' : 'var(--color-sand-300)',
+                          borderRadius: 2,
+                        }}
+                      >
+                        Guessing: Mystery {side.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Guess for Mystery A and B */}
+                  {!platformRevealed && (['a', 'b'] as const).map(side => (
+                    <div key={side} style={{ marginBottom: 12 }}>
+                      <p style={{ fontSize: 10, color: 'var(--color-text-muted)', marginBottom: 6, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 6px' }}>
+                        Mystery {side.toUpperCase()} is…
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                        {allNames.map((name: string) => (
+                          <button
+                            key={name}
+                            onClick={() => setPlatformAnswers(prev => ({ ...prev, [side]: name }))}
+                            style={{
+                              padding: '5px 8px', fontSize: 10, textAlign: 'center', cursor: 'pointer',
+                              backgroundColor: platformAnswers[side] === name
+                                ? 'rgba(208,176,102,0.15)' : 'rgba(48,44,39,0.5)',
+                              border: `1px solid ${platformAnswers[side] === name ? 'rgba(208,176,102,0.4)' : 'rgba(168,161,150,0.15)'}`,
+                              color: platformAnswers[side] === name ? 'var(--color-accent)' : 'var(--color-sand-400)',
+                              borderRadius: 2,
+                            }}
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Reveal button */}
+                  {!platformRevealed && platformAnswers.a && platformAnswers.b && (
+                    <button
+                      onClick={() => setPlatformRevealed(true)}
+                      style={{
+                        width: '100%', padding: '8px 0', fontSize: 11, letterSpacing: '0.12em',
+                        textTransform: 'uppercase', cursor: 'pointer',
+                        backgroundColor: 'rgba(208,176,102,0.12)',
+                        color: 'var(--color-accent)',
+                        border: '1px solid rgba(208,176,102,0.35)',
+                        borderRadius: 2, marginTop: 8,
+                      }}
+                    >
+                      Reveal Platforms
+                    </button>
+                  )}
+
+                  {/* Reveal result */}
+                  {platformRevealed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                      {(['a', 'b'] as const).map(side => {
+                        const actual = side === 'a' ? platformA : platformB
+                        const guess = platformAnswers[side]
+                        const correct = guess === actual.name
+                        return (
+                          <div key={side} style={{
+                            padding: '10px 12px',
+                            backgroundColor: correct ? 'rgba(80,160,80,0.08)' : 'rgba(160,60,60,0.08)',
+                            border: `1px solid ${correct ? 'rgba(80,160,80,0.3)' : 'rgba(160,60,60,0.3)'}`,
+                            borderRadius: 2,
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: 10, color: 'var(--color-sand-300)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                Mystery {side.toUpperCase()}
+                              </span>
+                              <span style={{ fontSize: 10, color: correct ? '#5ca05c' : '#c05050' }}>
+                                {correct ? '✓ Correct' : '✗ Wrong'}
+                              </span>
+                            </div>
+                            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--color-sand-100)', fontWeight: 500 }}>
+                              {actual.name}
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                              {actual.delta_db > 0 ? '+' : ''}{actual.delta_db.toFixed(1)} dB · plays at {actual.played_lufs.toFixed(1)} LUFS
+                              {actual.tp_breach ? ' · TP limiter engages' : ''}
+                            </div>
+                            {guess !== actual.name && (
+                              <div style={{ fontSize: 10, color: 'var(--color-sand-400)', marginTop: 2 }}>
+                                You guessed: {guess}
+                                {(() => {
+                                  const guessedPlatform = platforms.find((p: { name: string }) => p.name === guess)
+                                  return guessedPlatform ? ` (${guessedPlatform.delta_db.toFixed(1)} dB · ${guessedPlatform.played_lufs.toFixed(1)} LUFS)` : ''
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                      <button
+                        onClick={startPlatformDrill}
+                        style={{
+                          fontSize: 10, padding: '6px 0', textTransform: 'uppercase', letterSpacing: '0.12em',
+                          color: 'var(--color-text-muted)', border: '1px solid rgba(168,161,150,0.2)',
+                          borderRadius: 2, backgroundColor: 'transparent', cursor: 'pointer',
+                        }}
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {DIMENSIONS.map(({ dimension, label, question }) => (
                 <div

@@ -1,6 +1,7 @@
 import React from 'react'
 import { TonalIssue } from '../types'
 import { useSolo, formatSoloFreq } from '../SoloContext'
+import { useLearnMode } from '../context/LearnModeContext'
 
 interface Props {
  issues: TonalIssue[]
@@ -24,6 +25,28 @@ function parseFreqRange(s: string): number | null {
  const lo = Math.min(...nums)
  const hi = Math.max(...nums)
  return Math.sqrt(lo * hi) * mult
+}
+
+function freqRangeToClosestBandId(freqRange: string): { bandId: string; freq: number } | null {
+  // Parse first number from range string (e.g. "100–300 Hz" → 100, "2–5 kHz" → 2000)
+  const match = freqRange.match(/(\d+(?:\.\d+)?)\s*(k?hz|k)/i)
+  if (!match) return null
+  let freq = parseFloat(match[1])
+  if (match[2].toLowerCase().startsWith('k')) freq *= 1000
+  // Map to nearest octave band (beginner bands)
+  const OCTAVE_BANDS = [
+    { id: '63hz', hz: 63 }, { id: '125hz', hz: 125 }, { id: '250hz', hz: 250 },
+    { id: '500hz', hz: 500 }, { id: '1khz', hz: 1000 }, { id: '2khz', hz: 2000 },
+    { id: '4khz', hz: 4000 }, { id: '8khz', hz: 8000 },
+  ]
+  // Log-scale distance to find closest band
+  let best = OCTAVE_BANDS[0]
+  let minDist = Math.abs(Math.log2(freq / best.hz))
+  for (const b of OCTAVE_BANDS) {
+    const d = Math.abs(Math.log2(freq / b.hz))
+    if (d < minDist) { minDist = d; best = b }
+  }
+  return { bandId: best.id, freq: best.hz }
 }
 
 const issueIcons: Record<string, string> = {
@@ -61,6 +84,7 @@ const issueColors: Record<string, string> = {
 
 export default function TonalIssues({ issues, labelA, labelB }: Props) {
  const { soloBand, setSolo, clearSolo } = useSolo()
+ const { enabled: learnEnabled } = useLearnMode()
  if (issues.length === 0) {
  return (
  <div className="flex items-center gap-3 py-2">
@@ -130,6 +154,28 @@ export default function TonalIssues({ issues, labelA, labelB }: Props) {
  </div>
  </div>
  <div className="flex items-center gap-2">
+ {learnEnabled && (() => {
+   const band = freqRangeToClosestBandId(issue.freq_range)
+   if (!band) return null
+   return (
+     <button
+       onClick={() => window.dispatchEvent(new CustomEvent('rtm-ear-training-freq', {
+         detail: { bandId: band.bandId, freq: band.freq }
+       }))}
+       title={`Start Frequency ID drill pre-seeded to ${band.freq >= 1000 ? (band.freq/1000)+'kHz' : band.freq+'Hz'}`}
+       style={{
+         fontSize: 9, padding: '3px 7px', letterSpacing: '0.12em',
+         textTransform: 'uppercase',
+         color: 'var(--color-accent)',
+         border: '1px solid rgba(208,176,102,0.3)',
+         borderRadius: 2, backgroundColor: 'transparent',
+         cursor: 'pointer', whiteSpace: 'nowrap',
+       }}
+     >
+       Train This →
+     </button>
+   )
+ })()}
  {soloFreq != null && (
  <button
  onClick={() => isSoloed ? clearSolo() : setSolo(soloFreq, 3)}

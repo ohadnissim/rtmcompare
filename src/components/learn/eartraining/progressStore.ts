@@ -10,8 +10,8 @@
  *   2. ≥70% accuracy on current difficulty (min 12 attempts) → unlock next
  *      difficulty for that drill.
  *   3. ≥70% accuracy on advanced of any drill → unlock the next drill in the
- *      progression (frequency_id → eq_direction → q_width → compression →
- *      reverb_time → distortion).
+ *      progression (loudness_match → frequency_id → eq_direction → q_width →
+ *      compression → reverb_time → distortion).
  */
 
 import type {
@@ -27,6 +27,7 @@ const ACCURACY_THRESHOLD = 0.70
 
 /** Ordered drill progression — each unlocks after mastering the previous. */
 export const DRILL_PROGRESSION: EarTrainingDrillId[] = [
+  'loudness_match',   // Fundamental loudness perception — unlock first
   'frequency_id',
   'eq_direction',
   'q_width',
@@ -38,6 +39,7 @@ export const DRILL_PROGRESSION: EarTrainingDrillId[] = [
 export const DIFFICULTY_ORDER: EarTrainingDifficulty[] = ['beginner', 'intermediate', 'advanced']
 
 export const DRILL_LABELS: Record<EarTrainingDrillId, string> = {
+  loudness_match: 'Loudness Matching',
   frequency_id: 'Frequency ID',
   eq_direction: 'EQ Direction',
   q_width:      'Q Width',
@@ -47,6 +49,7 @@ export const DRILL_LABELS: Record<EarTrainingDrillId, string> = {
 }
 
 export const DRILL_DESCRIPTIONS: Record<EarTrainingDrillId, string> = {
+  loudness_match: 'Louder, quieter, or how much?',
   frequency_id: 'Hear a boost or cut, name the band',
   eq_direction: 'Was that a boost or a cut?',
   q_width:      'Narrow notch or wide bell?',
@@ -73,7 +76,7 @@ function defaultProgress(): EarTrainingProgress {
   for (const id of DRILL_PROGRESSION) unlockedDifficulty[id] = 'beginner'
   return {
     drills,
-    unlocked: ['frequency_id'],
+    unlocked: ['loudness_match'],
     unlockedDifficulty,
     totalAttempts: 0,
     totalCorrect: 0,

@@ -3,6 +3,7 @@ import { DrillCard, type DrillCardProps } from './DrillCard'
 import { printPracticeReport } from '../../lib/certificate'
 import { summarizeDrill } from '../../lib/drillStore'
 import { DrillRunner } from './drills/DrillRunner'
+import { GlossaryBrowser } from '../learn/GlossaryBrowser'
 
 /**
  * LearnHome — Move 7, the student's home screen for Learn Mode.
@@ -225,6 +226,22 @@ export function LearnHome() {
           ))}
         </div>
       </section>
+
+      {/* Glossary Browser */}
+      <div style={{ marginTop: 24 }}>
+        <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: 9,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--color-text-muted)',
+          }}>REFERENCE · GLOSSARY</span>
+          <span style={{ fontSize: 11, color: 'var(--color-sand-400)' }}>
+            — 29 metrics explained for every level
+          </span>
+        </div>
+        <GlossaryBrowser />
+      </div>
 
       {/* Editorial close */}
       <footer

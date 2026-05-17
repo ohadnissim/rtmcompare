@@ -49,6 +49,8 @@ interface Props {
   /** File A path — used as the audio source for drills. */
   fileAPath?: string | null
   fileAName?: string
+  /** Pre-select a band ID and auto-start the frequency_id drill (from "Train This →"). */
+  preSelectBandId?: string | null
 }
 
 type Screen = 'home' | 'drill' | 'heatmap'
@@ -56,6 +58,7 @@ type Screen = 'home' | 'drill' | 'heatmap'
 // ─── Drill question types ────────────────────────────────────────────────────
 
 type DrillQuestion =
+  | { kind: 'loudness_match'; deltaDb: number; choices: number[]; correctIdx: number }
   | { kind: 'frequency_id'; bandId: string; freq: number; direction: 'boost' | 'cut'; gainDB: number; q: number }
   | { kind: 'eq_direction'; bandId: string; freq: number; direction: 'boost' | 'cut'; gainDB: number }
   | { kind: 'q_width'; bandId: string; freq: number; qChoice: 'narrow' | 'wide'; q: number; gainDB: number }
@@ -66,6 +69,21 @@ type DrillQuestion =
 function generateQuestion(drill: EarTrainingDrillId, difficulty: EarTrainingDifficulty): DrillQuestion {
   const gainDB = DIFFICULTY_GAIN_DB[difficulty]
   const bands = difficulty === 'advanced' ? THIRD_OCTAVE_BANDS : OCTAVE_BANDS
+  if (drill === 'loudness_match') {
+    const pools: Record<EarTrainingDifficulty, number[]> = {
+      beginner:     [-12, -9, -6, -3, 3, 6, 9, 12],
+      intermediate: [-6, -4, -2, 2, 4, 6],
+      advanced:     [-3, -2, -1, 1, 2, 3],
+    }
+    const pool = pools[difficulty]
+    const deltaDb = pool[Math.floor(Math.random() * pool.length)]
+    // Generate 4 choices: correct + 3 nearby wrong ones from pool
+    const others = pool.filter(v => v !== deltaDb)
+    const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 3)
+    const choices = [...shuffled, deltaDb].sort((a, b) => a - b)
+    const correctIdx = choices.indexOf(deltaDb)
+    return { kind: 'loudness_match', deltaDb, choices, correctIdx }
+  }
   switch (drill) {
     case 'frequency_id': {
       const band = pickRandom(bands)
@@ -121,7 +139,7 @@ function generateQuestion(drill: EarTrainingDrillId, difficulty: EarTrainingDiff
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Props) {
+export default function EarTrainingPanel({ onClose, fileAPath, fileAName, preSelectBandId }: Props) {
   const [screen, setScreen] = React.useState<Screen>('home')
   const [progress, setProgress] = React.useState<EarTrainingProgress>(() => loadProgress())
   const [activeDrill, setActiveDrill] = React.useState<EarTrainingDrillId>('frequency_id')
@@ -250,6 +268,37 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Deep-link: auto-start frequency_id drill when preSelectBandId is provided
+  // (fired by "Train This →" button in TonalIssues). Mirrors startDrill() but
+  // with a forced band so the student immediately trains the flagged frequency.
+  React.useEffect(() => {
+    if (!preSelectBandId) return
+    const difficulty: EarTrainingDifficulty = 'beginner'
+    setActiveDrill('frequency_id')
+    setActiveDifficulty(difficulty)
+    const PANEL_OCTAVE_BANDS = [
+      { id: '63hz', hz: 63 }, { id: '125hz', hz: 125 }, { id: '250hz', hz: 250 },
+      { id: '500hz', hz: 500 }, { id: '1khz', hz: 1000 }, { id: '2khz', hz: 2000 },
+      { id: '4khz', hz: 4000 }, { id: '8khz', hz: 8000 },
+    ]
+    const band = PANEL_OCTAVE_BANDS.find(b => b.id === preSelectBandId) ?? PANEL_OCTAVE_BANDS[4]
+    const direction = (Math.random() < 0.5 ? 'boost' : 'cut') as 'boost' | 'cut'
+    const gainDB = 12  // beginner gain
+    setQuestion({
+      kind: 'frequency_id',
+      bandId: band.id,
+      freq: band.hz,
+      direction,
+      gainDB: direction === 'boost' ? gainDB : -gainDB,
+      q: 4.0,
+    })
+    setUserAnswer(null)
+    setRevealed(false)
+    setScreen('drill')
+    engine.lockNewWindow()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preSelectBandId])
+
   // ── Drill helpers ──────────────────────────────────────────────
   function startDrill(drillId: EarTrainingDrillId, difficulty: EarTrainingDifficulty) {
     setActiveDrill(drillId)
@@ -275,6 +324,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
     setRevealed(true)
     // Use a stable option id for stats — for frequency_id we want the band, not just the answer.
     const optionId =
+      question.kind === 'loudness_match' ? String(question.deltaDb) :
       question.kind === 'frequency_id' ? question.bandId :
       question.kind === 'eq_direction' ? question.direction :
       question.kind === 'q_width'      ? question.qChoice :
@@ -316,6 +366,10 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
     try {
       let handle: PlayHandle
       switch (question.kind) {
+        case 'loudness_match':
+          // Reference = 0 dB (no gain), Modified = deltaDb — student hears both via the Reference/Modified buttons
+          handle = engine.playWithGain(question.deltaDb, 6, true)
+          break
         case 'frequency_id':
         case 'eq_direction':
           handle = engine.playWithEQ({ freq: question.freq, gainDB: question.gainDB, q: DEFAULT_Q }, 6, true)
@@ -921,6 +975,18 @@ function getDrillOptions(
 ): Array<{ value: string; label: string }> {
   const bands = difficulty === 'advanced' ? THIRD_OCTAVE_BANDS : OCTAVE_BANDS
   switch (drill) {
+    case 'loudness_match': {
+      // choices are stored on the question itself; render them as index-keyed options
+      if (_question.kind === 'loudness_match') {
+        return _question.choices.map((delta, i) => ({
+          value: String(i),
+          label: delta > 0
+            ? `+${delta} dB (louder)`
+            : `${delta} dB (quieter)`,
+        }))
+      }
+      return []
+    }
     case 'frequency_id': return bands.map(b => ({ value: b.id, label: b.label }))
     case 'eq_direction': return [{ value: 'boost', label: 'Boost' }, { value: 'cut', label: 'Cut' }]
     case 'q_width':      return [{ value: 'narrow', label: 'Narrow Q' }, { value: 'wide', label: 'Wide Q' }]
@@ -932,6 +998,7 @@ function getDrillOptions(
 
 function getCorrectOption(q: DrillQuestion): string {
   switch (q.kind) {
+    case 'loudness_match': return String(q.correctIdx)
     case 'frequency_id': return q.bandId
     case 'eq_direction': return q.direction
     case 'q_width':      return q.qChoice
@@ -947,6 +1014,7 @@ function isCorrect(q: DrillQuestion, picked: string): boolean {
 
 function getDrillPrompt(drill: EarTrainingDrillId): string {
   switch (drill) {
+    case 'loudness_match': return 'Reference plays at 0 dB. Modified is louder or quieter by a fixed amount. How many dB different is Modified?'
     case 'frequency_id': return 'Listen to Reference, then Modified. Which band was changed?'
     case 'eq_direction': return 'Reference vs Modified — was that a boost or a cut?'
     case 'q_width':      return 'How wide was the EQ — narrow surgical notch, or wide bell?'
@@ -958,6 +1026,9 @@ function getDrillPrompt(drill: EarTrainingDrillId): string {
 
 function explainAnswer(q: DrillQuestion, _drill: EarTrainingDrillId): string {
   switch (q.kind) {
+    case 'loudness_match': return q.deltaDb > 0
+      ? `Modified was ${q.deltaDb} dB louder than Reference.`
+      : `Modified was ${Math.abs(q.deltaDb)} dB quieter than Reference.`
     case 'frequency_id': return `It was a ${q.direction} of ${q.gainDB.toFixed(0)} dB at ${formatHz(q.freq)}.`
     case 'eq_direction': return `That was a ${q.direction} of ${Math.abs(q.gainDB).toFixed(0)} dB at ${formatHz(q.freq)}.`
     case 'q_width':      return `${q.qChoice === 'narrow' ? 'Narrow' : 'Wide'} Q (${q.q.toFixed(1)}) at ${formatHz(q.freq)}.`

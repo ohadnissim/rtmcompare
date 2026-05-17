@@ -926,6 +926,7 @@ export interface BlindTestPredictions {
 // ─── Ear Training (Golden Ears-style) ────────────────────────────────────────
 
 export type EarTrainingDrillId =
+  | 'loudness_match'      // Identify the gain delta in dB between reference and modified
   | 'frequency_id'        // Identify which band was boosted/cut
   | 'eq_direction'        // Was it a boost or a cut?
   | 'q_width'             // Narrow Q vs wide Q

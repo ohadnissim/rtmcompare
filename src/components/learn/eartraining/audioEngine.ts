@@ -387,6 +387,17 @@ class EarTrainingAudioEngine {
     }, windowSec, loop)
   }
 
+  /** Play through a linear gain node — used for loudness_match drill.
+   *  deltaDb: positive = louder than reference, negative = quieter. */
+  playWithGain(deltaDb: number, windowSec = 6, loop = false): PlayHandle {
+    return this.play((ctx, dest) => {
+      const gainNode = ctx.createGain()
+      gainNode.gain.value = Math.pow(10, deltaDb / 20)
+      gainNode.connect(dest)
+      return gainNode
+    }, windowSec, loop)
+  }
+
   /** Play through soft saturation (tanh waveshaper). */
   playWithDistortion(opts: DistortionOptions, windowSec = 6, loop = false): PlayHandle {
     return this.play((ctx, dest) => {
