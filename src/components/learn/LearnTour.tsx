@@ -10,59 +10,145 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { useAudience, type Audience } from '../../AudienceContext'
 
 export interface LearnTourStep {
-  /** CSS data-tour-learn selector target, e.g. '[data-tour-learn="blind-test"]' */
   selector?: string
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'center'
   title: string
   body: string
 }
 
-const STEPS: LearnTourStep[] = [
+interface StepDef {
+  selector?: string
+  placement?: LearnTourStep['placement']
+  title: Record<Audience, string>
+  body: Record<Audience, string>
+}
+
+const STEP_DEFS: StepDef[] = [
   {
     selector: '[data-tour-learn="guided-steps"]',
     placement: 'bottom',
-    title: 'Guided Steps',
-    body: 'Nine structured listening tasks walk you from monitoring setup through delivery compliance. Each step tells you exactly which tab to check and what to listen for.',
+    title: {
+      pro: 'Guided Steps',
+      producer: 'Guided Workflow',
+      student: 'Your Guided Steps',
+      teacher: 'Student Curriculum',
+    },
+    body: {
+      pro: 'Nine structured QC tasks — monitoring → overview → loudness → spectrum → stereo → quality → delivery → EQ match → sign-off. A systematic checklist for any mastering session.',
+      producer: 'A walkthrough of every important panel in the right order. Each step says exactly what to listen for and where to look. Follow these to make sure you haven\'t missed anything.',
+      student: 'Nine listening tasks that guide you through a professional mastering review, step by step. Each step tells you which tab to visit and what specific question to answer. Complete them in order.',
+      teacher: 'The nine guided steps map directly to your mastering curriculum. Each step is a listening prompt you can assign or demonstrate. Students must answer the step\'s question before the next step unlocks.',
+    },
   },
   {
     selector: '[data-tour-learn="blind-test"]',
     placement: 'center',
-    title: 'Blind A/B Test',
-    body: 'Lock in your predictions before any meters appear. A/B is shuffled randomly each session — you\'ll never know which file is which until you commit. Builds genuine unbiased listening.',
+    title: {
+      pro: 'Blind A/B Test',
+      producer: 'Honest A/B',
+      student: 'Blind Listening Test',
+      teacher: 'Bias Elimination Protocol',
+    },
+    body: {
+      pro: 'Files are shuffled randomly — you don\'t know which is which until you commit your prediction. Eliminates confirmation bias when evaluating a chain you built yourself.',
+      producer: 'A/B is randomized each session so you can\'t cheat. Your preference is recorded before you know which file is the "master." Trains you to trust your ears, not your assumptions.',
+      student: 'File identity is hidden until after you decide which sounds better. This removes the bias that comes from knowing which file is "supposed to be" the better one. Your blind prediction is logged to your report.',
+      teacher: 'Student prediction accuracy from the blind test is the most honest measure of listening development in your class. Students who score well on analysis but poorly on blind tests are measuring, not hearing — critical insight for your teaching.',
+    },
   },
   {
     selector: '[data-tour-learn="ear-training"]',
     placement: 'center',
-    title: 'Ear Training',
-    body: 'Golden Ears-style frequency ID, EQ width, compression ratio, and reverb type drills. Pink noise, your own file, or the synth mix — all at three difficulty levels.',
+    title: {
+      pro: 'Ear Training',
+      producer: 'Train Your Ears',
+      student: 'Ear Training Drills',
+      teacher: 'Perceptual Training Tools',
+    },
+    body: {
+      pro: 'Frequency ID, EQ width (Q), compression ratio, and reverb type drills at three difficulty levels. Use with pink noise or your own audio.',
+      producer: 'Practice hearing specific frequency boosts and cuts, compression, and reverb types in isolation — without looking at a meter. The skills that let you identify problems by ear.',
+      student: 'Ear training drills develop the listening vocabulary you need to describe what you hear in technical terms. The frequency ID drill is the most important: being able to say "there\'s too much 2 kHz" is a learnable skill, not talent.',
+      teacher: 'Assign 10 minutes of frequency ID drills as a class warm-up. Track score improvement over the semester — it\'s a measurable proxy for listening development. Frequency ID scores also predict how well students can give specific mix feedback.',
+    },
   },
   {
     selector: '[data-tour-learn="assignment-panel"]',
     placement: 'center',
-    title: 'Assignment',
-    body: 'Build a rubric with 14 metrics, set weights and thresholds, choose genre targets, then export a .rtm-assignment.json your students drop into RTMcompare before submitting.',
+    title: {
+      pro: 'Assignment Builder',
+      producer: 'Assignment',
+      student: 'Your Assignment',
+      teacher: 'Build Your Rubric',
+    },
+    body: {
+      pro: 'Rubric constructor for classroom deployments. 14 metrics, weighted thresholds, genre target locking, Canvas LMS REST passback. Not part of the typical pro workflow.',
+      producer: 'If your instructor assigned a rubric (.rtm-assignment.json), load it here to see how your work will be graded. The rubric shows which measurements matter and what the pass thresholds are.',
+      student: 'Load your teacher\'s assignment file here (.rtm-assignment.json). The rubric shows you exactly which measurements are graded, what the thresholds are, and how the points are distributed. Work to meet each threshold before submitting.',
+      teacher: 'Select which of the 14 metrics to grade, set pass/fail thresholds, assign point weights, and optionally lock a genre target. Export as .rtm-assignment.json for students. Submissions auto-grade when scanned in the Grade Book.',
+    },
   },
   {
     selector: '[data-tour-learn="grade-book"]',
     placement: 'center',
-    title: 'Grade Book',
-    body: 'Scan your submissions folder and every .rtm-report.json appears as a graded row. Class Insights show which metric tripped up the most students. Export Canvas-ready CSV in one click.',
+    title: {
+      pro: 'Grade Book',
+      producer: 'Grade Book',
+      student: 'How You\'re Graded',
+      teacher: 'Grade Book — Scan Submissions',
+    },
+    body: {
+      pro: 'Teacher-facing tool. Batch-grades .rtm-report.json submissions against the loaded rubric. Class Insights show aggregate metric failure rates. Canvas CSV/REST export available.',
+      producer: 'A teacher tool — not part of the typical producer workflow. The grade book is where instructors review submitted work.',
+      student: 'Your submitted .rtm-report.json is graded automatically against the assignment rubric. The grade is computed from your measured values against each metric\'s threshold. Submit by sharing your report file with your instructor.',
+      teacher: 'Scan the submissions folder to instantly grade every .rtm-report.json. The Class Insights panel shows which metric failed most often — your teaching focus for next week. One-click Canvas CSV export or direct REST passback to your LMS gradebook.',
+    },
   },
   {
     selector: '[data-tour-learn="navigate-chip"]',
     placement: 'bottom',
-    title: 'Navigate Chips',
-    body: 'Gold chips at the top of each guided step tell you exactly which tab to visit. Click one and RTMcompare jumps there — no hunting.',
+    title: {
+      pro: 'Navigate Chips',
+      producer: 'Step Navigation',
+      student: 'Gold Navigation Chips',
+      teacher: 'Student Navigation',
+    },
+    body: {
+      pro: 'Chips at the top of each guided step navigate directly to the relevant tab. Useful as QC anchors even in a non-classroom session.',
+      producer: 'Each guided step has a chip that jumps you to the right panel. Click it — no hunting through tabs.',
+      student: 'The gold chips at the top of each step tell you exactly which tab you need to visit. Click any chip and RTMcompare opens that tab immediately. This keeps you focused on the right panel at the right time.',
+      teacher: 'Students who complete steps out of order often miss relationships between panels. The chips enforce the intended sequence — if a student skips a chip, they\'re not following the guided workflow. Check annotation notes to verify engagement.',
+    },
   },
   {
     selector: '[data-tour-learn="annotations"]',
     placement: 'bottom',
-    title: 'Annotations',
-    body: 'Color-coded sticky notes per tab. Add observations while you\'re listening, export them in the Student Report PDF so instructors see your reasoning.',
+    title: {
+      pro: 'Annotations',
+      producer: 'Notes per Panel',
+      student: 'Your Listening Notes',
+      teacher: 'Student Annotations',
+    },
+    body: {
+      pro: 'Per-tab color-coded notes. Exported in the report PDF. Useful for session documentation, but not a core part of the pro workflow.',
+      producer: 'Leave notes on each panel as you work — observations about what you\'re hearing, ideas for fixes, reminders. They\'re exported with your report PDF.',
+      student: 'Write your observations here as you listen. These notes are exported in your Student Report PDF so your instructor can see your reasoning, not just your measurements. Good annotations show you\'re thinking, not just clicking.',
+      teacher: 'Require at least one annotation per tab as a completion gate — it proves the student actually engaged with the panel rather than skipping through. Annotations are the most revealing part of the student report for qualitative assessment.',
+    },
   },
 ]
+
+function getSteps(audience: Audience): LearnTourStep[] {
+  return STEP_DEFS.map(def => ({
+    selector: def.selector,
+    placement: def.placement,
+    title: def.title[audience],
+    body: def.body[audience],
+  }))
+}
 
 type TourState = { kind: 'idle' } | { kind: 'running'; step: number }
 
@@ -78,7 +164,7 @@ export function useLearnTourState() {
     setState(s => {
       if (s.kind !== 'running') return s
       const next = s.step + 1
-      if (next >= STEPS.length) {
+      if (next >= STEP_DEFS.length) {
         try { localStorage.setItem('rtm-learn-tour-done', '1') } catch {}
         return { kind: 'idle' }
       }
@@ -98,6 +184,8 @@ export default function LearnTour({
   tour: ReturnType<typeof useLearnTourState>
 }) {
   const { state, stopTour, nextStep, prevStep } = tour
+  const audience = useAudience()
+  const STEPS = getSteps(audience)
 
   const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -122,7 +210,7 @@ export default function LearnTour({
       window.removeEventListener('resize', measure)
       window.removeEventListener('scroll', measure, true)
     }
-  }, [state])
+  }, [state, STEPS])
 
   if (state.kind !== 'running') return null
 
@@ -219,9 +307,14 @@ export default function LearnTour({
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <span className="text-[9px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>
-            Step {stepIndex + 1} of {totalSteps}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>
+              Step {stepIndex + 1} of {totalSteps}
+            </span>
+            <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.5)', border: '1px solid rgba(208,176,102,0.2)', borderRadius: '2px', padding: '1px 4px' }}>
+              {audience.toUpperCase()}
+            </span>
+          </div>
           <button
             onClick={stopTour}
             className="text-[10px]"

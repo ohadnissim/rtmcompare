@@ -1,0 +1,56 @@
+# ninja log v7
+2	45	1778899968421397434	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/CMakeFiles/cmake.verify_globs	873d803ccf75f21
+43	112	1778887702042815143	RtmSend_artefacts/JuceLibraryCode/RtmSend_resources.rc	b7b3bf58a2e26cf4
+43	112	1778887702042815143	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/RtmSend_artefacts/JuceLibraryCode/RtmSend_resources.rc	b7b3bf58a2e26cf4
+41	112	1778887702043045392	RtmSend_artefacts/JuceLibraryCode/JuceHeader.h	1a6aa20fb176c4d2
+41	112	1778887702043045392	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/RtmSend_artefacts/JuceLibraryCode/JuceHeader.h	1a6aa20fb176c4d2
+112	158	1778887702044219264	CMakeFiles/RtmSend_rc_lib.dir/RtmSend_artefacts/JuceLibraryCode/RtmSend_resources.rc.res	e485c0a69554b9a1
+58	2016	1778899968477534342	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_graphics/juce_graphics_Sheenbidi.c.obj	c9f335423c150db1
+59	1003	1778899968478314556	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_core/juce_core_CompilationTime.cpp.obj	77764ab06d860198
+59	1008	1778899968479112437	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_processors_headless/juce_audio_processors_headless_lv2_libs.cpp.obj	a5112bca7c74faf3
+59	943	1778899968478926185	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_processors_headless/juce_audio_processors_headless_ara.cpp.obj	f311a9be06975c86
+2016	2811	1778899970435628617	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp.obj	c6213f6b653ad7c6
+2811	3649	1778899971230601104	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.obj	85857458065f80d4
+3649	4472	1778899972068560278	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.obj	b232fc87b952c805
+1008	4875	1778899969427462955	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_cryptography/juce_cryptography.cpp.obj	43fe64e0173b3c46
+59	6039	1778899968478532474	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_data_structures/juce_data_structures.cpp.obj	9e2f380e497a1c90
+4472	5302	1778899972892021348	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.cpp.obj	a53bc2f5df21f79f
+5302	6143	1778899973721390543	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.obj	1d978eecb0f55ad3
+6039	6939	1778899974459101739	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.cpp.obj	c550c800f9bb2056
+58	7755	1778899968477894844	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_events/juce_events.cpp.obj	529c996811cbf0a2
+6143	6984	1778899974563086495	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp.obj	8d9cbd084ad9d8ff
+61	15480	1778899968480588072	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_basics/juce_audio_basics.cpp.obj	564b30367eb19874
+51	7979	1778899968470877418	CMakeFiles/RtmSend.dir/Source/PluginEditor.cpp.obj	f1640012d536d730
+51	6833	1778899968470364290	CMakeFiles/RtmSend_vst3_helper.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.cpp.obj	e5267e2a03461e01
+1003	15715	1778899969422844588	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_dsp/juce_dsp.cpp.obj	bd842f04f7d4ab4b
+51	7851	1778899968470726292	CMakeFiles/RtmSend.dir/Source/PluginProcessor.cpp.obj	73cbf1617c16bbd1
+51	7857	1778899968471011919	CMakeFiles/RtmSend.dir/Source/RpcServer.cpp.obj	5763750a2d1ca1e3
+6833	7091	1778899975252483422	RtmSend_vst3_helper.exe	c602fbfbdfd0a27a
+7857	8552	1778899976276931702	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.obj	fe5c46043074cbef
+7092	8034	1778899975511901725	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.obj	605f357a1a59d766
+7091	7983	1778899975511151928	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.cpp.obj	97278b230c2d2ce6
+7092	8036	1778899975511561889	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.obj	58fcf78f32263452
+7755	8620	1778899976174727834	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.cpp.obj	142e5c983348276d
+7851	8721	1778899976270772408	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.obj	5965b73fd152995e
+7979	8764	1778899976398542753	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.cpp.obj	b26927752685ac24
+53	13919	1778899968472524389	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_gui_extra/juce_gui_extra.cpp.obj	a3052e530aec4cc4
+61	12446	1778899968480785907	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_utils/juce_audio_utils.cpp.obj	892d3aeee6317d1a
+61	26529	1778899968481073701	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_formats/juce_audio_formats.cpp.obj	3177aa7fcaa35931
+58	28561	1778899968478120471	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_core/juce_core.cpp.obj	e0f2e97b684a538d
+943	17145	1778899969362338065	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_devices/juce_audio_devices.cpp.obj	a82535f12ec592c5
+4875	12016	1778899973294661316	CMakeFiles/RtmSend_Standalone.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.obj	11c003713209459a
+52	17355	1778899968471579257	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp.obj	153d9f632622cf91
+59	25789	1778899968478723350	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_processors_headless/juce_audio_processors_headless.cpp.obj	b96e24edc7a9df16
+7983	16659	1778899976402394031	CMakeFiles/RtmSend_VST3.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp.obj	a11701fb5b2828d4
+57	39900	1778899968476292124	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.obj	89d306e1311ace88
+54	53809	1778899968473808815	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp.obj	948bc122d38b4b3f
+55	46277	1778899968475038407	CMakeFiles/RtmSend.dir/Users/ohadnissim/Claude/Compare/Compare_App/JUCE/modules/juce_graphics/juce_graphics.cpp.obj	ad8bbd3ce9eccdc3
+53810	53986	1778900022229830401	RtmSend_artefacts/Release/libRTM Send_SharedCode.a	6fcacf9dd3f6a741
+44	485	1778899578474842378	build.ninja	1434a7c0fc4e9c75
+44	485	1778899578472392709	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/cmake_install.cmake	1434a7c0fc4e9c75
+44	485	1778899578472725668	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/JUCE_BUILD/cmake_install.cmake	1434a7c0fc4e9c75
+44	485	1778899578473023293	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/JUCE_BUILD/modules/cmake_install.cmake	1434a7c0fc4e9c75
+44	485	1778899578473349085	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/JUCE_BUILD/extras/Build/cmake_install.cmake	1434a7c0fc4e9c75
+44	485	1778899578473738169	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/JUCE_BUILD/extras/Build/juceaide/cmake_install.cmake	1434a7c0fc4e9c75
+53986	54629	1778900022406295517	RtmSend_artefacts/Release/Standalone/RTM Send.exe	a3059ac58b359811
+2	51	1778900033414661412	/Users/ohadnissim/Claude/Compare/Compare App/rtm-send-plugin/build-win-cross/CMakeFiles/cmake.verify_globs	873d803ccf75f21

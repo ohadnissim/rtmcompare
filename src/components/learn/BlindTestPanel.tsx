@@ -7,6 +7,7 @@
  */
 
 import React from 'react'
+import PanelInfo from '../PanelInfo'
 import { useLearnMode } from '../../context/LearnModeContext'
 import type { BlindTestAnswer, BlindTestPredictions, EarTrainingAnswers } from '../../types'
 import ABPlayer from '../ABPlayer'
@@ -407,6 +408,7 @@ export default function BlindTestPanel({ onClose, analysisResult, fileAName, fil
               }}
             >
               BLIND TEST — Trust Your Ears First
+              <PanelInfo panelId="learn_blind_test" />
               <InfoTip
                 label="Blind A/B Test"
                 body="Lock in your prediction before the meters are revealed. Develops unbiased listening — the most valuable skill in mastering."

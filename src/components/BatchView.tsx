@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react'
 import { BatchResult, AlbumSession, ALBUM_SESSION_VERSION } from '../types'
+import PanelInfo from './PanelInfo'
 import DurationPill, { formatDuration } from './DurationPill'
 import CohortMode from './CohortMode'
 import SongDetailPanel from './SongDetailPanel'
@@ -770,6 +771,7 @@ export default function BatchView({ results, folderName, onBack, initialSession 
  ← Back
  </button>
  <span className="text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>Album · Batch</span>
+ <PanelInfo panelId="batch_overview" />
  <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>{folderName || 'Folder'}</span>
  <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
  {results.length} track{results.length === 1 ? '' : 's'}

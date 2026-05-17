@@ -7,6 +7,7 @@
  */
 
 import React from 'react'
+import PanelInfo from '../PanelInfo'
 import { useLearnMode, GUIDED_STEPS } from '../../context/LearnModeContext'
 import AssignmentPanel from './AssignmentPanel'
 import ClassGradeBook from './ClassGradeBook'
@@ -740,6 +741,7 @@ export default function GuidedFlowBar({
                   label="Guided Steps"
                   body="Nine structured listening tasks that build your ear from monitoring fundamentals to delivery specs. Complete each step at your own pace."
                 />
+                <PanelInfo panelId="learn_guided_steps" />
               </div>
               {currentStep.targetTab && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>

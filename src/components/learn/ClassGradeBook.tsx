@@ -8,6 +8,7 @@
  * Triggered by the "Grade Book" button in GuidedFlowBar (teacher role only).
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import PanelInfo from '../PanelInfo'
 import { useLearnMode } from '../../context/LearnModeContext'
 import { LmsExportPanel } from './LmsExportPanel'
 import ThemedConfirmDialog from '../v52/ThemedConfirmDialog'
@@ -443,6 +444,7 @@ export default function ClassGradeBook({ open, onClose, initialFolder }: Props) 
           <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>
             Class Grade Book
           </span>
+          <PanelInfo panelId="learn_grade_book" />
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={exportCsv}

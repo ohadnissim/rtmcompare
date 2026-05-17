@@ -5,10 +5,21 @@ import EngineerTipsPanel from './EngineerTipsPanel'
 import ReferenceMatchEQFromLibrary from './ReferenceMatchEQFromLibrary'
 import MasterAssistantPanel from './MasterAssistantPanel'
 import GenreAnalysisPanel from './GenreAnalysisPanel'
+import PanelInfo from './PanelInfo'
 import type { GenreProfile } from '../lib/genreAnalysis'
 import type { ProfileInfo } from './ProfileDropdown'
 
 type Mode = 'reference' | 'engineer' | 'hybrid' | 'library' | 'assistant' | 'chain' | 'genre'
+
+const MODE_PANEL_ID: Record<Mode, string> = {
+  reference: 'match_reference',
+  engineer: 'engineer_tips',
+  hybrid: 'hybrid_match',
+  library: 'reference_library',
+  assistant: 'master_assistant',
+  chain: 'chain_delta',
+  genre: 'genre_analysis',
+}
 
 interface Props {
  results: AnalysisResult
@@ -78,7 +89,7 @@ export default function MatchTab({ results, fileB, labelA, labelB, genreProfiles
  }, [results.engineer_tips])
 
  const modePicker = (
- <div className="flex items-center justify-center">
+ <div className="flex items-center justify-center gap-2">
  <div
  className="inline-flex items-center gap-1 p-1 rounded-sm"
  style={{ backgroundColor: 'rgba(48,44,39,0.5)', border: '1px solid rgba(168,161,150,0.12)' }}
@@ -136,6 +147,7 @@ export default function MatchTab({ results, fileB, labelA, labelB, genreProfiles
  />
  )}
  </div>
+ <PanelInfo panelId={MODE_PANEL_ID[mode]} />
  </div>
  )
 

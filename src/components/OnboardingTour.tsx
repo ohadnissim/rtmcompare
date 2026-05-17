@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Wordmark from './shell/Wordmark'
+import { useAudience, type Audience } from '../AudienceContext'
 
 /**
  * First-run onboarding. Welcome modal, then a 5-step spotlight over the
@@ -24,38 +25,104 @@ export interface TourStep {
  minWidth?: number
 }
 
-const DEFAULT_UPLOAD_STEPS: TourStep[] = [
+interface StepDef {
+ selector: string
+ placement?: TourStep['placement']
+ title: Record<Audience, string>
+ body: Record<Audience, string>
+}
+
+const STEP_DEFS: StepDef[] = [
  {
- selector: '[data-tour="dropzone"]',
- placement: 'bottom',
- title: 'Drop two tracks here',
- body: 'Left side, the sound you want to chase. Right side, the mix or master you\'re working on. WAV, FLAC, MP3, AIFF, ADM BWF. 16/24/32-bit, up to 192 kHz.',
+  selector: '[data-tour="dropzone"]',
+  placement: 'bottom',
+  title: {
+   pro: 'Drop two tracks here',
+   producer: 'Load your files here',
+   student: 'Load your reference and your work',
+   teacher: 'Load tracks to begin',
+  },
+  body: {
+   pro: 'Left side, the sound you want to chase. Right side, the mix or master you\'re working on. WAV, FLAC, MP3, AIFF, ADM BWF. 16/24/32-bit, up to 192 kHz.',
+   producer: 'Left side: a reference track you want to sound like. Right side: your mix or master. RTMcompare tells you exactly what\'s different between them.',
+   student: 'File A (left) = your reference — a professionally mastered track in your genre. File B (right) = your own mix or master. All analysis measures the gap between them.',
+   teacher: 'For classroom use: prepare a curated reference track (A) and have students load their own submission (B). Consistent reference tracks make class comparison meaningful.',
+  },
  },
  {
- selector: '[data-tour="overflow-menu"]',
- placement: 'bottom',
- title: 'Settings & your name',
- body: 'Hit ⋯ to set your engineer name (it shows up on every certificate), toggle Learn Mode, switch themes, and control zoom. Your name is saved locally.',
+  selector: '[data-tour="overflow-menu"]',
+  placement: 'bottom',
+  title: {
+   pro: 'Settings & your name',
+   producer: 'Your settings',
+   student: 'Settings & Learn Mode',
+   teacher: 'Configure your session',
+  },
+  body: {
+   pro: 'Hit ⋯ to set your engineer name (it shows up on every certificate), toggle Learn Mode, switch themes, and control zoom. Your name is saved locally.',
+   producer: 'Set your name, switch themes, and adjust zoom. Your name appears on any exported reports. Toggle Learn Mode here if your instructor requires it.',
+   student: 'The ⋯ menu is where you\'ll find Learn Mode — your teacher may ask you to turn this on before starting work. Also where you set your name for report exports.',
+   teacher: 'From here you can enable Learn Mode (which shows guided steps and the grade book), switch the dark/light theme for projection, and set your institution name for reports.',
+  },
  },
  {
- selector: '[data-tour="surface-picker"]',
- placement: 'center',
- title: 'Six views, one session',
- body: 'After analysis, tabs give you Overview, Mix Breakdown, Stereo & Spectrum, EQ Match, Mastering Delta, and QC. Switch freely — the comparison stays live.',
+  selector: '[data-tour="surface-picker"]',
+  placement: 'center',
+  title: {
+   pro: 'Six views, one session',
+   producer: 'The analysis tabs',
+   student: 'Navigating the panels',
+   teacher: 'Teaching with tabs',
+  },
+  body: {
+   pro: 'After analysis, tabs give you Overview, Mix Breakdown, Stereo & Spectrum, EQ Match, Mastering Delta, and QC. Switch freely — the comparison stays live.',
+   producer: 'Each tab shows a different view of your comparison. Overview is the summary, Stereo is your imaging, EQ Match gives you corrective suggestions, and QC catches problems before you submit.',
+   student: 'These tabs organize the analysis into logical groups. Your guided steps (in Learn Mode) will tell you which tab to visit at each stage. Each tab has ⓘ balloons on every panel — hover them to understand what you\'re looking at.',
+   teacher: 'Tab navigation maps to the course curriculum structure: Overview → Loudness theory; Stereo → Imaging; EQ Match → Corrective techniques; QC → Delivery standards. Use the tab order as a class progression outline.',
+  },
  },
  {
- selector: '[data-tour-target="player"]',
- placement: 'center',
- title: 'Level-matched A/B playback',
- body: 'Hit Space to flip between A and B at matched loudness — no volume bias. Codec previews (AAC, Opus, HE-AAC) let you hear how streaming will colour your master before you commit.',
+  selector: '[data-tour-target="player"]',
+  placement: 'center',
+  title: {
+   pro: 'Level-matched A/B playback',
+   producer: 'A/B comparison player',
+   student: 'The blind listening tool',
+   teacher: 'Demonstrating level-matched A/B',
+  },
+  body: {
+   pro: 'Hit Space to flip between A and B at matched loudness — no volume bias. Codec previews (AAC, Opus, HE-AAC) let you hear how streaming will colour your master before you commit.',
+   producer: 'Press Space to flip between A and B at matched loudness. Your ears can\'t tell which is louder — so any preference you hear is about quality, not volume. This is how pros A/B reference tracks.',
+   student: 'Level-matching removes the louder-sounds-better bias. When both files play at the same loudness, any preference is based purely on tone, dynamics, and quality. This is how blind listening tests work.',
+   teacher: 'Demonstrate the level-matching effect: play A and B without it (natural level difference), then with it. Students will hear their preference reverse — a powerful demonstration of how loudness bias fools listeners.',
+  },
  },
  {
- selector: '[data-tour-learn="bar"]',
- placement: 'center',
- title: 'Learn Mode for classrooms',
- body: 'Turn on Learn Mode (⋯ menu) to get guided curriculum steps, ear training, and assignment rubrics. Teachers get a grade book and Canvas LMS export. Students get a practice report PDF.',
+  selector: '[data-tour-learn="bar"]',
+  placement: 'center',
+  title: {
+   pro: 'Learn Mode for classrooms',
+   producer: 'Learn Mode',
+   student: 'Your guided workflow',
+   teacher: 'Teaching tools hub',
+  },
+  body: {
+   pro: 'Turn on Learn Mode (⋯ menu) to get guided curriculum steps, ear training, and assignment rubrics. Teachers get a grade book and Canvas LMS export. Students get a practice report PDF.',
+   producer: 'Learn Mode adds guided steps that walk you through the analysis in the right order. Useful when you\'re learning the tool or want to be thorough on an important project.',
+   student: 'This bar is your classroom interface. If your teacher assigned a rubric (.rtm-assignment.json), load it here. Follow the guided steps in order — each one tells you what to listen for and which panel to check.',
+   teacher: 'This bar is your hub: set the assignment rubric, run the blind test, access the grade book, and review student annotations. Students see the same bar but without grade book access.',
+  },
  },
 ]
+
+function getUploadSteps(audience: Audience): TourStep[] {
+ return STEP_DEFS.map(def => ({
+  selector: def.selector,
+  placement: def.placement,
+  title: def.title[audience],
+  body: def.body[audience],
+ }))
+}
 
 export function useTourState() {
  const [state, setState] = useState<TourState>(() => {
@@ -93,11 +160,11 @@ export function useTourState() {
  markDone()
  setState({ kind: 'spotlight', step: 0 })
  }, [])
- const nextStep = useCallback(() => {
+ const nextStep = useCallback((totalSteps: number) => {
  setState(s => {
  if (s.kind !== 'spotlight') return s
  const next = s.step + 1
- if (next >= DEFAULT_UPLOAD_STEPS.length) {
+ if (next >= totalSteps) {
  markDone()
  return { kind: 'done' }
  }
@@ -117,26 +184,27 @@ export function useTourState() {
 /* ─── Main component ─────────────────────────────────────────────────────── */
 
 export default function OnboardingTour({ externalTour }: { externalTour?: ReturnType<typeof useTourState> }) {
- // Allow the parent App to inject the same tour state so the header "Tour"
- // button can reset / restart the flow; otherwise manage our own instance.
  const internal = useTourState()
  const tour = externalTour || internal
  const { state, skipTour, beginSpotlight, nextStep, prevStep } = tour
+ const audience = useAudience()
+ const uploadSteps = getUploadSteps(audience)
 
  if (state.kind === 'done') return null
 
- if (state.kind === 'welcome') return <WelcomeModal onStart={beginSpotlight} onSkip={skipTour} />
+ if (state.kind === 'welcome') return <WelcomeModal onStart={beginSpotlight} onSkip={skipTour} audience={audience} />
 
  if (state.kind === 'spotlight') {
- const step = DEFAULT_UPLOAD_STEPS[state.step]
+ const step = uploadSteps[state.step]
  return (
  <SpotlightStep
  step={step}
  stepIndex={state.step}
- totalSteps={DEFAULT_UPLOAD_STEPS.length}
- onNext={nextStep}
+ totalSteps={uploadSteps.length}
+ onNext={() => nextStep(uploadSteps.length)}
  onPrev={prevStep}
  onSkip={skipTour}
+ audience={audience}
  />
  )
  }
@@ -145,7 +213,31 @@ export default function OnboardingTour({ externalTour }: { externalTour?: Return
 
 /* ─── Welcome Modal ──────────────────────────────────────────────────────── */
 
-function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
+const WELCOME_COPY: Record<Audience, { headline: string; sub: string; cta: string }> = {
+ pro: {
+  headline: 'QC, compare, deliver.',
+  sub: 'Level-matched A/B, codec-accurate streaming previews (AAC LC, Opus, HE-AAC v2), and EQ moves you can audition before render.',
+  cta: 'Walk me through it',
+ },
+ producer: {
+  headline: "Hear what’s wrong. Fix it fast.",
+  sub: 'Drop your mix and a reference. RTMcompare shows you the loudness gap, the EQ difference, and every quality problem — in under 30 seconds.',
+  cta: 'Show me how',
+ },
+ student: {
+  headline: 'Learn to master by comparing.',
+  sub: 'Load a reference track and your own mix. RTMcompare guides you step-by-step through what the difference sounds like, looks like, and means technically.',
+  cta: 'Start the walkthrough',
+ },
+ teacher: {
+  headline: 'RTMcompare for the classroom.',
+  sub: 'Guided curriculum steps, blind listening tests, assignment rubrics, and a Canvas-integrated grade book — everything to run a mastering curriculum.',
+  cta: 'See how it works',
+ },
+}
+
+function WelcomeModal({ onStart, onSkip, audience }: { onStart: () => void; onSkip: () => void; audience: Audience }) {
+ const copy = WELCOME_COPY[audience]
  const startBtnRef = useRef<HTMLButtonElement | null>(null)
  const containerRef = useRef<HTMLDivElement | null>(null)
 
@@ -207,13 +299,11 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
  {/* Left column — wordmark, promise, primary action. */}
  <div className="col-span-3 flex flex-col">
  <div className="text-left"><Wordmark size="lg" /></div>
- {/* 5.7.2 copy: */}
  <h2 id="welcome-modal-title" className="mt-4 text-left" style={{ fontSize: '18px', lineHeight: 1.4, color: 'var(--color-text-primary)', fontWeight: 400 }}>
- QC, compare, deliver.
+ {copy.headline}
  </h2>
- {/* 5.7.2 copy: */}
  <p className="mt-3 text-left text-sm leading-relaxed" style={{ color: 'var(--color-sand-300)' }}>
- Level-matched A/B, codec-accurate streaming previews (AAC LC, Opus, HE-AAC v2), and EQ moves you can audition before render.
+ {copy.sub}
  </p>
 
  <div className="mt-auto pt-8 flex items-center gap-4">
@@ -228,8 +318,7 @@ function WelcomeModal({ onStart, onSkip }: { onStart: () => void; onSkip: () => 
  border: '2px solid var(--color-accent)',
  }}
  >
- {/* 5.7.2 copy: */}
- Walk me through it
+ {copy.cta}
  </button>
  <button
  onClick={onSkip}
@@ -269,13 +358,14 @@ function Pillar({ title, body }: { title: string; body: string }) {
 
 /* ─── Spotlight Step ─────────────────────────────────────────────────────── */
 
-function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: {
+function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip, audience }: {
  step: TourStep
  stepIndex: number
  totalSteps: number
  onNext: () => void
  onPrev: () => void
  onSkip: () => void
+ audience: Audience
 }) {
  const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -409,10 +499,14 @@ function SpotlightStep({ step, stepIndex, totalSteps, onNext, onPrev, onSkip }: 
  onClick={e => e.stopPropagation()}
  >
  <div className="flex items-center justify-between">
+ <div className="flex items-center gap-2">
  <span className="text-[9px] tracking-[0.18em] uppercase" style={{ color: 'var(--color-accent)' }}>
  Step {stepIndex + 1} of {totalSteps}
  </span>
- {/* 5.7.2 copy: */}
+ <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(208,176,102,0.5)', border: '1px solid rgba(208,176,102,0.2)', borderRadius: '2px', padding: '1px 4px' }}>
+ {audience.toUpperCase()}
+ </span>
+ </div>
  <button
  onClick={onSkip}
  className="text-[10px]"

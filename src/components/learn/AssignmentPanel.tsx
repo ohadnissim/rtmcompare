@@ -10,6 +10,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react'
+import PanelInfo from '../PanelInfo'
 import type { AssignmentConfig, RubricCriteria, LearnGuidedStep } from '../../types'
 import InfoTip from './InfoTip'
 
@@ -416,6 +417,7 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
         >
           Assignment Setup
         </span>
+        <PanelInfo panelId="learn_assignment" />
         <button
           onClick={onClose}
           aria-label="Close assignment panel"

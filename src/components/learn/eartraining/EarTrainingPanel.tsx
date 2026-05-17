@@ -11,6 +11,7 @@
  */
 
 import React from 'react'
+import PanelInfo from '../../PanelInfo'
 import type {
   EarTrainingDrillId,
   EarTrainingDifficulty,
@@ -386,6 +387,7 @@ export default function EarTrainingPanel({ onClose, fileAPath, fileAName }: Prop
         <div>
           <div style={{ fontSize: 11, letterSpacing: '0.18em', color: 'rgba(208,176,102,0.7)', textTransform: 'uppercase', marginBottom: 4 }}>
             🎼 Ear Training — Golden Ears Curriculum
+            <PanelInfo panelId="learn_ear_training" />
           </div>
           <div style={{ fontSize: 22, color: 'var(--color-text-primary)', fontFamily: 'var(--font-display, serif)', fontStyle: 'italic' }}>
             {screen === 'home' && 'Train your ears, one band at a time.'}

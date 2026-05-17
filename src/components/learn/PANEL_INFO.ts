@@ -364,4 +364,79 @@ export const PANEL_INFO: Record<string, PanelInfoContent> = {
     teacher: 'Compare the phase correlation timeline of the stereo native vs. the Atmos downmix. Any divergence tells a story about how the Atmos mix\'s surround content affects the fold. This builds understanding of the relationship between object routing and mono compatibility.',
   },
 
+  // ─── EQ MATCH — ADDITIONAL MODES ──────────────────────────────────────────
+
+  hybrid_match: {
+    label: 'Hybrid EQ Match',
+    pro: 'Reference-derived EQ bands merged with non-overlapping engineer-profile bands (1/2-octave exclusion radius). The hybrid gives you spectral correction toward the reference plus the engineer\'s signature where the two don\'t compete. Bands from each source are colour-coded on the chip rail.',
+    producer: 'The best of both worlds: EQ moves that bring your file closer to the reference, plus the loaded engineer\'s own style fingerprint in the bands that don\'t overlap. Start with this mode if you\'ve loaded an engineer profile and also have a reference comparison.',
+    student: 'Hybrid mode combines two independent EQ suggestion sources: (1) the spectrum-difference between your files (Reference mode), and (2) the loaded engineer\'s profile target curve (Engineer mode). Where they suggest overlapping bands, Reference takes priority. Where they don\'t overlap, the engineer\'s signature is added. This is a form of ensemble recommendation.',
+    teacher: 'Hybrid mode is a good teaching case for understanding how two independent EQ sources can be merged without double-correction. Ask: "What happens if both sources suggest a boost at 200 Hz? Which takes priority and why?" Leads to discussion of reference-based vs. style-based EQ recommendations.',
+    tip: 'Toggle individual bands off using the chip rail to A/B the Reference contribution vs. the Engineer contribution — a useful way to hear how much each source changes the sound.',
+  },
+
+  chain_delta: {
+    label: 'Chain Delta Prediction',
+    pro: 'Predicted output of the loaded engineer\'s full mastering chain (gain → EQ → compression → limiting) applied to this mix. Derived from the profile\'s historical A/B regression model. Shows predicted LUFS-I, LRA, per-band gain, and spectral character after the chain — before you run it.',
+    producer: 'See what the loaded engineer\'s mastering chain would do to your mix before you commit. The prediction shows expected loudness, compression character, and spectral change. Use it to decide whether the engineer\'s style fits your track.',
+    student: 'Chain prediction uses a regression model trained on the engineer\'s past mix-to-master pairs. Given your mix\'s measurements as input, it predicts the output after their typical processing chain — without you having to actually run the chain. This is machine learning applied to mastering workflow prediction.',
+    teacher: 'Show chain delta predictions for two different engineer profiles on the same mix. Ask students: "Which engineer would make this mix louder? Which would preserve more dynamics?" Then verify by running the Master Assistant with each profile. Builds intuition for how engineer style affects mastering decisions.',
+    tip: 'Load a Delta profile at scan time (dropdown before analysis) to see the chain prediction. The prediction is only as accurate as the profile\'s training data — profiles built from more masters are more reliable.',
+  },
+
+  // ─── BATCH VIEW ────────────────────────────────────────────────────────────
+
+  batch_overview: {
+    label: 'Album Overview',
+    pro: 'Cohort loudness distribution, per-track LUFS-I / TP / LRA with heatmap deviation from album median, consistency score (coefficient of variation), and outlier flagging. The album median is computed excluding silence-only tracks. DDP preflight, album-level export (CSV / JSON / PDF / DDP), and session persistence (.rtmalbum.json).',
+    producer: 'Your full album at a glance — every track\'s loudness, peaks, and dynamic range in one table. The colour coding shows which tracks are outliers vs. the album median. A consistent album has matching loudness across all tracks; inconsistencies will be noticed by listeners.',
+    student: 'Album mastering is about cohesion — every track should feel like it belongs at the same loudness level, with similar tonal character and dynamic feel. This overview computes the LUFS-I distribution across all tracks and flags those more than 1 LU outside the album median. Understanding track-to-track consistency is a key skill for album mastering.',
+    teacher: 'Assign students to bring in 5–10 tracks from the same album (commercially released) and run them as a batch. Ask them to identify the loudest and quietest tracks, then listen back-to-back to verify the loudness difference is perceptible. Discuss why mastering engineers sometimes intentionally vary loudness across an album (artistic sequencing vs. uniform delivery).',
+    tip: 'Use Cohort Mode to pin one track as the target — all other tracks are measured relative to that master rather than the album median. Useful when one track is the established reference for the project.',
+  },
+
+  // ─── LEARN MODE ────────────────────────────────────────────────────────────
+
+  learn_guided_steps: {
+    label: 'Guided Steps',
+    pro: 'Nine-step structured curriculum: monitoring → overview → loudness → spectrum → stereo → quality → delivery → EQ match → sign-off. Each step navigates to the relevant tab and prompts specific listening tasks. Designed for classroom use but useful as a systematic QC checklist for any session.',
+    producer: 'A step-by-step walkthrough of how to critically evaluate a mix or master — covering all the important panels in the right order. Useful when you\'re learning the tool or want to be thorough on an important release.',
+    student: 'The nine guided steps follow a professional mastering review workflow: start with monitoring conditions, work through loudness and dynamics, then spectral and stereo content, quality issues, and finally delivery compliance. Each step asks specific questions so you develop a repeatable process rather than random exploration.',
+    teacher: 'The guided steps are a structured curriculum you can assign as homework or use in class. Each step has a specific listening task — these are your homework prompts built in. Use the annotation notes feature to require students to write observations at each step before proceeding.',
+  },
+
+  learn_blind_test: {
+    label: 'Blind A/B Test',
+    pro: 'Psychoacoustic bias-elimination protocol. A and B are randomly shuffled each session so the analyst doesn\'t know which is the reference and which is the work-in-progress until they commit their predictions. Results logged to the student report PDF for pedagogical transparency.',
+    producer: 'A/B is randomly shuffled so you can\'t see which file is which until after you decide which sounds better. Trains you to evaluate sound without bias from knowing which is the "master" and which is the "rough mix." Your prediction is revealed after you commit.',
+    student: 'Blind testing is the gold standard for removing confirmation bias from perceptual evaluation. When you know which file is "supposed to be better," your brain tends to confirm that expectation. This blind A/B design — where file identity is hidden until after your prediction — trains you to evaluate sound objectively, not by expectation.',
+    teacher: 'Require students to complete the blind test before viewing any analysis panels. Their prediction accuracy tells you more about their listening development than their analysis skills. Low accuracy + correct analysis = good analytical mind, needs more ear training. High accuracy + poor analysis = good ears, needs more measurement vocabulary.',
+  },
+
+  learn_ear_training: {
+    label: 'Ear Training',
+    pro: 'Drill modes: frequency identification (EQ sweep, narrow-band noise burst), EQ width (Q detection), compression ratio recognition (attack/release cues), and reverb type classification. Pink noise, your own audio, and a reference synth mix. Three difficulty levels with session scoring.',
+    producer: 'Practice hearing EQ changes, compression, reverb types, and other effects in isolation. The drills work on your own audio or generated test signals. Good for training the specific skills you need to evaluate a mix or master by ear.',
+    student: 'Ear training develops the perceptual vocabulary needed to describe and identify audio processing. The frequency identification drill teaches you to hear specific EQ boosts — a skill that takes months of regular practice to develop. Frequency, dynamics, and space drills each target a different dimension of audio perception.',
+    teacher: 'Assign 10 minutes of ear training per class session as a warm-up. Track improvement by exporting the session score over several weeks. Frequency ID is the most important drill for mastering students — inability to identify frequency regions by ear is the most common skill gap in mix-to-master feedback.',
+  },
+
+  learn_assignment: {
+    label: 'Assignment Builder',
+    pro: 'Rubric constructor with 14 weighted metrics, genre target options, and submission export (.rtm-assignment.json). Supports Canvas LMS grade passback via REST API. Assignment constraints set quality thresholds and scoring bands per metric.',
+    producer: 'Not applicable for the typical producer workflow — this is a teacher tool for setting up graded assignments.',
+    student: 'Your assignment loaded here defines which metrics are graded, what the thresholds are, and how heavily each is weighted. Load the .rtm-assignment.json file your teacher provided to see the rubric before submitting your work.',
+    teacher: 'Build your assignment rubric here: select which of the 14 metrics to grade, set pass/fail thresholds, assign point weights, and optionally lock a genre target curve. Export the .rtm-assignment.json for students to load. Submissions auto-grade against the rubric — you see results in the Grade Book.',
+    tip: 'Set a genre target when grading albums or genre-specific work — the tonal balance score is then measured against the genre mean rather than an absolute flat curve.',
+  },
+
+  learn_grade_book: {
+    label: 'Grade Book',
+    pro: 'Batch submission scanner — reads .rtm-report.json files from a folder, runs them against the loaded assignment rubric, and produces a grade table. Class Insights highlight which metric tripped up the most students. Canvas LMS CSV export and REST API grade passback available.',
+    producer: 'Not applicable for the typical producer workflow — this is a teacher tool.',
+    student: 'Your submitted .rtm-report.json file is what the teacher runs through the grade book. The grade is calculated automatically from your measurements against the assignment rubric. You can see the rubric in the Assignment panel to understand how your work will be evaluated.',
+    teacher: 'Scan the submissions folder after the deadline — each .rtm-report.json becomes a graded row instantly. The Class Insights panel shows which metric had the most failures (usually True Peak or Mono Compatibility for beginners). Export to CSV for your gradebook, or push directly to Canvas via the LMS integration.',
+    tip: 'Use the "Flag for review" column to mark borderline submissions that need a manual listen before finalizing the grade. The automation handles measurement-based grading; your ear handles the subjective judgment.',
+  },
+
 }
