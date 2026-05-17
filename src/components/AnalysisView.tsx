@@ -539,6 +539,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <TabVerdict tab="overview" results={results} isAtmos={isAtmos} />
  <CollapsibleSection
  title="Overall Summary"
+ panelId="overview"
  tooltip="High-level comparison of loudness, stereo width, and dynamic range between the two files."
  why="Everything you hear between two mixes is some combination of these numbers. Start here to see which axis moved, then drill into the panel that explains why."
  glossary={[
@@ -869,6 +870,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.waveform_a && results.waveform_b && results.duration_sec && (
  <CollapsibleSection
  title="Waveform"
+ panelId="waveform"
  tooltip="Visual shape of the audio over time. A flatter, more rectangular waveform means heavier limiting/compression. More peaks and valleys = more dynamic."
  why="Fastest read on how hard a master was pushed. A brick (solid rectangle, no peaks above the limiter ceiling) means 10–12 dB of compression and almost no transient left. A waveform that still breathes keeps drums punchy, cymbals intact, vocals forward."
  >
@@ -886,6 +888,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.lufs_over_time_a && results.lufs_over_time_b && results.duration_sec && (
  <CollapsibleSection
  title="Loudness Over Time"
+ panelId="loudness_timeline"
  tooltip="LUFS loudness plotted across the song. Shows where the master pushed harder. Useful for spotting over-compressed choruses or quiet intros that got boosted."
  why="Integrated LUFS is one number for the whole track, useful for streaming but silent on arrangement. Short-term LUFS over time shows the macro-dynamics the listener feels: verse to chorus jump, the held breath before a drop, the way a bridge sits back. Flat line = no movement; peaks in the wrong places = the limiter is rewriting the arrangement."
  >
@@ -933,6 +936,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.streaming_preview && !isAtmos && !isAtmosSolo && (
  <CollapsibleSection
  title="Streaming Normalization Preview"
+ panelId="streaming_delivery"
  tooltip="What each major platform will actually play this track at, after their loudness normalisation. Spotify, Apple, Tidal, and others attenuate loud masters. Apple Music also boosts quiet masters. TP breach flags mean the platform's limiter will engage."
  why="Most listeners hear your track through streaming platforms, not your studio. Every platform turns loud masters down, which negates the volume war. The adjusted playback loudness is what your audience actually hears, and flags whether your true-peak will trigger the platform's limiter."
  defaultOpen={true}
@@ -966,6 +970,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.metadata && (
  <CollapsibleSection
  title="File Metadata"
+ panelId="metadata"
  tooltip="BEXT, iXML, and LIST-INFO tags embedded in the WAV."
  why="Embedded metadata travels with the file through every distributor's pipeline. Inspect what's there; embed what's missing if your delivery target requires it."
  defaultOpen={false}
@@ -1020,6 +1025,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  return (
  <CollapsibleSection
  title="Per-Element Breakdown"
+ panelId="per_element"
  tooltip="Level-matched comparison per element. Elements that differ by more than 0.5 dB show up by default; the rest are collapsed."
  why="0.5 dB is the audibility threshold for wide-band level. Anything under that sounds identical, so hiding it stops the panel from reading like a spreadsheet."
  defaultOpen={false}
@@ -1059,6 +1065,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.masking && results.masking.overlaps && results.masking.overlaps.length > 0 && (
  <CollapsibleSection
  title="Masking Overlap"
+ panelId="masking"
  tooltip="Where elements compete for the same frequency range. Shows full-mix density flags."
  why="Masking is why mixes sound muddy, crowded, or 'never clear no matter how much I EQ'. Two elements fighting for the same frequency means neither wins; one has to move. Side-chain, cut, or LPF the interferer instead of adding more EQ to the victim."
  badge={
@@ -1075,6 +1082,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.transient_density && results.transient_density.timeline.length > 0 && (
  <CollapsibleSection
  title="Transient Density & Structure"
+ panelId="transient_density"
  tooltip="Energy arc, rhythmic density, and auto-detected sections across the track."
  why="A drop that doesn't land, a bridge that drags, a chorus quieter than expected: all show up here before your ears notice."
  defaultOpen={false}
@@ -1091,6 +1099,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.tonal_issues && results.tonal_issues.length > 0 && (
  <CollapsibleSection
  title="Tonal Issues"
+ panelId="tonal_issues"
  defaultOpen={false}
  tooltip="Detects perceptual problems like harshness (2-5 kHz), boominess (100-300 Hz), sibilance (5-9 kHz), muddiness (200-500 Hz), boxiness (300-700 Hz), and thinness (below 200 Hz). These are what experienced engineers listen for."
  why="The named complaints you hear in every mixing book: boominess, muddiness, harshness, sibilance, boxiness, thinness. Each maps to a known frequency band. Objective flags save an hour of 'does this sound harsh to you?' back-and-forth."
@@ -1202,6 +1211,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.atmos_qc && (
  <CollapsibleSection
  title="Dolby Atmos QC"
+ panelId="atmos_qc"
  tooltip="Checks your Atmos file against Dolby's delivery specifications for music streaming platforms (Apple Music, Tidal, Amazon Music). Verifies loudness, true peak, sample rate, bit depth, channel activity, and more."
  why="Apple Music, Tidal, and Amazon reject Atmos deliveries that miss spec: wrong sample rate, too-hot TP, inactive channels, missing ADM. A spec-fail is a one-week slip while delivery re-bounces and re-ingests. Catch it before upload."
  badge={
@@ -1221,6 +1231,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <>
  <CollapsibleSection
  title="Surround Field (Atmos)"
+ panelId="atmos_surround"
  tooltip="Top-down view of the speaker layout with energy per channel measured directly from the Atmos file. Circle size represents how much audio is present at each speaker position. Height channels shown with dashed outlines."
  why="The Atmos field is your spatial canvas. Uneven energy distribution (e.g. all content stuck in L/R) means the mix isn't actually using the Atmos format, just paying for it."
  >
@@ -1235,6 +1246,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.atmos_object_view && results.atmos_object_view.object_count > 0 && (
  <CollapsibleSection
  title="Object Trajectories"
+ panelId="atmos_objects"
  tooltip="Per-object position data from the ADM metadata. Shows where in the Atmos sphere each object sits, how it moves, and how much it uses height channels."
  why="The best test for whether a mix uses Atmos creatively or pays lip-service to it. Static heatmap concentrated at L/R = same mix as stereo. Spread across height and rears = genuine spatial design."
  >
@@ -1244,6 +1256,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  <CollapsibleSection
  title="Channel Energy (Atmos)"
+ panelId="atmos_channels"
  tooltip="Measured directly from the Atmos file: RMS level for each channel in the bed. Shows how audio energy is distributed across ear-level, height, and LFE channels."
  why="Silent channels in Atmos indicate unused real-estate or a bed-only delivery. Compare against the track's intent."
  >
@@ -1284,6 +1297,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.atmos_qc && (
  <CollapsibleSection
  title="Downmix QC Checks"
+ panelId="atmos_downmix_qc"
  tooltip="Quality checks that apply to the stereo fold-down of the Atmos file: what listeners on non-Atmos platforms (Spotify, Apple Music stereo, YouTube) will actually hear."
  why="Most of your audience hears the downmix, not the Atmos mix. These checks are what matter for stereo streaming delivery."
  >
@@ -1295,6 +1309,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  <>
  <CollapsibleSection
  title="Downmix Fidelity"
+ panelId="downmix_delta"
  tooltip="Compares the original stereo mix against the Atmos stereo downmix (level-matched). Shows tonal differences when the Atmos mix is folded down to stereo."
  why="The Atmos renderer does not produce a stereo twin of your stereo mix. It produces a phase-coherent fold-down with its own LFE and surround summing. Kick can get quieter, vocals can shift pan, reverb tails can go wide. Downmix-fidelity flags the tonal drift so you can adjust bed levels or send a separate stereo bounce."
  >
@@ -1308,6 +1323,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.atmos.missing_elements && (
  <CollapsibleSection
  title="Missing Elements"
+ panelId="missing_elements"
  tooltip="Detects mix elements (kick, snare, vocals, etc.) that are significantly quieter or absent in the Atmos downmix compared to the stereo original."
  why="The stereo downmix reaches about 90% of your audience (anyone not on an Atmos-capable Apple Music / Tidal / Amazon setup). If the kick disappears or the vocal drops 3 dB in the fold-down, most listeners hear the wrong mix. Flag offenders before they ship."
  badge={
@@ -1334,6 +1350,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.spectrum_a && results.spectrum_b && (
  <CollapsibleSection
  title="Downmix Frequency Spectrum"
+ panelId="atmos_downmix_spectrum"
  tooltip="EQ curve comparison: original stereo vs Atmos stereo downmix across 31 frequency bands."
  why="The Atmos fold-down EQs differently than your stereo mix: height objects sum into mid content, surrounds sum into side, LFE gets re-routed. The 31-band delta shows which region shifted (lost low-mids? gained sibilance?) so you can correct the bed or raise a stem level before re-render."
  >
@@ -1353,6 +1370,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.mono_compat && (
  <CollapsibleSection
  title="Downmix Mono Compatibility"
+ panelId="atmos_downmix_mono"
  tooltip="How much audio is lost when the stereo downmix is collapsed to mono. Matters for phone speakers and Bluetooth. Single-number version lives in the Verdict badge."
  why="The fold-down is phase-coherent in theory, but the bed ↔ object sum can still cancel in mono. Clubs, phone speakers, smart-speaker mono playback, and most Bluetooth pair modes sum to mono. If the downmix collapses there, half your listeners lose the bass or the vocal. Verify the fold-down survives the collapse."
  defaultOpen={false}
@@ -1364,6 +1382,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.vectorscope_a && results.vectorscope_b && (
  <CollapsibleSection
  title="Downmix Vectorscope"
+ panelId="atmos_downmix_vectorscope"
  tooltip="Stereo image comparison between original stereo and Atmos downmix."
  why="The Atmos downmix often ends up wider than the native stereo mix because surround objects get summed into side. A too-wide downmix reads as 'phasey' on earbuds and can trip platform limiter thresholds. Fastest visual read on how the fold-down's stereo picture compares."
  defaultOpen={false}
@@ -1380,6 +1399,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.phase_over_time_a && results.phase_over_time_b && results.duration_sec && (
  <CollapsibleSection
  title="Downmix Phase Correlation"
+ panelId="atmos_downmix_phase"
  tooltip="L/R phase relationship of the stereo downmix over time."
  why="Atmos fold-downs can have section-specific phase problems the full-track correlation number hides. A bridge that introduces a rear-surround object can dip the downmix correlation into negative territory for 15 seconds. Timeline catches the moment, not the average."
  defaultOpen={false}
@@ -1404,6 +1424,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.spectrum_a && results.spectrum_b && (
  <CollapsibleSection
  title="Frequency Spectrum"
+ panelId="spectrum_overlay"
  tooltip="EQ curve comparison across 31 frequency bands. Shows exactly where tonal changes were made: boosts and cuts in the low end, mids, and highs."
  why="Tonal balance is the #1 thing separating amateur and pro masters. Your ears adapt to whatever you've been listening to; the spectrum never lies. Compare against a reference for objective EQ decisions, not fatigue-biased ones."
  >
@@ -1423,6 +1444,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.spectrogram_a && results.spectrogram_b && results.duration_sec && (
  <CollapsibleSection
  title="Spectrogram"
+ panelId="spectrogram"
  tooltip="Time-frequency heatmap showing how energy is distributed across the audible spectrum over time. Brighter = louder. Mel scale on the Y axis (perceptually spaced, close to log frequency)."
  why="The 31-band static spectrum shows averages. The spectrogram shows time — whether that 3 kHz boost happens only during the chorus, whether sub energy cuts out in the bridge, or whether a rumble artifact appears at a specific timestamp."
  defaultOpen={false}
@@ -1441,6 +1463,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.mono_compat && (
  <CollapsibleSection
  title="Mono Compatibility"
+ panelId="mono_compat"
  tooltip="Tests how much audio is lost when left and right channels are combined (mono). Single-number version lives in the Verdict badge; this is the full per-band breakdown."
  why="Most of your audience hears the track on phone speakers, Bluetooth earbuds, clubs (often summed to mono below 100 Hz), and radio. If your sub cancels in mono, bass disappears for half your listeners. Check before bouncing."
  defaultOpen={false}
@@ -1452,6 +1475,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.phase_over_time_a && results.phase_over_time_b && results.duration_sec && (
  <CollapsibleSection
  title="Phase Correlation"
+ panelId="phase_correlation"
  tooltip="L/R phase relationship over time. +1 = perfectly correlated (mono compatible), 0 = uncorrelated, -1 = out of phase (will cancel in mono). Red zones indicate potential problems."
  why="Broadband correlation is an average. A mix can score +0.7 overall and still have a chorus dipping into red for ten seconds, and that window is exactly when the club subs cancel. Phase over time catches the section-level cancellation the single number misses."
  defaultOpen={false}
@@ -1469,6 +1493,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.phase_bands_a && results.phase_bands_a.length > 0 && (
  <CollapsibleSection
  title="Phase Correlation — Per Band"
+ panelId="phase_bands"
  tooltip="Broadband correlation can hide sub-band problems. Watch Sub/Bass for cancellation that vanishes on phone speakers."
  why="A mix can look mono-compatible broadband (+0.9 correlation overall) but still cancel catastrophically at 60 Hz. The low end is where mono collapse does the most damage; broadband correlation misses it."
  defaultOpen={false}
@@ -1485,6 +1510,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.vectorscope_a && results.vectorscope_b && (
  <CollapsibleSection
  title="Stereo Vectorscope"
+ panelId="vectorscope"
  tooltip="Lissajous display showing stereo image shape. Vertical spread = mono content (kick, bass, vocals). Horizontal spread = stereo content (reverbs, panned elements). A wider shape = wider stereo image."
  why="The vectorscope is the fastest visual test for stereo character. A narrow vertical shape means a mostly-mono mix; a wide horseshoe means lots of side content. Diagonal tilts indicate L/R balance issues."
  defaultOpen={false}
@@ -1501,6 +1527,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.stereo_timeline_a && results.stereo_timeline_a.width && results.stereo_timeline_a.width.length > 2 && (
  <CollapsibleSection
  title="Stereo Image Over Time"
+ panelId="stereo_timeline"
  tooltip="Section-by-section width, correlation, and balance timelines. Catches accidental pan drift, stereo collapses, and bridge/drop width changes."
  why="A mix can measure fine on the vectorscope average but drift wide or narrow between sections. Timeline catches the bridge that accidentally went mono, the drop that's too wide, the take subtly panned left."
  defaultOpen={false}
@@ -1546,6 +1573,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.hum && results.hum.mains > 0 && (
  <CollapsibleSection
  title="Hum / Buzz Check"
+ panelId="hum"
  tooltip="Scans for AC mains hum (50/60 Hz) and its harmonics."
  why="Ground loops, poor shielding, and interference inject audible hum. Once present it's hard to remove but trivial to spot with notch EQ. This panel tells you exactly where."
  >
@@ -1573,6 +1601,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  {results.distortion && (
  <CollapsibleSection
  title="Distortion Check"
+ panelId="distortion"
  tooltip="Checks for clipping (samples hitting digital ceiling), inter-sample peaks (true peaks exceeding 0 dBTP), over-limiting (flat-topped waveforms), and new harmonic distortion from processing."
  why="Inter-sample peaks above 0 dBTP create audible clicks on MP3/AAC playback even when the source file looks clean. Streaming platforms will also engage their limiters. Fix with a -1 dBTP ceiling before encoding."
  badge={
@@ -1598,6 +1627,7 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
 
  <CollapsibleSection
  title="Clicks & Glitches"
+ panelId="click_timeline"
  tooltip="Scans for sample-level spikes: single-sample discontinuities caused by bad edits, buffer glitches, or plugin artifacts. Only flags true digital artifacts, not musical transients like drum hits."
  why="Digital clicks are almost always unintended: bad edits, buffer underruns, plugin glitches. Even one is a defect. On headphones they're impossible to unhear. Catch these before mastering, not after a listener tweets about it."
  badge={

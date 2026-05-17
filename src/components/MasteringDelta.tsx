@@ -44,6 +44,7 @@ export default function MasteringDelta({ delta, overall }: Props) {
  title={`Mastering Delta - signature: ${delta.signature_hash || 'partial'}`}
  tooltip="Report card of what changed between rough mix A and mastered file B: loudness, per-band gain, dynamics, width, limiter behaviour, and platform playback."
  why="A mastering pass is easy to over- or under-estimate by ear after hours in the room. This panel turns the A/B result into a signed checklist of the actual moves."
+ panelId="mastering_delta"
  defaultOpen={true}
  badge={delta.signature_hash && (
  <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ color: GOLD, backgroundColor: 'rgba(208,176,102,0.1)' }}>

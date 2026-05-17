@@ -603,6 +603,7 @@ export default function SongDetailPanel({
  {full?.streaming_preview?.b && full.streaming_preview.b.length > 0 && (
  <CollapsibleSection
  title="Streaming Normalization Preview"
+ panelId="streaming_delivery"
  tooltip="Per-platform playback loudness after normalization. ▶ on any platform to hear 30 s of the loudest section at that platform's level."
  defaultOpen={false}
  badge={(() => {
@@ -633,6 +634,7 @@ export default function SongDetailPanel({
  {songInfo && (songInfo.bpm || songInfo.key) && (
  <CollapsibleSection
  title="Key · BPM · Harmonics"
+ panelId="tonal_issues"
  tooltip="Detected tempo + key with the full harmonic ladder. Root is the song's fundamental; octaves are 2× / 4× / 8× multiples; harmonics are the natural partials. All places where EQ moves have the most musical impact."
  defaultOpen={true}
  >
@@ -647,6 +649,7 @@ export default function SongDetailPanel({
  {full?.lufs_over_time_b && full.lufs_over_time_b.length > 0 && (
  <CollapsibleSection
  title="Loudness over time"
+ panelId="loudness_timeline"
  tooltip="Short-term LUFS plotted across the song with section boundaries from the transient-density detector. Dashed blue line per section is the section's mean LUFS, useful for catching intentional vs accidental dynamic drops between sections."
  defaultOpen={false}
  >
@@ -679,6 +682,7 @@ export default function SongDetailPanel({
  {full?.clicks && full.clicks.length > 0 && (
  <CollapsibleSection
  title="Clicks & Glitches"
+ panelId="click_timeline"
  tooltip="Digital clicks, pops, edit artefacts. Click any entry to jump the transport there."
  badge={
  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ color: 'var(--color-accent)', backgroundColor: 'rgba(150,128,58,0.12)' }}>
@@ -700,6 +704,7 @@ export default function SongDetailPanel({
  {full?.distortion && (
  <CollapsibleSection
  title="Distortion · Clipping · True Peak"
+ panelId="distortion"
  tooltip="Inter-sample peak overs, clipping samples, harmonic distortion heuristics."
  defaultOpen={full.distortion.severity === 'problem'}
  >
@@ -711,6 +716,7 @@ export default function SongDetailPanel({
  {full?.hum && full.hum.severity !== 'none' && (
  <CollapsibleSection
  title="Hum / Buzz"
+ panelId="hum"
  tooltip={`Mains hum detected at ${full.hum.mains} Hz and harmonics.`}
  defaultOpen={full.hum.severity === 'audible'}
  >
@@ -723,6 +729,7 @@ export default function SongDetailPanel({
  {full?.mono_compat && (
  <CollapsibleSection
  title="Mono Compatibility"
+ panelId="mono_compat"
  tooltip="How much stereo energy survives the mono fold — the phone-speaker / Bluetooth test."
  defaultOpen={false}
  >
@@ -734,6 +741,7 @@ export default function SongDetailPanel({
  {full?.phase_over_time_a && m.duration_sec && (
  <CollapsibleSection
  title="Phase Correlation Over Time"
+ panelId="stereo_timeline"
  tooltip="L/R phase correlation across the song. Positive = coherent; negative = out-of-phase risk."
  defaultOpen={false}
  >
@@ -753,6 +761,7 @@ export default function SongDetailPanel({
  {(full as any)?.phase_bands_a && (full as any).phase_bands_a.length > 0 && (
  <CollapsibleSection
  title="Phase Compatibility · Bands"
+ panelId="phase_bands"
  tooltip="L/R correlation split into frequency bands. Low-band out-of-phase is a classic cause of low-end loss on mono playback; high-band out-of-phase usually means wide FX on cymbals that collapse on Bluetooth."
  defaultOpen={false}
  >

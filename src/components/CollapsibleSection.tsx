@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import InfoTooltip from './InfoTooltip'
+import PanelInfo from './PanelInfo'
 import { useModes } from '../ModesContext'
 
 export interface GlossaryEntry {
@@ -22,10 +23,12 @@ interface Props {
  * one place. Replaces per-metric InfoTooltip spam.
  */
  glossary?: GlossaryEntry[]
+ /** When set, renders an audience-aware ⓘ balloon via PanelInfo next to the title. */
+ panelId?: string
  children: React.ReactNode
 }
 
-export default function CollapsibleSection({ title, tooltip, badge, why, glossary, children }: Props) {
+export default function CollapsibleSection({ title, tooltip, badge, why, glossary, panelId, children }: Props) {
  // Note on `defaultOpen` (kept in Props for backwards compat with every
  // call site): this component is misnamed — it has never actually
  // collapsed. We tried adding a real fold in 5.7.x but Mike preferred
@@ -57,6 +60,7 @@ export default function CollapsibleSection({ title, tooltip, badge, why, glossar
  ) : (
  <InfoTooltip text={tooltip} />
  )}
+ {panelId && <PanelInfo panelId={panelId} />}
  </div>
  {badge}
  </div>

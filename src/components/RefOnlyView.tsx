@@ -889,6 +889,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div data-tour-ref="streaming-preview">
  <CollapsibleSection
  title="Streaming Normalization Preview"
+ panelId="streaming_delivery"
  tooltip="Per-platform playback loudness after normalisation. ▶ on any platform to hear 30 s of a chosen window. The ≋ button plays the *real* AAC output of each DSP's ingest chain."
  why="Every DSP plays your master at its own loudness target: Spotify −14 LUFS, Apple −16, Netflix −27 LKFS on dialog. Mastering louder than the target doesn't help; the DSP attenuates you AND engages its limiter. The ≋ twin button plays what listeners actually hear through the DSP's real ingest chain (gain, 4× TP limiter, AAC codec). The heatmap under each platform shows where the limiter fires on your timeline."
  defaultOpen={true}
@@ -911,6 +912,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.lufs_over_time_b && data.lufs_over_time_b.length > 0 && (
  <CollapsibleSection
  title="Loudness over time"
+ panelId="loudness_timeline"
  tooltip="Short-term LUFS across the song with section boundaries from the transient-density detector. See whether your drop actually drops."
  why="Integrated LUFS averages the whole track into one number, fine for delivery but blind to how the song *breathes*. Short-term LUFS (3-second windows) shows whether your chorus sits hotter than your verse, whether the drop lands, whether the bridge sags. Flat = over-compressed; too dynamic = loudness-normalisation flattens you anyway."
  defaultOpen={true}
@@ -930,6 +932,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.waveform_a && data.duration_sec && (
  <CollapsibleSection
  title="Waveform"
+ panelId="waveform"
  tooltip="Visual shape of the audio over time."
  why="The waveform tells you at a glance whether the master is over-limited (brick-wall top) or breathing (visible dynamics). Pair with Loudness over time to see where the energy clusters."
  defaultOpen={true}
@@ -952,6 +955,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.engineer_tips?.spectrum_file && data.engineer_tips?.spectrum_target ? (
  <CollapsibleSection
  title="Frequency Spectrum vs Engineer Target"
+ panelId="spectrum_overlay"
  tooltip={`Your file's tonal curve overlaid on ${data.engineer_tips.engineer}'s mastering target — both A-weighted-mean aligned so a single anomalous band can't shift the comparison.`}
  why="Matching a reference curve at the mastering bus is the fastest path to a professional tonal balance. Your ears adapt; the curve does not lie."
  defaultOpen={true}
@@ -978,6 +982,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  ) : data.spectrum_a && (
  <CollapsibleSection
  title="Frequency Spectrum"
+ panelId="spectrum_overlay"
  tooltip="31-band frequency analysis of the file — stereo/mid/side views."
  why="A 31-band view of your master's tonal balance: stereo, mid, and side. When no reference curve is loaded the spectrum stands alone as the objective read on whether the mix sits too dark, too bright, or too scooped in the low-mids. Switch to Mid/Side to see how your wide elements (reverb, guitars, stereo synths) stack up against your centred elements (kick, bass, lead vocal)."
  defaultOpen={true}
@@ -998,6 +1003,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {check.song_info?.harmonics && (
  <CollapsibleSection
  title="Key Frequencies"
+ panelId="tonal_issues"
  tooltip="Harmonics and octaves of the song's root key. The frequencies where EQ moves will have the most musical impact."
  why="Every song has a tonal centre (the key). Its root, fifth, and octaves carry most of the harmonic weight. EQ moves that land ON those frequencies feel musical; moves between them feel mechanical. When in doubt, snap your EQ to the highlighted bands."
  defaultOpen={false}
@@ -1054,6 +1060,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  <div data-tour-ref="metadata-panel">
  <CollapsibleSection
  title="Embedded Metadata"
+ panelId="metadata"
  tooltip="BEXT / iXML / LIST-INFO / ID3 tags in the WAV. Edit inline to embed BEXT originator, UMID, ISRC."
  why="Embedded metadata travels with the audio file through every distributor's pipeline. Edit mode writes atomically; audio bytes stay identical."
  defaultOpen={false}
@@ -1077,6 +1084,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {distortion && (
  <CollapsibleSection
  title="Distortion Check"
+ panelId="distortion"
  tooltip="Checks for clipping, true peak violations, over-limiting, and harmonic distortion."
  why="Four checks in one panel: digital clipping (consecutive samples at ceiling), true-peak violations (inter-sample overs your regular peak meter can't see), flat-waveform ratio (over-limiting), and harmonic-distortion increase vs. clean reference. Confidence label: 'high' = direct evidence (real clipping); 'medium' / 'low' = heuristics that mis-classify intentional saturation. Trust high-confidence HOLDs; audit low-confidence ones by ear."
  badge={
@@ -1095,6 +1103,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {/* ── 14. Clicks & Glitches ────────────────────────────────── */}
  <CollapsibleSection
  title="Clicks & Glitches"
+ panelId="click_timeline"
  tooltip="Sample-level spikes caused by bad edits, buffer glitches, or plugin artifacts."
  why="Detection uses multi-criteria: spectral flatness rules out drum transients, high-pass residual spikes catch true clicks (white-noise impulses). Deduped within 80 ms, capped at 20 events so the panel stays actionable. Every row jumps the transport: a click at 1:47 is worth hearing in context before calling it an artefact vs. a performance choice."
  badge={
@@ -1155,6 +1164,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.hum && data.hum.mains > 0 && (
  <CollapsibleSection
  title="Hum / Buzz Check"
+ panelId="hum"
  tooltip="AC mains hum detection with ready-to-paste notch preset."
  why="Ground loops and interference are invisible to most meters but obvious on speakers. Catch hum before it ships — once it's in the master it's baked in."
  defaultOpen={true}
@@ -1237,6 +1247,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.mono_compat && (
  <CollapsibleSection
  title="Mono Compatibility · Full"
+ panelId="mono_compat"
  tooltip="Per-band mono-compat breakdown. Single-number version lives in the verdict badge."
  why="The verdict badge gives you one number; this panel tells you WHERE the cancellation happens. Mono loss in the sub band (below 100 Hz) matters for clubs and Bluetooth; mono loss in the presence band (2–5 kHz) matters for phone speakers. Knowing the band tells you whether to mono the low end, tighten a stereo widener, or leave it alone."
  defaultOpen={false}
@@ -1276,6 +1287,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.phase_over_time_a && data.duration_sec && (
  <CollapsibleSection
  title="Phase Correlation"
+ panelId="phase_correlation"
  tooltip="L/R phase relationship over time. +1 = mono-safe, 0 = fully stereo, negative = canceling in mono."
  why="Broadband correlation hides section-level problems. A mix can average +0.7 for the whole track while a single bridge dips into red for 12 seconds, and that's the section that will cancel on phone speakers. Correlation over time catches the moment, not just the mean."
  defaultOpen={false}
@@ -1292,6 +1304,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.phase_bands_a && data.phase_bands_a.length > 0 && (
  <CollapsibleSection
  title="Phase Correlation — Per Band"
+ panelId="phase_bands"
  tooltip="Broadband correlation can look fine while individual bands cancel."
  why="Correlation is usually a single number; this panel splits it across five bands (sub, low, low-mid, high-mid, high). A wide-in-the-highs / narrow-in-the-subs mix reads as healthy broadband but can still have a phasey reverb tail in the 8 kHz region. Per-band is where you catch the subtler stereo problems."
  defaultOpen={false}
@@ -1316,6 +1329,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.masking && data.masking.overlaps && data.masking.overlaps.length > 0 && (
  <CollapsibleSection
  title="Masking Analysis"
+ panelId="masking"
  tooltip="Bands where multiple elements compete for the same frequency space."
  why="Masking is why mixes sound muddy, crowded, or 'never clear no matter how much I EQ'. Two elements fighting for the same frequency region means neither wins; one has to move. Side-chain, cut, or LPF the interferer instead of piling more EQ on the victim."
  defaultOpen={false}
@@ -1328,6 +1342,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.transient_density && data.transient_density.timeline && data.transient_density.timeline.length > 0 && (
  <CollapsibleSection
  title="Transient Density & Structure"
+ panelId="transient_density"
  tooltip="Energy arc, rhythmic density, and section labels."
  why="A drop that doesn't land, a bridge that drags, a chorus quieter than expected: all show up here as section-labelled energy arcs before your ears notice. Useful for arrangement feedback on your own mixes and for spotting 'the limiter ate the second chorus' in someone else's."
  defaultOpen={false}
@@ -1348,6 +1363,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {data.vectorscope_a && (
  <CollapsibleSection
  title="Stereo Vectorscope"
+ panelId="vectorscope"
  tooltip="Lissajous display showing the stereo image shape."
  why="The vectorscope is the fastest visual test for stereo character. A narrow vertical shape means a mostly-mono mix; a wide horseshoe means lots of side content. Diagonal tilts indicate L/R balance issues. A glance tells you 'this mix leans wide' before you read a single number."
  defaultOpen={false}
@@ -1366,6 +1382,7 @@ export default function RefOnlyView({ check: data, fileName, filePath }: Props) 
  {/* Tonal Issues */}
  <CollapsibleSection
  title="Tonal Issues"
+ panelId="tonal_issues"
  tooltip="Detects perceptual problems like harshness, boominess, sibilance, muddiness, boxiness, and thinness."
  why="The named complaints you hear in every mixing book: boominess, muddiness, harshness, sibilance, boxiness, thinness. Each maps to a known frequency region. Objective flags save an hour of 'does this sound harsh to you?' back-and-forth and give you a frequency to start the EQ at."
  badge={

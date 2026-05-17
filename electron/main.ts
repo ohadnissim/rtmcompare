@@ -1940,13 +1940,12 @@ ipcMain.handle('references-upsert', async (_e, partial: {
     const list = readRefs()
     if (list.find(r => r.path === partial.path)) return null  // keep existing record intact
     const record: RefRecord = {
+      ...partial,
       id: `ref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-      path: partial.path,
       filename: partial.filename || path.basename(partial.path),
       added_at: new Date().toISOString(),
       tags: [],
       notes: '',
-      ...partial,
     }
     list.unshift(record)
     writeRefs(list)
