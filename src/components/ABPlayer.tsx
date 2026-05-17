@@ -40,9 +40,14 @@ interface Props {
  * provided, both curves overlay on a shared axis. */
  currentCurve?: number[] | null
  referenceLabel?: string
+ /** Platform streaming normalization data for the B file. When provided,
+ * the Platform Monitor listen mode applies each platform's delta_db gain
+ * in real-time so the engineer can hear how the master will sound after
+ * Spotify / Apple Music / YouTube normalization. */
+ streamingPreview?: Array<{ name: string; delta_db: number; played_lufs: number; target_lufs: number }>
 }
 
-export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, currentCurve, referenceLabel }: Props) {
+export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, currentCurve, referenceLabel, streamingPreview }: Props) {
  // Blind test state lives in the player itself, not in the data view.
  const { blind: blindMode } = useModes()
  // Live EQ. Bands land here from EngineerTipsPanel / ReferenceMatchEQPanel
@@ -91,10 +96,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
  // Mono & Loop state
  const [monoMode, setMonoMode] = useState(false)
 
- // Unified LISTEN MODE — stereo / mono / mid / side / phone.
+ // Unified LISTEN MODE — stereo / mono / mid / side / phone / platform_monitor.
  // Built on top of the gain nodes as a post-processing chain.
- type ListenMode = 'stereo' | 'mono' | 'mid' | 'side' | 'phone'
+ type ListenMode = 'stereo' | 'mono' | 'mid' | 'side' | 'phone' | 'platform_monitor'
  const [listenMode, setListenMode] = useState<ListenMode>('stereo')
+ // Platform Monitor: index into `streamingPreview` for which platform's
+ // normalization gain to preview. Defaults to the first platform (index 0).
+ const [platformMonitorIdx, setPlatformMonitorIdx] = useState(0)
  const listenInputRef = useRef<GainNode | null>(null)
  const listenOutputRef = useRef<GainNode | null>(null)
  const listenChainRef = useRef<AudioNode[]>([])
@@ -314,14 +322,16 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
  }, [fileA, fileB, gainAppliedDb])
 
  // ── Unified listen-mode processing chain ──────────────────────────────
- // stereo: pass-through
- // mono: (L+R)/2 on both channels
- // mid: same as mono (informational label)
- // side: (L-R)/2 on both channels — uses gain=-1 invert then sum
- // phone: mono + 300 Hz HPF + 3.4 kHz LPF + 2 kHz presence = phone speaker
+ // stereo:          pass-through
+ // mono:            (L+R)/2 on both channels
+ // mid:             same as mono (informational label)
+ // side:            (L-R)/2 on both channels — uses gain=-1 invert then sum
+ // phone:           mono + 300 Hz HPF + 3.4 kHz LPF + 2 kHz presence = phone speaker
+ // platform_monitor: apply platform streaming normalization delta_db as a gain node
+ //                   so the engineer hears how the file will land post-normalization.
  // Built between listenInputRef and listenOutputRef. When mode changes,
  // the intermediate nodes are disconnected/rebuilt.
- function rebuildListenChain(ctx: AudioContext, mode: ListenMode) {
+ function rebuildListenChain(ctx: AudioContext, mode: ListenMode, platformIdx?: number) {
  const input = listenInputRef.current
  const output = listenOutputRef.current
  if (!input || !output) return
@@ -333,6 +343,21 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
 
  if (mode === 'stereo') {
  input.connect(output)
+ return
+ }
+
+ if (mode === 'platform_monitor') {
+ // Apply the selected platform's normalization delta as a linear gain.
+ // delta_db is typically negative (the platform turns the file down).
+ // Math.pow(10, delta/20) converts dB to a linear amplitude scalar.
+ const idx = platformIdx ?? 0
+ const platform = streamingPreview?.[idx]
+ const delta = platform?.delta_db ?? 0
+ const gainNode = ctx.createGain()
+ gainNode.gain.value = Math.pow(10, delta / 20)
+ input.connect(gainNode)
+ gainNode.connect(output)
+ listenChainRef.current.push(gainNode)
  return
  }
 
@@ -378,12 +403,21 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
  }
 
  // Called when the user picks a listen mode.
- const applyListenMode = useCallback((mode: ListenMode) => {
+ const applyListenMode = useCallback((mode: ListenMode, platformIdx?: number) => {
  if (!audioCtxRef.current) return
  setListenMode(mode)
  setMonoMode(mode === 'mono') // keep legacy bool in sync
- rebuildListenChain(audioCtxRef.current, mode)
+ rebuildListenChain(audioCtxRef.current, mode, platformIdx)
  }, [])
+
+ // Rebuild the platform_monitor gain node when the selected platform changes.
+ // Only fires while platform_monitor is the active mode and the audio graph is live.
+ useEffect(() => {
+ if (listenMode === 'platform_monitor' && audioCtxRef.current) {
+   rebuildListenChain(audioCtxRef.current, 'platform_monitor', platformMonitorIdx)
+ }
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [platformMonitorIdx])
 
  // ── Live EQ filter bank ──────────────────────────────────────────────
  // Rebuild the biquad chain between eqIn and eqOut whenever the bands
@@ -1225,25 +1259,28 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
  </svg>
  </button>
 
- {/* Listen-mode selector — Stereo / Mono / Mid / Side / Phone.
- Phone simulates how the master will sound on a phone speaker. */}
- <div className="flex items-center gap-1 h-10 rounded-full px-1" style={{ backgroundColor: '#33302c' }}>
+ {/* Listen-mode selector — Stereo / Mono / Mid / Side / Phone / Platform Monitor.
+ Phone simulates how the master will sound on a phone speaker.
+ Platform Monitor applies the selected platform's normalization gain in real-time. */}
+ <div className="flex items-center gap-1 h-10 px-1" style={{ backgroundColor: '#33302c', borderRadius: '2px' }}>
  {(['stereo','mono','mid','side','phone'] as ListenMode[]).map(m => {
  const active = listenMode === m
- const label = { stereo: 'ST', mono: 'M', mid: 'MID', side: 'SIDE', phone: '📱' }[m]
+ const label = { stereo: 'ST', mono: 'M', mid: 'MID', side: 'SIDE', phone: '📱', platform_monitor: 'PLT' }[m]
  const longTitle = {
  stereo: 'Stereo (default)',
  mono: 'Mono sum, check mono compatibility (M)',
  mid: 'Mid-only. Hear what the center carries.',
  side: 'Side-only. Hear reverbs, wideners, panned elements.',
  phone: 'Phone listener. Simulates a phone speaker (300 Hz–3.4 kHz + presence).',
+ platform_monitor: 'Platform Monitor. Apply streaming normalization gain in real-time.',
  }[m]
  return (
  <button
  key={m}
  onClick={() => applyListenMode(m)}
- className="px-2 h-8 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors"
+ className="px-2 h-8 flex items-center justify-center text-[10px] font-bold transition-colors"
  style={{
+ borderRadius: '2px',
  backgroundColor: active ? 'rgba(208,176,102,0.2)' : 'transparent',
  color: active ? 'var(--color-accent)' : 'var(--color-text-muted)',
  }}
@@ -1255,6 +1292,52 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
  </button>
  )
  })}
+ {/* Platform Monitor — only shown when streaming data is available and not in blind mode */}
+ {!blindMode && streamingPreview && streamingPreview.length > 0 && (
+ <>
+ <button
+ onClick={() => applyListenMode('platform_monitor', platformMonitorIdx)}
+ className="px-2 h-8 flex items-center justify-center text-[10px] font-bold transition-colors"
+ style={{
+ borderRadius: '2px',
+ backgroundColor: listenMode === 'platform_monitor' ? 'rgba(107,140,187,0.22)' : 'transparent',
+ color: listenMode === 'platform_monitor' ? 'var(--color-data-a)' : 'var(--color-text-muted)',
+ }}
+ title="Platform Monitor — apply streaming normalization gain in real-time. Hear how this file will sound after Spotify / Apple Music / YouTube normalization."
+ aria-label="Platform Monitor listen mode"
+ aria-pressed={listenMode === 'platform_monitor'}
+ >
+ PLT
+ </button>
+ {listenMode === 'platform_monitor' && (
+ <select
+ value={platformMonitorIdx}
+ onChange={e => {
+ const idx = Number(e.target.value)
+ setPlatformMonitorIdx(idx)
+ applyListenMode('platform_monitor', idx)
+ }}
+ style={{
+ fontSize: 10,
+ padding: '2px 6px',
+ backgroundColor: 'var(--color-sand-900, #1c1a17)',
+ color: 'var(--color-sand-300, #a8a197)',
+ border: '1px solid rgba(168,161,150,0.25)',
+ borderRadius: '2px',
+ height: 28,
+ maxWidth: 160,
+ }}
+ aria-label="Select streaming platform"
+ >
+ {streamingPreview.map((p, i) => (
+ <option key={p.name} value={i}>
+ {p.name} ({p.delta_db > 0 ? '+' : ''}{p.delta_db.toFixed(1)} dB)
+ </option>
+ ))}
+ </select>
+ )}
+ </>
+ )}
  </div>
 
  {/* Time — beta-tester request (5.0.6): tenth-of-a-second precision so

@@ -101,7 +101,7 @@ def sanitize(obj):
         return obj
     return obj
 
-from comparator import run_fast_analysis
+from comparator import run_fast_analysis, _spectral_flux, _per_channel_lufs, _spectral_balance_timeline
 
 
 def _true_peak_db(file_path: str) -> tuple:
@@ -459,6 +459,33 @@ def main():
             _sr_b = info_b.samplerate if info_b else 44100
             _sr_a = info_a.samplerate if info_a else 44100
 
+        # Spectral flux — frame-to-frame PSD cosine distance for A and B
+        try:
+            if mono_a_full is not None:
+                result['spectral_flux_a'] = _spectral_flux(mono_a_full, _sr_a)
+            if mono_b_full is not None:
+                result['spectral_flux_b'] = _spectral_flux(mono_b_full, _sr_b)
+        except Exception as e:
+            _warn_optional("spectral_flux", e)
+
+        # Per-channel LUFS (L/R separately, BS.1770-4) for A and B
+        try:
+            if mono_a_full is not None:
+                result['per_channel_lufs_a'] = _per_channel_lufs(mono_a_full, _sr_a)
+            if mono_b_full is not None:
+                result['per_channel_lufs_b'] = _per_channel_lufs(mono_b_full, _sr_b)
+        except Exception as e:
+            _warn_optional("per_channel_lufs", e)
+
+        # Spectral balance timeline — 31-band 1/3-octave spectrum per 30s section
+        try:
+            if mono_a_full is not None:
+                result['spectral_balance_timeline_a'] = _spectral_balance_timeline(mono_a_full, _sr_a)
+            if mono_b_full is not None:
+                result['spectral_balance_timeline_b'] = _spectral_balance_timeline(mono_b_full, _sr_b)
+        except Exception as e:
+            _warn_optional("spectral_balance_timeline", e)
+
         # Per-file durations — important for sync briefs, Atmos delivery, and
         # any A/B where length differences (e.g. a radio edit vs full mix) need
         # to be obvious to the user.
@@ -503,6 +530,11 @@ def main():
                 dialog = detect_dialog_lufs(mono_b_full, _sr_b)
                 if dialog is not None:
                     result["dialog_gate"] = dialog
+                    if dialog and dialog.get('lufs_i') is not None:
+                        dlufs = dialog['lufs_i']
+                        dialog['netflix_verdict'] = 'fail' if dlufs > -27.0 else 'pass'
+                        if dlufs > -27.0:
+                            dialog['netflix_note'] = f'Dialog is {dlufs:.1f} LUFS — exceeds −27 LUFS Netflix dialog anchor target'
         except Exception as e:
             _warn_optional("dialog_gate", e)
 
@@ -549,6 +581,13 @@ def main():
                 }
         except Exception as e:
             _warn_optional("generation_loss", e)
+
+        # ADM AAC inter-sample peak check — Apple Digital Masters compliance
+        try:
+            from encoded_preview import check_aac_intersample_peaks
+            result['adm_aac_check'] = check_aac_intersample_peaks(file_b)
+        except Exception:
+            pass
 
         # BEXT / iXML metadata (only meaningful for WAV/BWF)
         try:

@@ -11,8 +11,9 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import PanelInfo from '../PanelInfo'
-import type { AssignmentConfig, RubricCriteria, LearnGuidedStep } from '../../types'
+import type { AssignmentConfig, RubricCriteria, LearnGuidedStep, AnalysisResult } from '../../types'
 import InfoTip from './InfoTip'
+import RubricScoreCard from './RubricScoreCard'
 
 // ─── Persistent teacher prefs (course / instructor) ──────────────────────────
 const TEACHER_PREFS_KEY = 'rtm-teacher-prefs-v1'
@@ -279,11 +280,13 @@ interface Props {
   referenceFilePath: string | null
   /** Currently active guided step — used to show step-aware assignment suggestions */
   currentStep?: LearnGuidedStep
+  /** Current analysis results — when present, RubricScoreCard is shown at the bottom */
+  results?: AnalysisResult | null
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function AssignmentPanel({ open, onClose, onSave, onClear, current, referenceFilePath, currentStep }: Props) {
+export default function AssignmentPanel({ open, onClose, onSave, onClear, current, referenceFilePath, currentStep, results }: Props) {
   // Load persisted teacher prefs once on mount — pre-fill course/instructor
   const savedPrefs = React.useMemo(() => loadTeacherPrefs(), [])
   const [title, setTitle]               = useState(current?.title ?? '')
@@ -1094,6 +1097,11 @@ export default function AssignmentPanel({ open, onClose, onSave, onClear, curren
           </div>
         )}
       </div>
+
+      {/* ── Rubric Scorecard ─────────────────────────────────────────── */}
+      {results && current && current.rubric?.length > 0 && (
+        <RubricScoreCard assignment={current} results={results} />
+      )}
     </div>
   )
 }

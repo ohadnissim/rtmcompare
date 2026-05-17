@@ -442,6 +442,23 @@ export interface AnalysisResult {
  side_spectrum_b?: number[]
  spectrogram_a?: SpectrogramData
  spectrogram_b?: SpectrogramData
+ // Spectral flux (frame-to-frame PSD cosine distance)
+ spectral_flux_a?: number
+ spectral_flux_b?: number
+ // Per-section 31-band 1/3-octave timeline
+ spectral_balance_timeline_a?: Array<{ time_sec: number; bands: number[] }>
+ spectral_balance_timeline_b?: Array<{ time_sec: number; bands: number[] }>
+ // L/R per-channel LUFS (headphone loudness asymmetry check)
+ per_channel_lufs_a?: { l: number; r: number }
+ per_channel_lufs_b?: { l: number; r: number }
+ // Apple Digital Masters AAC inter-sample peak check
+ adm_aac_check?: {
+  checked: boolean
+  pre_tp_dbtp: number | null
+  post_tp_dbtp: number | null
+  verdict: 'pass' | 'fail' | 'unknown'
+  note: string
+ }
  mono_compat?: MonoCompatibility
  mastering_delta?: MasteringDelta
  /** Short-term LUFS (3-second window, ~10 Hz sample rate). The
@@ -467,6 +484,8 @@ export interface AnalysisResult {
  speech_pct: number
  confidence: 'high' | 'medium' | 'low' | 'none' | 'insufficient' | 'error'
  note?: string
+ netflix_verdict?: 'pass' | 'fail'
+ netflix_note?: string
  } | null
  phase_over_time_a?: number[]
  phase_over_time_b?: number[]

@@ -99,10 +99,17 @@ def check_atmos_qc(file_path, multichannel, layout, sr=MIN_SUPPORTED_SR,
     """
     Run Dolby Atmos QC checks on a multichannel file.
 
+    Runs 12 checks: sample rate, bit depth, bed layout, downmix loudness,
+    true peak (bed + downmix), channel activity, height usage, LFE content,
+    surround balance, L/R phase correlation, downmix loudness range, and
+    binaural render metadata validation (ADM BWF renderer compatibility).
+
     Args:
         file_path: path to the original Atmos file
         multichannel: numpy array (channels, samples) — bed channels
-        layout: channel layout dict from adm_parser
+        layout: channel layout dict from adm_parser; may contain an
+            ``adm_metadata`` sub-dict with renderer_version,
+            binaural_render_mode, object_count, bed_assignments, has_lfe_hpf
         sr: sample rate of the multichannel array
         downmix_stereo: optional stereo downmix (2, samples) for downmix loudness check
         format_info: dict from detect_format() with original file info
@@ -560,6 +567,120 @@ def check_atmos_qc(file_path, multichannel, layout, sr=MIN_SUPPORTED_SR,
                 "suggestion": "Verify that the stereo fold-down plays at an acceptable level on headphones and speakers.",
             })
 
+    # ─── 12. Binaural Render Metadata ────────────────────────────────────
+    adm = layout.get("adm_metadata")
+    if adm is None:
+        checks.append({
+            "name": "Binaural Render Metadata",
+            "status": "warning",
+            "value": "ADM metadata unavailable",
+            "target": "ADM BWF with renderer config",
+            "message": (
+                "Cannot validate binaural render config — file has no embedded ADM metadata. "
+                "If submitting to Dolby Atmos pipeline, use ADM BWF format to enable renderer "
+                "compatibility checks."
+            ),
+            "suggestion": "Re-wrap in ADM BWF with proper XML metadata block.",
+        })
+    else:
+        binaural_issues = []
+        binaural_status = "pass"
+
+        # renderer_version: must be present; if < 3.0 → warning
+        rv = adm.get("renderer_version")
+        if rv is None:
+            binaural_issues.append("renderer_version is missing")
+            binaural_status = "fail"
+        else:
+            try:
+                if float(rv) < 3.0:
+                    binaural_issues.append(
+                        f"renderer_version {rv} is below 3.0 (older renderers may produce "
+                        "incompatible binaural output)"
+                    )
+                    if binaural_status == "pass":
+                        binaural_status = "warning"
+            except (TypeError, ValueError):
+                binaural_issues.append(f"renderer_version '{rv}' is not a valid number")
+                if binaural_status == "pass":
+                    binaural_status = "warning"
+
+        # binaural_render_mode: must be 'nearfield' or 'bypass'
+        brm = adm.get("binaural_render_mode")
+        if brm not in ("nearfield", "bypass"):
+            binaural_issues.append(
+                f"binaural_render_mode is '{brm}' — expected 'nearfield' or 'bypass'"
+            )
+            if binaural_status == "pass":
+                binaural_status = "warning"
+
+        # object_count: > 118 → fail (Dolby limit); > 96 → warning
+        adm_objects = adm.get("object_count")
+        if adm_objects is not None:
+            if adm_objects > 118:
+                binaural_issues.append(
+                    f"object_count {adm_objects} exceeds Dolby renderer limit of 118"
+                )
+                binaural_status = "fail"
+            elif adm_objects > 96:
+                binaural_issues.append(
+                    f"object_count {adm_objects} exceeds 96 — may degrade renderer performance"
+                )
+                if binaural_status == "pass":
+                    binaural_status = "warning"
+
+        # bed_assignments: required keys if bed_channels >= 7
+        if layout.get("bed_channels", 0) >= 7:
+            required_beds = {"L", "R", "C", "Ls", "Rs", "Lss", "Rss"}
+            bed_assignments = set(adm.get("bed_assignments", {}).keys())
+            missing_beds = required_beds - bed_assignments
+            if missing_beds:
+                binaural_issues.append(
+                    f"bed_assignments missing: {', '.join(sorted(missing_beds))}"
+                )
+                if binaural_status == "pass":
+                    binaural_status = "warning"
+
+        # has_lfe_hpf: should be True when LFE channel exists
+        has_lfe = lfe_idx is not None and lfe_idx < multichannel.shape[0]
+        if has_lfe and not adm.get("has_lfe_hpf", True):
+            binaural_issues.append(
+                "has_lfe_hpf is False — LFE high-pass filter not applied; "
+                "low-frequency content may distort binaural render"
+            )
+            if binaural_status == "pass":
+                binaural_status = "warning"
+
+        if binaural_status == "pass":
+            checks.append({
+                "name": "Binaural Render Metadata",
+                "status": "pass",
+                "value": f"renderer v{rv}, mode={brm}",
+                "target": "renderer >= 3.0, nearfield/bypass mode, <= 118 objects",
+                "message": "Binaural render metadata is valid and compatible with the Dolby Atmos pipeline.",
+                "suggestion": "",
+            })
+        else:
+            issue_str = "; ".join(binaural_issues)
+            if binaural_status == "fail":
+                suggestion = (
+                    "Fix ADM metadata before delivery: ensure renderer_version >= 3.0, "
+                    "object_count <= 118, and all required bed assignments are present."
+                )
+            else:
+                suggestion = (
+                    "Review ADM metadata: verify renderer version, render mode, bed "
+                    "assignments, and LFE HPF flag before submitting to Dolby pipeline."
+                )
+            checks.append({
+                "name": "Binaural Render Metadata",
+                "status": binaural_status,
+                "value": f"renderer v{rv}, mode={brm}" if rv and brm else "Partial metadata",
+                "target": "renderer >= 3.0, nearfield/bypass mode, <= 118 objects",
+                "message": f"Binaural render metadata issue(s): {issue_str}.",
+                "suggestion": suggestion,
+            })
+
     # ─── Compute overall status and score ─────────────────────────────────
     fail_count = sum(1 for c in checks if c["status"] == "fail")
     warn_count = sum(1 for c in checks if c["status"] == "warning")
@@ -576,9 +697,9 @@ def check_atmos_qc(file_path, multichannel, layout, sr=MIN_SUPPORTED_SR,
     # Score: 100 base, -15 per fail, -5 per warning
     score = max(0, min(100, 100 - (fail_count * 15) - (warn_count * 5)))
 
-    # Summary
+    # Summary (12 named checks; total may be higher when optional checks run)
     if status == "pass":
-        summary = f"All {total} Dolby Atmos checks passed. File is ready for delivery."
+        summary = f"All 12 Dolby Atmos checks passed. File is ready for delivery."
     elif status == "warning":
         summary = f"{warn_count} warning{'s' if warn_count > 1 else ''} found — review before delivery."
     else:

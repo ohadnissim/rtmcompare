@@ -221,6 +221,87 @@ def _tp_limit(window: "np.ndarray", sr: int, ceiling_db: float,
     return resample_poly(up, 1, 4, axis=0), gr_envelope_db
 
 
+def _tp_db_for_aac(y: np.ndarray, sr: int) -> float:
+    """4x-oversampled true peak for decoded AAC."""
+    try:
+        import soxr
+        up = soxr.resample(y, sr, sr * 4, quality='HQ')
+    except Exception:
+        from scipy.signal import resample_poly
+        up = resample_poly(y, 4, 1)
+    return float(20 * np.log10(np.abs(up).max() + 1e-12))
+
+
+def check_aac_intersample_peaks(src_path: str, duration_sec: float = 20.0) -> dict:
+    """
+    Encode a 20-second window to AAC 256k, decode it back, run 4x-oversampled
+    true-peak check on the result. Returns Apple Digital Masters compliance verdict.
+    """
+    import tempfile, soundfile as sf, os, subprocess, json
+    result = {'checked': False, 'pre_tp_dbtp': None, 'post_tp_dbtp': None,
+              'verdict': 'unknown', 'note': ''}
+    try:
+        y, sr = sf.read(src_path, always_2d=True)
+        # find 20-second loudest window
+        y_mono = y.mean(axis=1)
+        hop = sr
+        n = max(1, len(y_mono) - int(duration_sec * sr))
+        rms = [np.sqrt(np.mean(y_mono[i:i + int(duration_sec * sr)] ** 2)) for i in range(0, n, hop)]
+        start = (np.argmax(rms) * hop) if rms else 0
+        end = min(start + int(duration_sec * sr), len(y_mono))
+        chunk = y[start:end]
+
+        # measure pre-encode TP
+        mono_chunk = chunk.mean(axis=1) if chunk.ndim > 1 else chunk
+        pre_tp = _tp_db_for_aac(mono_chunk, sr)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            wav_in = os.path.join(tmp, 'in.wav')
+            m4a_out = os.path.join(tmp, 'out.m4a')
+            wav_out = os.path.join(tmp, 'decoded.wav')
+            sf.write(wav_in, chunk, sr)
+
+            # encode to AAC 256k
+            if sys.platform == 'darwin':
+                enc = subprocess.run(
+                    ['afconvert', wav_in, m4a_out, '-d', 'aac', '-f', 'm4af',
+                     '-b', '256000', '--soundcheck-generate'],
+                    capture_output=True, timeout=30
+                )
+            else:
+                enc = subprocess.run(
+                    ['ffmpeg', '-y', '-i', wav_in, '-c:a', 'aac', '-b:a', '256k', m4a_out],
+                    capture_output=True, timeout=30
+                )
+            if enc.returncode != 0:
+                result['note'] = 'AAC encode failed'
+                return result
+
+            # decode back to PCM
+            dec = subprocess.run(
+                ['ffmpeg', '-y', '-i', m4a_out, '-ar', str(sr), '-c:a', 'pcm_f32le', wav_out],
+                capture_output=True, timeout=30
+            )
+            if dec.returncode != 0:
+                result['note'] = 'AAC decode failed'
+                return result
+
+            y_dec, sr_dec = sf.read(wav_out, always_2d=True)
+            mono_dec = y_dec.mean(axis=1)
+            post_tp = _tp_db_for_aac(mono_dec, min(sr_dec, sr))
+
+        result.update({
+            'checked': True,
+            'pre_tp_dbtp': round(pre_tp, 2),
+            'post_tp_dbtp': round(post_tp, 2),
+            'verdict': 'fail' if post_tp > -1.0 else 'pass',
+            'note': f'Post-AAC TP {post_tp:.2f} dBTP exceeds −1.0 dBTP Apple Digital Masters ceiling' if post_tp > -1.0 else '',
+        })
+    except Exception as e:
+        result['note'] = f'Check error: {e}'
+    return result
+
+
 def render_encoded_preview(
     src_path: str,
     out_path: str,

@@ -1011,6 +1011,7 @@ export default function GuidedFlowBar({
         current={assignment ?? null}
         referenceFilePath={referenceFilePath ?? null}
         currentStep={currentStep ?? undefined}
+        results={analysisResult ?? null}
       />
 
       {/* Grade Book (teacher only) */}

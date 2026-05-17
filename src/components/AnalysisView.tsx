@@ -523,6 +523,12 @@ export default function AnalysisView({ results, fileA, fileB }: Props) {
  fileA={isAtmosSolo && results.atmos_downmix_path ? { path: results.atmos_downmix_path, name: `${labelA} (Downmix)` } : fileA}
  fileB={isAtmosSolo && results.atmos_downmix_path ? { path: results.atmos_downmix_path, name: `${labelA} (Downmix)` } : (isAtmos && results.atmos_downmix_path ? { path: results.atmos_downmix_path, name: `${stripExt(fileB.name)} (Downmix)` } : fileB)}
  gainAppliedDb={results.gain_applied_db}
+ streamingPreview={results?.streaming_preview?.b?.map((p: { name: string; delta_db: number; played_lufs: number; target_lufs: number }) => ({
+ name: p.name,
+ delta_db: p.delta_db,
+ played_lufs: p.played_lufs,
+ target_lufs: p.target_lufs,
+ }))}
  />
  </div>
 

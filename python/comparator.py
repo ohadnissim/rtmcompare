@@ -90,6 +90,26 @@ def compute_lufs(y: np.ndarray, sr: int) -> float:
         return -70.0
 
 
+def _per_channel_lufs(y: np.ndarray, sr: int) -> dict[str, float]:
+    """Compute LUFS separately for left and right channels (BS.1770-4)."""
+    import pyloudnorm as pyln
+    meter = pyln.Meter(sr, block_size=0.4)
+    if y.ndim == 1 or (y.ndim == 2 and min(y.shape) == 1):
+        mono_lufs = compute_lufs(y, sr)
+        return {'l': mono_lufs, 'r': mono_lufs}
+    # normalise to (channels, samples)
+    if y.shape[0] > y.shape[1]:
+        y = y.T
+    l, r = y[0], y[1] if y.shape[0] > 1 else y[0]
+    def _safe(ch):
+        try:
+            v = float(meter.integrated_loudness(ch.reshape(-1, 1)))
+            return v if np.isfinite(v) else compute_lufs(ch, sr)
+        except Exception:
+            return compute_lufs(ch, sr)
+    return {'l': _safe(l), 'r': _safe(r)}
+
+
 def _high_shelf(freq, gain_db, sr):
     """Simple high-shelf filter coefficients."""
     A = 10 ** (gain_db / 40)
@@ -559,6 +579,40 @@ def _third_octave_levels(y: np.ndarray, sr: int) -> list[float]:
         db = 10 * np.log10(max(power, 1e-20))
         result.append(round(float(db), 1))
     return result
+
+
+def _spectral_flux(y: np.ndarray, sr: int) -> float:
+    """Frame-to-frame PSD cosine distance — quantifies spectral change over time."""
+    from scipy.spatial.distance import cosine as cosine_dist
+    from scipy.signal import spectrogram as sg
+    mono = y.mean(axis=0) if (y.ndim > 1 and y.shape[0] <= 8) else (y.mean(axis=1) if y.ndim > 1 else y)
+    nperseg = min(4096, len(mono) // 4) if len(mono) >= 8 else len(mono)
+    _, _, Sxx = sg(mono, fs=sr, nperseg=nperseg, noverlap=nperseg // 2)
+    if Sxx.shape[1] < 2:
+        return 0.0
+    dists = []
+    for i in range(Sxx.shape[1] - 1):
+        a, b = Sxx[:, i], Sxx[:, i + 1]
+        if a.sum() > 0 and b.sum() > 0:
+            dists.append(float(cosine_dist(a, b)))
+    return float(np.mean(dists)) if dists else 0.0
+
+
+def _spectral_balance_timeline(y: np.ndarray, sr: int, section_sec: float = 30.0) -> list[dict]:
+    """31-band 1/3-octave spectrum per time section. Returns [{time_sec, bands}]."""
+    mono = y.mean(axis=0) if (y.ndim > 1 and y.shape[0] <= 8) else (y.mean(axis=1) if y.ndim > 1 else y)
+    hop = int(section_sec * sr)
+    if hop < sr * 5:  # minimum 5s section
+        hop = int(sr * 30)
+    sections = []
+    t = 0
+    while t + hop <= len(mono):
+        chunk = mono[t:t + hop]
+        sections.append({'time_sec': round(t / sr, 2), 'bands': _third_octave_levels(chunk, sr)})
+        t += hop
+    if len(mono) - t > sr * 10:  # include tail if ≥10s
+        sections.append({'time_sec': round(t / sr, 2), 'bands': _third_octave_levels(mono[t:], sr)})
+    return sections
 
 
 def _third_octave_widths(y_stereo: np.ndarray, sr: int) -> list[float]:
