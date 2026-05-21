@@ -127,6 +127,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  }, [bands, bandEnabled, srcFilePath, tpLimit, fileName, amountPct, matchLoudness, refLufs])
 
  if (!bands || bands.length === 0) return null
+ const activeCount = bandEnabled ? bands.filter((_, i) => bandEnabled[i]).length : bands.length
  const disabled = !srcFilePath || !!busy
 
  return (
@@ -142,7 +143,7 @@ export default function ApplyBounceButton({ bands, bandEnabled, srcFilePath, fil
  Apply EQ moves to the audio
  </div>
  <div className="text-[10px] mt-0.5" style={{ color: '#8d867b' }}>
- Bake the {bands.length} band{bands.length === 1 ? '' : 's'} above into a new WAV — no DAW needed.
+ Bake the {activeCount} band{activeCount === 1 ? '' : 's'} above into a new WAV — no DAW needed.
  {!srcFilePath && ' (Source file path unavailable in this view.)'}
  </div>
  </div>

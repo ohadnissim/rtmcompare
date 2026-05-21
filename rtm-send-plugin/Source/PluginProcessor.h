@@ -40,7 +40,24 @@ public:
           onUserClose(std::move(onUserClose))
     {
         setUsingNativeTitleBar(true);
-        if (auto* ed = plugin.hasEditor() ? plugin.createEditorIfNeeded() : nullptr)
+        // createEditorIfNeeded is NOT guaranteed to be exception-safe — some
+        // third-party VST3/AU plugins throw inside their editor constructor
+        // (license check failures, missing resources, headless environments).
+        // Wrap in try/catch so a faulting editor doesn't take down the host.
+        // The window still opens (chrome-only, no embedded plugin UI), and
+        // the user can eject + reload the plugin from RTMsend's slot row.
+        juce::AudioProcessorEditor* ed = nullptr;
+        if (plugin.hasEditor())
+        {
+            try { ed = plugin.createEditorIfNeeded(); }
+            catch (const std::exception& e)
+            {
+                DBG ("RTMsend: createEditorIfNeeded threw: " << e.what());
+                ed = nullptr;
+            }
+            catch (...) { ed = nullptr; }
+        }
+        if (ed != nullptr)
         {
             // Window now owns the editor's lifetime. When this window
             // is destroyed it deletes ed, ed's destructor calls
@@ -218,8 +235,20 @@ public:
     juce::KnownPluginList& getKnownPluginList() { return knownPluginList; }
     juce::AudioPluginInstance* getHostedPlugin() noexcept { return hostedPlugin.get(); }
     juce::String getHostedPluginName() const;
-    void scanForPluginsAsync(std::function<void()> onDone);
+    // includeAu: scan the AudioUnit format in addition to VST3.
+    // Defaults false because in-process AU scan can crash the host when a
+    // third-party AU's constructor throws (CoreAudio requires main-thread
+    // instantiation). Set true only when the user explicitly requests it
+    // and accepts the risk (e.g. Logic Pro, where Apple's auval already
+    // validated every AU in the system registry).
+    void scanForPluginsAsync(std::function<void()> onDone, bool includeAu = false);
     juce::String loadHostedPlugin(const juce::PluginDescription& desc);
+    // Async variant: runs createPluginInstance on a background thread so
+    // plugins that do blocking file I/O during init (e.g. iCloud-evicted
+    // preset banks) don't freeze the message thread. onDone is called on
+    // the message thread with an empty string on success or an error message.
+    void loadHostedPluginAsync(const juce::PluginDescription& desc,
+                               std::function<void(juce::String)> onDone);
     void unloadHostedPlugin();
     bool isHostingEnabled() const noexcept { return hostingEnabled.load(std::memory_order_acquire); }
     /** 5.7.x audit fix: distinguish "user toggled hosting off" from "the

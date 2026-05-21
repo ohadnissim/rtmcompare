@@ -1260,7 +1260,7 @@ void RtmSendAudioProcessor::saveKnownPluginListCache()
     xml->writeTo(getKnownPluginListCacheFile());
 }
 
-void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone)
+void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone, bool includeAu)
 {
     // Scan the standard search paths for every registered format.
     // Runs on a background thread so the audio thread stays unblocked.
@@ -1294,7 +1294,7 @@ void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone)
     const bool hostingWasEnabled = hostingEnabled.exchange(false, std::memory_order_acq_rel);
     juce::Thread* scanThread = pluginScanThread.get();
 
-    pluginScanThread->work = [this, hostingWasEnabled, scanThread, onDone = std::move(onDone)]() mutable
+    pluginScanThread->work = [this, hostingWasEnabled, includeAu, scanThread, onDone = std::move(onDone)]() mutable
     {
         auto logFile = juce::File::getSpecialLocation (juce::File::userHomeDirectory)
                            .getChildFile (".rtm").getChildFile ("rtmsend.log");
@@ -1309,29 +1309,16 @@ void RtmSendAudioProcessor::scanForPluginsAsync(std::function<void()> onDone)
         {
             if (scanThread->threadShouldExit()) break;
 
-            // 5.7.x: skip Audio Unit format on macOS. JUCE's AU scanner
-            // forces plugin instantiation onto the main thread (CoreAudio
-            // requirement), which means a crashing AU constructor takes
-            // down the host process — including the user's DAW. We saw
-            // this in the wild with iZotope's iZRX11De-reverbAUHook
-            // throwing an unhandled C++ exception during
-            // AudioComponentInstanceNew, which propagated past JUCE's
-            // message-thread dispatch and hit std::terminate, aborting
-            // Wavelab. JUCE's dead-mans-pedal file is supposed to skip
-            // such plugins on retry, but the crash happens before the
-            // pedal file gets fsync'd to disk.
-            //
-            // VST3 doesn't have this failure mode — its instantiation
-            // path runs on the worker thread and our try/catch around
-            // scanNextFile catches any exceptions. All 16 EQ profiles
-            // we ship are available as VST3, so users won't see missing
-            // plugins.
-            //
-            // AU returns in a future release once we wire up
-            // out-of-process scanning (juce::ChildProcessCoordinator).
-            if (fmt->getName() == "AudioUnit")
+            // AU scan is opt-in (includeAu flag). JUCE's AU scanner forces
+            // plugin instantiation on the main thread (CoreAudio requirement),
+            // and a crashing AU constructor can take down the host process.
+            // We saw this with iZotope AUs throwing past JUCE's dispatch and
+            // hitting std::terminate. The VST3 scanner doesn't have this risk
+            // (worker thread + try/catch). Logic Pro users can request AU scan
+            // via the "Scan + AU" button; all other hosts use VST3-only scan.
+            if (fmt->getName() == "AudioUnit" && !includeAu)
             {
-                log ("skipping AudioUnit format (in-process AU scan can crash host; see PluginProcessor.cpp comment)");
+                log ("skipping AudioUnit (pass includeAu=true for AU scan)");
                 continue;
             }
 
@@ -1485,6 +1472,84 @@ juce::String RtmSendAudioProcessor::loadHostedPlugin(const juce::PluginDescripti
     if (reopenWindow)
         showHostedPluginWindow();
     return {};
+}
+
+void RtmSendAudioProcessor::loadHostedPluginAsync(
+    const juce::PluginDescription& desc,
+    std::function<void(juce::String)> onDone)
+{
+    // Snapshot values needed on the background thread before launching.
+    const double sr    = sampleRateHz;
+    const int    block = 1024;
+
+    // createPluginInstance can block on file I/O (e.g. iCloud-evicted
+    // preset banks). Run it on a detached thread so the message thread
+    // stays responsive. Everything after instantiation — prepareToPlay,
+    // pointer swap, window management — comes back via callAsync and
+    // runs on the message thread as normal.
+    juce::Thread::launch ([this, desc, sr, block, onDone = std::move(onDone)]() mutable
+    {
+        juce::String error;
+        std::unique_ptr<juce::AudioPluginInstance> instance;
+        try
+        {
+            instance = pluginFormatManager.createPluginInstance(desc, sr, block, error);
+        }
+        catch (const std::exception& e) { error = juce::String("Plugin threw during instantiation: ") + e.what(); }
+        catch (...)                      { error = "Plugin threw an unknown exception during instantiation"; }
+
+        juce::MessageManager::callAsync (
+            [this, desc, sr, block, onDone,
+             instance = std::move(instance), error]() mutable
+            {
+                if (!instance)
+                {
+                    if (onDone) onDone (error.isEmpty() ? "createPluginInstance returned null" : error);
+                    return;
+                }
+
+                try
+                {
+                    instance->setPlayConfigDetails (numChannels, numChannels, sr, block);
+                    instance->prepareToPlay (sr, block);
+                }
+                catch (const std::exception& e)
+                {
+                    if (onDone) onDone (juce::String("Plugin threw during prepare: ") + e.what());
+                    return;
+                }
+                catch (...)
+                {
+                    if (onDone) onDone ("Plugin threw an unknown exception during prepare");
+                    return;
+                }
+
+                hostingEnabled.store (false, std::memory_order_release);
+                const bool reopenWindow = (hostedPluginWindow != nullptr);
+                hostedPluginWindow.reset();
+
+                std::unique_ptr<juce::AudioPluginInstance> previous;
+                {
+                    const juce::ScopedLock sl (getCallbackLock());
+                    previous     = std::move (hostedPlugin);
+                    hostedPlugin = std::move (instance);
+                }
+                {
+                    const juce::ScopedLock sl (stringFieldsLock);
+                    hostedPluginName = desc.descriptiveName.isNotEmpty() ? desc.descriptiveName : desc.name;
+                }
+                hostedPluginFaulted.store  (false, std::memory_order_release);
+                hostedPluginPresent.store  (true,  std::memory_order_release);
+                hostingEnabled.store       (true,  std::memory_order_release);
+
+                retireHostedPluginAsync (std::move (previous));
+
+                if (reopenWindow)
+                    showHostedPluginWindow();
+
+                if (onDone) onDone ({});
+            });
+    });
 }
 
 void RtmSendAudioProcessor::unloadHostedPlugin()

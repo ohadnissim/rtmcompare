@@ -26,30 +26,32 @@ PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AAX_SRC="$PLUGIN_ROOT/build/RtmSend_artefacts/Release/AAX/RTM Send.aaxplugin"
 DEV_ID_APP="Developer ID Application: Ohad Nissim (3RL52RHGT3)"
 
-PACE_COMPANY_GUID="${PACE_COMPANY_GUID:-}"
-PACE_PRODUCT_GUID="${PACE_PRODUCT_GUID:-}"
+PACE_ACCOUNT="${PACE_ACCOUNT:-ohadnissim}"                                      # pc2.paceap.com username
+PACE_PRODUCT_GUID="${PACE_PRODUCT_GUID:-E46358F0-520B-11F1-8F29-00505692AD3E}"  # Wrap Config GUID
 PACE_ILOK_USER="${PACE_ILOK_USER:-}"
 
 # ── Guard rails ───────────────────────────────────────────────────────────────
 
+# wraptool ships with PACE Eden — use the bundled copy if not in PATH.
+WRAPTOOL="wraptool"
 if ! command -v wraptool &>/dev/null; then
-  echo ""
-  echo "ERROR: wraptool not found in PATH."
-  echo ""
-  echo "Download it from https://developer.avid.com → Avid Developer Tools."
-  echo "After installing, re-run this script."
-  exit 1
+  PACE_BIN="/Applications/PACEAntiPiracy/Eden/Fusion/Versions/5/bin/wraptool"
+  if [[ -x "$PACE_BIN" ]]; then
+    WRAPTOOL="$PACE_BIN"
+  else
+    echo "ERROR: wraptool not found. Expected at $PACE_BIN" >&2
+    exit 1
+  fi
 fi
 
-if [[ -z "$PACE_COMPANY_GUID" || -z "$PACE_PRODUCT_GUID" ]]; then
+if [[ -z "$PACE_ACCOUNT" || -z "$PACE_PRODUCT_GUID" ]]; then
   echo ""
-  echo "ERROR: PACE_COMPANY_GUID and PACE_PRODUCT_GUID must be set."
+  echo "ERROR: PACE_ACCOUNT and PACE_PRODUCT_GUID must be set."
   echo ""
-  echo "Get them from https://developer.avid.com → Products → RTM Send."
+  echo "PACE_ACCOUNT is your pc2.paceap.com username (e.g. ohadnissim)."
+  echo "PACE_PRODUCT_GUID is the Wrap Config GUID from the PACE portal."
   echo "Then run:"
-  echo "  PACE_COMPANY_GUID=<your-company-guid> \\"
-  echo "  PACE_PRODUCT_GUID=<your-product-guid> \\"
-  echo "  bash scripts/pace_sign.sh"
+  echo "  PACE_ACCOUNT=<username> PACE_PRODUCT_GUID=<wrap-config-guid> bash scripts/pace_sign.sh"
   exit 1
 fi
 
@@ -66,24 +68,25 @@ fi
 # ── Sign ─────────────────────────────────────────────────────────────────────
 
 echo "==> PACE wraptool signing RTM Send.aaxplugin"
-echo "  Company GUID : $PACE_COMPANY_GUID"
-echo "  Product GUID : $PACE_PRODUCT_GUID"
+echo "  Account      : $PACE_ACCOUNT"
+echo "  Wrap Config  : $PACE_PRODUCT_GUID"
 echo ""
 
 WRAPTOOL_ARGS=(
   sign
-  --account   "$PACE_COMPANY_GUID"
-  --wcguid    "$PACE_PRODUCT_GUID"
-  --in        "$AAX_SRC"
-  --out       "$AAX_SRC"
-  --codesign-identity "$DEV_ID_APP"
-  --timestamp
+  --verbose
+  --account      "$PACE_ACCOUNT"
+  --wcguid       "$PACE_PRODUCT_GUID"
+  --in           "$AAX_SRC"
+  --out          "$AAX_SRC"
+  --signid       "$DEV_ID_APP"
+  --autoinstall  on
 )
 if [[ -n "$PACE_ILOK_USER" ]]; then
   WRAPTOOL_ARGS+=(--ilokid "$PACE_ILOK_USER")
 fi
 
-wraptool "${WRAPTOOL_ARGS[@]}"
+"$WRAPTOOL" "${WRAPTOOL_ARGS[@]}"
 
 echo ""
 echo "==> Verifying codesign (post-wraptool)"

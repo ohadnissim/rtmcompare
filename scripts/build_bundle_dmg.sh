@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Build the RTMcompare bundle DMG — apps + RTM Send plugin direct in window.
+# Build the RTMcompare bundle DMG — apps + RTM Send plugins direct in window.
 #
-#   RTMcompare bundle 8.0.0/
+#   RTMcompare bundle 8.4.0/
 #   ├── RTMcompare.app        → drag to Applications
 #   ├── RTMprofile.app        → drag to Applications
-#   ├── RTM Send.vst3         → drag to VST3 Plugins
-#   ├── RTM Send.component    → drag to AU Plugins
+#   ├── RTM Send Plug-Ins/
+#   │   ├── RTM Send.vst3         → drag to VST3 Plugins
+#   │   ├── RTM Send.component    → drag to AU Plugins
+#   │   └── RTM Send.aaxplugin   → drag to Pro Tools Plug-Ins
 #   ├── Applications  ──────→ /Applications
-#   ├── VST3 Plugins  ──────→ /Library/Audio/Plug-Ins/VST3
-#   ├── AU Plugins    ──────→ /Library/Audio/Plug-Ins/Components
+#   ├── VST3 Plugins  ──────→ ~/Library/Audio/Plug-Ins/VST3
+#   ├── AU Plugins    ──────→ ~/Library/Audio/Plug-Ins/Components
+#   ├── Pro Tools Plug-Ins ─→ /Library/Application Support/Avid/Audio/Plug-Ins
 #   └── README.txt
 #
 # Usage:
@@ -17,8 +20,8 @@
 #   ./build_bundle_dmg.sh intel      # x86_64
 #
 # Produces:
-#   release/RTMcompare-bundle-8.0.0-arm64.dmg  (+ .sha256)
-#   release/RTMcompare-bundle-8.0.0-intel.dmg  (+ .sha256)
+#   release/RTMcompare-bundle-8.4.0-arm64.dmg  (+ .sha256)
+#   release/RTMcompare-bundle-8.4.0-intel.dmg  (+ .sha256)
 #
 # Requires: hdiutil, codesign, xcrun notarytool, xcrun stapler.
 # Keychain profile "rtm-notary" must be configured:
@@ -27,7 +30,7 @@
 set -euo pipefail
 
 PROJECT="/Users/ohadnissim/Claude/Compare/Compare App"
-VERSION="8.1.0"
+VERSION="8.4.0"
 DEV_ID_APP="Developer ID Application: Ohad Nissim (3RL52RHGT3)"
 NOTARY_PROFILE="rtm-notary"
 OUT_DIR="${PROJECT}/release"
@@ -50,8 +53,9 @@ else
 fi
 
 # RTM Send plugins are universal binaries — same for both arches.
-PLUGIN_VST3="${PROJECT}/rtm-send-plugin/build/RtmSend_artefacts/VST3/RTM Send.vst3"
-PLUGIN_AU="${PROJECT}/rtm-send-plugin/build/RtmSend_artefacts/AU/RTM Send.component"
+PLUGIN_VST3="${PROJECT}/rtm-send-plugin/build/RtmSend_artefacts/Release/VST3/RTM Send.vst3"
+PLUGIN_AU="${PROJECT}/rtm-send-plugin/build/RtmSend_artefacts/Release/AU/RTM Send.component"
+PLUGIN_AAX="${PROJECT}/rtm-send-plugin/build/RtmSend_artefacts/Release/AAX/RTM Send.aaxplugin"
 
 NAME="RTMcompare-bundle-${VERSION}-${ARCH_SUFFIX}"
 VOL="RTMcompare bundle ${VERSION}"
@@ -63,31 +67,39 @@ echo "==> Checking sources (arch: ${ARCH_SUFFIX})"
 for path in "$RTMCOMPARE_APP" "$RTMPROFILE_APP" "$PLUGIN_VST3" "$PLUGIN_AU"; do
   [[ -e "$path" ]] || { echo "MISSING: $path" >&2; exit 1; }
 done
+# AAX is optional (PACE signing may be pending)
+HAS_AAX=false
+[[ -d "$PLUGIN_AAX" ]] && HAS_AAX=true || echo "  NOTE: AAX not found — skipping (PACE signing pending)"
 
 # ── Sign plugins ──────────────────────────────────────────────────────────────
-# The JUCE make build does not code-sign; sign here before staging so that
-# every bundle in the DMG satisfies Apple notarization requirements.
 echo "==> Signing RTM Send plugins"
 codesign --force --deep --options runtime --timestamp \
   --sign "$DEV_ID_APP" "$PLUGIN_VST3"
 codesign --force --deep --options runtime --timestamp \
   --sign "$DEV_ID_APP" "$PLUGIN_AU"
+if $HAS_AAX; then
+  codesign --verify --strict "$PLUGIN_AAX" 2>/dev/null || \
+    codesign --force --deep --options runtime --timestamp \
+      --sign "$DEV_ID_APP" "$PLUGIN_AAX"
+fi
 
 mkdir -p "$OUT_DIR"
 rm -rf "$STAGE" "$DMG_OUT"
-mkdir -p "$STAGE"
+mkdir -p "$STAGE/RTM Send Plug-Ins"
 
 # ── Stage ─────────────────────────────────────────────────────────────────────
 echo "==> Staging artifacts"
 cp -R "$RTMCOMPARE_APP"  "$STAGE/"
 cp -R "$RTMPROFILE_APP"  "$STAGE/"
-cp -R "$PLUGIN_VST3"     "$STAGE/"
-cp -R "$PLUGIN_AU"       "$STAGE/"
+cp -R "$PLUGIN_VST3"     "$STAGE/RTM Send Plug-Ins/"
+cp -R "$PLUGIN_AU"       "$STAGE/RTM Send Plug-Ins/"
+$HAS_AAX && cp -R "$PLUGIN_AAX" "$STAGE/RTM Send Plug-Ins/" || true
 
 # Symlinks — give users a clear drop target for each bundle type.
-ln -s /Applications                              "$STAGE/Applications"
-ln -s "/Library/Audio/Plug-Ins/VST3"            "$STAGE/VST3 Plugins"
-ln -s "/Library/Audio/Plug-Ins/Components"      "$STAGE/AU Plugins"
+ln -sf /Applications                                        "$STAGE/Applications"
+ln -sf "$HOME/Library/Audio/Plug-Ins/VST3"                 "$STAGE/VST3 Plugins"
+ln -sf "$HOME/Library/Audio/Plug-Ins/Components"           "$STAGE/AU Plugins"
+ln -sf "/Library/Application Support/Avid/Audio/Plug-Ins"  "$STAGE/Pro Tools Plug-Ins"
 
 cat >"$STAGE/README.txt" <<EOF
 RTMcompare bundle ${VERSION} — ${ARCH_SUFFIX}
@@ -101,12 +113,13 @@ Three apps. One toolkit.
   RTMprofile.app      — Turn your back catalogue into a target reference.
                         Drag onto Applications.
 
-  RTM Send.vst3       — DAW plugin. Drag onto "VST3 Plugins" (alias to
-                        /Library/Audio/Plug-Ins/VST3). Restart your DAW.
-
-  RTM Send.component  — Audio Unit version of RTM Send. Drag onto
-                        "AU Plugins" (alias to
-                        /Library/Audio/Plug-Ins/Components). Restart Logic.
+  RTM Send Plug-Ins/
+    RTM Send.vst3       — VST3 plugin. Drag onto "VST3 Plugins" (alias to
+                          ~/Library/Audio/Plug-Ins/VST3). Restart your DAW.
+    RTM Send.component  — Audio Unit. Drag onto "AU Plugins" (alias to
+                          ~/Library/Audio/Plug-Ins/Components). Restart Logic.
+    RTM Send.aaxplugin  — Pro Tools AAX. Drag onto "Pro Tools Plug-Ins"
+                          (alias to /Library/Application Support/Avid/Audio/Plug-Ins).
 
 Tips:
 - Launch RTMcompare and RTMprofile from /Applications, not from this DMG

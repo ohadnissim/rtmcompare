@@ -56,7 +56,16 @@ function chainCurveToFilters(curve: (number | null)[]): { freq: number; gain_db:
 }
 
 export default function EngineerTipsPanel({ tips, fileB }: Props) {
- const baseFilters = (tips.eq_filters || []).map(clampEqFilter)
+ // useMemo so baseFilters keeps the same array reference between renders.
+ // Without this, baseFilters is a new array every render → filters changes
+ // reference → the EQ bands useEffect fires → eq.setBands → EQContext
+ // re-renders this panel → new array → infinite loop (90 °C fans, infinite
+ // "Maximum update depth exceeded" errors).
+ const baseFilters = useMemo(
+  () => (tips.eq_filters || []).map(clampEqFilter),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [tips.eq_filters]
+ )
  // When the user clicks "Load into EQ preview" in ChainAnalysisPanel,
  // we replace the filter set with chain-derived parametric bands.
  const [chainFilters, setChainFilters] = useState<typeof baseFilters | null>(null)
@@ -696,6 +705,11 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  // that we're intentionally tearing down.
  if (sourceRef.current) { sourceRef.current.onended = null }
  sourceRef.current = null
+ // Suspend FIRST — audio thread stops on next quantum (<3 ms).
+ // ctx.close() is async and may keep nodes alive for hundreds of ms;
+ // without suspend(), the DynamicsCompressor keeps running during that
+ // window and competes with ABPlayer, causing the CPU/fan spin-up.
+ try { ctxRef.current?.suspend() } catch {}
  try { ctxRef.current?.close() } catch {}
  ctxRef.current = null
  biquadsRef.current = []
@@ -710,8 +724,14 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  wetAnalyserRef.current = null
  makeupRef.current = null
  if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+ // Clear shared SoloContext so ABPlayer's graph exits solo-bandpass mode.
+ // Without this, if a band was soloed when stop() fires (e.g. via the
+ // mainPlayerStarted event), ABPlayer stays routed through its narrow
+ // bandpass filter and the main player sounds distorted or silent.
+ clearSoloHz()
+ setSoloBand(null)
  setPlaying(false)
- }, [])
+ }, [clearSoloHz])
 
  const play = useCallback(async () => {
  // Hard guard against double-invocation
@@ -929,16 +949,21 @@ export function EQPreviewPlayer({ fileB, filters, engineer, bandEnabled, setBand
  }
  }, [fileB, filters, bandEnabled, bypassed, stop, tpLimit, gainForBand])
 
- // Stop playback when the component unmounts — otherwise a leftover
- // AudioContext keeps producing audio after the panel closes.
- useEffect(() => { return () => { stop() } }, [stop])
+ // Stop playback and clear any active solo when the component unmounts.
+ useEffect(() => { return () => { stop(); clearSoloHz(); setSoloBand(null) } }, [stop, clearSoloHz])
 
  // Exclusive playback — if the main A/B player starts, we stop. Mirrored
  // on the ABPlayer side so it pauses when we start. Prevents two audio
  // chains fighting the output device.
+ // Always clear solo regardless of whether the preview is playing — the
+ // user may have paused the preview while a band was still soloed, leaving
+ // ABPlayer's graph stuck in solo-bandpass mode even though nothing is
+ // playing on the preview side.
  useEffect(() => onShortcut(RTM_EVENTS.mainPlayerStarted, () => {
  if (playingRef.current) stop()
- }), [stop])
+ clearSoloHz()
+ setSoloBand(null)
+ }), [stop, clearSoloHz])
 
  const toggleBand = useCallback((idx: number) => {
  setBandEnabled(prev => {

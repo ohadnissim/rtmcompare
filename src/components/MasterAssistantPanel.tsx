@@ -4,8 +4,6 @@ import { DSP_PROFILES, profilesForSurface } from '../dspProfiles'
 import { proposeMasterChain, MasterChain } from '../masterAssistant'
 import { useEQ } from '../EQContext'
 import { useModes } from '../ModesContext'
-import EngineerTipsPanel from './EngineerTipsPanel'
-import ReferenceMatchEQFromLibrary from './ReferenceMatchEQFromLibrary'
 import { TeachTerm } from '../teachMe'
 
 /**
@@ -26,7 +24,7 @@ interface Props {
  label?: string
 }
 
-type MATab = 'chain' | 'tips' | 'match'
+type MATab = 'chain'
 
 export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  const eq = useEQ()
@@ -46,7 +44,7 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  // 
  // users stop panel-hunting. Shared EQ bank in the main A/B player
  // means whichever tab proposes bands, they all audition live.
- const [tab, setTab] = useState<MATab>('chain')
+ const tab: MATab = 'chain'
  const [rendering, setRendering] = useState(false)
  const [renderMsg, setRenderMsg] = useState<string | null>(null)
  const [error, setError] = useState<string | null>(null)
@@ -292,76 +290,6 @@ export default function MasterAssistantPanel({ result, fileB, label }: Props) {
  </div>
  </div>
 
- {/* Tab strip — Chain / Engineer Tips / Reference Match. All
- three feed the same shared EQ bank so auditioning one vs
- another in the main player is a single-click compare. */}
- <div className="flex items-center gap-1 rounded-full p-0.5" style={{ backgroundColor: 'rgba(30,28,24,0.5)', width: 'fit-content' }}>
- {([
- { id: 'chain' as const, label: 'Chain', hint: 'Full delivery chain: gain → HPF → EQ → compressor → TP limiter → dither.' },
- { id: 'tips' as const, label: 'Engineer Tips', hint: 'EQ moves from the loaded engineer profile — audition live in the main player.' },
- { id: 'match' as const, label: 'Reference Match', hint: 'Pick a track from the library; match its spectrum with parametric EQ.' },
- ] as const).map(t => (
- <button
- key={t.id}
- onClick={() => setTab(t.id)}
- className="text-[10px] uppercase tracking-[0.16em] px-3 py-1 rounded-full transition-colors"
- style={{
- color: tab === t.id ? 'var(--color-accent)' : 'var(--color-text-muted)',
- backgroundColor: tab === t.id ? 'rgba(208,176,102,0.15)' : 'transparent',
- border: `1px solid ${tab === t.id ? 'rgba(208,176,102,0.35)' : 'transparent'}`,
- }}
- title={t.hint}
- >
- {t.label}
- </button>
- ))}
- </div>
-
- {tab === 'tips' && (
- <div className="pt-2" style={{ borderTop: '1px solid rgba(168,161,150,0.06)' }}>
- {result.engineer_tips ? (
- <EngineerTipsPanel tips={result.engineer_tips} fileB={fileB} />
- ) : (
- <div className="space-y-3">
- <p className="text-[11px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>
- No engineer profile active — select one on the upload screen before running analysis, or load a custom profile JSON below and re-run.
- </p>
- <div className="flex items-center justify-between px-4 py-3"
-   style={{ backgroundColor: 'rgba(124,164,163,0.06)', border: '1px solid rgba(124,164,163,0.25)', borderRadius: '2px' }}>
-   <div className="flex-1 pr-3">
-   <div className="text-xs font-medium" style={{ color: 'var(--color-teal)' }}>Load a custom profile</div>
-   <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-     Pick a 31-band JSON from RTMprofile. Saved to your profile list — select it on the next analysis.
-   </div>
-   </div>
-   <button
-   onClick={async () => {
-     try {
-     const added = await window.electronAPI?.loadCustomProfile?.()
-     if (added) alert(`Saved "${added.name}". Start a new comparison and pick it from the Engineer Profile dropdown.`)
-     } catch (err: any) {
-     alert(err?.message || 'Could not load profile')
-     }
-   }}
-   className="text-[11px] px-3 py-1.5 transition-colors whitespace-nowrap"
-   style={{ backgroundColor: 'rgba(124,164,163,0.15)', color: 'var(--color-teal)', border: '1px solid rgba(124,164,163,0.35)', borderRadius: '2px' }}
-   >
-   Load profile…
-   </button>
- </div>
- </div>
- )}
- </div>
- )}
-
- {tab === 'match' && (
- <div className="pt-2" style={{ borderTop: '1px solid rgba(168,161,150,0.06)' }}>
- <ReferenceMatchEQFromLibrary
- currentSpectrum={(result as any).spectrum_b || (result as any).spectrum_a}
- currentLabel={label}
- />
- </div>
- )}
 
  {tab === 'chain' && !chain && (
  <div className="text-[11px] font-display italic" style={{ color: 'var(--color-text-muted)' }}>Pick a valid target above.</div>

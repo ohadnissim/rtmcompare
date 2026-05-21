@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(RtmSend VERSION 8.1.0)
+project(RtmSend VERSION 8.4.0)
 
 # ── JUCE ────────────────────────────────────────────────────────────
 # JUCE at ../JUCE, or override via JUCE_DIR env var so CI can pin.

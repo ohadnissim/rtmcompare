@@ -14,7 +14,7 @@
 ; cross-building plugin binaries from macOS as too risky for ship.
 
 !define PRODUCT_NAME "RTM Send"
-!define PRODUCT_VERSION "1.2.0"
+!define PRODUCT_VERSION "8.4.0"
 !define PRODUCT_PUBLISHER "RTMcompare"
 !define PRODUCT_WEB_SITE "https://rtmcompare.com"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\RTMSend.exe"
@@ -50,13 +50,13 @@ Section "VST3 Plugin" SecVST3
   SetOutPath "$PROGRAMFILES64\Common Files\VST3"
   ; PLUGIN_DIR\VST3\RTM Send.vst3 is a folder (VST3 bundle on Windows
   ; is a directory, not a single file).
-  File /r "${PLUGIN_DIR}\VST3\RTM Send.vst3"
+  File /r "${PLUGIN_DIR}/VST3/RTM Send.vst3"
 SectionEnd
 
 ; ── Standalone (optional) ──────────────────────────────────────────
 Section "Standalone App" SecStandalone
   SetOutPath "$INSTDIR"
-  File /r "${PLUGIN_DIR}\Standalone\*"
+  File /r "${PLUGIN_DIR}/Standalone/*"
   CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\RTM Send.exe"
 SectionEnd

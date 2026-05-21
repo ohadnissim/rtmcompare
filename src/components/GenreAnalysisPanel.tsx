@@ -158,65 +158,82 @@ function DeltaBars({ deltaPerBand, spreadPerBand }: { deltaPerBand: number[]; sp
     '200', '250', '315', '400', '500', '630', '800', '1k', '1.25k', '1.6k',
     '2k', '2.5k', '3.15k', '4k', '5k', '6.3k', '8k', '10k', '12.5k', '16k', '20k']
 
+  // Y-axis scale marks: pick 2–3 round dB values that fit within ±max
+  const scaleDb = max >= 6 ? 6 : max >= 3 ? 3 : 2
+  const scaleMarks = [-scaleDb, 0, scaleDb].filter(v => Math.abs(v) <= max + 0.5)
+
   return (
     <div className="overflow-x-auto">
-      <div className="flex items-end gap-px" style={{ height: 64, minWidth: 280 }}>
-        {deltaPerBand.map((d, i) => {
-          const pct = Math.abs(d) / max
-          const halfSpread = spreadPerBand ? spreadPerBand[i] / 2 : 0
-          const withinTol = halfSpread > 0 && Math.abs(d) <= halfSpread
-          const isPos = d >= 0
-          // Tolerance indicator: a thin horizontal tick at the half-spread height
-          const tolPct = spreadPerBand ? Math.min(halfSpread / max, 1) * 50 : 0
+      <div className="flex gap-1" style={{ minWidth: 280 }}>
+        {/* Y-axis labels */}
+        <div className="flex flex-col justify-between shrink-0" style={{ height: 80, paddingBottom: 1 }}>
+          <span style={{ fontSize: 9, color: 'rgba(168,161,150,0.65)', lineHeight: 1 }}>+{scaleDb}</span>
+          <span style={{ fontSize: 9, color: 'rgba(168,161,150,0.65)', lineHeight: 1 }}>0</span>
+          <span style={{ fontSize: 9, color: 'rgba(168,161,150,0.65)', lineHeight: 1 }}>-{scaleDb}</span>
+        </div>
+        {/* Bars */}
+        <div className="flex-1 relative">
+          {/* Horizontal grid lines */}
+          {scaleMarks.map(db => (
+            <div key={db} className="absolute w-full" style={{
+              top: `${50 - (db / max) * 50}%`,
+              height: 1,
+              backgroundColor: db === 0 ? 'rgba(168,161,150,0.30)' : 'rgba(168,161,150,0.10)',
+              pointerEvents: 'none',
+            }} />
+          ))}
+          <div className="flex items-end gap-px" style={{ height: 80 }}>
+            {deltaPerBand.map((d, i) => {
+              const pct = Math.abs(d) / max
+              const halfSpread = spreadPerBand ? spreadPerBand[i] / 2 : 0
+              const withinTol = halfSpread > 0 && Math.abs(d) <= halfSpread
+              const isPos = d >= 0
+              const tolPct = spreadPerBand ? Math.min(halfSpread / max, 1) * 50 : 0
 
-          return (
-            <div key={i} className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 6, height: '100%' }}
-              title={`${BAND_FREQS[i]} Hz: ${d > 0 ? '+' : ''}${d.toFixed(1)} dB${spreadPerBand ? ` (tolerance ±${halfSpread.toFixed(1)} dB)` : ''}`}
-            >
-              {isPos ? (
-                <>
-                  <div style={{ flex: 1 }} />
-                  <div style={{
-                    height: `${pct * 50}%`, width: '100%', minHeight: 1,
-                    backgroundColor: withinTol ? 'rgba(168,161,150,0.40)' : 'rgba(224,122,79,0.70)',
-                    borderRadius: '1px 1px 0 0',
-                  }} />
-                  {/* Tolerance tick — upper side */}
-                  {tolPct > 0 && <div style={{ position: 'absolute', bottom: `50%`, width: '100%', height: 1, backgroundColor: 'rgba(208,176,102,0.45)', marginBottom: `${tolPct}%` }} />}
-                  <div style={{ height: '50%', width: '100%', backgroundColor: 'transparent' }} />
-                </>
-              ) : (
-                <>
-                  <div style={{ height: '50%', width: '100%', backgroundColor: 'transparent' }} />
-                  {/* Tolerance tick — lower side */}
-                  {tolPct > 0 && <div style={{ position: 'absolute', top: `50%`, width: '100%', height: 1, backgroundColor: 'rgba(208,176,102,0.45)', marginTop: `${tolPct}%` }} />}
-                  <div style={{
-                    height: `${pct * 50}%`, width: '100%', minHeight: 1,
-                    backgroundColor: withinTol ? 'rgba(168,161,150,0.40)' : 'rgba(110,197,119,0.70)',
-                    borderRadius: '0 0 1px 1px',
-                  }} />
-                  <div style={{ flex: 1 }} />
-                </>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      {/* Zero line */}
-      <div className="relative" style={{ height: 1 }}>
-        <div className="absolute inset-0" style={{ backgroundColor: 'rgba(168,161,150,0.25)' }} />
-      </div>
-      {/* Frequency label row — only show every ~4th */}
-      <div className="flex gap-px mt-1" style={{ minWidth: 280 }}>
-        {labels.map((l, i) => (
-          <div key={i} style={{ flex: 1, minWidth: 6 }}>
-            {i % 4 === 0 && (
-              <span className="block text-center" style={{ fontSize: 6, color: 'rgba(168,161,150,0.45)', transform: 'rotate(-45deg)', transformOrigin: 'left top', whiteSpace: 'nowrap', marginLeft: 2 }}>
-                {l}
-              </span>
-            )}
+              return (
+                <div key={i} className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 6, height: '100%' }}
+                  title={`${BAND_FREQS[i]} Hz: ${d > 0 ? '+' : ''}${d.toFixed(1)} dB${spreadPerBand ? ` (tolerance ±${halfSpread.toFixed(1)} dB)` : ''}`}
+                >
+                  {isPos ? (
+                    <>
+                      <div style={{ flex: 1 }} />
+                      <div style={{
+                        height: `${pct * 50}%`, width: '100%', minHeight: 1,
+                        backgroundColor: withinTol ? 'rgba(168,161,150,0.40)' : 'rgba(224,122,79,0.70)',
+                        borderRadius: '1px 1px 0 0',
+                      }} />
+                      {tolPct > 0 && <div style={{ position: 'absolute', bottom: `50%`, width: '100%', height: 1, backgroundColor: 'rgba(208,176,102,0.45)', marginBottom: `${tolPct}%` }} />}
+                      <div style={{ height: '50%', width: '100%', backgroundColor: 'transparent' }} />
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ height: '50%', width: '100%', backgroundColor: 'transparent' }} />
+                      {tolPct > 0 && <div style={{ position: 'absolute', top: `50%`, width: '100%', height: 1, backgroundColor: 'rgba(208,176,102,0.45)', marginTop: `${tolPct}%` }} />}
+                      <div style={{
+                        height: `${pct * 50}%`, width: '100%', minHeight: 1,
+                        backgroundColor: withinTol ? 'rgba(168,161,150,0.40)' : 'rgba(110,197,119,0.70)',
+                        borderRadius: '0 0 1px 1px',
+                      }} />
+                      <div style={{ flex: 1 }} />
+                    </>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        ))}
+          {/* Frequency label row — every 4th band */}
+          <div className="flex gap-px mt-1">
+            {labels.map((l, i) => (
+              <div key={i} style={{ flex: 1, minWidth: 6 }}>
+                {i % 4 === 0 && (
+                  <span className="block text-center" style={{ fontSize: 8, color: 'rgba(168,161,150,0.55)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'clip' }}>
+                    {l}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )

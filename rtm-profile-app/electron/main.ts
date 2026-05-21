@@ -159,6 +159,30 @@ ipcMain.handle('open-external', async (_e, url: string) => {
   const { shell } = require('electron') as typeof import('electron')
   const safe = typeof url === 'string' && (url.startsWith('rtmcompare://') || url.startsWith('https://'))
   if (!safe) return
+
+  // For rtmcompare:// URLs, locate RTMcompare.app directly and use `open -a`
+  // rather than relying on OS protocol-handler registration.  The registered
+  // handler can point to the dev-mode Electron binary if the user last ran
+  // `npm run dev`, which causes the Electron welcome screen to appear.
+  if (process.platform === 'darwin' && url.startsWith('rtmcompare://')) {
+    const { execFile } = require('child_process') as typeof import('child_process')
+    const candidates = [
+      '/Applications/RTMcompare.app',
+      path.join(app.getPath('home'), 'Applications', 'RTMcompare.app'),
+      // Same directory as RTMprofile.app (side-by-side in DMG or release-build)
+      path.join(app.getAppPath(), '..', '..', '..', '..', 'RTMcompare.app'),
+      path.join(app.getAppPath(), '..', '..', '..', '..', '..', 'RTMcompare.app'),
+    ]
+    const rtmPath = candidates.find(p => {
+      try { return require('fs').existsSync(p) } catch { return false }
+    })
+    if (rtmPath) {
+      // `open -a App.app "url"` delivers the URL via the open-url event in RTMcompare.
+      execFile('open', ['-a', rtmPath, url])
+      return
+    }
+  }
+
   await shell.openExternal(url)
 })
 

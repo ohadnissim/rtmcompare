@@ -127,7 +127,7 @@ export default function MatchTab({ results, fileB, labelA, labelB, genreProfiles
  <ModePill
  active={mode === 'assistant'}
  onClick={() => setMode('assistant')}
- label="Assistant"
+ label="DSP Assistant"
  hint="One-click: compose gain → EQ → TP limiter → dither for a specific DSP target, preview live, render."
  />
  <ModePill

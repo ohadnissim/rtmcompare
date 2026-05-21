@@ -490,14 +490,14 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
      filt.frequency.setTargetAtTime(soloBand, t, 0.005)
      filt.Q.setTargetAtTime(soloQ, t, 0.005)
      if (!soloEngagedRef.current) {
-       try { eqOut.disconnect(lim) } catch {}
+       try { eqOut.disconnect() } catch {}  // remove ALL outputs — prevents signal doubling
        eqOut.connect(filt)
        filt.connect(lim)
        soloEngagedRef.current = true
      }
    } else if (soloEngagedRef.current) {
-     try { eqOut.disconnect(filt) } catch {}
-     try { filt.disconnect(lim) } catch {}
+     try { eqOut.disconnect() } catch {}  // remove ALL outputs atomically
+     try { filt.disconnect() } catch {}
      eqOut.connect(lim)
      soloEngagedRef.current = false
    }
@@ -597,11 +597,31 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
  cancelAnimationFrame(rafRef.current)
  } else {
  const startFrom = (loopEnabledRef.current && loopStartRef.current !== null) ? loopStartRef.current : offsetRef.current
+ // Announce BEFORE starting playback: stops EQPreviewPlayer's source
+ // synchronously so no two chains compete on the output device.
+ try { emitShortcut(RTM_EVENTS.mainPlayerStarted) } catch {}
+ // Clear solo routing now in the graph — can't wait for the React
+ // useEffect (fires ~16 ms later). Without this, the first samples
+ // play through the narrow bandpass, the DynamicsCompressor builds up
+ // gain-reduction, and when the full-bandwidth signal arrives the
+ // track sounds like it's "slowing down."
+ // UNCONDITIONAL — don't gate on soloEngagedRef; graph state can
+ // diverge from the ref in edge cases (EQPreviewPlayer stopping async,
+ // context resumption, etc.). disconnect() (no-args) is safe on a
+ // node with no connections — it just no-ops.
+ {
+   const _eo = eqOutputRef.current
+   const _lim = eqLimiterRef.current
+   const _sf = soloFilterRef.current
+   if (_eo && _lim) {
+     try { _eo.disconnect() } catch {}
+     if (_sf) try { _sf.disconnect() } catch {}
+     _eo.connect(_lim)
+   }
+   soloEngagedRef.current = false
+ }
  startPlayback(startFrom)
  setIsPlaying(true)
- // Announce so the EQ preview pauses — only one audio chain should
- // be fighting the output device at a time.
- try { emitShortcut(RTM_EVENTS.mainPlayerStarted) } catch {}
 
  const updateTime = () => {
  if (audioCtxRef.current && sourceRef.current) {
@@ -858,8 +878,13 @@ export default function ABPlayer({ fileA, fileB, gainAppliedDb, referenceCurve, 
  onShortcut(RTM_EVENTS.monoMonitorToggle, () => toggleMono()),
  // Exclusive playback — if the EQ preview just started, we pause.
  // togglePlay() does the right thing whether we're playing or not.
+ // Also SUSPEND the AudioContext so its DynamicsCompressor and
+ // AnalyserNode don't compete with EQPreviewPlayer's context on the
+ // audio thread — that competition was the "CPU overload" / fan spin-up.
+ // startPlayback() already handles resume via ctx.state === 'suspended' check.
  onShortcut(RTM_EVENTS.eqPreviewStarted, () => {
  if (isPlaying) togglePlay()
+ try { audioCtxRef.current?.suspend() } catch {}
  }),
  ]
  return () => { unsubs.forEach(u => u()) }

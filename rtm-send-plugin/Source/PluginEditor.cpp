@@ -73,13 +73,13 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     subtitleLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (subtitleLabel);
 
-    // Host hint — italic display serif, sand-secondary, decorative
-    // tag-line treatment. 5.2.4 demoted from gold to sand because
-    // gold is reserved for the primary Single button (see below).
+    // Compact host-indicator pill — shows just the DAW name so the user
+    // can confirm RTMsend is running in the right application. Replaces
+    // the verbose 2-line host-hint paragraph that most users found confusing.
     hostHintLabel.setText(buildHostHint(), juce::dontSendNotification);
-    hostHintLabel.setFont (juce::Font ("Instrument Serif", 11.0f, juce::Font::italic));
-    hostHintLabel.setColour (juce::Label::textColourId, LF::kSandSecondary);
-    hostHintLabel.setJustificationType (juce::Justification::centredLeft);
+    hostHintLabel.setFont (juce::Font (10.0f).withExtraKerningFactor(0.08f));
+    hostHintLabel.setColour (juce::Label::textColourId, LF::kSandDim);
+    hostHintLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (hostHintLabel);
 
     // 5.2.4: per the "gold once per screen" rule, only Single carries
@@ -128,7 +128,7 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     addAndMakeVisible(bufferLabel);
 
     // Signal-presence dots: "● ● ●" gold when audio is flowing, "· · ·" dim when idle.
-    signalDotLabel.setText("· · ·", juce::dontSendNotification);
+    signalDotLabel.setText("- - -", juce::dontSendNotification);
     signalDotLabel.setFont(juce::Font(9.0f));
     signalDotLabel.setColour(juce::Label::textColourId, LF::kSandDim);
     signalDotLabel.setJustificationType(juce::Justification::centredRight);
@@ -146,10 +146,10 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     sourceLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(sourceLabel);
 
-    sourceBox.addItem("Last N seconds (ring buffer)", 1);
-    sourceBox.addItem("DAW loop / selection region", 2);
-    sourceBox.addItem("Triggered region (Rec / Stop below)", 3);
-    sourceBox.addItem("ARA region / marker (Wavelab, Studio One, ...)", 4);
+    sourceBox.addItem("Ring buffer (last N seconds)", 1);
+    sourceBox.addItem("Loop / selection range", 2);
+    sourceBox.addItem("Manual record (Rec / Stop)", 3);
+    sourceBox.addItem("Clips & markers (ARA)", 4);
     sourceBox.setSelectedId(static_cast<int>(processor.getSource()) + 1, juce::dontSendNotification);
     sourceBox.setColour(juce::ComboBox::textColourId, LF::kCream);
     sourceBox.setColour(juce::ComboBox::backgroundColourId, LF::kPanel);
@@ -219,34 +219,44 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     bufferSlider.onValueChange = [this] { processor.setBufferSeconds(bufferSlider.getValue()); };
     addAndMakeVisible(bufferSlider);
 
-    // 1.1.0 spike: plugin-host slot UI.
-    pluginSlotLabel.setText("Plugin slot  (optional EQ)", juce::dontSendNotification);
-    pluginSlotLabel.setFont(juce::Font(12.0f, juce::Font::plain));
-    pluginSlotLabel.setColour(juce::Label::textColourId, LF::kCream);
+    // Plugin slot — small section header.
+    pluginSlotLabel.setText("EQ PLUGIN", juce::dontSendNotification);
+    pluginSlotLabel.setFont(juce::Font(9.0f).withExtraKerningFactor(0.18f));
+    pluginSlotLabel.setColour(juce::Label::textColourId, LF::kSandDim);
     addAndMakeVisible(pluginSlotLabel);
 
-    pluginPickButton.setButtonText("Pick");
+    pluginPickButton.setButtonText("Pick Plugin");
     pluginPickButton.onClick = [this] { openPluginPicker(); };
     addAndMakeVisible(pluginPickButton);
 
-    pluginScanButton.setButtonText("Scan");
-    pluginScanButton.onClick = [this] {
+    // When running as AU inside Logic Pro, include AU plugins in the scan
+    // (Apple's auval already validated them — lower crash risk than random
+    // third-party AUs in other hosts). In all other hosts/formats scan VST3.
+    const bool isAuInLogic = (processor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnit
+                              || processor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnitv3)
+                             && juce::PluginHostType{}.isLogic();
+
+    pluginScanButton.setButtonText(isAuInLogic ? "Scan+AU" : "Scan");
+    pluginScanButton.setTooltip(isAuInLogic
+        ? "Scan VST3 + AU folders. AU scan is in-process — an unstable plugin may briefly hiccup Logic."
+        : "Scan VST3 folders for available plugins (takes 5–60 s on first run).");
+    pluginScanButton.onClick = [this, isAuInLogic] {
         pluginScanButton.setEnabled(false);
         pluginScanButton.setButtonText("Scanning...");
-        // 5.7.x audit fix: SafePointer<Component> guards the editor
-        // outliving the scan. If the host closes RTMsend's editor
-        // mid-scan, the completion lambda was previously dereferencing
-        // a freed editor (`this`) when it called pluginScanButton on
-        // the message thread. SafePointer goes null once the editor
-        // is destroyed.
         juce::Component::SafePointer<RtmSendAudioProcessorEditor> safeThis (this);
         processor.scanForPluginsAsync([safeThis] {
             if (auto* self = safeThis.getComponent())
             {
-                self->pluginScanButton.setButtonText("Scan");
+                juce::PluginHostType h;
+                const bool auLogic =
+                    (self->processor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnit
+                  || self->processor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnitv3)
+                    && h.isLogic();
+                self->pluginScanButton.setButtonText(auLogic ? "Scan+AU" : "Scan");
                 self->pluginScanButton.setEnabled(true);
+                self->refreshPluginSlotUi();
             }
-        });
+        }, isAuInLogic);
     };
     addAndMakeVisible(pluginScanButton);
 
@@ -260,10 +270,9 @@ RtmSendAudioProcessorEditor::RtmSendAudioProcessorEditor(RtmSendAudioProcessor& 
     };
     addAndMakeVisible(pluginEditorButton);
 
-    pluginUnloadButton.setButtonText("Eject");
+    pluginUnloadButton.setButtonText("X");
+    pluginUnloadButton.setTooltip("Eject plugin from slot.");
     pluginUnloadButton.onClick = [this] {
-        // Window is closed inside unloadHostedPlugin — no need to
-        // touch it from the editor side any more.
         processor.unloadHostedPlugin();
         refreshPluginSlotUi();
     };
@@ -295,11 +304,43 @@ RtmSendAudioProcessorEditor::~RtmSendAudioProcessorEditor()
     stopTimer();
 }
 
+void RtmSendAudioProcessorEditor::visibilityChanged()
+{
+    juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+        .getChildFile(".rtm").getChildFile("rtmsend.log")
+        .appendText(juce::Time::getCurrentTime().toISO8601(true) + " EDITOR: visibilityChanged visible=" + juce::String((int)isVisible()) + "\n");
+}
+
 void RtmSendAudioProcessorEditor::paint(juce::Graphics& g)
 {
+    juce::File::getSpecialLocation(juce::File::userHomeDirectory)
+        .getChildFile(".rtm").getChildFile("rtmsend.log")
+        .appendText(juce::Time::getCurrentTime().toISO8601(true) + " EDITOR: paint\n");
     g.fillAll(LF::kInk);
+
+    // Section dividers between header / session / source / eq / send.
+    g.setColour(LF::kBorder.withAlpha(0.6f));
+    const int x0 = 16, x1 = getWidth() - 16;
+
+    // Below subtitle (after header block).
+    const int divY1 = subtitleLabel.getBottom() + 5;
+    g.fillRect(x0, divY1, x1 - x0, 1);
+
+    // Below session input.
+    const int divY2 = sessionInput.getBottom() + 5;
+    g.fillRect(x0, divY2, x1 - x0, 1);
+
+    // Below ARA region box.
+    const int divY3 = regionBox.getBottom() + 5;
+    g.fillRect(x0, divY3, x1 - x0, 1);
+
+    // Below plugin status label.
+    const int divY4 = pluginStatusLabel.getBottom() + 5;
+    g.fillRect(x0, divY4, x1 - x0, 1);
+
+    // Bottom hairline.
     g.setColour(LF::kBorder);
-    g.fillRect(0, kHeight - 1, kWidth, 1);  // hairline bottom
+    g.fillRect(0, getHeight() - 1, getWidth(), 1);
 }
 
 void RtmSendAudioProcessorEditor::resized()
@@ -309,67 +350,98 @@ void RtmSendAudioProcessorEditor::resized()
     // fixed compact width, fills its window. No more split layout
     // between RTMsend chrome and embedded plugin.
     auto r = getLocalBounds().reduced (16);
-    // Title is 30 px font - needs ~38 px box height (font ascent +
-    // descent + some breathing room). 22 px was clipping the top of
-    // the "R". Bumping to 40 px and pushing down 6 px keeps the
-    // serif crown visible.
     r.removeFromTop (6);
-    titleLabel.setBounds(r.removeFromTop(40));
-    subtitleLabel.setBounds(r.removeFromTop(18));
-    hostHintLabel.setBounds(r.removeFromTop(16));
-    r.removeFromTop(8);
 
-    sessionLabel.setBounds(r.removeFromTop(14));
+    // ── Header row: title left, signal dots + host name right ─────────
+    {
+        auto titleRow = r.removeFromTop(40);
+        // Signal dots rightmost (40 px) then host hint (80 px) adjacent.
+        signalDotLabel.setBounds(titleRow.removeFromRight(30));
+        hostHintLabel.setBounds(titleRow.removeFromRight(96));
+        titleLabel.setBounds(titleRow);
+    }
+    subtitleLabel.setBounds(r.removeFromTop(16));
+    r.removeFromTop(10);
+
+    // ── Session ────────────────────────────────────────────────────────
+    sessionLabel.setBounds(r.removeFromTop(12));
+    r.removeFromTop(3);
     sessionInput.setBounds(r.removeFromTop(24));
     r.removeFromTop(10);
 
-    sourceLabel.setBounds(r.removeFromTop(14));
+    // ── Source ─────────────────────────────────────────────────────────
+    sourceLabel.setBounds(r.removeFromTop(12));
+    r.removeFromTop(3);
     sourceBox.setBounds(r.removeFromTop(26));
-    r.removeFromTop(8);
+    r.removeFromTop(6);
 
-    regionLabel.setBounds(r.removeFromTop(14));
-    regionBox.setBounds(r.removeFromTop(26));
-    r.removeFromTop(4);
+    // Context-sensitive capture controls.
+    // Trigger button is reserve-allocated even when hidden so resized()
+    // is stable; visibility is toggled in timerCallback.
     triggerButton.setBounds(r.removeFromTop(24));
-    r.removeFromTop(10);
+    r.removeFromTop(4);
 
+    // Buffer slider always occupies space (greyed out in non-ring modes).
     {
-        auto bufRow = r.removeFromTop(14);
-        const int dotW = 40;
-        signalDotLabel.setBounds(bufRow.removeFromRight(dotW));
+        auto bufRow = r.removeFromTop(12);
         bufferLabel.setBounds(bufRow);
     }
-    bufferSlider.setBounds(r.removeFromTop(24));
-    r.removeFromTop(12);
+    r.removeFromTop(3);
+    bufferSlider.setBounds(r.removeFromTop(22));
+    r.removeFromTop(6);
 
-    // 1.1.0 spike: plugin-host slot row.
-    pluginSlotLabel.setBounds(r.removeFromTop(14));
+    // ARA region picker always occupies space (greyed out in non-ARA modes).
+    regionLabel.setBounds(r.removeFromTop(12));
+    r.removeFromTop(3);
+    regionBox.setBounds(r.removeFromTop(24));
+    r.removeFromTop(10);
+
+    // ── EQ Plugin slot ─────────────────────────────────────────────────
+    pluginSlotLabel.setBounds(r.removeFromTop(12));
+    r.removeFromTop(3);
     {
-        auto slotRow = r.removeFromTop(26);
+        // When loaded: [Pick Plugin ▾]  [Open]  [×]
+        // When empty:  [Pick Plugin ▾]  [Scan]
+        // Scan is shown when no plugin is loaded; Open+× when loaded.
+        auto slotRow = r.removeFromTop(24);
         const int gap = 4;
-        const int total = slotRow.getWidth() - 3 * gap;
-        const int w = total / 4;
-        pluginPickButton.setBounds(slotRow.removeFromLeft(w));
-        slotRow.removeFromLeft(gap);
-        pluginScanButton.setBounds(slotRow.removeFromLeft(w));
-        slotRow.removeFromLeft(gap);
-        pluginEditorButton.setBounds(slotRow.removeFromLeft(w));
-        slotRow.removeFromLeft(gap);
-        pluginUnloadButton.setBounds(slotRow);
+        const bool hasPlugin = processor.getHostedPluginName().isNotEmpty();
+        if (hasPlugin)
+        {
+            // [×] right-most (28 px), [Open] next (52 px), [Pick] takes rest.
+            pluginUnloadButton.setBounds(slotRow.removeFromRight(28));
+            slotRow.removeFromRight(gap);
+            pluginEditorButton.setBounds(slotRow.removeFromRight(52));
+            slotRow.removeFromRight(gap);
+            pluginPickButton.setBounds(slotRow);
+            pluginScanButton.setBounds({});  // hidden
+        }
+        else
+        {
+            // [Scan] right (52 px), [Pick Plugin] takes the rest.
+            pluginScanButton.setBounds(slotRow.removeFromRight(52));
+            slotRow.removeFromRight(gap);
+            pluginPickButton.setBounds(slotRow);
+            pluginEditorButton.setBounds({});
+            pluginUnloadButton.setBounds({});
+        }
     }
-    pluginStatusLabel.setBounds(r.removeFromTop(16));
+    pluginStatusLabel.setBounds(r.removeFromTop(14));
     r.removeFromTop(10);
 
+    // ── Send buttons ───────────────────────────────────────────────────
     auto buttonRow = r.removeFromTop(36);
-    const int gap   = 6;
-    const int total = buttonRow.getWidth() - 2 * gap;
-    const int w     = total / 3;
-    sendSingleButton.setBounds(buttonRow.removeFromLeft(w));
-    buttonRow.removeFromLeft(gap);
-    sendCompareButton.setBounds(buttonRow.removeFromLeft(w));
-    buttonRow.removeFromLeft(gap);
-    sendBatchButton.setBounds(buttonRow);
-    r.removeFromTop(10);
+    {
+        const int gap   = 6;
+        const int total = buttonRow.getWidth() - 2 * gap;
+        const int w     = total / 3;
+        sendSingleButton.setBounds(buttonRow.removeFromLeft(w));
+        buttonRow.removeFromLeft(gap);
+        sendCompareButton.setBounds(buttonRow.removeFromLeft(w));
+        buttonRow.removeFromLeft(gap);
+        sendBatchButton.setBounds(buttonRow);
+    }
+    r.removeFromTop(8);
     statusLabel.setBounds(r.removeFromTop(16));
     sendCountLabel.setBounds(r.removeFromTop(14));
 }
@@ -406,11 +478,9 @@ static void setVisibleIfChanged(juce::Component& comp, bool visible)
 
 void RtmSendAudioProcessorEditor::timerCallback()
 {
-    // Buffer label — only changes when the user drags the slider, so
-    // usually a no-op. Guard it anyway to avoid the unconditional repaint.
+    // Buffer label — only changes when the user drags the slider.
     setTextIfChanged(bufferLabel,
-        "Buffer  " + juce::String(static_cast<int>(processor.getBufferSeconds()))
-        + " s  (saved)");
+        "Ring  " + juce::String(static_cast<int>(processor.getBufferSeconds())) + " s");
 
     const auto s = processor.getLastStatus();
     if (s.isNotEmpty())
@@ -423,12 +493,12 @@ void RtmSendAudioProcessorEditor::timerCallback()
         timerCache.signalActive = hasAudio;
         if (hasAudio)
         {
-            signalDotLabel.setText("\xe2\x97\x8f \xe2\x97\x8f \xe2\x97\x8f", juce::dontSendNotification);  // "● ● ●"
+            signalDotLabel.setText("* * *", juce::dontSendNotification);
             signalDotLabel.setColour(juce::Label::textColourId, LF::kGold);
         }
         else
         {
-            signalDotLabel.setText("\xc2\xb7 \xc2\xb7 \xc2\xb7", juce::dontSendNotification);  // "· · ·"
+            signalDotLabel.setText("- - -", juce::dontSendNotification);
             signalDotLabel.setColour(juce::Label::textColourId, LF::kSandDim);
         }
     }
@@ -439,27 +509,45 @@ void RtmSendAudioProcessorEditor::timerCallback()
     {
         timerCache.sendCount = cnt;
         if (cnt > 0)
-            sendCountLabel.setText(juce::String("\xe2\x86\x91 ") + juce::String(cnt)
+            sendCountLabel.setText(juce::String("^ ") + juce::String(cnt)
                                    + (cnt == 1 ? juce::String(" send") : juce::String(" sends")),
                                    juce::dontSendNotification);
         else
             sendCountLabel.setText({}, juce::dontSendNotification);
     }
 
-    // Plugin status label: guarded to avoid 4 Hz repaints while a plugin is loaded.
-    if (pluginScanButton.getButtonText().startsWith("Scanning"))
+    // Plugin status label: clean name only — no RPC port (users don't need it).
     {
-        const int found = processor.getKnownPluginList().getNumTypes();
-        setTextIfChanged(pluginStatusLabel, "Scanning...  " + juce::String(found) + " found");
-    }
-    else if (processor.isHostedPluginPresent())
-    {
-        const int rpcPort = processor.getRpcPort();
-        auto pluginName = processor.getHostedPluginName();
-        if (rpcPort > 0)
+        const bool isScanning = pluginScanButton.getButtonText().startsWith("Scanning");
+        const bool hasPlugin  = processor.isHostedPluginPresent();
+        const bool faulted    = processor.didHostedPluginFault();
+
+        // Track previous plugin presence so we can trigger a relayout
+        // when the slot switches between empty and loaded — the button
+        // row changes composition (Pick+Scan ↔ Pick+Open+×).
+        if (hasPlugin != timerCache.pluginLoaded)
         {
-            const auto txt = "Hosting: " + pluginName + "  \xc2\xb7  RPC :" + juce::String(rpcPort);
-            setTextIfChanged(pluginStatusLabel, txt);
+            timerCache.pluginLoaded = hasPlugin;
+            resized();   // rebuild button positions for new slot state
+            repaint();
+        }
+
+        if (isScanning)
+        {
+            const int found = processor.getKnownPluginList().getNumTypes();
+            setTextIfChanged(pluginStatusLabel,
+                "Scanning...  " + juce::String(found) + " found");
+        }
+        else if (faulted)
+        {
+            setTextIfChanged(pluginStatusLabel,
+                "Plugin crashed - eject and reload.");
+            setColourIfChanged(pluginStatusLabel, juce::Label::textColourId,
+                               juce::Colour(201, 103, 101));
+        }
+        else if (hasPlugin)
+        {
+            setTextIfChanged(pluginStatusLabel, processor.getHostedPluginName());
             setColourIfChanged(pluginStatusLabel, juce::Label::textColourId, LF::kSandMuted);
         }
     }
@@ -470,20 +558,20 @@ void RtmSendAudioProcessorEditor::timerCallback()
     const bool loopMode      = src == RtmSendAudioProcessor::Source::LoopRegion;
     const bool araMode       = src == RtmSendAudioProcessor::Source::AraRegion;
 
-    // Guard all alpha / enabled / visible changes — JUCE calls repaint()
-    // even when the new value matches the old one for some of these.
+    // Trigger button: visible only in manual-record mode.
     setVisibleIfChanged(triggerButton, triggeredMode);
     setEnabledIfChanged(triggerButton, triggeredMode);
-    // Button text changes only when capturing state flips, not every tick.
     const bool capturing = processor.isTriggeredCapturing();
-    const auto trigText = capturing ? juce::String("STOP capture") : juce::String("REC region");
+    const auto trigText = capturing ? juce::String("STOP") : juce::String("REC");
     if (triggerButton.getButtonText() != trigText)
         triggerButton.setButtonText(trigText);
 
-    const float regionAlpha = araMode ? 1.0f : 0.65f;
+    // Region picker: full opacity in ARA mode, dimmed otherwise.
+    const float regionAlpha = araMode ? 1.0f : 0.45f;
     setAlphaIfChanged(regionBox,   regionAlpha);
     setAlphaIfChanged(regionLabel, regionAlpha);
 
+    // Buffer slider: active in ring mode, dimmed otherwise.
     setEnabledIfChanged(bufferSlider, ringMode);
     const float bufAlpha = ringMode ? 1.0f : 0.35f;
     setAlphaIfChanged(bufferSlider, bufAlpha);
@@ -493,10 +581,10 @@ void RtmSendAudioProcessorEditor::timerCallback()
     if (loopMode && !processor.hostHasLoopPoints())
     {
         setColourIfChanged(statusLabel, juce::Label::textColourId, LF::kGold);
-        setTextIfChanged(statusLabel, "Set loop points in the DAW + play across them once.");
+        setTextIfChanged(statusLabel, "Set a loop range in the DAW, then play through it once.");
     }
 
-    // Rebuild the combo only on an actual revision bump.
+    // Rebuild the region combo only on an actual revision bump.
     if (auto model = processor.getAraRegionsModel())
     {
         const auto rev = model->getRevision();
@@ -505,12 +593,20 @@ void RtmSendAudioProcessorEditor::timerCallback()
             lastRegionsRevision = rev;
             refreshRegionBox();
         }
-        // ARA picked but the host hasn't published any regions yet.
+        // ARA mode selected but host hasn't published any regions yet.
         if (araMode && model->empty())
         {
             setColourIfChanged(statusLabel, juce::Label::textColourId, LF::kSandMuted);
-            setTextIfChanged(statusLabel, "No ARA regions yet - open a montage with clips in the host.");
+            setTextIfChanged(statusLabel, "No clips found - open a project with audio regions.");
         }
+    }
+    else if (araMode)
+    {
+        // ARA mode chosen but this host doesn't bind ARA to insert plugins
+        // (e.g. WaveLab Pro). Guide the user to a working source mode.
+        setColourIfChanged(statusLabel, juce::Label::textColourId, LF::kGold);
+        setTextIfChanged(statusLabel,
+            "Clips unavailable here - use Ring buffer or Record mode.");
     }
 }
 
@@ -586,33 +682,23 @@ void RtmSendAudioProcessorEditor::refreshRegionBox()
 
 juce::String RtmSendAudioProcessorEditor::buildHostHint() const
 {
-    // PluginHostType doesn't detect Standalone; check wrapperType first.
+    // Short DAW name displayed as a compact label in the title row.
     if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
-        return "Standalone: pick an input, then Send.";
-
-    // 5.7.x audit fix: when running as an AU, RTMsend's host-side
-    // plugin scan deliberately skips the AU format (avoids Wavelab-
-    // style crashes when a third-party AU's constructor throws on
-    // the main thread). Surface that in the hint so a Logic user who
-    // wonders "why doesn't Pro-Q AU show up in the picker?" gets the
-    // answer immediately.
-    juce::String suffix;
-    if (processor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnit
-        || processor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnitv3)
-        suffix = " · Send-to-Plugin: VST3-only.";
+        return "Standalone";
 
     juce::PluginHostType h;
-    if (h.isLogic())                 return "Logic Pro 11+: ARA works via VST3 - Region list shows clips on the insert track." + suffix;
-    if (h.isProTools())              return "Pro Tools: use Last N seconds or Triggered (AAX, no ARA)." + suffix;
-    if (h.isAbletonLive())           return "Ableton Live: use Last N seconds or Triggered (no ARA)." + suffix;
-    if (h.isCubase() || h.isNuendo())return "Cubase / Nuendo: ARA works - pick an audio event below." + suffix;
-    if (h.isStudioOne())             return "Studio One: ARA works - pick an event below." + suffix;
-    if (h.isReaper())                return "REAPER 7+: ARA works - pick a media item below." + suffix;
-    if (h.isBitwigStudio())          return "Bitwig: use Last N seconds or Triggered (no ARA)." + suffix;
-    if (h.isWavelab())               return "Wavelab: pick a montage clip (Region) or use Between Markers for CD-track boundaries." + suffix;
-    if (h.isGarageBand())            return "GarageBand: Last N seconds or Triggered (limited host)." + suffix;
-    if (h.isMainStage())             return "MainStage: Last N seconds or Triggered (live use)." + suffix;
-    return "Pick a Source below - ARA region if your host publishes clips." + suffix;
+    if (h.isLogic())                  return "Logic Pro";
+    if (h.isProTools())               return "Pro Tools";
+    if (h.isAbletonLive())            return "Ableton Live";
+    if (h.isCubase())                 return "Cubase";
+    if (h.isNuendo())                 return "Nuendo";
+    if (h.isStudioOne())              return "Studio One";
+    if (h.isReaper())                 return "REAPER";
+    if (h.isBitwigStudio())           return "Bitwig";
+    if (h.isWavelab())                return "WaveLab";
+    if (h.isGarageBand())             return "GarageBand";
+    if (h.isMainStage())              return "MainStage";
+    return {};
 }
 
 void RtmSendAudioProcessorEditor::onSendClicked(RtmSendAudioProcessor::Route route)
@@ -670,37 +756,43 @@ void RtmSendAudioProcessorEditor::refreshPluginSlotUi()
 {
     const auto name = processor.getHostedPluginName();
     const bool loaded = name.isNotEmpty();
-    if (! loaded)
+
+    if (loaded)
     {
-        const int known = processor.getKnownPluginList().getNumTypes();
-        const auto hint = known > 0
-            ? ("Empty slot — " + juce::String(known) + " plugins available. Pick one.")
-            : juce::String ("Empty slot — click Scan, then Pick.");
-        pluginStatusLabel.setText(hint, juce::dontSendNotification);
+        pluginStatusLabel.setText(name, juce::dontSendNotification);
+        pluginStatusLabel.setColour(juce::Label::textColourId, LF::kSandMuted);
+        pluginEditorButton.setButtonText(processor.isHostedPluginWindowOpen() ? "Close" : "Open");
+        pluginEditorButton.setEnabled(true);
+        pluginUnloadButton.setEnabled(true);
     }
     else
     {
-        pluginStatusLabel.setText("Hosting: " + name, juce::dontSendNotification);
+        const int known = processor.getKnownPluginList().getNumTypes();
+        pluginStatusLabel.setText(
+            known > 0 ? ("No plugin — " + juce::String(known) + " available")
+                      : juce::String("No plugin — click Scan first"),
+            juce::dontSendNotification);
+        pluginStatusLabel.setColour(juce::Label::textColourId, LF::kSandDim);
+        pluginEditorButton.setEnabled(false);
+        pluginUnloadButton.setEnabled(false);
     }
-    pluginEditorButton.setEnabled(loaded);
-    pluginEditorButton.setButtonText(processor.isHostedPluginWindowOpen() ? "Close" : "Open");
-    pluginUnloadButton.setEnabled(loaded);
+
+    // Relayout: the button row changes when slot transitions loaded↔empty.
+    resized();
 }
 
 void RtmSendAudioProcessorEditor::openPluginPicker()
 {
     auto& known = processor.getKnownPluginList();
-    // AudioUnit entries from old scan cache can crash on createPluginInstance
-    // (faulty AUs bypass Apple's sandbox before our try/catch has a chance).
-    // VST3-only avoids the problem entirely at the menu level.
-    juce::Array<juce::PluginDescription> types;
-    for (const auto& d : known.getTypes())
-        if (d.pluginFormatName != "AudioUnit" && d.pluginFormatName != "AudioUnitv3")
-            types.add(d);
+    // Show all formats from the scan cache. AU plugins are safe to LOAD
+    // (our try/catch in loadHostedPlugin + createEditorIfNeeded handles
+    // misbehaving plugins); only the SCAN step skips AU to protect the host.
+    // Logic Pro users need AU plugins — the old VST3-only filter broke them.
+    const auto types = known.getTypes();
 
     if (types.isEmpty())
     {
-        pluginStatusLabel.setText("No scanned VST3 plugins yet - click Scan to populate.",
+        pluginStatusLabel.setText("No plugins scanned yet - click Scan.",
                                   juce::dontSendNotification);
         return;
     }
@@ -718,6 +810,11 @@ void RtmSendAudioProcessorEditor::openPluginPicker()
     // jumps. With withTargetScreenArea(rect), the menu position is
     // fixed once and ignores parent-window movement.
     const auto screenRect = pluginPickButton.getScreenBounds();
+    // Pause the 4Hz timer while the menu is open. Without this, timer-driven
+    // repaints (signal dot, status label) cause the editor window to partially
+    // redraw, which shifts its screen position in Logic Pro's AU host and makes
+    // the anchored popup menu appear to jump.
+    stopTimer();
     // Use WeakReference so the callback is a no-op if the editor is destroyed
     // while the menu is open (e.g. host tears down the plugin window on focus loss).
     juce::WeakReference<RtmSendAudioProcessorEditor> weakSelf (this);
@@ -725,21 +822,33 @@ void RtmSendAudioProcessorEditor::openPluginPicker()
         [weakSelf, types](int result)
         {
             auto* self = weakSelf.get();
+            if (self != nullptr) self->startTimerHz(4);
             if (self == nullptr) return;
             if (result <= 0) return;
             const int idx = juce::KnownPluginList::getIndexChosenByMenu(types, result);
             if (idx < 0 || idx >= types.size()) return;
 
-            // The processor handles tearing down the OLD plugin's
-            // window before swapping (via hostedPluginWindow.reset()
-            // inside loadHostedPlugin). If the previous window was
-            // open, the new plugin's window auto-opens — matches
-            // the user's expectation of "I had Pro-Q open, switched
-            // to Kirchhoff, Kirchhoff opens."
-            const auto err = self->processor.loadHostedPlugin(types.getReference(idx));
-            if (err.isNotEmpty())
-                self->pluginStatusLabel.setText("Load failed: " + err, juce::dontSendNotification);
-            self->refreshPluginSlotUi();
+            // Show loading state immediately so the user knows something is
+            // happening. loadHostedPluginAsync runs createPluginInstance on a
+            // background thread so blocking file I/O in the plugin's factory
+            // (iCloud-evicted preset banks, license files, etc.) doesn't
+            // freeze the message thread / hang the host.
+            self->pluginStatusLabel.setText("Loading...", juce::dontSendNotification);
+            self->pluginPickButton.setEnabled(false);
+            self->pluginScanButton.setEnabled(false);
+
+            self->processor.loadHostedPluginAsync(types.getReference(idx),
+                [weakSelf](juce::String err)
+                {
+                    auto* s = weakSelf.get();
+                    if (s == nullptr) return;
+                    s->pluginPickButton.setEnabled(true);
+                    s->pluginScanButton.setEnabled(true);
+                    if (err.isNotEmpty())
+                        s->pluginStatusLabel.setText("Load failed: " + err,
+                                                     juce::dontSendNotification);
+                    s->refreshPluginSlotUi();
+                });
         });
 }
 

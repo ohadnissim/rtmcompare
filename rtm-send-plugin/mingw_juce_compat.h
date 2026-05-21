@@ -17,17 +17,13 @@
 #endif
 
 /* ── 2. CPUID intrinsic ───────────────────────────────────────────────────── */
+/* mingw-w64 toolchain ≥ 14 (GCC ≥ 15) ships void __cpuid(int[4], int) in
+   <intrin-impl.h> with the MSVC-compatible 2-arg signature.
+   Do NOT include <cpuid.h> — it defines a conflicting 5-arg GCC macro that
+   prevents intrin-impl.h from emitting the MSVC-compatible function.
+   Instead pull in <intrin.h> which routes through intrin-impl.h cleanly. */
 #ifdef __MINGW32__
-#  include <cpuid.h>
-/* MSVC: __cpuid(int info[4], int leaf)  — writes info[0..3]
-   GCC:  __cpuid(leaf, eax, ebx, ecx, edx) */
-static inline void _juce_mingw_cpuid(int info[4], int leaf) {
-    __cpuid(leaf, info[0], info[1], info[2], info[3]);
-}
-/* Only define if MSVC signature isn't already present */
-#  ifndef _MSC_VER
-#    define __cpuid(info, leaf) _juce_mingw_cpuid((info), (leaf))
-#  endif
+#  include <intrin.h>
 #endif
 
 /* ── 3. libjpeg boolean typedef conflict ─────────────────────────────────── */

@@ -190,11 +190,17 @@ function baseIndexOf (group: BandGroup): number {
  * If every group's prefix matches `Band\s*N` with sequential N and
  * uniform stride, it's a Pro-Q-style parametric EQ. Returns the
  * sorted list of groups in band order, or null.
+ *
+ * AU plugins often expose parameters without the "Band" word — just a
+ * numeric index: "1 Frequency", "2 Gain", etc. — so we accept pure
+ * numeric prefixes (optionally followed by a colon or dash) in addition
+ * to the "Band N" form. Apple Channel EQ and many Logic/AUv3 plugins
+ * follow this convention.
  */
 function tryNumberedBands (groups: BandGroup[]): BandGroup[] | null {
   const numbered: { num: number; g: BandGroup }[] = []
   for (const g of groups) {
-    const m = g.prefix.match(/^band\s*(\d+)$/i)
+    const m = g.prefix.match(/^(?:band\s*)?(\d+)[:\-\s]*$/i)
     if (!m) return null
     numbered.push({ num: parseInt(m[1], 10), g })
   }

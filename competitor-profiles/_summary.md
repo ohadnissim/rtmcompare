@@ -1,6 +1,229 @@
-# RTMcompare — Competitive Intelligence Report
-**Generated**: 2026-05-16
-**Scope**: 10 competitors + 7 academic paper clusters + market gap analysis
+# UAI — AI Music Detection Competitive Intelligence
+**Generated**: 2026-05-17
+**Scope**: Full competitive landscape for AI-generated music detection market
+**Supersedes**: RTMcompare competitive report (2026-05-16)
+
+---
+
+<!-- UAI COMPETITIVE INTELLIGENCE BELOW — full report starts here -->
+
+# UAI Competitive Intelligence — Master Summary
+
+**Generated**: 2026-05-17
+**Scope**: AI music detection market — all known competitors as of May 2026
+**UAI benchmark for comparison**: 24-detector ensemble, F1=0.998, 4-stem BS-RoFormer, certificate generation, patent-pending
+
+---
+
+## Competitor Landscape Overview
+
+The AI music detection market reached critical mass in late 2025 / early 2026, driven by three simultaneous forces: AI-generated music now represents 39-44% of all new uploads to major streaming platforms (Deezer reports 60,000 AI tracks/day as of April 2026); EU AI Act Article 50 takes effect August 2, 2026, mandating machine-readable marking of AI-generated audio; and collecting societies (ASCAP, BMI, SOCAN) formally adopted policies in October 2025 to reject fully AI-generated music while accepting human-AI hybrids.
+
+The result is a fragmented market with no dominant winner. Six distinct players have launched AI detection products — but no single competitor offers per-stem analysis, certificate generation, AND a self-service API in one product. UAI's combination of these three capabilities represents the most defensible position in the market.
+
+---
+
+## Competitor Feature Grid
+
+| Feature | UAI | Deezer | Pex/Vobile | Beatdapp | IRCAM Amplify | ACRCloud | authio |
+|---------|-----|--------|------------|----------|--------------|---------|--------|
+| **Accuracy (claimed)** | F1=0.998 | 99.8% lab / <0.01% FP | Not disclosed | Not disclosed | 99% | Not disclosed | 99.42% |
+| **Per-stem analysis** | YES (4-stem BS-RoFormer) | No | No | No | No | 2-stem only | No |
+| **Certificate generation** | YES | No | No | No | No | No | No |
+| **Self-service API** | YES | No (partners only) | No (contact) | No (demo only) | No (request) | YES (14-day trial) | YES |
+| **Desktop app** | YES | No | No | No | No | No | No |
+| **Generator IDs published** | Suno/Udio/Boomy/Lyria/AI ACAP | Suno/Udio | Suno/Udio/Boomy/ElevenLabs | Not specified | Suno/Udio/Sonauto/ElevenLabs | 8 (widest list) | 9 |
+| **Batch processing** | YES | YES (150K/day) | Not disclosed | Not disclosed | 250K/hour | YES | YES (250K/mo enterprise) |
+| **Pricing transparency** | TBD | No (enterprise only) | No | No | No | Free trial | YES (€12-€9,999) |
+| **Patent-pending** | YES | YES (2 patents) | No | No | No | No | No |
+| **EU AI Act positioning** | YES | YES | No | No | YES | Partial | YES |
+| **Streaming fraud bundle** | No | No | No | YES (core product) | No | No | No |
+| **Copyright ID combined** | No | No | YES (Pex 120M DB) | No | No | YES (150M DB) | No |
+| **Named enterprise customers** | TBD | SACEM, EJI | Disney, Twitch (overall) | UMG, MLC, SoundExchange | None published | TikTok SoundOn | None |
+| **Academic research published** | No | YES (ICASSP 2025) | No | No | YES (IRCAM heritage) | No | No |
+
+---
+
+## Pricing Comparison
+
+| Product | Entry Price | Enterprise | Trial |
+|---------|------------|------------|-------|
+| UAI | TBD | TBD | TBD |
+| Deezer AI Detection | Not disclosed | Partnership only | No |
+| Pex/Vobile AI Song Detector | Not disclosed | Not disclosed | No |
+| Beatdapp Trust & Safety OS | Not disclosed | Not disclosed | Demo only |
+| IRCAM Amplify | Not disclosed | Not disclosed | Request |
+| ACRCloud AI Detector | ~$32/10K requests (est.) | Contact sales | 14-day free |
+| authio | €12/month (200 tracks) | €2,399+/month | 14-day, 20 analyses |
+| Sightengine | $29/month | $399/month | Free tier |
+
+---
+
+## Positioning Map
+
+```
+                    HIGH ENTERPRISE CREDIBILITY
+                              |
+              Deezer           |        Beatdapp
+           (production scale, |     (UMG/MLC/fraud OS,
+            collecting soc.)  |      opaque AI detect)
+                              |
+   API-ONLY ─────────────────────────────────────── FULL PLATFORM
+      (dev-first)             |                      (UI + API + cert)
+                              |
+         ACRCloud             |          UAI (target position)
+      (self-service,          |    (API + desktop + certs + stems)
+       2-stem, no cert)       |
+                              |
+         authio               |    IRCAM Amplify
+    (transparent pricing,     |  (batch speed, academic
+     no stems, no cert)       |   cred, no self-service)
+                              |
+                    LOW ENTERPRISE CREDIBILITY
+```
+
+---
+
+## First Mover Opportunities — Things No Competitor Offers Yet
+
+### 1. Per-Stem Certificate Generation
+**The gap**: Zero competitors offer a legally defensible certificate tied to per-stem analysis. Deezer offers dashboards. authio offers JSON logs. No one offers a signed, tamper-evident certificate that says "this track's vocal stem is 94% AI-generated (Suno), instrumental stem is 87% AI-generated (Udio), certified by UAI v2.1.0 on 2026-05-17."
+**Why it matters**: Collecting societies (SACEM, SOCAN, PRS) need something they can reference in registration decisions. Labels need something for legal defense. Distributors need something for compliance documentation. Nobody serves this need.
+
+### 2. 4-Stem Hybrid Track Detection
+**The gap**: All competitors do binary (AI vs. human) or 2-stem (vocal/accompaniment). None do 4-stem (vocals, drums, bass, other) with per-stem confidence scores.
+**Why it matters**: The real fraud problem in 2026 is hybrid tracks — AI instrumentals under human vocals, AI vocals over human productions. Binary detection misses this. 2-stem misses drums and bass. UAI's 4-stem analysis is the only way to catch partial AI in catalog-scale enforcement.
+
+### 3. Collecting Society Integration / Registration Decision API
+**The gap**: ASCAP, BMI, SOCAN announced in October 2025 they accept partially AI-generated works but reject fully AI-generated ones — but they have no tool to verify the distinction. No competitor has built an API specifically for collecting society registration decisions.
+**Why it matters**: This is a greenfield B2B market of ~100 collecting societies worldwide, each needing to make binary registration decisions at scale. Deezer has SACEM and EJI, but only as licensing customers — not as an integrated registration workflow tool.
+
+### 4. Adversarial Robustness Proof
+**The gap**: Deezer's own ICASSP 2025 paper admits their technology "fails drastically" under pitch shifts and re-encoding. No competitor publishes adversarial robustness benchmarks.
+**Why it matters**: In a world where "AI humanizer" tools actively market themselves to content farms, robustness to post-processing is the actual moat. UAI's 24-detector ensemble is architecturally more robust than single-model approaches.
+
+### 5. White-Label Distributor Integration Kit
+**The gap**: No competitor offers a white-label solution that distributors can embed in their upload workflow with their own branding, DDEX metadata passthrough, and Spotify AI Credits integration.
+**Why it matters**: DistroKid, TuneCore, FUGA, and Believe are all building AI detection into their upload flows. The distributor that gets this right first owns the upstream detection market. Currently they're all building custom solutions or using undisclosed vendors.
+
+---
+
+## The One Moat Defensible for 3+ Years
+
+**Per-stem analysis tied to legally defensible certificates, backed by a patent.**
+
+Here is the reasoning:
+
+1. **Technical barrier**: 4-stem BS-RoFormer separation + per-stem classification requires significant ML infrastructure. Competitors (IRCAM, authio, ACRCloud) are 1-2 years away from matching this even if they start today.
+
+2. **Legal barrier**: Certificate generation is not just a technical feature — it requires legal/compliance expertise to make certificates defensible in regulatory proceedings, collecting society registrations, and potential copyright litigation. This expertise compounds over time as UAI accumulates case law, regulator relationships, and precedent.
+
+3. **Network effects via collecting societies**: Once 3-5 collecting societies standardize on UAI certificates for registration decisions, every label and distributor that submits to those societies must use UAI-compatible documentation. This creates switching costs entirely independent of technical quality.
+
+4. **EU AI Act Article 50 timing**: The enforcement deadline is August 2, 2026 — approximately 75 days away. Any company that wants to be compliant needs to integrate AI detection NOW. This creates a winner-take-most dynamic for whoever signs the first major distributor contracts in the next 90 days.
+
+5. **Patent protection**: UAI's patent-pending status on the 24-detector ensemble + calibration head could defensively block competitors from copying the exact architecture. Deezer has 2 patents on different methods, but no competitor has patented the XGBoost calibration head approach.
+
+---
+
+## What Streaming Platforms and Distributors Are Actually Asking For
+
+Based on public statements, policy announcements, and regulatory filings (May 2026):
+
+### Spotify (September 2025 AI Protections + April 2026 Beta)
+- **DDEX metadata standard** for AI disclosure — they want structured metadata from distributors, not detection responsibility
+- **Spam filter** for mass AI uploads — volume/velocity detection, not just per-track classification
+- **Artist verification** (Verified badge) to protect human artists from AI impersonation
+- **What Spotify is NOT asking for**: They want distributors to handle detection at ingestion; Spotify validates metadata, does not run detection themselves
+- **Signal**: Spotify wants the detection problem solved upstream (at the distributor level) before content reaches them
+
+### Deezer
+- Solving this internally — their AI detection is for their own platform + licensing out
+- They are a potential customer for UAI's per-stem and certificate capabilities (Deezer's own detector lacks these)
+- Their 44% AI upload figure (April 2026) signals the problem is accelerating, not plateauing
+
+### DistroKid (April 2026 Spotify AI Credits launch partner)
+- Mandatory AI disclosure checkbox at upload
+- Automated screening runs on all uploads
+- **Gap they are trying to solve**: Detection of undisclosed AI (the fraud case, not the disclosure case)
+- **What they need from UAI**: Accurate per-track classification at upload, fast (under 5 seconds), reliable (low false positives are more important than high true positives for a distributor)
+
+### Collecting Societies (ASCAP/BMI/SOCAN October 2025 policy)
+- They accept hybrid (partially AI) works; reject fully AI works
+- **Critical gap**: They have no tool to verify the boundary between "partially AI" and "fully AI"
+- **What they need from UAI**: Per-stem analysis + certificate that quantifies AI percentage per component + defensible methodology documentation
+- **Quote from SOCAN public statement**: "There are still no clear answers as to how anyone (including SOCAN) could tell the difference between 95% human / 5% AI, and 95% AI generated / 5% human." — This is UAI's entire value proposition to collecting societies
+
+### FUGA / Believe / IDOL (Spotify DDEX rollout partners)
+- Currently building DDEX metadata passthrough for Spotify AI Credits
+- Need detection capability to validate that disclosed metadata is accurate and to flag undisclosed AI
+- **What they need from UAI**: API integration, DDEX-compatible output metadata, volume pricing
+
+### CD Baby (full AI ban)
+- Strictest policy — 100% AI blocked
+- **Need**: Reliable binary detection with very low false positive rate (they need to be confident before rejecting a submission)
+- **UAI advantage**: 24-detector ensemble reduces single-point-of-failure false positives
+
+---
+
+## Key Strategic Observations
+
+### 1. The market is bifurcating: disclosure vs. enforcement
+The "easy" problem is AI disclosure (artists self-report, Spotify displays the tag). The hard, high-value problem is enforcement (detect undisclosed AI, build evidence for legal action). Only UAI's certificate approach addresses the enforcement case.
+
+### 2. No competitor serves collecting societies well
+Deezer has SACEM and EJI as lighthouse customers but no purpose-built registration API. Pex/ACRCloud/IRCAM/authio all target distributors and DSPs but show no collecting society traction. This is the highest-value unserved segment — collecting societies represent the legal gatekeeper for royalty eligibility in every EU country.
+
+### 3. The "AI humanizer" arms race creates sustained demand for adversarial-robust detection
+Tools that post-process AI music to evade detection are already being sold commercially. Deezer's own research confirms single-model detectors fail under pitch shifts and re-encoding. UAI's ensemble approach is architecturally more robust to this adversarial scenario.
+
+### 4. EU AI Act enforcement in ~75 days creates NOW urgency
+August 2, 2026 is the hard deadline for EU AI Act Article 50. Any EU-based distributor, DSP, or collecting society that has not implemented compliant AI detection before then faces fines up to €30M or 7% global turnover. This is UAI's most powerful near-term sales trigger.
+
+### 5. The market-defining contract is likely with a collecting society, not a DSP
+DSPs (Spotify, Apple Music) are building detection upstream at the distributor level. But collecting societies make irreversible registration decisions — and those decisions are already being challenged. The first AI detection company to become a collecting society's "official detection partner" will have a defensible institutional moat for 10+ years.
+
+---
+
+## Individual Competitor Files
+
+- `deezer-ai-detection.md` — Deezer's commercial AI detection product profile
+- `pex-vobile.md` — Pex (acquired by Vobile) AI Song Detector profile
+- `beatdapp.md` — Beatdapp Trust & Safety OS (AI detection + fraud)
+- `ircam-amplify.md` — IRCAM Amplify AI Music Detector profile
+- `acrcloud.md` — ACRCloud AI Music Detector profile
+- `authio.md` — authio (Forward Digital) AI music detector profile
+- `audible-magic.md` — Audible Magic (content ID incumbent, not direct competitor)
+- `landr.md` — LANDR (distributor using third-party detection, not competitor)
+- `c2pa-truepic.md` — C2PA/Truepic provenance standard (complement, not competitor)
+
+---
+
+## Research Sources
+
+- Deezer newsroom: newsroom-deezer.com (Jan, Apr, Jun 2025; Jan, Mar, Apr 2026)
+- Deezer research: research.deezer.com/publication/2025/04/10/ICASSP-Afchar.html
+- Deezer ICASSP paper: arxiv.org/html/2501.10111v1
+- Pex AI Song Detector: pex.com/ai-song-detector + pex.com/blog
+- Vobile acquisition: prnewswire.com/news-releases/vobile-completes-acquisition-of-pex
+- Beatdapp: beatdapp.com/trust-safety/ai-music-detection + musically.com Dec 2025
+- IRCAM Amplify: ircamamplify.com/products/ai-music-detector
+- ACRCloud: acrcloud.com/ai-music-detector
+- authio: authio.io + authio.io/solutions
+- Audible Magic: audiblemagic.com + Udio partnership PR
+- LANDR: landr.com/fairai + support.landr.com
+- C2PA: c2pa.org specification docs + truepic.com
+- Spotify AI policy: newsroom.spotify.com/2025-09-25
+- ASCAP/BMI/SOCAN AI policy: bmi.com + socan.com Oct 2025
+- EU AI Act Article 50: digital-strategy.ec.europa.eu
+- Distributor policies: dynamoi.com, undetectr.com, soundverse.ai (multiple articles, 2025-2026)
+- Market comparison: fwdmusic.com/en/news/best-ai-music-detectors-2026
+
+---
+
+<!-- LEGACY RTMCOMPARE COMPETITIVE REPORT (2026-05-16) PRESERVED BELOW -->
+
+
 
 ---
 

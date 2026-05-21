@@ -18,6 +18,11 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    // Pro Tools (AAX) crashes when a plugin NSView uses CoreAnimation
+    // layer backing (the JUCE 8 default on macOS 10.14+). Return false
+    // to force synchronous CoreGraphics rendering, which PT supports.
+    bool wantsLayerBackedView() const override { return false; }
+    void visibilityChanged() override;
 
 private:
     void timerCallback() override;
@@ -74,6 +79,7 @@ private:
         bool   bufEnabled    { false };
         bool   signalActive  { false };
         int    sendCount     { -1 };
+        bool   pluginLoaded  { false };  // tracks hasPlugin for relayout
         juce::String statusText;
         juce::Colour statusColour { juce::Colours::transparentBlack };
         juce::String pluginStatusText;

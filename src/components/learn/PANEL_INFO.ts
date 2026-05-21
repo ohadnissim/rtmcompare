@@ -206,7 +206,7 @@ export const PANEL_INFO: Record<string, PanelInfoContent> = {
 
   genre_analysis: {
     label: 'Genre Analysis',
-    pro: 'Statistical genre target curve comparison using a corpus of commercial masters per genre (AllPurpose / Hip-Hop / Electronic / Rock / etc.). 1/3-octave delta with log-frequency Hann smoothing, TBC3 confidence bands, and a 7-axis radar (Sub, Bass, Low Mids, Mids, Upper Mids, Highs, Air). Score excludes sentinel bands (20–25 Hz, 20 kHz) to prevent centering artifacts.',
+    pro: 'Statistical genre target curve comparison using a corpus of commercial masters per genre (AllPurpose / Hip-Hop / Electronic / Rock / etc.). 1/3-octave delta with log-frequency Hann smoothing, confidence bands, and a 7-axis radar (Sub, Bass, Low Mids, Mids, Upper Mids, Highs, Air). Score excludes sentinel bands (20–25 Hz, 20 kHz) to prevent centering artifacts.',
     producer: 'How does your master stack up against the typical sound of your genre? The radar shows 7 frequency regions and whether you\'re within the normal range for that genre. A "Needs work" score means your spectral balance is significantly different from successful releases in that genre.',
     student: 'The genre target curve is derived from the mean 1/3-octave spectrum of a corpus of commercial masters in that genre. Comparing your file against the genre mean tells you whether your tonal balance is genre-appropriate. Log-frequency smoothing is applied first to remove single-note resonances — you\'re comparing tonal character, not individual notes.',
     teacher: 'Useful discussion: "Why does genre matter for tonal balance?" Hip-Hop expects heavy sub and bass content; Classical expects flat, wide-range frequency response; EDM expects scooped mids and elevated highs. Have students predict the genre before loading the analysis — builds critical listening tied to genre conventions.',
@@ -214,7 +214,7 @@ export const PANEL_INFO: Record<string, PanelInfoContent> = {
   },
 
   master_assistant: {
-    label: 'Master Assistant',
+    label: 'DSP Assistant',
     pro: 'One-click mastering chain proposer: HPF → EQ → compressor → TP limiter → dither. Parameters derived from the comparison analysis and target platform. Renders offline through the Python pipeline (not Web Audio) for sample-accurate output. Provides bounce-ready WAV at any delivery spec.',
     producer: 'Choose a platform (Spotify, Apple, YouTube, etc.) and the Assistant builds a complete mastering chain for your file — gain staging, EQ, compression, limiting, all configured to hit that platform\'s target loudness. Preview the result in the player, adjust each stage, and render a delivery-ready WAV.',
     student: 'The mastering chain is a sequence of processors: HPF removes sub-sonic content; EQ shapes tonal balance; bus compression adds cohesion; limiting raises loudness to target; dither removes quantization noise. The Assistant derives each parameter from the measured difference between your file\'s current state and the delivery specification.',
