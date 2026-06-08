@@ -1002,14 +1002,21 @@ def _compute_match_score(spec_file, spec_target, lufs, dr, width, profile, *, si
             "width_score": 0,
             "detail": "Input is too quiet to compare — every band is below the −50 dB measurement floor.",
         }
-    # Convert from dB (possibly negative) to linear power before cosine distance.
-    # Adding 100 dB offsets the range to all-positive for log() sanity, but
-    # the cosine is direction-only so the absolute offset cancels out.
-    arr_file = np.array([spec_file[i] + 100.0 for i in valid_indices], dtype=np.float64)
-    arr_target = np.array([spec_target[i] + 100.0 for i in valid_indices], dtype=np.float64)
-    cosine_dist = 1.0 - _cosine_similarity(arr_file, arr_target)  # 0 = identical, 2 = opposite
-    # Scale to 0-50: perfect match (dist=0) → 50 pts; dist ≥ 0.1 → 0 pts.
-    tonal_score = max(0.0, 50.0 * (1.0 - cosine_dist / 0.1))
+    # Tonal SHAPE match. Mean-center the dB curves before cosine similarity so
+    # we measure the *correlation of the tonal contour*, not a shared offset.
+    # (The previous version added +100 dB to every band; a large common offset
+    # makes every vector point in nearly the same direction, so cosine ≈ 1 for
+    # ANY two masters and the score pinned near 50/50 — a constant paid metric.)
+    # Mean-centred cosine == Pearson correlation r of the two dB curves ∈ [-1, 1].
+    arr_file = np.array([spec_file[i] for i in valid_indices], dtype=np.float64)
+    arr_target = np.array([spec_target[i] for i in valid_indices], dtype=np.float64)
+    arr_file -= arr_file.mean()
+    arr_target -= arr_target.mean()
+    shape_corr = _cosine_similarity(arr_file, arr_target)  # r ∈ [-1, 1]
+    # 50 pts scaled by positive tonal-shape correlation: identical contour → 50,
+    # uncorrelated/anti-correlated → 0. NOTE: this 0–50 mapping is provisional and
+    # must be calibrated against the real-master cohort in the P0-7 parity gate.
+    tonal_score = 50.0 * max(0.0, shape_corr)
 
     # Loudness match (0-20 points)
     # CRIT-5: .get() with NaN default — NaN arithmetic propagates, and

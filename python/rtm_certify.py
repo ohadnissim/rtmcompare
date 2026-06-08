@@ -295,8 +295,18 @@ def certify(file_a: str, file_b: str) -> dict:
         "certificate_id": certificate_id,
     }
 
-    sig = _sign(payload)
-    payload["hmac_sha256"] = sig
+    # P0-3 (delivery hold): do NOT emit a signature for this release.
+    # The previous HMAC was keyed by a per-machine secret — recipients cannot
+    # verify it, and anyone running the app can re-sign a forged payload, so it
+    # was a forgeable, unverifiable warranty carrying RTM's name on numbers that
+    # may be wrong. Until server-side Ed25519/C2PA signing ships (RTM Verify),
+    # this is an UNSIGNED, on-device self-assessment — labelled as such.
+    payload["signed"] = False
+    payload["disclaimer"] = (
+        "Unsigned on-device self-assessment — measurements, not a warranty. "
+        "This is NOT a verifiable certificate; do not treat it as proof of "
+        "compliance. Verifiable signing arrives in RTM Verify."
+    )
     return payload
 
 

@@ -691,15 +691,22 @@ def _crest_db(y: np.ndarray) -> float:
 
 
 def _perceptual_spectral_distance(y_a: np.ndarray, y_b: np.ndarray, sr: int) -> dict:
-    """ViSQOL-inspired perceptual quality proxy via mel-spectrogram L1 distance.
+    """Mel-spectrogram L1 SPECTRAL-DIFFERENCE metric (NOT a quality score).
 
     Converts both signals to 128-bin mel spectrograms (dB scale) and computes
     the mean L1 distance across frames. No network download required — librosa
     is already in the stack.
 
+    IMPORTANT: this measures how much the spectrum *changed*, not whether the
+    change is good or bad. A deliberate, benign EQ move (the whole point of an
+    A/B mastering compare) produces a large distance. Do NOT present this as a
+    perceptual quality verdict — real quality scoring lives in
+    compute_visqol_score(). Hence the labels describe DIFFERENCE magnitude, not
+    "degradation".
+
     Returns a dict with:
-      - perceptual_distance_db: mean L1 distance in dB
-      - quality_interpretation: "clean" | "minor_artifacts" | "significant_degradation"
+      - spectral_difference_db: mean L1 distance in dB
+      - difference_interpretation: "near_identical" | "moderate_difference" | "large_difference"
     """
     mono_a = librosa.to_mono(y_a) if y_a.ndim > 1 else y_a
     mono_b = librosa.to_mono(y_b) if y_b.ndim > 1 else y_b
@@ -731,15 +738,15 @@ def _perceptual_spectral_distance(y_a: np.ndarray, y_b: np.ndarray, sr: int) -> 
     distance = float(np.mean(np.abs(diff_weighted)))
 
     if distance < 2.0:
-        interpretation = "clean"
+        interpretation = "near_identical"
     elif distance <= 5.0:
-        interpretation = "minor_artifacts"
+        interpretation = "moderate_difference"
     else:
-        interpretation = "significant_degradation"
+        interpretation = "large_difference"
 
     return {
-        "perceptual_distance_db": round(distance, 3),
-        "quality_interpretation": interpretation,
+        "spectral_difference_db": round(distance, 3),
+        "difference_interpretation": interpretation,
     }
 
 
@@ -1084,7 +1091,7 @@ def _attach_mastering_delta(result: dict, y_a: np.ndarray | None = None,
 
     try:
         if y_a is not None and y_b is not None:
-            delta["perceptual_quality"] = _perceptual_spectral_distance(y_a, y_b, sr)
+            delta["spectral_difference"] = _perceptual_spectral_distance(y_a, y_b, sr)
     except Exception:
         pass
 
@@ -1913,10 +1920,19 @@ def compute_plr(y: np.ndarray, sr: int) -> tuple[float | None, float | None]:
 
 
 def compute_visqol_score(ref: np.ndarray, deg: np.ndarray, sr: int) -> float | None:
-    """ViSQOL MOS-LQO (1-5, 5=identical). Returns None if visqol not installed."""
+    """ViSQOL MOS-LQO (1-5, 5=identical) in *audio* mode. None if unavailable.
+
+    This is a music mastering tool, so ViSQOL MUST run in full-band AUDIO mode
+    (48 kHz, use_speech_scoring=False, audio SVR model) — NOT the 16 kHz speech
+    mode the simple no-arg .Measure() defaults to. Speech mode band-limits to
+    ~8 kHz and scores with a speech-trained SVR, which is the wrong model for
+    music and silently mis-rates every master.
+    """
     try:
+        import os
         import visqol.visqol_lib_py as visqol_lib  # type: ignore
-        TARGET_SR = 16000
+        from visqol.pb2 import visqol_config_pb2  # type: ignore
+        TARGET_SR = 48000  # ViSQOL audio mode operates at 48 kHz
 
         def to_mono(y: np.ndarray) -> np.ndarray:
             if y.ndim == 1:
@@ -1929,8 +1945,18 @@ def compute_visqol_score(ref: np.ndarray, deg: np.ndarray, sr: int) -> float | N
             ref_m = librosa.resample(ref_m, orig_sr=sr, target_sr=TARGET_SR)
             deg_m = librosa.resample(deg_m, orig_sr=sr, target_sr=TARGET_SR)
         n = min(len(ref_m), len(deg_m))
-        score = visqol_lib.VisqolApi().Measure(ref_m[:n], deg_m[:n], TARGET_SR)
-        return round(float(score.moslqo), 2)
+
+        config = visqol_config_pb2.VisqolConfig()
+        config.audio.sample_rate = TARGET_SR
+        config.options.use_speech_scoring = False  # AUDIO mode, not speech
+        model = "libsvm_nu_svr_model.txt"          # the full-band audio SVR model
+        config.options.svr_model_path = os.path.join(
+            os.path.dirname(visqol_lib.__file__), "model", model
+        )
+        api = visqol_lib.VisqolApi()
+        api.Create(config)
+        result = api.Measure(ref_m[:n], deg_m[:n])
+        return round(float(result.moslqo), 2)
     except ImportError:
         return None
     except Exception as e:

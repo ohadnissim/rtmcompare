@@ -281,12 +281,25 @@ def detect_true_peaks(mono_a: np.ndarray, mono_b: np.ndarray,
     back to the passed mono signal (backwards-compatible for single-channel
     material or callers that only have mono data available).
     """
+    def _oversample(ch: np.ndarray) -> np.ndarray:
+        """Oversample one channel. soxr HQ (±0.02 dBTP) is the primary path —
+        the suite-wide TP engine; resample_poly only as fallback. (Previously
+        this used resample_poly unconditionally, which the codebase itself
+        condemns for ±0.3–0.5 dBTP Gibbs overread and disagreed with the soxr
+        paths elsewhere by up to 0.5 dB — inside the flag threshold.)"""
+        try:
+            import soxr
+            return soxr.resample(ch.astype(np.float64), sr or 44100,
+                                 (sr or 44100) * oversample, quality='HQ')
+        except Exception:
+            return resample_poly(ch.astype(np.float64), oversample, 1)
+
     def _tp_db(arrays: list[np.ndarray]) -> tuple[float, int]:
         """Worst-case true peak dBTP + over-count across a list of channels."""
         worst_amp = 0.0
         over_cnt = 0
         for ch in arrays:
-            up = resample_poly(ch.astype(np.float64), oversample, 1)
+            up = _oversample(ch)
             worst_amp = max(worst_amp, float(np.max(np.abs(up))))
             over_cnt += int(np.sum(np.abs(up) > 1.0))
         return float(20 * np.log10(max(worst_amp, 1e-10))), over_cnt

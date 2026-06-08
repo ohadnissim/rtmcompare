@@ -221,8 +221,8 @@ def _tp_limit(window: "np.ndarray", sr: int, ceiling_db: float,
     return resample_poly(up, 1, 4, axis=0), gr_envelope_db
 
 
-def _tp_db_for_aac(y: np.ndarray, sr: int) -> float:
-    """4x-oversampled true peak for decoded AAC."""
+def _tp_one_channel(y: np.ndarray, sr: int) -> float:
+    """4x-oversampled true peak (dBTP) of a single channel."""
     try:
         import soxr
         up = soxr.resample(y, sr, sr * 4, quality='HQ')
@@ -230,6 +230,18 @@ def _tp_db_for_aac(y: np.ndarray, sr: int) -> float:
         from scipy.signal import resample_poly
         up = resample_poly(y, 4, 1)
     return float(20 * np.log10(np.abs(up).max() + 1e-12))
+
+
+def _tp_db_for_aac(y: np.ndarray, sr: int) -> float:
+    """True peak (dBTP) per ITU-R BS.1770-4 Annex 2 = MAX across channels.
+
+    Never downmix before a true-peak check: an L+R average cancels
+    out-of-phase / hard-panned energy and can under-read by up to ~6 dB,
+    which would certify a single-channel ISP breach as Apple-compliant.
+    """
+    if y.ndim == 1:
+        return _tp_one_channel(y, sr)
+    return max(_tp_one_channel(y[:, c], sr) for c in range(y.shape[1]))
 
 
 def check_aac_intersample_peaks(src_path: str, duration_sec: float = 20.0) -> dict:
@@ -251,15 +263,16 @@ def check_aac_intersample_peaks(src_path: str, duration_sec: float = 20.0) -> di
         end = min(start + int(duration_sec * sr), len(y_mono))
         chunk = y[start:end]
 
-        # measure pre-encode TP
-        mono_chunk = chunk.mean(axis=1) if chunk.ndim > 1 else chunk
-        pre_tp = _tp_db_for_aac(mono_chunk, sr)
+        # measure pre-encode TP (per-channel max — never downmix for TP)
+        pre_tp = _tp_db_for_aac(chunk, sr)
 
         with tempfile.TemporaryDirectory() as tmp:
             wav_in = os.path.join(tmp, 'in.wav')
             m4a_out = os.path.join(tmp, 'out.m4a')
             wav_out = os.path.join(tmp, 'decoded.wav')
-            sf.write(wav_in, chunk, sr)
+            # 32-bit float input — never truncate to 16-bit before the codec
+            # check, or we'd measure a quantization artifact, not the AAC.
+            sf.write(wav_in, chunk, sr, subtype='FLOAT')
 
             # encode to AAC 256k
             if sys.platform == 'darwin':
@@ -287,8 +300,9 @@ def check_aac_intersample_peaks(src_path: str, duration_sec: float = 20.0) -> di
                 return result
 
             y_dec, sr_dec = sf.read(wav_out, always_2d=True)
-            mono_dec = y_dec.mean(axis=1)
-            post_tp = _tp_db_for_aac(mono_dec, min(sr_dec, sr))
+            # per-channel max at the decoded buffer's TRUE rate (min() would
+            # corrupt the oversampler time-axis if ffmpeg ignored -ar)
+            post_tp = _tp_db_for_aac(y_dec, sr_dec)
 
         result.update({
             'checked': True,
@@ -403,10 +417,11 @@ def render_encoded_preview(
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp_wav = tmp.name
     try:
-        # afconvert needs PCM_16 input (won't read FLOAT WAVs reliably);
-        # ffmpeg reads anything. Convert to int16 here and trust the
-        # surrounding TP limiter to keep us under 0 dBFS.
-        sf.write(tmp_wav, window, sr, subtype="PCM_16")
+        # 24-bit PCM input: afconvert reads integer PCM reliably (unlike
+        # FLOAT WAVs), and Apple Digital Masters requires ≥24-bit — a 16-bit
+        # truncation here would make us measure a quantization artifact, not
+        # the codec. The surrounding TP limiter keeps us under 0 dBFS.
+        sf.write(tmp_wav, window, sr, subtype="PCM_24")
         kind, binary = encoder
         if kind == "afconvert":
             cmd = [
