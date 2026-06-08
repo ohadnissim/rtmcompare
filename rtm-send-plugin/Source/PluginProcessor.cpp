@@ -208,7 +208,8 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     // read as "user turned hosting off" with no recovery path. Now
     // the two states are distinct.
     if (hostingEnabled.load(std::memory_order_acquire)
-        && ! hostedPluginFaulted.load(std::memory_order_acquire))
+        && ! hostedPluginFaulted.load(std::memory_order_acquire)
+        && ! hostedPluginBypassed.load(std::memory_order_acquire))
     {
         if (auto* hp = hostedPlugin.get())
         {
@@ -801,7 +802,16 @@ juce::String RtmSendAudioProcessor::sendSnapshotToRtm(Route route, juce::String&
                 setLastStatusLocked (errorMsgOut);
                 return {};
             }
-            snapshot = loopCapture.samples;
+            // Data-race fix: the audio thread keeps writing loopCapture.samples
+            // (clears on a new cycle at line ~319, inserts at ~348) even after
+            // `complete` is set — the next loop pass reopens it. Unlike the
+            // TriggeredRegion path (gated on triggered.active==false, so the
+            // audio thread has stopped), the loop is continuous, so we must
+            // hold the audio callback lock for the copy to avoid a torn read.
+            {
+                const juce::ScopedLock sl (getCallbackLock());
+                snapshot = loopCapture.samples;
+            }
             break;
         }
         case Source::TriggeredRegion:

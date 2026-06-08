@@ -720,14 +720,16 @@ juce::var RpcServer::handleSetParameters (const juce::var& params)
 juce::var RpcServer::handleBypass (const juce::var& params)
 {
     const bool on = (bool) params.getProperty ("enabled", false);
-    runOnMessageThreadSync ([&]()
-    {
-        // Toggle the host-slot's audio gate. False stops processBlock
-        // from routing through the hosted plugin without ejecting it.
-        if (on) processor.unloadHostedPlugin();  // hard for v1; refine later
-    });
+    // Toggle the host-slot's audio gate WITHOUT ejecting the plugin. The old
+    // implementation called unloadHostedPlugin() on bypass=true (destroying the
+    // plugin + its state) and did nothing on bypass=false, and never wrote the
+    // hostedPluginBypassed atomic the status path reads — so "bypass" was a
+    // one-way plugin-destroy and the reported state was a lie. Now it's a real,
+    // reversible, lock-free gate checked in processBlock. No message-thread hop
+    // needed: the setter just stores an atomic.
+    processor.setHostedPluginBypassed (on);
     juce::DynamicObject::Ptr o = new juce::DynamicObject();
-    o->setProperty ("bypassed", on);
+    o->setProperty ("bypassed", processor.isHostedPluginBypassed());
     return juce::var (o.get());
 }
 

@@ -251,6 +251,11 @@ public:
                                std::function<void(juce::String)> onDone);
     void unloadHostedPlugin();
     bool isHostingEnabled() const noexcept { return hostingEnabled.load(std::memory_order_acquire); }
+    /** Bypass the hosted plugin WITHOUT ejecting it (preserves the loaded
+     *  plugin + its state). processBlock skips routing through it while set.
+     *  Replaces the old handleBypass() which destroyed the plugin on bypass. */
+    void setHostedPluginBypassed(bool b) noexcept { hostedPluginBypassed.store(b, std::memory_order_release); }
+    bool isHostedPluginBypassed() const noexcept { return hostedPluginBypassed.load(std::memory_order_acquire); }
     /** 5.7.x audit fix: distinguish "user toggled hosting off" from "the
      *  hosted plugin threw inside processBlock and we drop-routed it for
      *  safety". The UI uses this to surface "plugin faulted, reload it"
