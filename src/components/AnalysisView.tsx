@@ -2103,7 +2103,7 @@ function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fi
      platform: spec,
      currentLufs: lufs,
      currentPeakDbtp: tp,
-     currentLraLu: lra ?? undefined,
+     currentLraLu: (lra != null && lra > 0.05) ? lra : undefined,
      status,
    }
  })
@@ -2116,7 +2116,10 @@ function ReleaseReadinessMount({ results, fileB }: { results: AnalysisResult; fi
  if (tp > -1) {
    issues.push(`True peak at ${isFinite(tp) ? tp.toFixed(1) : '—'} dBTP exceeds the -1 dBTP ceiling — pull the limiter ceiling and re-bounce.`)
  }
- if (lra != null && lra < 4) {
+ // LRA of exactly 0.0 is the "undefined" sentinel (e.g. <3 s content), NOT a
+ // real measurement — guard against it so we don't advise easing compression
+ // that was never measured. Real over-limited LRA is > 0.
+ if (lra != null && lra > 0.05 && lra < 4) {
    issues.push(`LRA at ${isFinite(lra) ? lra.toFixed(1) : '—'} LU reads over-limited — consider easing the master-bus compression.`)
  }
 

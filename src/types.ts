@@ -282,10 +282,10 @@ export interface MasteringDelta {
   trajectory: 'dynamic' | 'moderate' | 'flat'
   n_segments: number
  }
- // Perceptual quality distance
- perceptual_quality?: {
-  perceptual_distance_db: number
-  quality_interpretation: string
+ // Spectral difference magnitude (mel-L1) — NOT a quality score
+ spectral_difference?: {
+  spectral_difference_db: number
+  difference_interpretation: string
  }
  // Transient homogeneity (limiter tell)
  transient_homogeneity?: {

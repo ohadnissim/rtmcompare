@@ -152,23 +152,23 @@ export default function MasteringDelta({ delta, overall }: Props) {
   </div>
  )}
 
- {/* Perceptual Distance */}
- {delta.perceptual_quality && (
+ {/* Spectral Difference (magnitude of spectral change — NOT a quality verdict) */}
+ {delta.spectral_difference && (
   <div style={{ borderTop: '1px solid rgba(168,161,150,0.08)', paddingTop: 8 }}>
    <div className="flex items-center justify-between gap-3 text-sm">
     <div>
      <span className="flex items-center gap-1" style={{ color: MUTED }}>
-      Perceptual Distance
-      <InfoDot text="How different the master sounds from the mix to a human ear — not just on a meter, but perceptually. Near 0 dB = the mastering is essentially inaudible. Above 3 dB = the master sounds noticeably different. Green is good; red means the processing changed the character significantly." />
+      Spectral Difference
+      <InfoDot text="How much the master's spectrum CHANGED versus the mix (mel-band L1 distance). This is a magnitude-of-change measure, not a quality judgement — a deliberate, benign EQ move produces a large value. Near 0 dB = barely changed; larger = more spectral change. It does NOT mean the master is worse." />
      </span>
-     <div className="text-[10px] mt-0.5" style={{ color: MUTED }}>{delta.perceptual_quality.quality_interpretation}</div>
+     <div className="text-[10px] mt-0.5" style={{ color: MUTED }}>{delta.spectral_difference.difference_interpretation}</div>
     </div>
     <span className="font-mono" style={{
-     color: delta.perceptual_quality.perceptual_distance_db < 1 ? GREEN
-      : delta.perceptual_quality.perceptual_distance_db < 3 ? GOLD
+     color: delta.spectral_difference.spectral_difference_db < 1 ? GREEN
+      : delta.spectral_difference.spectral_difference_db < 3 ? GOLD
       : RED,
     }}>
-     {fmtSigned(delta.perceptual_quality.perceptual_distance_db, ' dB')}
+     {fmtSigned(delta.spectral_difference.spectral_difference_db, ' dB')}
     </span>
    </div>
   </div>
