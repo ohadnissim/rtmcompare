@@ -55,11 +55,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/JUCE
-          key: juce-8.0.12-${{ matrix.arch }}
+          # bump suffix when JUCE patches change so stale (unpatched) caches are not reused
+          key: juce-8.0.12-rtmfix1-${{ matrix.arch }}
 
       - name: Clone JUCE 8.0.12
         if: steps.cache-juce.outputs.cache-hit != 'true'
         run: git clone --depth 1 --branch 8.0.12 https://github.com/juce-framework/JUCE.git "${{ runner.temp }}/JUCE"
+
+      # P0-2: stock JUCE lacks RTM's fixes (incl. the AAX/Pro-Tools white-screen
+      # repaint fix). Apply + HARD-VERIFY them; the build fails loudly if a fix
+      # is missing rather than silently shipping the bug. Runs on cache-hit too.
+      - name: Apply + verify RTM JUCE patches
+        run: python3 rtm-send-plugin/scripts/apply_juce_patches.py "${{ runner.temp }}/JUCE"
 
       # ── ARA SDK (optional — plugin builds without it too) ──────────
       - name: Cache ARA SDK

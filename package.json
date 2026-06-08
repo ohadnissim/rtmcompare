@@ -152,13 +152,6 @@
           "**/*.sh",
           "profiles/**/*"
         ]
-      },
-      {
-        "from": "model-cache",
-        "to": "model-cache",
-        "filter": [
-          "**/*"
-        ]
       }
     ],
     "asar": true,
