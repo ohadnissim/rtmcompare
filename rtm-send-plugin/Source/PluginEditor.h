@@ -18,10 +18,15 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
-    // Pro Tools (AAX) crashes when a plugin NSView uses CoreAnimation
-    // layer backing (the JUCE 8 default on macOS 10.14+). Return false
-    // to force synchronous CoreGraphics rendering, which PT supports.
-    bool wantsLayerBackedView() const override { return false; }
+    // NOTE: a previous build forced wantsLayerBackedView()=false to force
+    // synchronous CoreGraphics rendering, on the theory that layer backing
+    // crashed Pro Tools. That cannot be generally true — countless JUCE 8 AAX
+    // plugins use the default layer-backed view in PT — and the non-layer path
+    // correlated with BOTH a scan-time crash in Avid's CFicWidgetManager::Free
+    // (PT 26's out-of-process pluginrunner mishandles the legacy non-layer
+    // NSView at widget teardown) AND a white screen (paint never fired).
+    // Reverting to the JUCE 8 default layer-backed view — the supported config
+    // for PT 26 + AAX SDK 2.9 + JUCE 8.0.12. (override intentionally removed)
     void visibilityChanged() override;
 
 private:

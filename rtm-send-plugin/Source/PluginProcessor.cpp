@@ -216,26 +216,35 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
     {
         if (auto* hp = hostedPlugin.get())
         {
-            hostedMidiScratch.clear();
-            // Snapshot the dry input so that if the plugin throws we can restore
-            // clean audio — otherwise the ring captures the half-processed /
-            // garbage buffer the plugin left behind on the way out.
-            const int dch = juce::jmin (buffer.getNumChannels(), hostedDryScratch.getNumChannels());
-            const int dsm = juce::jmin (buffer.getNumSamples(), hostedDryScratch.getNumSamples());
-            for (int c = 0; c < dch; ++c)
-                hostedDryScratch.copyFrom (c, 0, buffer, c, 0, dsm);
-            // Wrapper try/catch - JUCE plugins can throw during init
-            // weirdness. Drop the plugin from the chain instead of
-            // killing the host. The UI polls didHostedPluginFault()
-            // and surfaces a "Pro-Q faulted, reload it" state.
-            try {
-                hp->processBlock(buffer, hostedMidiScratch);
-            } catch (...) {
-                hostedPluginFaulted.store(true, std::memory_order_release);
-                // restore the dry signal so downstream (ring capture, output)
-                // gets clean audio rather than the faulted plugin's garbage.
-                for (int c = 0; c < dch; ++c)
-                    buffer.copyFrom (c, 0, hostedDryScratch, c, 0, dsm);
+            const int nch = buffer.getNumChannels();
+            const int nsm = buffer.getNumSamples();
+            // Only host the plugin if our pre-allocated dry snapshot FULLY covers
+            // this block. If the host ever sends a larger-than-prepared block we
+            // could not roll back a faulted plugin's output for the uncovered tail
+            // (it would be captured into the ring as garbage), so skip hosting this
+            // block and pass the dry signal through instead. Restoring a partial
+            // (clamped) snapshot was the bug here.
+            if (nch <= hostedDryScratch.getNumChannels() && nsm <= hostedDryScratch.getNumSamples())
+            {
+                hostedMidiScratch.clear();
+                // Snapshot the dry input so that if the plugin throws we can restore
+                // clean audio — otherwise the ring captures the half-processed /
+                // garbage buffer the plugin left behind on the way out.
+                for (int c = 0; c < nch; ++c)
+                    hostedDryScratch.copyFrom (c, 0, buffer, c, 0, nsm);
+                // Wrapper try/catch - JUCE plugins can throw during init
+                // weirdness. Drop the plugin from the chain instead of
+                // killing the host. The UI polls didHostedPluginFault()
+                // and surfaces a "Pro-Q faulted, reload it" state.
+                try {
+                    hp->processBlock(buffer, hostedMidiScratch);
+                } catch (...) {
+                    hostedPluginFaulted.store(true, std::memory_order_release);
+                    // restore the dry signal so downstream (ring capture, output)
+                    // gets clean audio rather than the faulted plugin's garbage.
+                    for (int c = 0; c < nch; ++c)
+                        buffer.copyFrom (c, 0, hostedDryScratch, c, 0, nsm);
+                }
             }
         }
     }
@@ -824,7 +833,15 @@ juce::String RtmSendAudioProcessor::sendSnapshotToRtm(Route route, juce::String&
             // hold the audio callback lock for the copy to avoid a torn read.
             {
                 const juce::ScopedLock sl (getCallbackLock());
-                snapshot = loopCapture.samples;
+                // MOVE the completed channel buffers out (O(1)) instead of a deep
+                // copy: copying up to ~92 MB/ch under the audio callback lock parks
+                // the RT thread (priority inversion → xrun on Send of a long loop).
+                // Then re-reserve the now-empty capture buffers so the audio
+                // thread's next insert never reallocates on the RT thread.
+                snapshot = std::move (loopCapture.samples);
+                const size_t cap = static_cast<size_t> (std::round (bufferSeconds * sampleRateHz));
+                loopCapture.samples.assign (static_cast<size_t> (numChannels), {});
+                for (auto& ch : loopCapture.samples) ch.reserve (cap);
             }
             break;
         }

@@ -77,11 +77,16 @@ WRAPTOOL_ARGS=(
   --verbose
   --account      "$PACE_ACCOUNT"
   --wcguid       "$PACE_PRODUCT_GUID"
+  --productname  "RTMsend"
   --in           "$AAX_SRC"
   --out          "$AAX_SRC"
   --signid       "$DEV_ID_APP"
-  --autoinstall  on
 )
+# NOTE: --productname IS REQUIRED. Without it wraptool only code-signs and does
+# NOT apply the PACE wrap ("signed, but not wrapped"), and Pro Tools crashes the
+# unwrapped plugin on instantiation (no UI, no crash report — PACE kills it).
+# Matches PEAK's known-good invocation. (--autoinstall removed; we ditto-install
+# the wrapped build ourselves so the PACE v1 symlink is preserved.)
 if [[ -n "$PACE_ILOK_USER" ]]; then
   WRAPTOOL_ARGS+=(--ilokid "$PACE_ILOK_USER")
 fi
