@@ -87,6 +87,9 @@ void RtmSendAudioProcessor::prepareToPlay(double sr, int samplesPerBlock)
     numChannels = std::max(1, getTotalNumInputChannels());
     allocateRing();
 
+    // Size the dry-input snapshot for this session (no audio-thread alloc later).
+    hostedDryScratch.setSize(numChannels, std::max(1, samplesPerBlock), false, false, true);
+
     // 1.1.0 spike: relay prepareToPlay into the hosted plugin so its
     // internal buffers / oversamplers / state are sized for this host
     // session.
@@ -214,6 +217,13 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
         if (auto* hp = hostedPlugin.get())
         {
             hostedMidiScratch.clear();
+            // Snapshot the dry input so that if the plugin throws we can restore
+            // clean audio — otherwise the ring captures the half-processed /
+            // garbage buffer the plugin left behind on the way out.
+            const int dch = juce::jmin (buffer.getNumChannels(), hostedDryScratch.getNumChannels());
+            const int dsm = juce::jmin (buffer.getNumSamples(), hostedDryScratch.getNumSamples());
+            for (int c = 0; c < dch; ++c)
+                hostedDryScratch.copyFrom (c, 0, buffer, c, 0, dsm);
             // Wrapper try/catch - JUCE plugins can throw during init
             // weirdness. Drop the plugin from the chain instead of
             // killing the host. The UI polls didHostedPluginFault()
@@ -222,6 +232,10 @@ void RtmSendAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce:
                 hp->processBlock(buffer, hostedMidiScratch);
             } catch (...) {
                 hostedPluginFaulted.store(true, std::memory_order_release);
+                // restore the dry signal so downstream (ring capture, output)
+                // gets clean audio rather than the faulted plugin's garbage.
+                for (int c = 0; c < dch; ++c)
+                    buffer.copyFrom (c, 0, hostedDryScratch, c, 0, dsm);
             }
         }
     }

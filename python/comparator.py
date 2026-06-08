@@ -55,15 +55,26 @@ def compute_lufs(y: np.ndarray, sr: int) -> float:
     """
     import pyloudnorm as pyln
 
-    # Ensure (samples, channels) format for pyloudnorm
+    # Ensure (samples, channels) format for pyloudnorm. Channels are always the
+    # SMALLER axis for real audio, so orient by that rather than flattening.
     if y.ndim == 1:
         data = y.reshape(-1, 1)
-    elif y.shape[0] == 2 and y.shape[1] > 2:
-        data = y.T  # (2, samples) -> (samples, 2)
-    elif y.shape[1] <= 2:
-        data = y  # already (samples, channels)
     else:
-        data = y.reshape(-1, 1)
+        # transpose to samples-major if it came in channel-major
+        data = y if y.shape[0] >= y.shape[1] else y.T
+        n_ch = data.shape[1]
+        if n_ch > 5:
+            # pyloudnorm only applies BS.1770 channel weights up to 5 channels.
+            # Previously this branch did reshape(-1,1), interleaving every
+            # channel into one garbage "mono" stream and reporting it as LUFS.
+            # Refuse rather than emit a wrong number — honest floor instead.
+            import logging as _lg
+            _lg.getLogger(__name__).warning(
+                "[comparator] %d-channel integrated LUFS unsupported (BS.1770 "
+                "weights defined to 5ch) — returning -70 floor, not a downmix.", n_ch
+            )
+            return -70.0
+        # n_ch <= 5: pyloudnorm applies the BS.1770 channel weights itself.
 
     try:
         meter = pyln.Meter(sr)
@@ -1972,15 +1983,19 @@ def compute_dynamic_range(y: np.ndarray, sr: int) -> float:
     """
     import pyloudnorm as pyln
 
-    # Ensure (samples, channels) format
+    # Ensure (samples, channels) format. Channels are the smaller axis for real
+    # audio; orient by that instead of flattening >2ch into interleaved garbage.
     if y.ndim == 1:
         data = y.reshape(-1, 1)
-    elif y.shape[0] == 2 and y.shape[1] > 2:
-        data = y.T
-    elif y.shape[1] <= 2:
-        data = y
     else:
-        data = y.reshape(-1, 1)
+        data = y if y.shape[0] >= y.shape[1] else y.T
+        if data.shape[1] > 5:
+            import logging as _lg
+            _lg.getLogger(__name__).warning(
+                "[comparator] %d-channel LRA unsupported — returning 0.0 (undefined), "
+                "not an interleaved-mono downmix.", data.shape[1]
+            )
+            return 0.0
 
     # EBU Tech 3342 §3: LRA is undefined for content shorter than 60 s.
     # For content < 3 s there are zero complete 3-second windows — pyloudnorm

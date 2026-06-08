@@ -392,6 +392,11 @@ private:
     // not pass MIDI through, but JUCE plugins universally expect a
     // MidiBuffer arg even when they don't read it.
     juce::MidiBuffer hostedMidiScratch;
+    // Preallocated dry-input snapshot: lets us restore clean audio if the
+    // hosted plugin throws mid-processBlock, so the ring never captures the
+    // half-processed/garbage buffer the plugin left behind. Sized in
+    // prepareToPlay (no allocation on the audio thread).
+    juce::AudioBuffer<float> hostedDryScratch;
 
     std::unique_ptr<RpcServer> rpcServer;
 
