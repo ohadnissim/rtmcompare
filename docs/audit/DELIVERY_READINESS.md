@@ -64,6 +64,12 @@ RTM mints a "signed," forwardable **Apple Digital Masters PASS on a clipping mas
 ## STRATEGIC UPSIDE (the reason to fix, not just patch)
 The fatal pattern — **scalar-certainty** (every metric always returns a confident number) — when inverted into `value ± uncertainty + provenance`, is simultaneously the credibility fix **and** the patentable, category-defining moat. RTM can become the **neutral delivery-certification layer** ("Stripe for audio delivery compliance") that generative competitors (LANDR, RoEx) are structurally disincentivized to build. Patent white space to file fast: the **in-DAW plugin-hosting capture-and-send loop** (RTMsend's exact architecture).
 
+## IMPLEMENTATION STATUS (branch `fix/delivery-p0`, 2026-06-08)
+**Done + verified locally (syntax/logic/patcher/JSON/YAML):** P0-1 (AAC per-channel TP + SR + bit-depth), P0-2 (JUCE patch+CI gate, patcher tested), P0-3 (cert de-signed), P0-4 (LRA sentinel guard), P0-6 (ViSQOL audio mode), P0-8 (match-score mean-centered), P0-9 (4GB dropped from bundle); P1 (soxr-unified TP, spectral_difference rename, 24-bit AAC, multichannel LUFS/LRA garbage-guard).
+**Done but BUILD-NEEDED (C++ not compilable here):** RTMsend real reversible bypass, loop-capture race lock, faulted-block dry-restore.
+**Deferred (verification-gated / large):** P0-5 full typed-measurement contract (~825 sites, W1 refactor); headline LRA mono→stereo rewire (changes a customer number → Lambda re-baseline); ViSQOL primary-verdict promotion (post-parity product call).
+**Needs your infra:** P0-7 parity gate execution + corpus (Lambda); RTMsend build + Pro Tools paint confirm; pushing the branch.
+
 ## FOUNDER-ONLY QUESTIONS
 1. Did any 8.4.0 / 7.5.5 bundle **or generated certificate** reach a paying customer?
 2. Willing to ship **without a binary certificate** at launch?
