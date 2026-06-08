@@ -1528,7 +1528,13 @@ void RtmSendAudioProcessor::loadHostedPluginAsync(
     // stays responsive. Everything after instantiation — prepareToPlay,
     // pointer swap, window management — comes back via callAsync and
     // runs on the message thread as normal.
-    juce::Thread::launch ([this, desc, sr, block, onDone = std::move(onDone)]() mutable
+    // UAF guard: createPluginInstance can block for seconds; the user may
+    // remove the plugin (destroying this processor) in the meantime. Capture a
+    // WeakReference (constructed now, while `this` is valid) and bail in the
+    // message-thread callback if the processor is gone — matching the
+    // WeakReference pattern the retire/window paths already use.
+    juce::WeakReference<RtmSendAudioProcessor> weakThis { this };
+    juce::Thread::launch ([this, weakThis, desc, sr, block, onDone = std::move(onDone)]() mutable
     {
         juce::String error;
         std::unique_ptr<juce::AudioPluginInstance> instance;
@@ -1540,9 +1546,12 @@ void RtmSendAudioProcessor::loadHostedPluginAsync(
         catch (...)                      { error = "Plugin threw an unknown exception during instantiation"; }
 
         juce::MessageManager::callAsync (
-            [this, desc, sr, block, onDone,
+            [this, weakThis, desc, sr, block, onDone,
              instance = std::move(instance), error]() mutable
             {
+                // Processor destroyed while the load was in flight → abort safely.
+                if (weakThis.get() == nullptr)
+                    return;
                 if (!instance)
                 {
                     if (onDone) onDone (error.isEmpty() ? "createPluginInstance returned null" : error);

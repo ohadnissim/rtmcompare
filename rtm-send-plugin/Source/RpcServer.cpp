@@ -72,12 +72,22 @@ namespace
         // A stack-allocated WaitableEvent captured by reference is a UAF
         // if the calling thread exits before callAsync fires.
         auto done = std::make_shared<juce::WaitableEvent>();
-        juce::MessageManager::callAsync ([fn = std::forward<Fn>(fn), done]() mutable
+        auto ran  = std::make_shared<std::atomic<bool>>(false);
+        juce::MessageManager::callAsync ([fn = std::forward<Fn>(fn), done, ran]() mutable
         {
+            // If the caller already gave up (timed out during teardown) it has
+            // claimed the slot; skip fn — it captures objects (processor/this)
+            // that may be destroyed by now. Prevents a late UAF.
+            if (ran->exchange(true)) return;
             fn();
             done->signal();
         });
-        done->wait();
+        // Bounded wait: never park a worker thread forever during teardown when
+        // the message loop may have stopped pumping. 8 s comfortably exceeds the
+        // slowest legit handler (~7 s set_parameters). On timeout, claim the slot
+        // so the queued lambda skips fn() rather than touch a freed object.
+        if (! done->wait (8000))
+            ran->store (true);
     }
 
     // Read a line (terminated by \n) from a StreamingSocket. Returns
