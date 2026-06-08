@@ -18,6 +18,10 @@ release/*-windows.zip.sha256
 release/.RTM-Suite-*-stage/
 release/.RTMcompare-bundle-*-stage/
 release/v*/posters/
+# unpacked bundle dirs contain >100MB binaries that GitHub rejects — never track
+release/RTMcompare-bundle-*/
+release/*-windows/
+release/**/*.exe
 
 # ── macOS / IDE noise ────────────────────────────────────────────────
 .DS_Store
